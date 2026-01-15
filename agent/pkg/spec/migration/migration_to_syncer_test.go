@@ -2053,3 +2053,312 @@ func getGVKFromKind(kind string) schema.GroupVersionKind {
 		return schema.GroupVersionKind{}
 	}
 }
+
+// TestManipulateSpec tests the manipulateSpec function for transforming machineNetwork to machineNetworks
+func TestManipulateSpec(t *testing.T) {
+	cases := []struct {
+		name            string
+		kind            string
+		inputSpec       interface{}
+		mchVersion      string
+		expectedSpec    interface{}
+		description     string
+		shouldTransform bool
+	}{
+		{
+			name:       "Transform machineNetwork to machineNetworks for ImageClusterInstall with MCH 2.15",
+			kind:       "ImageClusterInstall",
+			mchVersion: "2.15.0",
+			inputSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"imageSetRef": map[string]interface{}{
+					"name": "test-imageset",
+				},
+				"machineNetwork": "fc00:1005::/64",
+			},
+			expectedSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"imageSetRef": map[string]interface{}{
+					"name": "test-imageset",
+				},
+				"machineNetworks": []interface{}{
+					map[string]interface{}{
+						"cidr": "fc00:1005::/64",
+					},
+				},
+			},
+			shouldTransform: true,
+			description:     "Should transform machineNetwork string to machineNetworks array with cidr field",
+		},
+		{
+			name:       "Transform machineNetwork IPv4 to machineNetworks for ImageClusterInstall with MCH 2.15",
+			kind:       "ImageClusterInstall",
+			mchVersion: "2.15.0",
+			inputSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"machineNetwork": "192.168.1.0/24",
+			},
+			expectedSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"machineNetworks": []interface{}{
+					map[string]interface{}{
+						"cidr": "192.168.1.0/24",
+					},
+				},
+			},
+			shouldTransform: true,
+			description:     "Should transform IPv4 machineNetwork to machineNetworks array",
+		},
+		{
+			name:       "No transformation when machineNetwork field doesn't exist",
+			kind:       "ImageClusterInstall",
+			mchVersion: "2.15.0",
+			inputSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"imageSetRef": map[string]interface{}{
+					"name": "test-imageset",
+				},
+			},
+			expectedSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"imageSetRef": map[string]interface{}{
+					"name": "test-imageset",
+				},
+			},
+			shouldTransform: false,
+			description:     "Should not modify spec when machineNetwork field doesn't exist",
+		},
+		{
+			name:       "No transformation for non-ImageClusterInstall resource",
+			kind:       "ClusterDeployment",
+			mchVersion: "2.15.0",
+			inputSpec: map[string]interface{}{
+				"clusterName":    "test-cluster",
+				"machineNetwork": "fc00:1005::/64",
+			},
+			expectedSpec: map[string]interface{}{
+				"clusterName":    "test-cluster",
+				"machineNetwork": "fc00:1005::/64",
+			},
+			shouldTransform: false,
+			description:     "Should not transform machineNetwork for non-ImageClusterInstall resources",
+		},
+		{
+			name:       "No transformation when MCH version is not 2.15",
+			kind:       "ImageClusterInstall",
+			mchVersion: "2.14.0",
+			inputSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"machineNetwork": "fc00:1005::/64",
+			},
+			expectedSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"machineNetwork": "fc00:1005::/64",
+			},
+			shouldTransform: false,
+			description:     "Should not transform when MCH version is not 2.15.x",
+		},
+		{
+			name:       "No transformation when MCH version is empty",
+			kind:       "ImageClusterInstall",
+			mchVersion: "",
+			inputSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"machineNetwork": "fc00:1005::/64",
+			},
+			expectedSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"machineNetwork": "fc00:1005::/64",
+			},
+			shouldTransform: false,
+			description:     "Should not transform when MCH version is empty",
+		},
+		{
+			name:            "Handle spec as non-map type gracefully",
+			kind:            "ImageClusterInstall",
+			mchVersion:      "2.15.0",
+			inputSpec:       "not-a-map",
+			expectedSpec:    "not-a-map",
+			shouldTransform: false,
+			description:     "Should handle non-map spec without error",
+		},
+		{
+			name:       "Preserve other fields when transforming machineNetwork",
+			kind:       "ImageClusterInstall",
+			mchVersion: "2.15.0",
+			inputSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"imageSetRef": map[string]interface{}{
+					"name": "test-imageset",
+				},
+				"machineNetwork": "fc00:1005::/64",
+				"clusterNetwork": []interface{}{
+					map[string]interface{}{
+						"cidr": "10.128.0.0/14",
+					},
+				},
+				"serviceNetwork": []interface{}{
+					map[string]interface{}{
+						"cidr": "172.30.0.0/16",
+					},
+				},
+			},
+			expectedSpec: map[string]interface{}{
+				"clusterDeploymentRef": map[string]interface{}{
+					"name": "test-cluster",
+				},
+				"imageSetRef": map[string]interface{}{
+					"name": "test-imageset",
+				},
+				"machineNetworks": []interface{}{
+					map[string]interface{}{
+						"cidr": "fc00:1005::/64",
+					},
+				},
+				"clusterNetwork": []interface{}{
+					map[string]interface{}{
+						"cidr": "10.128.0.0/14",
+					},
+				},
+				"serviceNetwork": []interface{}{
+					map[string]interface{}{
+						"cidr": "172.30.0.0/16",
+					},
+				},
+			},
+			shouldTransform: true,
+			description:     "Should preserve all other fields when transforming machineNetwork",
+		},
+		{
+			name:       "MCH version 2.15.1 should also trigger transformation",
+			kind:       "ImageClusterInstall",
+			mchVersion: "2.15.1",
+			inputSpec: map[string]interface{}{
+				"machineNetwork": "fc00:1005::/64",
+			},
+			expectedSpec: map[string]interface{}{
+				"machineNetworks": []interface{}{
+					map[string]interface{}{
+						"cidr": "fc00:1005::/64",
+					},
+				},
+			},
+			shouldTransform: true,
+			description:     "Should work with MCH version 2.15.1",
+		},
+		{
+			name:       "MCH version 2.16 should also trigger transformation",
+			kind:       "ImageClusterInstall",
+			mchVersion: "2.16.0",
+			inputSpec: map[string]interface{}{
+				"machineNetwork": "fc00:1005::/64",
+			},
+			expectedSpec: map[string]interface{}{
+				"machineNetworks": []interface{}{
+					map[string]interface{}{
+						"cidr": "fc00:1005::/64",
+					},
+				},
+			},
+			shouldTransform: true,
+			description:     "Should transform for MCH version 2.16 (>= 2.15)",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Set MCH version for this test
+			configs.SetMCHVersion(c.mchVersion)
+			defer configs.SetMCHVersion("") // Clean up after test
+
+			// Call the function under test
+			manipulateSpec(c.kind, c.inputSpec)
+
+			// Verify the result
+			assert.Equal(t, c.expectedSpec, c.inputSpec, c.description)
+
+			// Additional verification for transformation cases
+			if c.shouldTransform {
+				if specMap, ok := c.inputSpec.(map[string]interface{}); ok {
+					// Verify machineNetwork field is removed
+					_, hasMachineNetwork := specMap["machineNetwork"]
+					assert.False(t, hasMachineNetwork, "machineNetwork field should be removed after transformation")
+
+					// Verify machineNetworks field is present
+					machineNetworks, hasMachineNetworks := specMap["machineNetworks"]
+					assert.True(t, hasMachineNetworks, "machineNetworks field should be present after transformation")
+
+					// Verify machineNetworks is an array
+					machineNetworksArray, ok := machineNetworks.([]interface{})
+					assert.True(t, ok, "machineNetworks should be an array")
+					assert.Equal(t, 1, len(machineNetworksArray), "machineNetworks array should have one element")
+
+					// Verify the array element has cidr field
+					if len(machineNetworksArray) > 0 {
+						networkObj, ok := machineNetworksArray[0].(map[string]interface{})
+						assert.True(t, ok, "machineNetworks element should be a map")
+						_, hasCIDR := networkObj["cidr"]
+						assert.True(t, hasCIDR, "machineNetworks element should have cidr field")
+					}
+				}
+			} else {
+				// For non-transformation cases, verify spec matches expected exactly
+				assert.Equal(t, c.expectedSpec, c.inputSpec, "Spec should not be modified when transformation is not expected")
+			}
+		})
+	}
+}
+
+// deepCopyMap creates a deep copy of a map[string]interface{}
+func deepCopyMap(m map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range m {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			result[k] = deepCopyMap(val)
+		case []interface{}:
+			result[k] = deepCopySlice(val)
+		default:
+			result[k] = val
+		}
+	}
+	return result
+}
+
+// deepCopySlice creates a deep copy of a []interface{}
+func deepCopySlice(s []interface{}) []interface{} {
+	result := make([]interface{}, len(s))
+	for i, v := range s {
+		switch val := v.(type) {
+		case map[string]interface{}:
+			result[i] = deepCopyMap(val)
+		case []interface{}:
+			result[i] = deepCopySlice(val)
+		default:
+			result[i] = val
+		}
+	}
+	return result
+}

@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -553,6 +554,12 @@ func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unst
 	if err != nil {
 		return fmt.Errorf(errMsgFailedToGet, "spec", err)
 	}
+	if hasSpec {
+		// handle potiential upgrades where spec may be difference in different version
+		// i.e.: for ImageClusterInstall resource, there is field "machineNetwork" in ACM 2.13 and 2.14.
+		// it changes to "machineNetworks" in ACM 2.15. if we do not change before applying, it will cause validation error when try to update resource.
+		manipulateSpec(resource.GetKind(), sourceSpec)
+	}
 
 	// Handle status field (will be applied separately if exists)
 	sourceStatus, hasStatus, err := unstructured.NestedFieldCopy(resource.Object, "status")
@@ -627,6 +634,44 @@ func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unst
 
 	log.Debugf("deploying: syncResource completed successfully for resource=%s", resourceKey)
 	return nil
+}
+
+// manipulateSpec modifies the spec field based on MCH version for compatibility
+func manipulateSpec(kind string, spec interface{}) {
+	mchVersion := configs.GetMCHVersion()
+	if mchVersion == "" {
+		return
+	}
+
+	// Parse current MCH version
+	currentVersion, err := version.ParseGeneric(mchVersion)
+	if err != nil {
+		return
+	}
+
+	// Only handle 2.x versions >= 2.15
+	if !currentVersion.AtLeast(version.MustParseGeneric("2.15.0")) {
+		return
+	}
+
+	// Example manipulation for ImageClusterInstall resource
+	if kind == "ImageClusterInstall" {
+		specMap, ok := spec.(map[string]interface{})
+		if !ok {
+			return
+		}
+		// Check for "machineNetwork" field and convert to "machineNetworks"
+		// Transform: machineNetwork: fc00:1005::/64 -> machineNetworks: [{cidr: fc00:1005::/64}]
+		if machineNetwork, exists := specMap["machineNetwork"]; exists {
+			// Convert single string to slice of objects with cidr field
+			specMap["machineNetworks"] = []interface{}{
+				map[string]interface{}{
+					"cidr": machineNetwork,
+				},
+			}
+			delete(specMap, "machineNetwork")
+		}
+	}
 }
 
 func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Context,
