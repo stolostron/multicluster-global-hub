@@ -2330,35 +2330,3 @@ func TestManipulateSpec(t *testing.T) {
 		})
 	}
 }
-
-// deepCopyMap creates a deep copy of a map[string]interface{}
-func deepCopyMap(m map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-	for k, v := range m {
-		switch val := v.(type) {
-		case map[string]interface{}:
-			result[k] = deepCopyMap(val)
-		case []interface{}:
-			result[k] = deepCopySlice(val)
-		default:
-			result[k] = val
-		}
-	}
-	return result
-}
-
-// deepCopySlice creates a deep copy of a []interface{}
-func deepCopySlice(s []interface{}) []interface{} {
-	result := make([]interface{}, len(s))
-	for i, v := range s {
-		switch val := v.(type) {
-		case map[string]interface{}:
-			result[i] = deepCopyMap(val)
-		case []interface{}:
-			result[i] = deepCopySlice(val)
-		default:
-			result[i] = val
-		}
-	}
-	return result
-}

@@ -557,7 +557,8 @@ func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unst
 	if hasSpec {
 		// handle potiential upgrades where spec may be difference in different version
 		// i.e.: for ImageClusterInstall resource, there is field "machineNetwork" in ACM 2.13 and 2.14.
-		// it changes to "machineNetworks" in ACM 2.15. if we do not change before applying, it will cause validation error when try to update resource.
+		// it changes to "machineNetworks" in ACM 2.15. if we do not change before applying,
+		// it will cause validation error when try to update resource.
 		manipulateSpec(resource.GetKind(), sourceSpec)
 	}
 
