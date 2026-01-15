@@ -25,7 +25,6 @@ spec:
         args:
         - --pod-namespace=$(POD_NAMESPACE)
         - --leaf-hub-name={{ .LeafHubID }}
-        - --terminating=true
         imagePullPolicy: Always
         env:
         - name: POD_NAMESPACE

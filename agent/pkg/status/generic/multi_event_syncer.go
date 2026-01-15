@@ -82,28 +82,12 @@ func (c *multiEventSyncer) Reconcile(ctx context.Context, request ctrl.Request) 
 	// delete
 	if !object.GetDeletionTimestamp().IsZero() {
 		c.deleteObject(object)
-		if !enableCleanUpFinalizer(object) {
-			return ctrl.Result{}, nil
-		}
-		err := removeFinalizer(ctx, c.client, object, c.finalizerName)
-		if err != nil {
-			c.log.Error(err, "failed to remove cleanup fianlizer", "namespace", request.Namespace, "name", request.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
-		}
 		return ctrl.Result{}, nil
 	}
 
 	// update/insert
 	cleanObject(object)
 	c.updateObject(object)
-	if !enableCleanUpFinalizer(object) {
-		return ctrl.Result{}, nil
-	}
-	err := addFinalizer(ctx, c.client, object, c.finalizerName)
-	if err != nil {
-		c.log.Error(err, "failed to add finalizer", "namespace", request.Namespace, "name", request.Name)
-		return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
-	}
 	return ctrl.Result{}, nil
 }
 

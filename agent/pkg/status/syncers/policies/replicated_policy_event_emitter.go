@@ -25,7 +25,6 @@ var (
 
 func enableLocalReplicatedPolicy(obj client.Object) bool {
 	return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue && // enable local policy
-		!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
 		utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // replicated policy
 }
 

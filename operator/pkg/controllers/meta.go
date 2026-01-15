@@ -53,7 +53,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/webhook"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -370,16 +369,6 @@ func (r *MetaController) pruneGlobalHubResources(ctx context.Context) error {
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 	if err := r.pruneGlobalResources(ctx); err != nil {
 		return err
-	}
-
-	if config.IsACMResourceReady() {
-		// remove finalizer from app, policy and placement.
-		// the finalizer is added by the global hub manager. ideally, they should be pruned by manager
-		// But currently, we do not have a channel from operator to let manager knows when to start pruning.
-		if err := jobs.NewPruneFinalizer(ctx, r.client).Run(); err != nil {
-			return err
-		}
-		log.Info("removed finalizer from mgh, app, policy, placement and etc")
 	}
 
 	return nil

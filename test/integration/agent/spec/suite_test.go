@@ -54,10 +54,9 @@ var _ = BeforeSuite(func() {
 				ConsumerGroupID: "agent",
 			},
 		},
-		SpecWorkPoolSize:     2,
-		LeafHubName:          leafHubName,
-		SpecEnforceHohRbac:   true,
-		EnableGlobalResource: true,
+		SpecWorkPoolSize:   2,
+		LeafHubName:        leafHubName,
+		SpecEnforceHohRbac: true,
 	}
 	configs.SetAgentConfig(agentConfig)
 

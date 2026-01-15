@@ -20,8 +20,7 @@ var logger *zap.SugaredLogger
 
 var _ = BeforeSuite(func() {
 	agentConfig := &configs.AgentConfig{
-		LeafHubName:          "leafHubName",
-		EnableGlobalResource: true,
+		LeafHubName: "leafHubName",
 	}
 	configs.SetAgentConfig(agentConfig)
 	// Configure logging to write to the Ginkgo writer:

@@ -30,7 +30,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -67,13 +66,6 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 	c, err := client.New(restConfig, client.Options{Scheme: configs.GetRuntimeScheme()})
 	if err != nil {
 		return fmt.Errorf("failed to init the runtime client: %w", err)
-	}
-
-	if agentConfig.Terminating {
-		if err := jobs.NewPruneFinalizer(ctx, c).Run(); err != nil {
-			return fmt.Errorf("failed to prune the resources finalizer: %w", err)
-		}
-		return nil
 	}
 
 	// start the controller manager
@@ -153,10 +145,6 @@ func parseFlags() *configs.AgentConfig {
 		"leader election renew deadline")
 	pflag.IntVar(&agentConfig.ElectionConfig.RetryPeriod, "retry-period", 26,
 		"leader election retry period")
-	pflag.BoolVar(&agentConfig.Terminating, "terminating", false,
-		"true is to trigger the PreStop hook to do cleanup. For example: removing finalizer")
-	pflag.BoolVar(&agentConfig.EnableGlobalResource, "enable-global-resource", false,
-		"Enable the global resource feature.")
 	pflag.Float32Var(&agentConfig.QPS, "qps", 150,
 		"QPS for the multicluster global hub agent")
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
