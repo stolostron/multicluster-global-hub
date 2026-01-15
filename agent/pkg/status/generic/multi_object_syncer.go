@@ -162,7 +162,7 @@ func (c *objectController) Reconcile(ctx context.Context, request ctrl.Request) 
 		// for the local resources, there is no finalizer so we need to delete the object from the bundle
 		object.SetNamespace(request.Namespace)
 		object.SetName(request.Name)
-		if e := c.deleteObjectAndFinalizer(object); e != nil {
+		if e := c.deleteObjectAndFinalizer(ctx, object); e != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, e
 		}
 		return ctrl.Result{}, nil
@@ -172,11 +172,11 @@ func (c *objectController) Reconcile(ctx context.Context, request ctrl.Request) 
 	}
 
 	if !object.GetDeletionTimestamp().IsZero() {
-		if err := c.deleteObjectAndFinalizer(object); err != nil {
+		if err := c.deleteObjectAndFinalizer(ctx, object); err != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
 		}
 	} else { // otherwise, the object was not deleted and no error occurred
-		if err := c.updateObjectAndFinalizer(object); err != nil {
+		if err := c.updateObjectAndFinalizer(ctx, object); err != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
 		}
 	}
@@ -184,7 +184,7 @@ func (c *objectController) Reconcile(ctx context.Context, request ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
-func (c *objectController) updateObjectAndFinalizer(object client.Object) error {
+func (c *objectController) updateObjectAndFinalizer(ctx context.Context, object client.Object) error {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	defer c.lock.Unlock()
 	if c.objectController.Update(object) {
@@ -193,7 +193,7 @@ func (c *objectController) updateObjectAndFinalizer(object client.Object) error 
 	return nil
 }
 
-func (c *objectController) deleteObjectAndFinalizer(object client.Object) error {
+func (c *objectController) deleteObjectAndFinalizer(ctx context.Context, object client.Object) error {
 	c.lock.Lock() // make sure bundles are not updated if we're during bundles sync
 	if c.objectController.Delete(object) {
 		c.emitter.PostUpdate()
