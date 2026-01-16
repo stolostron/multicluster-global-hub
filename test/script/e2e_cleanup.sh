@@ -10,10 +10,6 @@ DELETE=${DELETE:-true}
 # setup kubeconfig
 KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 
-# stop qe test container
-docker stop qe-test
-docker rm qe-test
-
 echo "kill process"
 while read -r line; do
   if [[ $line != "" ]]; then
