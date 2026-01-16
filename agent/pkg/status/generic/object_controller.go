@@ -8,14 +8,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type syncController struct {
@@ -110,13 +108,6 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 
 	// delete
 	if !object.GetDeletionTimestamp().IsZero() {
-		if IsGlobalResource(object) && controllerutil.RemoveFinalizer(object, c.finalizerName) {
-			if err := c.client.Update(ctx, object); err != nil {
-				log.Errorw("failed to remove finalizer", "error", err, "name", request.Name)
-				return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
-			}
-		}
-
 		for _, emitter := range c.emitters {
 			if err := emitter.Delete(object); err != nil {
 				log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
@@ -125,13 +116,6 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 		}
 
 		return ctrl.Result{}, nil
-	}
-
-	if IsGlobalResource(object) && controllerutil.AddFinalizer(object, c.finalizerName) {
-		if err := c.client.Update(ctx, object); err != nil {
-			log.Error(err, "failed to add fianlizer", "namespace", request.Namespace, "name", request.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
-		}
 	}
 
 	// update/insert
@@ -144,9 +128,4 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func IsGlobalResource(obj client.Object) bool {
-	return utils.HasLabel(obj, constants.GlobalHubGlobalResourceLabel) ||
-		utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation)
 }

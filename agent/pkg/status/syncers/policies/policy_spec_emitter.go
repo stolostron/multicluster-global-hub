@@ -15,7 +15,6 @@ import (
 
 func enableLocalRootPolicy(obj client.Object) bool {
 	return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue && // enable local policy
-		!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
 		!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
 }
 

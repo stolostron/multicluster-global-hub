@@ -24,7 +24,6 @@ spec:
             - --lease-duration=137
             - --renew-deadline=107
             - --retry-period=26
-            - --enable-global-resource=false
             - --qps=150
             - --burst=300
             - --enable-pprof=false

@@ -64,9 +64,8 @@ func localRootPolicyEventPredicate(obj client.Object) bool {
 		return false
 	}
 
-	// local resource and root policy
-	return !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
-		!utils.HasLabel(policy, constants.PolicyEventRootPolicyNameLabelKey)
+	// root policy
+	return !utils.HasLabel(policy, constants.PolicyEventRootPolicyNameLabelKey)
 }
 
 // localRootPolicyEventTransform transforms k8s Event to RootPolicyEvent

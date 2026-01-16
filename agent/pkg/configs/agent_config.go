@@ -18,9 +18,7 @@ type AgentConfig struct {
 	TransportConfig              *transport.TransportInternalConfig
 	TransportConfigSecretName    string
 	ElectionConfig               *commonobjects.LeaderElectionConfig
-	Terminating                  bool
 	MetricsAddress               string
-	EnableGlobalResource         bool
 	QPS                          float32
 	Burst                        int
 	EnablePprof                  bool

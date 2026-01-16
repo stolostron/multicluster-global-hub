@@ -85,7 +85,6 @@ var _ = BeforeSuite(func() {
 				StatusTopic: "event",
 			},
 		},
-		EnableGlobalResource: true,
 	}
 	configs.SetAgentConfig(agentConfig)
 	configmap.SetInterval(configmap.GetSyncKey(enum.HubClusterHeartbeatType), 2*time.Second)
