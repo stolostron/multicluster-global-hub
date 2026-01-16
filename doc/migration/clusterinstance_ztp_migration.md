@@ -478,7 +478,58 @@ Execute these commands on the **source hub**:
 oc get application -n openshift-gitops <clusterinstance-sno-clusters> -o yaml > clusterinstance-app.yaml
 ```
 
-#### 5.3 Apply ClusterInstance Applications to Target Hub
+#### 5.3 Modify ClusterInstance Resources in Git Repository
+
+> **Critical Step**: Before applying ClusterInstance applications to the target hub, you must modify the ClusterInstance resources in your Git repository to suppress rendering of BareMetalHost and ImageClusterInstall manifests. These resources have already been migrated with their status preserved, and re-rendering them would cause conflicts.
+
+**Step 1**: Update ClusterInstance Resources
+
+In your Git repository containing ClusterInstance definitions, add the `suppressedManifests` field to each ClusterInstance resource:
+
+```yaml
+apiVersion: siteconfig.open-cluster-management.io/v1alpha1
+kind: ClusterInstance
+metadata:
+  name: sno1
+  namespace: sno1
+spec:
+  # Add this field to prevent re-rendering of migrated resources
+  suppressedManifests:
+    - BareMetalHost
+    - ImageClusterInstall
+  # ... rest of your ClusterInstance spec
+```
+
+**Example for multiple clusters**:
+
+```bash
+# Update sno1 ClusterInstance
+cat <<EOF > clusterinstance/sno1.yaml
+apiVersion: siteconfig.open-cluster-management.io/v1alpha1
+kind: ClusterInstance
+metadata:
+  name: sno1
+  namespace: sno1
+spec:
+  suppressedManifests:
+    - BareMetalHost
+    - ImageClusterInstall
+  # ... existing spec configuration
+EOF
+
+# Repeat for sno2, sno3, etc.
+```
+
+**Step 2**: Commit and Push Changes
+
+```bash
+# Commit changes to your Git repository
+git add clusterinstance/*.yaml
+git commit -m "Add suppressedManifests to prevent re-rendering migrated resources"
+git push origin main
+```
+
+#### 5.4 Apply ClusterInstance Applications to Target Hub
 
 > **Note**: Execute these commands on the **target hub** cluster.
 
@@ -489,7 +540,7 @@ oc get application -n openshift-gitops <clusterinstance-sno-clusters> -o yaml > 
 oc apply -f clusterinstance-app.yaml
 ```
 
-#### 5.4 Verify ClusterInstance Status on Target Hub
+#### 5.5 Verify ClusterInstance Status on Target Hub
 
 After GitOps sync completes, verify all ZTP resources are properly reconciled.
 
@@ -507,7 +558,7 @@ oc get clusterinstance -A
 
 ```
 
-#### 5.5 Verify Policy Compliance
+#### 5.6 Verify Policy Compliance
 
 Ensure ACM policies are properly applied to migrated clusters.
 
@@ -516,7 +567,7 @@ Ensure ACM policies are properly applied to migrated clusters.
 oc get policy -A
 ```
 
-#### 5.6 Verify Managed Cluster Connection
+#### 5.7 Verify Managed Cluster Connection
 
 ```bash
 # Check all migrated clusters are available
