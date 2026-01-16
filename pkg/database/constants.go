@@ -26,18 +26,6 @@ const (
 	// LocalPolicySpecTableName table name of local policy spec.
 	LocalPolicySpecTableName = "policies"
 
-	// SubscriptionStatusesTableName table name of subscription-statuses.
-	SubscriptionStatusesTableName = "subscription_statuses"
-	// SubscriptionReportsTableName table name of subscription-reports.
-	SubscriptionReportsTableName = "subscription_reports"
-
-	// PlacementRulesTableName table name of placement-rules.
-	PlacementRulesTableName = "placementrules"
-	// PlacementsTableName table name of placements.
-	PlacementsTableName = "placements"
-	// PlacementDecisionsTableName table name of placement-decisions.
-	PlacementDecisionsTableName = "placementdecisions"
-
 	// LeafHubHeartbeatsTableName table name for LH heartbeats.
 	LeafHubHeartbeatsTableName = "leaf_hub_heartbeats"
 

@@ -32,7 +32,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       policyName,
 				Namespace:  policyNamespace,
-				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{},
 			},
 			Spec: policyv1.PolicySpec{
 				Disabled:        true,

@@ -37,11 +37,6 @@ import (
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	workv1 "open-cluster-management.io/api/work/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appsubV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
-	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -103,12 +98,7 @@ var _ = BeforeSuite(func() {
 	Expect(clusterv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(workv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(addonv1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(appsubv1.SchemeBuilder.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(appsubV1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(chnv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(placementrulesv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(globalhubv1alpha4.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(applicationv1beta1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(policyv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(mchv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(promv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())

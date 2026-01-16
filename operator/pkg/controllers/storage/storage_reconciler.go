@@ -48,9 +48,6 @@ import (
 //go:embed database
 var databaseFS embed.FS
 
-//go:embed database.old
-var databaseOldFS embed.FS
-
 //go:embed upgrade
 var upgradeFS embed.FS
 
@@ -63,7 +60,6 @@ type StorageReconciler struct {
 	ctrl.Manager
 	upgrade                bool
 	databaseReconcileCount int
-	enableGlobalResource   bool
 	enableMetrics          bool
 }
 
@@ -92,7 +88,7 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 		return storageReconciler, nil
 	}
 	storageReconciler = NewStorageReconciler(initOption.Manager,
-		initOption.OperatorConfig.GlobalResourceEnabled, initOption.MulticlusterGlobalHub.Spec.EnableMetrics)
+		initOption.MulticlusterGlobalHub.Spec.EnableMetrics)
 	err := storageReconciler.SetupWithManager(initOption.Manager)
 	if err != nil {
 		storageReconciler = nil
@@ -102,12 +98,11 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	return storageReconciler, nil
 }
 
-func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource, enableMetrics bool) *StorageReconciler {
+func NewStorageReconciler(mgr ctrl.Manager, enableMetrics bool) *StorageReconciler {
 	return &StorageReconciler{
 		Manager:                mgr,
 		upgrade:                false,
 		databaseReconcileCount: 0,
-		enableGlobalResource:   enableGlobalResource,
 		enableMetrics:          enableMetrics,
 	}
 }
@@ -361,12 +356,6 @@ func (r *StorageReconciler) applyGlobalHubInitSQL(ctx context.Context, conn *pgx
 
 	if err = applySQL(ctx, conn, databaseFS, "database", readonlyUsername); err != nil {
 		return fmt.Errorf("failed to apply the database sql: %v", err)
-	}
-
-	if r.enableGlobalResource {
-		if err = applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); err != nil {
-			return fmt.Errorf("failed to apply the database.old sql: %v", err)
-		}
 	}
 
 	if !r.upgrade {

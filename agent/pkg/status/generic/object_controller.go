@@ -13,15 +13,13 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 type syncController struct {
-	client        client.Client
-	emitters      []emitters.Emitter
-	instance      func() client.Object
-	leafHubName   string
-	finalizerName string
+	client      client.Client
+	emitters    []emitters.Emitter
+	instance    func() client.Object
+	leafHubName string
 }
 
 // AddSyncCtrl registers a controller that watch the specific client.Object,
@@ -34,11 +32,10 @@ func AddSyncCtrl(mgr ctrl.Manager, ctrlName string, instanceFunc func() client.O
 	}
 
 	syncer := &syncController{
-		client:        mgr.GetClient(),
-		emitters:      objectEmitters,
-		instance:      instanceFunc,
-		leafHubName:   configs.GetLeafHubName(),
-		finalizerName: constants.GlobalHubCleanupFinalizer,
+		client:      mgr.GetClient(),
+		emitters:    objectEmitters,
+		instance:    instanceFunc,
+		leafHubName: configs.GetLeafHubName(),
 	}
 
 	// Create combined event filter using OR relationship for all methods

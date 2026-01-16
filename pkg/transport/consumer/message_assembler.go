@@ -94,7 +94,7 @@ func (assembler *messageAssembler) assemble(chunk *messageChunk) []byte {
 	assembler.lock.Lock()
 	defer assembler.lock.Unlock()
 
-	chunkCollection, found := assembler.chunkCollectionMap[chunk.id] // chunk.id: PlacementRule
+	chunkCollection, found := assembler.chunkCollectionMap[chunk.id]
 	if !found {
 		chunkCollection = newMessageChunksCollection(chunk.id, chunk.size)
 		assembler.chunkCollectionMap[chunk.id] = chunkCollection

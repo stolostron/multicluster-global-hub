@@ -14,7 +14,6 @@ const (
 	LocalCompleteCompliancePriority    ConflationPriority = iota
 	LocalEventRootPolicyPriority       ConflationPriority = iota
 	LocalReplicatedPolicyEventPriority ConflationPriority = iota
-	LocalPlacementRulesSpecPriority    ConflationPriority = iota
 	SecurityAlertCountsPriority        ConflationPriority = iota
 	ManagedClusterMigrationPriority    ConflationPriority = iota
 
@@ -23,11 +22,4 @@ const (
 	CompleteCompliancePriority ConflationPriority = iota
 	DeltaCompliancePriority    ConflationPriority = iota
 	MinimalCompliancePriority  ConflationPriority = iota
-
-	PlacementRulePriority     ConflationPriority = iota
-	PlacementPriority         ConflationPriority = iota
-	PlacementDecisionPriority ConflationPriority = iota
-
-	SubscriptionStatusPriority ConflationPriority = iota
-	SubscriptionReportPriority ConflationPriority = iota
 )

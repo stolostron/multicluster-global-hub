@@ -16,11 +16,6 @@ import (
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"open-cluster-management.io/api/client/cluster/clientset/versioned/scheme"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appsubv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
-	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -74,12 +69,7 @@ var _ = AfterSuite(func() {
 func addToScheme(runtimeScheme *runtime.Scheme) error {
 	schemeBuilders := []*runtimescheme.Builder{
 		policyv1.SchemeBuilder,
-		placementrulev1.SchemeBuilder,
-		appsubv1alpha1.SchemeBuilder,
 		mchv1.SchemeBuilder,
-		appv1beta1.SchemeBuilder,
-		appsubv1.SchemeBuilder,
-		chnv1.SchemeBuilder,
 	} // add schemes
 
 	for _, schemeBuilder := range schemeBuilders {

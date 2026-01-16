@@ -17,7 +17,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
@@ -106,11 +105,10 @@ func TestSyncController_Reconcile_BasicOperations(t *testing.T) {
 			emitter := emitters.NewObjectEmitter(enum.EventType("deployments"), nil)
 
 			controller := &syncController{
-				client:        fakeClient,
-				emitters:      []emitters.Emitter{emitter},
-				instance:      func() client.Object { return &appsv1.Deployment{} },
-				leafHubName:   "test-hub",
-				finalizerName: constants.GlobalHubCleanupFinalizer,
+				client:      fakeClient,
+				emitters:    []emitters.Emitter{emitter},
+				instance:    func() client.Object { return &appsv1.Deployment{} },
+				leafHubName: "test-hub",
 			}
 
 			_, namespacedName := tt.setup(fakeClient)

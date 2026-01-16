@@ -22,11 +22,6 @@ import (
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	workv1 "open-cluster-management.io/api/work/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appsubV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
-	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	globalhubv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha1"
@@ -45,13 +40,8 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(addonv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(globalhubv1alpha4.AddToScheme(scheme))
 	utilruntime.Must(globalhubv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(appsubv1.SchemeBuilder.AddToScheme(scheme))
-	utilruntime.Must(appsubV1alpha1.AddToScheme(scheme))
 	utilruntime.Must(subv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(chnv1.AddToScheme(scheme))
-	utilruntime.Must(placementrulesv1.AddToScheme(scheme))
 	utilruntime.Must(policyv1.AddToScheme(scheme))
-	utilruntime.Must(applicationv1beta1.AddToScheme(scheme))
 	utilruntime.Must(admissionregistrationv1.AddToScheme(scheme))
 	utilruntime.Must(mchv1.AddToScheme(scheme))
 	utilruntime.Must(agentv1.SchemeBuilder.AddToScheme(scheme))

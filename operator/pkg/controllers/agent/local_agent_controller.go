@@ -103,8 +103,6 @@ func (s *LocalAgentController) IsResourceRemoved() bool {
 	return isResourceRemoved
 }
 
-// +kubebuilder:rbac:groups=app.k8s.io,resources=applications,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=channels;placementrules;subscriptionreports;subscriptions;subscriptionstatuses,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=policy.open-cluster-management.io,resources=placementbindings;policies;policyautomations;policysets,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=placements;managedclustersets;managedclustersetbindings,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/join;managedclustersets/bind,verbs=create;delete

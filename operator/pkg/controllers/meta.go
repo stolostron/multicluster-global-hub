@@ -364,19 +364,9 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.Set[string]
 	return desiredComponents
 }
 
-// pruneGlobalResources deletes the cluster scoped resources, clusterrole... And finalizers of policy, application,..
+// pruneGlobalHubResources deletes the cluster scoped resources, clusterrole...
 func (r *MetaController) pruneGlobalHubResources(ctx context.Context) error {
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
-	if err := r.pruneGlobalResources(ctx); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
-// cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *MetaController) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
 			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
