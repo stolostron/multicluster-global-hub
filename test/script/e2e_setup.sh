@@ -68,9 +68,6 @@ for i in $(seq 1 "${MH_NUM}"); do
   kubectl apply -f "$TEST_DIR/manifest/crd/klusterletconfig.yaml" --kubeconfig "$CONFIG_DIR/hub$i" 2>/dev/null || true
   echo -e "${YELLOW}Creating multicluster-engine namespace on hub$i${NC}"
   kubectl create namespace multicluster-engine --kubeconfig "$CONFIG_DIR/hub$i" 2>/dev/null || true
-  # Apply latest ClusterManager CRD to get autoApproveUsers support (required for migration)
-  echo -e "${YELLOW}Updating ClusterManager CRD on hub$i for autoApproveUsers support${NC}"
-  kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/ocm/main/deploy/cluster-manager/config/crds/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml --kubeconfig "$CONFIG_DIR/hub$i" 2>/dev/null || true
 done
 
 # async ocm, policy
