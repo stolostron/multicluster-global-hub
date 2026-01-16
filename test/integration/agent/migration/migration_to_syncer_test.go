@@ -87,6 +87,14 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		}
 		Expect(runtimeClient.Create(testCtx, clusterManager)).Should(Succeed())
 
+		// Create bootstrap ClusterRole needed for dynamic ClusterRole detection
+		bootstrapClusterRole := &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+			},
+		}
+		Expect(runtimeClient.Create(testCtx, bootstrapClusterRole)).Should(Succeed())
+
 		clusterNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}}
 		Expect(runtimeClient.Create(testCtx, clusterNamespace)).Should(Succeed())
 
@@ -132,6 +140,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testMSANamespace}},
 			&operatorv1.ClusterManager{ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"}},
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}},
+			&rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: "open-cluster-management:managedcluster:bootstrap:agent-registration"}},
 		}
 		// delete the configmap using the test's namespace (not global config which may have changed)
 		_ = runtimeClient.Delete(testCtx, &corev1.ConfigMap{
