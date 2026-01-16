@@ -16,11 +16,12 @@ e2e-cleanup:
 
 e2e-test-all: tidy vendor
 	sh ./test/script/e2e_run.sh -f "e2e-test-localpolicy,e2e-tests-backup,e2e-test-grafana,e2e-test-local-agent" -v $(VERBOSE)
+	sh ./test/script/e2e_run.sh -f "e2e-test-migration" -v $(VERBOSE)
 	sh ./test/script/e2e_run.sh -f "e2e-test-prune" -v $(VERBOSE)
 	sh ./test/script/e2e_clean_globalhub.sh
 	sh ./test/script/e2e_run_byo.sh -v $(VERBOSE)
 
-e2e-test-cluster e2e-test-local-agent e2e-test-localpolicy e2e-test-grafana: tidy vendor
+e2e-test-cluster e2e-test-local-agent e2e-test-localpolicy e2e-test-grafana e2e-test-migration: tidy vendor
 	./test/script/e2e_run.sh -f $@ -v $(VERBOSE)
 
 e2e-prow-tests: 

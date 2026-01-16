@@ -64,6 +64,12 @@ func TestMigrationToSyncer(t *testing.T) {
 						WorkImagePullSpec:         "test",
 					},
 				},
+				// Bootstrap ClusterRole needed for dynamic ClusterRole detection
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -152,6 +158,12 @@ func TestMigrationToSyncer(t *testing.T) {
 						},
 					},
 				},
+				// Bootstrap ClusterRole needed for dynamic ClusterRole detection
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -197,6 +209,12 @@ func TestMigrationToSyncer(t *testing.T) {
 							},
 							AutoApproveUsers: []string{"test"},
 						},
+					},
+				},
+				// Bootstrap ClusterRole needed for dynamic ClusterRole detection
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					},
 				},
 			},
@@ -250,6 +268,12 @@ func TestMigrationToSyncer(t *testing.T) {
 						},
 					},
 				},
+				// Bootstrap ClusterRole needed for dynamic ClusterRole detection
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -297,6 +321,12 @@ func TestMigrationToSyncer(t *testing.T) {
 						},
 					},
 				},
+				// Bootstrap ClusterRole needed for dynamic ClusterRole detection
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -333,6 +363,12 @@ func TestMigrationToSyncer(t *testing.T) {
 					Spec: operatorv1.ClusterManagerSpec{
 						RegistrationImagePullSpec: "test",
 						WorkImagePullSpec:         "test",
+					},
+				},
+				// Bootstrap ClusterRole needed for dynamic ClusterRole detection
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					},
 				},
 				&rbacv1.ClusterRole{
@@ -463,6 +499,12 @@ func TestMigrationToSyncer(t *testing.T) {
 					Spec: operatorv1.ClusterManagerSpec{
 						RegistrationImagePullSpec: "test",
 						WorkImagePullSpec:         "test",
+					},
+				},
+				// Bootstrap ClusterRole needed for dynamic ClusterRole detection
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					},
 				},
 				&rbacv1.ClusterRole{
@@ -2008,6 +2050,214 @@ func parseResourceIdentifier(identifier string) resourceIdentifier {
 		kind: parts[0],
 		name: parts[1],
 	}
+}
+
+// TestGetBootstrapClusterRoleName tests the dynamic ClusterRole detection logic
+func TestGetBootstrapClusterRoleName(t *testing.T) {
+	ctx := context.Background()
+	scheme := configs.GetRuntimeScheme()
+
+	cases := []struct {
+		name                    string
+		initObjects             []client.Object
+		expectedClusterRoleName string
+		expectedError           string
+	}{
+		{
+			name: "ACM ClusterRole exists - should return ACM ClusterRole name",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: DefaultACMBootstrapClusterRole,
+					},
+				},
+			},
+			expectedClusterRoleName: DefaultACMBootstrapClusterRole,
+			expectedError:           "",
+		},
+		{
+			name: "Only OCM ClusterRole exists - should return OCM ClusterRole name",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: DefaultOCMBootstrapClusterRole,
+					},
+				},
+			},
+			expectedClusterRoleName: DefaultOCMBootstrapClusterRole,
+			expectedError:           "",
+		},
+		{
+			name: "Both ACM and OCM ClusterRoles exist - should return ACM ClusterRole name (priority)",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: DefaultACMBootstrapClusterRole,
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: DefaultOCMBootstrapClusterRole,
+					},
+				},
+			},
+			expectedClusterRoleName: DefaultACMBootstrapClusterRole,
+			expectedError:           "",
+		},
+		{
+			name:                    "Neither ClusterRole exists - should return error",
+			initObjects:             []client.Object{},
+			expectedClusterRoleName: "",
+			expectedError:           "no bootstrap ClusterRole found",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationTargetSyncer{
+				client: fakeClient,
+			}
+
+			clusterRoleName, err := syncer.getBootstrapClusterRoleName(ctx)
+
+			if c.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), c.expectedError)
+				assert.Equal(t, "", clusterRoleName)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, c.expectedClusterRoleName, clusterRoleName)
+			}
+		})
+	}
+}
+
+// TestInitializingWithOCMClusterRole tests initialization when only OCM ClusterRole exists
+func TestInitializingWithOCMClusterRole(t *testing.T) {
+	ctx := context.Background()
+	scheme := configs.GetRuntimeScheme()
+
+	initObjects := []client.Object{
+		&operatorv1.ClusterManager{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster-manager",
+			},
+			Spec: operatorv1.ClusterManagerSpec{
+				RegistrationImagePullSpec: "test",
+				WorkImagePullSpec:         "test",
+			},
+		},
+		// Only OCM ClusterRole exists (no ACM ClusterRole)
+		&rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: DefaultOCMBootstrapClusterRole,
+			},
+		},
+	}
+
+	migrationEvent := &migration.MigrationTargetBundle{
+		MigrationId:                           "020340324302432049234023040320",
+		Stage:                                 migrationv1alpha1.PhaseInitializing,
+		ManagedServiceAccountName:             "test",
+		ManagedServiceAccountInstallNamespace: "test",
+	}
+
+	producer := ProducerMock{}
+	transportClient := &controller.TransportClient{}
+	transportClient.SetProducer(&producer)
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+
+	transportConfig := &transport.TransportInternalConfig{
+		TransportType: string(transport.Chan),
+		KafkaCredential: &transport.KafkaConfig{
+			SpecTopic:   "spec",
+			StatusTopic: "status",
+		},
+	}
+	agentConfig := &configs.AgentConfig{
+		TransportConfig: transportConfig,
+		LeafHubName:     "hub1",
+	}
+	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
+	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
+
+	syncer.SetMigrationID(migrationEvent.MigrationId)
+
+	payload, err := json.Marshal(migrationEvent)
+	assert.Nil(t, err)
+	evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+		"hub2", payload)
+	evt.SetTime(time.Now())
+	err = syncer.Sync(ctx, &evt)
+	assert.Nil(t, err)
+
+	// Verify ClusterRoleBinding was created with OCM ClusterRole
+	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+	err = fakeClient.Get(ctx, types.NamespacedName{Name: GetAgentRegistrationClusterRoleBindingName("test")}, foundClusterRoleBinding)
+	assert.Nil(t, err)
+	assert.Equal(t, DefaultOCMBootstrapClusterRole, foundClusterRoleBinding.RoleRef.Name)
+}
+
+// TestInitializingWithNoClusterRole tests initialization fails when no bootstrap ClusterRole exists
+func TestInitializingWithNoClusterRole(t *testing.T) {
+	ctx := context.Background()
+	scheme := configs.GetRuntimeScheme()
+
+	initObjects := []client.Object{
+		&operatorv1.ClusterManager{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster-manager",
+			},
+			Spec: operatorv1.ClusterManagerSpec{
+				RegistrationImagePullSpec: "test",
+				WorkImagePullSpec:         "test",
+			},
+		},
+		// No bootstrap ClusterRole exists
+	}
+
+	migrationEvent := &migration.MigrationTargetBundle{
+		MigrationId:                           "020340324302432049234023040320",
+		Stage:                                 migrationv1alpha1.PhaseInitializing,
+		ManagedServiceAccountName:             "test",
+		ManagedServiceAccountInstallNamespace: "test",
+	}
+
+	producer := ProducerMock{}
+	transportClient := &controller.TransportClient{}
+	transportClient.SetProducer(&producer)
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+
+	transportConfig := &transport.TransportInternalConfig{
+		TransportType: string(transport.Chan),
+		KafkaCredential: &transport.KafkaConfig{
+			SpecTopic:   "spec",
+			StatusTopic: "status",
+		},
+	}
+	agentConfig := &configs.AgentConfig{
+		TransportConfig: transportConfig,
+		LeafHubName:     "hub1",
+	}
+	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
+	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
+
+	syncer.SetMigrationID(migrationEvent.MigrationId)
+
+	payload, err := json.Marshal(migrationEvent)
+	assert.Nil(t, err)
+	evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+		"hub2", payload)
+	evt.SetTime(time.Now())
+	err = syncer.Sync(ctx, &evt)
+
+	// Should fail because no bootstrap ClusterRole exists
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "no bootstrap ClusterRole found")
 }
 
 // getGVKFromKind returns GroupVersionKind based on resource kind

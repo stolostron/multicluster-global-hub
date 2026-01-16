@@ -1,0 +1,470 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: klusterletconfigs.config.open-cluster-management.io
+spec:
+  group: config.open-cluster-management.io
+  names:
+    kind: KlusterletConfig
+    listKind: KlusterletConfigList
+    plural: klusterletconfigs
+    singular: klusterletconfig
+  preserveUnknownFields: false
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: KlusterletConfig contains the configuration of a klusterlet including
+          the upgrade strategy, config overrides, proxy configurations etc.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of KlusterletConfig
+            properties:
+              appliedManifestWorkEvictionGracePeriod:
+                description: |-
+                  AppliedManifestWorkEvictionGracePeriod is the eviction grace period the work agent will wait before
+                  evicting the AppliedManifestWorks, whose corresponding ManifestWorks are missing on the hub cluster, from
+                  the managed cluster. If not present, the default value of the work agent will be used. If its value is
+                  set to "INFINITE", it means the AppliedManifestWorks will never been evicted from the managed cluster.
+                pattern: ^([0-9]+(s|m|h))+$|^INFINITE$
+                type: string
+              clusterClaimConfiguration:
+                description: |-
+                  ClusterClaimConfiguration represents the configuration of ClusterClaim
+                  Effective only when the `ClusterClaim` feature gate is enabled.
+                properties:
+                  maxCustomClusterClaims:
+                    default: 20
+                    description: Maximum number of custom ClusterClaims allowed.
+                    format: int32
+                    maximum: 100
+                    minimum: 0
+                    type: integer
+                required:
+                - maxCustomClusterClaims
+                type: object
+              featureGates:
+                description: |-
+                  FeatureGates is the list of feature gate for the klusterlet agent.
+                  If it is set empty, default feature gates will be used.
+                items:
+                  properties:
+                    feature:
+                      description: Feature is the key of feature gate. e.g. featuregate/Foo.
+                      type: string
+                    mode:
+                      default: Disable
+                      description: |-
+                        Mode is either Enable, Disable, "" where "" is Disable by default.
+                        In Enable mode, a valid feature gate `featuregate/Foo` will be set to "--featuregate/Foo=true".
+                        In Disable mode, a valid feature gate `featuregate/Foo` will be set to "--featuregate/Foo=false".
+                      enum:
+                      - Enable
+                      - Disable
+                      type: string
+                  required:
+                  - feature
+                  type: object
+                type: array
+              hubKubeAPIServerCABundle:
+                description: |-
+                  HubKubeAPIServerCABundle is the CA bundle to verify the server certificate of the hub kube API
+                  against. If not present, CA bundle will be determined with the logic below:
+                  1). Use the certificate of the named certificate configured in APIServer/cluster if FQDN matches;
+                  2). Otherwise use the CA certificates from kube-root-ca.crt ConfigMap in the cluster namespace;
+
+                  Deprecated and maintained for backward compatibility, use HubKubeAPIServerConfig.ServerVarificationStrategy
+                  and HubKubeAPIServerConfig.TrustedCABundles instead
+                format: byte
+                type: string
+              hubKubeAPIServerConfig:
+                description: |-
+                  HubKubeAPIServerConfig specifies the settings required for connecting to the hub Kube API server.
+                  If this field is present, the below deprecated fields will be ignored:
+                  - HubKubeAPIServerProxyConfig
+                  - HubKubeAPIServerURL
+                  - HubKubeAPIServerCABundle
+                properties:
+                  proxyURL:
+                    description: |-
+                      ProxyURL is the URL to the proxy to be used for all requests made by client
+                      If an HTTPS proxy server is configured, you may also need to add the necessary CA certificates to
+                      TrustedCABundles.
+                    type: string
+                  serverVerificationStrategy:
+                    description: |-
+                      ServerVerificationStrategy is the strategy used for verifying the server certification;
+                      The value could be "UseSystemTruststore", "UseAutoDetectedCABundle", "UseCustomCABundles", empty.
+
+                      When this strategy is not set or value is empty; if there is only one klusterletConfig configured for a cluster,
+                      the strategy is eaual to "UseAutoDetectedCABundle", if there are more than one klusterletConfigs, the empty
+                      strategy will be overrided by other non-empty strategies.
+                    enum:
+                    - UseSystemTruststore
+                    - UseAutoDetectedCABundle
+                    - UseCustomCABundles
+                    type: string
+                  trustedCABundles:
+                    description: |-
+                      TrustedCABundles refers to a collection of user-provided CA bundles used for verifying the server
+                      certificate of the hub Kubernetes API
+                      If the ServerVerificationStrategy is set to "UseSystemTruststore", this field will be ignored.
+                      Otherwise, the CA certificates from the configured bundles will be appended to the klusterlet CA bundle.
+                    items:
+                      description: CABundle is a user-provided CA bundle
+                      properties:
+                        caBundle:
+                          description: |-
+                            CABundle refers to a ConfigMap with label "import.open-cluster-management.io/ca-bundle"
+                            containing the user-provided CA bundle
+                            The key of the CA data could be "ca-bundle.crt", "ca.crt", or "tls.crt".
+                          properties:
+                            name:
+                              description: name is the metadata.name of the referenced
+                                config map
+                              type: string
+                            namespace:
+                              description: name is the metadata.namespace of the referenced
+                                config map
+                              type: string
+                          required:
+                          - name
+                          - namespace
+                          type: object
+                        name:
+                          description: |-
+                            Name is the identifier used to reference the CA bundle; Do not use "auto-detected" as the name
+                            since it is the reserved name for the auto-detected CA bundle.
+                          type: string
+                      required:
+                      - caBundle
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  url:
+                    description: |-
+                      URL is the endpoint of the hub Kube API server.
+                      If not present, the .status.apiServerURL of Infrastructure/cluster will be used as the default value.
+                      e.g. `oc get infrastructure cluster -o jsonpath='{.status.apiServerURL}'`
+                    type: string
+                type: object
+              hubKubeAPIServerProxyConfig:
+                description: |-
+                  HubKubeAPIServerProxyConfig holds proxy settings for connections between klusterlet/add-on agents
+                  on the managed cluster and the kube-apiserver on the hub cluster.
+                  Empty means no proxy settings is available.
+
+                  Deprecated and maintained for backward compatibility, use HubKubeAPIServerConfig.ProxyURL instead
+                properties:
+                  caBundle:
+                    description: |-
+                      CABundle is a CA certificate bundle to verify the proxy server.
+                      It will be ignored if only HTTPProxy is set;
+                      And it is required when HTTPSProxy is set and self signed CA certificate is used
+                      by the proxy server.
+                    format: byte
+                    type: string
+                  httpProxy:
+                    description: HTTPProxy is the URL of the proxy for HTTP requests
+                    type: string
+                  httpsProxy:
+                    description: |-
+                      HTTPSProxy is the URL of the proxy for HTTPS requests
+                      HTTPSProxy will be chosen if both HTTPProxy and HTTPSProxy are set.
+                    type: string
+                type: object
+              hubKubeAPIServerURL:
+                description: |-
+                  HubKubeAPIServerURL is the URL of the hub Kube API server.
+                  If not present, the .status.apiServerURL of Infrastructure/cluster will be used as the default value.
+                  e.g. `oc get infrastructure cluster -o jsonpath='{.status.apiServerURL}'`
+
+                  Deprecated and maintained for backward compatibility, use HubKubeAPIServerConfig.URL instead
+                type: string
+              installMode:
+                description: InstallMode is the mode to install the klusterlet
+                properties:
+                  noOperator:
+                    description: NoOperator is the setting of klusterlet installation
+                      when install type is noOperator.
+                    properties:
+                      postfix:
+                        description: |-
+                          Postfix is the postfix of the klusterlet name. The name of the klusterlet is "klusterlet" if
+                          it is not set, and "klusterlet-{Postfix}". The install namespace is "open-cluster-management-agent"
+                          if it is not set, and "open-cluster-management-{Postfix}".
+                        maxLength: 33
+                        pattern: ^[-a-z0-9]*[a-z0-9]$
+                        type: string
+                    type: object
+                  type:
+                    default: default
+                    description: InstallModeType is the type of install mode.
+                    enum:
+                    - default
+                    - noOperator
+                    type: string
+                type: object
+              multipleHubsConfig:
+                description: MultipleHubsConfig contains configuration specific to
+                  multiple hub scenarios
+                properties:
+                  bootstrapKubeConfigs:
+                    description: BootstrapKubeConfigs is the list of bootstrap kubeconfigs
+                      for multiple hubs
+                    properties:
+                      localSecretsConfig:
+                        description: |-
+                          LocalSecretsConfig include a list of secrets that contains the kubeconfigs for ordered bootstrap kubeconifigs.
+                          The secrets must be in the same namespace where the agent controller runs.
+                        properties:
+                          hubConnectionTimeoutSeconds:
+                            default: 600
+                            description: |-
+                              HubConnectionTimeoutSeconds is used to set the timeout of connecting to the hub cluster.
+                              When agent loses the connection to the hub over the timeout seconds, the agent do a rebootstrap.
+                              By default is 10 mins.
+                            format: int32
+                            minimum: 180
+                            type: integer
+                          kubeConfigSecrets:
+                            description: KubeConfigSecrets is a list of secret names.
+                              The secrets are in the same namespace where the agent
+                              controller runs.
+                            items:
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            type: array
+                        required:
+                        - kubeConfigSecrets
+                        type: object
+                      type:
+                        default: None
+                        description: |-
+                          Type specifies the type of priority bootstrap kubeconfigs.
+                          By default, it is set to None, representing no priority bootstrap kubeconfigs are set.
+                        enum:
+                        - None
+                        - LocalSecrets
+                        type: string
+                    required:
+                    - type
+                    type: object
+                  genBootstrapKubeConfigStrategy:
+                    default: Default
+                    description: |-
+                      GenBootstrapKubeConfigStrategy controls the strategy for generating bootstrap kubeconfig files.
+                      Default - Generate bootstrap kubeconfigs only with the BootstrapKubeConfigs configured in KlusterletConfig.
+                      IncludeCurrentHub - When generating bootstrap kubeconfigs, automatically include the current hub's kubeconfig.
+                    enum:
+                    - Default
+                    - IncludeCurrentHub
+                    type: string
+                type: object
+              nodePlacement:
+                description: |-
+                  NodePlacement enables explicit control over the scheduling of the agent components.
+                  If the placement is nil, the placement is not specified, it will be omitted.
+                  If the placement is an empty object, the placement will match all nodes and tolerate nothing.
+                properties:
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: NodeSelector defines which Nodes the Pods are scheduled
+                      on. The default is an empty list.
+                    type: object
+                  tolerations:
+                    description: |-
+                      Tolerations are attached by pods to tolerate any taint that matches
+                      the triple <key,value,effect> using the matching operator <operator>.
+                      The default is an empty list.
+                    items:
+                      description: |-
+                        The pod this Toleration is attached to tolerates any taint that matches
+                        the triple <key,value,effect> using the matching operator <operator>.
+                      properties:
+                        effect:
+                          description: |-
+                            Effect indicates the taint effect to match. Empty means match all taint effects.
+                            When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                          type: string
+                        key:
+                          description: |-
+                            Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                            If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                          type: string
+                        operator:
+                          description: |-
+                            Operator represents a key's relationship to the value.
+                            Valid operators are Exists and Equal. Defaults to Equal.
+                            Exists is equivalent to wildcard for value, so that a pod can
+                            tolerate all taints of a particular category.
+                          type: string
+                        tolerationSeconds:
+                          description: |-
+                            TolerationSeconds represents the period of time the toleration (which must be
+                            of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                            it is not set, which means tolerate the taint forever (do not evict). Zero and
+                            negative values will be treated as 0 (evict immediately) by the system.
+                          format: int64
+                          type: integer
+                        value:
+                          description: |-
+                            Value is the taint value the toleration matches to.
+                            If the operator is Exists, the value should be empty, otherwise just a regular string.
+                          type: string
+                      type: object
+                    type: array
+                type: object
+              pullSecret:
+                description: PullSecret is the name of image pull secret.
+                properties:
+                  apiVersion:
+                    description: API version of the referent.
+                    type: string
+                  fieldPath:
+                    description: |-
+                      If referring to a piece of an object instead of an entire object, this string
+                      should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                      For example, if the object reference is to a container within a pod, this would take on a value like:
+                      "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                      the event) or if no container name is specified "spec.containers[2]" (container with
+                      index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                      referencing a part of an object.
+                    type: string
+                  kind:
+                    description: |-
+                      Kind of the referent.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+                    type: string
+                  name:
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+                    type: string
+                  resourceVersion:
+                    description: |-
+                      Specific resourceVersion to which this reference is made, if any.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                    type: string
+                  uid:
+                    description: |-
+                      UID of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+              registrationDriver:
+                description: This provides driver details required to register with
+                  hub
+                properties:
+                  authType:
+                    default: csr
+                    description: Type of the authentication used by managedcluster
+                      to register as well as pull work from hub. Possible values are
+                      csr and awsirsa.
+                    enum:
+                    - csr
+                    - awsirsa
+                    - grpc
+                    type: string
+                  awsIrsa:
+                    description: |-
+                      Contain the details required for registering with hub cluster (ie: an EKS cluster) using AWS IAM roles for service account.
+                      This is required only when the authType is awsirsa.
+                    properties:
+                      hubClusterArn:
+                        description: |-
+                          The arn of the hub cluster (ie: an EKS cluster). This will be required to pass information to hub, which hub will use to create IAM identities for this klusterlet.
+                          Example - arn:eks:us-west-2:12345678910:cluster/hub-cluster1.
+                        minLength: 1
+                        pattern: ^arn:aws:eks:([a-zA-Z0-9-]+):(\d{12}):cluster/([a-zA-Z0-9-]+)$
+                        type: string
+                      managedClusterArn:
+                        description: |-
+                          The arn of the managed cluster (ie: an EKS cluster). This will be required to generate the md5hash which will be used as a suffix to create IAM role on hub
+                          as well as used by kluslerlet-agent, to assume role suffixed with the md5hash, on startup.
+                          Example - arn:eks:us-west-2:12345678910:cluster/managed-cluster1.
+                        minLength: 1
+                        pattern: ^arn:aws:eks:([a-zA-Z0-9-]+):(\d{12}):cluster/([a-zA-Z0-9-]+)$
+                        type: string
+                    required:
+                    - hubClusterArn
+                    - managedClusterArn
+                    type: object
+                required:
+                - authType
+                type: object
+              registries:
+                description: Registries includes the mirror and source registries.
+                  The source registry will be replaced by the Mirror.
+                items:
+                  properties:
+                    mirror:
+                      description: Mirror is the mirrored registry of the Source.
+                        Will be ignored if Mirror is empty.
+                      type: string
+                    source:
+                      description: Source is the source registry. All image registries
+                        will be replaced by Mirror if Source is empty.
+                      type: string
+                  required:
+                  - mirror
+                  type: object
+                type: array
+              workStatusSyncInterval:
+                description: |-
+                  WorkStatusSyncInterval is the interval for the work agent to check the status of ManifestWorks.
+                  Larger value means less frequent status sync and less api calls to the managed cluster, vice versa.
+                  The value(x) should be: 5s <= x <= 1h.
+                pattern: ^([0-9]+(s|m|h))+$
+                type: string
+            type: object
+          status:
+            description: Status defines the observed state of KlusterletConfig
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

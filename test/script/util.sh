@@ -5,7 +5,7 @@ export INSTALL_DIR=/usr/local/bin
 export PATH=$INSTALL_DIR:$PATH
 export GRC_VERSION=v0.15.0
 export KUBECTL_VERSION=v1.28.1
-export CLUSTERADM_VERSION=0.10.1
+export CLUSTERADM_VERSION=1.0.1
 export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.24.4
@@ -226,7 +226,7 @@ ensure_cluster() {
 
 init_hub() {
   echo -e "${CYAN} Init Hub $1 ... $NC"
-  clusteradm init --wait --context "$1" >/dev/null 2>&1 # not echo the senetive information
+  clusteradm init --wait --bundle-version=v1.1.0 --context "$1" >/dev/null 2>&1 # not echo the senetive information
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
