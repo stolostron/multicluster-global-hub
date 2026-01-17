@@ -68,14 +68,6 @@ for i in $(seq 1 "${MH_NUM}"); do
   kubectl apply -f "$TEST_DIR/manifest/crd/klusterletconfig.yaml" --kubeconfig "$CONFIG_DIR/hub$i" 2>/dev/null || true
   echo -e "${YELLOW}Creating multicluster-engine namespace on hub$i${NC}"
   kubectl create namespace multicluster-engine --kubeconfig "$CONFIG_DIR/hub$i" 2>/dev/null || true
-
-  # TEMPORARY WORKAROUND: Apply latest ClusterManager CRD to get autoApproveUsers support (required for migration)
-  # The autoApproveUsers field was added in OCM API v0.16.0 (March 2024), but clusteradm v1.1.0/v1.1.1 bundles
-  # still ship with an outdated CRD that lacks this field. This causes migration e2e tests to fail.
-  # TODO: Remove this workaround once OCM updates their bundles - tracking issue:
-  #       https://github.com/open-cluster-management-io/ocm/issues/1334
-  echo -e "${YELLOW}Updating ClusterManager CRD on hub$i for autoApproveUsers support${NC}"
-  kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/ocm/main/deploy/cluster-manager/config/crds/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml --kubeconfig "$CONFIG_DIR/hub$i" || true
 done
 
 # async ocm, policy
@@ -125,6 +117,17 @@ if [ $failed -eq 1 ]; then
 fi
 
 echo -e "${YELLOW} installing ocm and policy:${NC} $(($(date +%s) - start_time)) seconds"
+
+# TEMPORARY WORKAROUND: Apply latest ClusterManager CRD to get autoApproveUsers support (required for migration)
+# The autoApproveUsers field was added in OCM API v0.16.0 (March 2024), but clusteradm v1.1.0/v1.1.1 bundles
+# still ship with an outdated CRD that lacks this field. This causes migration e2e tests to fail.
+# This must be done AFTER clusteradm init creates the initial CRD.
+# TODO: Remove this workaround once OCM updates their bundles - tracking issue:
+#       https://github.com/open-cluster-management-io/ocm/issues/1334
+for i in $(seq 1 "${MH_NUM}"); do
+  echo -e "${YELLOW}Updating ClusterManager CRD on hub$i for autoApproveUsers support${NC}"
+  kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/ocm/main/deploy/cluster-manager/config/crds/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml --kubeconfig "$CONFIG_DIR/hub$i" || true
+done
 
 # Install managed-serviceaccount addon on global hub
 # This is required for migration functionality to create ServiceAccounts and collect tokens
