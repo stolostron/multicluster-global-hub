@@ -8,7 +8,12 @@ spec:
   partitions: 1
   replicas: 1
   config:
-    cleanup.policy: compact
+    # Retention policy: delete messages when EITHER condition is met
+    # - retention.ms: 24 hours (86400000 ms)
+    # - retention.bytes: 1GB per partition (1073741824 bytes)
+    cleanup.policy: compact,delete
+    retention.ms: "86400000"
+    retention.bytes: "1073741824"
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
@@ -20,7 +25,12 @@ spec:
   partitions: 1
   replicas: 1
   config:
-    cleanup.policy: compact
+    # Retention policy: delete messages when EITHER condition is met
+    # - retention.ms: 24 hours (86400000 ms)
+    # - retention.bytes: 1GB per partition (1073741824 bytes)
+    cleanup.policy: compact,delete
+    retention.ms: "86400000"
+    retention.bytes: "1073741824"
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
@@ -32,7 +42,12 @@ spec:
   partitions: 1
   replicas: 1
   config:
-    cleanup.policy: compact
+    # Retention policy: delete messages when EITHER condition is met
+    # - retention.ms: 24 hours (86400000 ms)
+    # - retention.bytes: 1GB per partition (1073741824 bytes)
+    cleanup.policy: compact,delete
+    retention.ms: "86400000"
+    retention.bytes: "1073741824"
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
@@ -44,4 +59,9 @@ spec:
   partitions: 1
   replicas: 1
   config:
-    cleanup.policy: compact
+    # Retention policy: delete messages when EITHER condition is met
+    # - retention.ms: 24 hours (86400000 ms)
+    # - retention.bytes: 1GB per partition (1073741824 bytes)
+    cleanup.policy: compact,delete
+    retention.ms: "86400000"
+    retention.bytes: "1073741824"
