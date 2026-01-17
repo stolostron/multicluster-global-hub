@@ -632,8 +632,15 @@ func (k *strimziTransporter) newKafkaTopic(topicName string, topicConfig *apiext
 		Spec: &kafkav1beta2.KafkaTopicSpec{
 			Partitions: &DefaultPartition,
 			Replicas:   &k.topicPartitionReplicas,
+			// Kafka topic retention policy:
+			// - cleanup.policy: "compact,delete" enables both log compaction and time/size-based deletion
+			// - retention.ms: "86400000" (24 hours) deletes messages older than 24 hours
+			// - retention.bytes: "1073741824" (1GB per partition) deletes old messages when partition exceeds 1GB
+			// Messages are deleted when EITHER condition is met, preventing unbounded storage growth
 			Config: &apiextensions.JSON{Raw: []byte(`{
-				"cleanup.policy": "compact"
+				"cleanup.policy": "compact,delete",
+				"retention.ms": "86400000",
+				"retention.bytes": "1073741824"
 			}`)},
 		},
 	}
