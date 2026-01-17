@@ -75,7 +75,7 @@ for i in $(seq 1 "${MH_NUM}"); do
   # TODO: Remove this workaround once OCM updates their bundles - tracking issue:
   #       https://github.com/open-cluster-management-io/ocm/issues/1334
   echo -e "${YELLOW}Updating ClusterManager CRD on hub$i for autoApproveUsers support${NC}"
-  kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/ocm/main/deploy/cluster-manager/config/crds/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml --kubeconfig "$CONFIG_DIR/hub$i" 2>/dev/null || true
+  kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/ocm/main/deploy/cluster-manager/config/crds/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml --kubeconfig "$CONFIG_DIR/hub$i" || true
 done
 
 # async ocm, policy
