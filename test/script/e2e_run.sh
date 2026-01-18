@@ -104,6 +104,9 @@ export CGO_ENABLED=1
 # need set it as kafka advertiesehost to pass tls authn
 export GLOBAL_HUB_NODE_IP=${global_hub_node_ip}
 
+# Ensure namespace exists before applying ConfigMap
+kubectl create namespace "$GH_NAMESPACE" --dry-run=client -o yaml | kubectl --kubeconfig "$GH_KUBECONFIG" apply -f - 2>/dev/null || true
+
 # set log level to debug
 cat <<EOF | kubectl apply --kubeconfig $GH_KUBECONFIG -n $GH_NAMESPACE -f -
 apiVersion: v1
