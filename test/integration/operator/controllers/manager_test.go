@@ -70,6 +70,7 @@ var _ = Describe("manager", Ordered, func() {
 			Manager:               runtimeManager,
 			MulticlusterGlobalHub: mgh,
 			OperatorConfig:        &config.OperatorConfig{},
+			KubeClient:            kubeClient,
 		}
 		// transport
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
