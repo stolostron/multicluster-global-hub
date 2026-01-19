@@ -584,16 +584,43 @@ func setupWorkAgentRBAC(ctx context.Context, mcClient client.Client) {
 // This is required for the agent to configure auto-approval for migrating clusters.
 // If the CRD doesn't support autoApproveUsers, the migration will fail because the field
 // will be silently dropped when updating the ClusterManager resource.
+// Note: autoApproveUsers only takes effect when ManagedClusterAutoApproval feature gate is enabled.
 func verifyAutoApproveUsersSupport(ctx context.Context, hubClient client.Client) {
 	clusterManager := &operatorv1.ClusterManager{}
 	err := hubClient.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, clusterManager)
 	Expect(err).NotTo(HaveOccurred(), "ClusterManager should exist on hub")
 
-	// Test if autoApproveUsers can be set and retrieved
-	testUser := "system:test:migration-verify"
+	// Enable ManagedClusterAutoApproval feature gate if not already enabled
+	// This is required for autoApproveUsers to take effect
 	if clusterManager.Spec.RegistrationConfiguration == nil {
 		clusterManager.Spec.RegistrationConfiguration = &operatorv1.RegistrationHubConfiguration{}
 	}
+
+	// Check if ManagedClusterAutoApproval feature gate is already enabled
+	featureGateEnabled := false
+	for _, fg := range clusterManager.Spec.RegistrationConfiguration.FeatureGates {
+		if fg.Feature == "ManagedClusterAutoApproval" && fg.Mode == operatorv1.FeatureGateModeTypeEnable {
+			featureGateEnabled = true
+			break
+		}
+	}
+
+	// Enable the feature gate if not already enabled
+	if !featureGateEnabled {
+		clusterManager.Spec.RegistrationConfiguration.FeatureGates = append(
+			clusterManager.Spec.RegistrationConfiguration.FeatureGates,
+			operatorv1.FeatureGate{
+				Feature: "ManagedClusterAutoApproval",
+				Mode:    operatorv1.FeatureGateModeTypeEnable,
+			},
+		)
+		err = hubClient.Update(ctx, clusterManager)
+		Expect(err).NotTo(HaveOccurred(), "Should be able to enable ManagedClusterAutoApproval feature gate")
+		klog.Infof("[DEBUG] Enabled ManagedClusterAutoApproval feature gate")
+	}
+
+	// Test if autoApproveUsers can be set and retrieved
+	testUser := "system:test:migration-verify"
 	clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers = []string{testUser}
 	err = hubClient.Update(ctx, clusterManager)
 	Expect(err).NotTo(HaveOccurred(), "Should be able to set autoApproveUsers on ClusterManager")
