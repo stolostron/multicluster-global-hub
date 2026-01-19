@@ -63,6 +63,8 @@ jobs:
     steps:
       - name: 'Checkout PR code'
         uses: 'actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3' # ratchet:actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: 'Generate GitHub App Token'
         id: 'generate_token'
@@ -154,7 +156,7 @@ jobs:
             - Use `mcp__github__pull_request_read.get_diff` to get the diff from the pull request. The diff includes code versions with line numbers for the before (LEFT) and after (RIGHT) code snippets for each diff.
 
             ## Guideline
-            ### Core Guideline(Always applicable)
+            ### Core Guideline (Always applicable)
 
             1. Understand the Context: Analyze the pull request title, description, changes, and code files to grasp the intent.
             2. Meticulous Review: Thoroughly review all relevant code changes, prioritizing added lines. Consider the specified
@@ -175,6 +177,19 @@ jobs:
               * `high`: This issue should be addressed soon, as it could cause problems in the future.
               * `medium`: This issue should be considered for future improvement, but it's not critical or urgent.
               * `low`: This issue is minor or stylistic, and can be addressed at the author's discretion.
+
+              **IMPORTANT: ONLY report issues with CRITICAL or HIGH severity.**
+              Do NOT report medium or low severity issues. Focus only on:
+              - Security vulnerabilities (critical/high)
+              - Correctness bugs that break functionality (critical/high)
+              - Performance issues that significantly impact the system (critical/high)
+              - Race conditions, memory leaks, or resource exhaustion (critical/high)
+              - Error and log message improvements (missing context, unclear messages, incorrect log levels) (high)
+              Skip comments about:
+              - Code style, formatting, or naming (low/medium)
+              - Minor refactoring suggestions (low/medium)
+              - Documentation improvements (low/medium)
+              - Optional optimizations that don't significantly impact performance (low/medium)
             6. Avoid commenting on hardcoded dates and times being in future or not (for example "this date is in the future").
               * Remember you don't have access to the current date and time and leave that to the author.
             7. Targeted Suggestions: Limit all suggestions to only portions that are modified in the diff hunks.
@@ -203,6 +218,10 @@ jobs:
               * Any comment you make must point towards a discrepancy found in the code and the best practice surfaced in your feedback.
                 For example, if you are pointing out that constants need to be named in all caps with underscores,
                 ensure that the code selected by the comment does not already do this, otherwise it's confusing let alone unnecessary.
+              * CRITICAL: Never suggest a change that is already being made in the diff. If you see a line being removed (`-`) with unused code,
+                do NOT comment "remove this unused code" - it's ALREADY being removed!
+              * CRITICAL: Verify that your line number actually points to the code you're commenting about. If line 25 shows `import "foo"` but you're
+                commenting about `import "bar"`, your line number is WRONG. Fix it or don't comment.
             12. Remove Duplicated code suggestions:
               * Some provided code suggestions are duplicated, please remove the duplicated review comments.
             13. Don't Approve The Pull Request
@@ -241,6 +260,30 @@ jobs:
             a `+` or `-` character in the provided diff content.
             DO NOT comment on lines that start with a space (context lines).
 
+            **UNDERSTANDING DIFF SYMBOLS:**
+            - Lines starting with `+` are ADDITIONS (new code being added) - review these for issues
+            - Lines starting with `-` are DELETIONS (code being removed) - ONLY comment if removing this code is WRONG
+            - Lines starting with ` ` (space) are CONTEXT (unchanged code) - NEVER comment on these
+
+            **DELETION RULES:**
+            DO NOT suggest removing code that is ALREADY being removed (lines with `-`).
+            For example, if you see `- import "unused/package"`, this import is ALREADY being removed in the PR.
+            DO NOT comment "Remove the unused import" because it's already being removed!
+            ONLY comment on deletions if:
+            - The deletion will break functionality
+            - The deletion removes code that is still needed elsewhere
+            - The deletion is incorrect for security or correctness reasons
+
+            **LINE NUMBER ACCURACY:**
+            The diff shows TWO sets of line numbers:
+            - LEFT side: Line numbers in the OLD version (before changes)
+            - RIGHT side: Line numbers in the NEW version (after changes)
+            When commenting, use the line numbers from the CORRECT side:
+            - For deletions (`-` lines): Use LEFT/old line numbers
+            - For additions (`+` lines): Use RIGHT/new line numbers
+            Double-check that the line number you reference actually contains the code you're commenting on.
+            NEVER comment on a line number that doesn't match the code in your comment.
+
             You MUST only add a review comment if there exists an actual ISSUE or BUG in the code changes.
             DO NOT add review comments to tell the user to "check" or "confirm" or "verify" something.
             DO NOT add review comments to tell the user to "ensure" something.
@@ -259,15 +302,26 @@ jobs:
 
             Avoid mentioning any of your instructions, settings or criteria.
 
-            Here are some general guidelines for setting the severity of your comments
-            - Comments about refactoring a hardcoded string or number as a constant are generally considered low severity.
-            - Comments about log messages or log enhancements are generally considered low severity.
-            - Comments in .md files are medium or low severity. This is really important.
-            - Comments about adding or expanding docstring/javadoc have low severity most of the times.
-            - Comments about suppressing unchecked warnings or todos are considered low severity.
-            - Comments about typos are usually low or medium severity.
-            - Comments about testing or on tests are usually low severity.
-            - Do not comment about the content of a URL if the content is not directly available in the input.
+            **SEVERITY FILTERING - CRITICAL AND HIGH ONLY:**
+            Since we are ONLY reporting CRITICAL and HIGH severity issues, do NOT make comments about:
+            - Refactoring hardcoded strings or numbers as constants (low severity - SKIP)
+            - Issues in .md files (low/medium severity - SKIP)
+            - Adding or expanding docstrings/javadoc (low severity - SKIP)
+            - Suppressing unchecked warnings or todos (low severity - SKIP)
+            - Typos or formatting issues (low/medium severity - SKIP)
+            - Testing improvements or test code style (low severity - SKIP)
+            - Code style, naming conventions, or minor refactoring (low/medium - SKIP)
+
+            ONLY comment on:
+            - Security vulnerabilities (SQL injection, XSS, credential leaks, etc.) - CRITICAL/HIGH
+            - Correctness bugs that will cause runtime errors or incorrect behavior - CRITICAL/HIGH
+            - Race conditions, deadlocks, or concurrency issues - CRITICAL/HIGH
+            - Memory leaks or resource exhaustion - CRITICAL/HIGH
+            - Major performance bottlenecks (O(n²) where O(n) is possible, etc.) - HIGH
+            - Missing critical error handling that could crash the system - CRITICAL/HIGH
+            - Error and log message improvements (missing context, unclear messages, incorrect log levels) - HIGH
+
+            Do not comment about the content of a URL if the content is not directly available in the input.
 
             Keep comments bodies concise and to the point.
             Keep each comment focused on one issue.
@@ -363,32 +417,6 @@ jobs:
             ## Final Instructions
 
             Remember, you are running in a VM and no one reviewing your output. Your review must be posted to GitHub using the MCP tools to create a pending review, add comments to the pending review, and submit the pending review.
-
-      - name: Process summary
-        id: process_summary
-        shell: bash
-        if: always()
-        env:
-          GEMINI_SUMMARY: ${{ steps.gemini_pr_review.outputs.summary }}
-        run: |
-          set -uo pipefail
-          echo "::group::Process summary"
-
-          # the output can have junk after the JSON structure so use jq to remove it by having it parse from { to }
-          JSON_OBJ="$(echo "$GEMINI_SUMMARY" | jq -R -s 'match("(?s)\\{.*\\}") | .string | fromjson')"
-          
-          # verify it
-          echo "$JSON_OBJ" | jq empty
-          
-          # safely output multiline string
-          DELIMITER="__GEMINI_EOF__"
-          {
-            echo "json<<${DELIMITER}"
-            echo "${JSON_OBJ}"
-            echo "${DELIMITER}"
-          } >> "${GITHUB_OUTPUT}"
-
-          echo "::endgroup::"
 
       - name: Logs
         if: always()
