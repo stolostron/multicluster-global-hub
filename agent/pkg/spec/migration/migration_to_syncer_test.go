@@ -1580,7 +1580,7 @@ func TestAddPauseAnnotationBeforeDeletion(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "Add pause annotation to ImageClusterInstall",
+			name: "Add pause annotation to ImageClusterInstall - unsupported resource",
 			resource: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "extensions.hive.openshift.io/v1alpha1",
@@ -1596,7 +1596,8 @@ func TestAddPauseAnnotationBeforeDeletion(t *testing.T) {
 					},
 				},
 			},
-			expectError: false,
+			expectError:  true,
+			errorMessage: "unsupported resource kind",
 		},
 		{
 			name: "Resource not found - should return error",
@@ -1649,12 +1650,12 @@ func TestAddPauseAnnotationBeforeDeletion(t *testing.T) {
 
 				annotations := verifyResource.GetAnnotations()
 				assert.NotNil(t, annotations)
-				assert.Equal(t, "true", annotations[PauseAnnotation])
+				assert.Equal(t, "true", annotations[HivePauseAnnotation])
 
 				// Verify existing annotations are preserved
 				if origAnnotations := c.resource.GetAnnotations(); origAnnotations != nil {
 					for key, value := range origAnnotations {
-						if key != PauseAnnotation {
+						if key != HivePauseAnnotation {
 							assert.Equal(t, value, annotations[key], "Original annotation %s should be preserved", key)
 						}
 					}
@@ -1701,7 +1702,7 @@ func TestAddPauseAnnotationMultipleCalls(t *testing.T) {
 
 	annotations := verifyResource.GetAnnotations()
 	assert.NotNil(t, annotations)
-	assert.Equal(t, "true", annotations[PauseAnnotation])
+	assert.Equal(t, "true", annotations[HivePauseAnnotation])
 
 	// Second call should also succeed (idempotent)
 	err = syncer.addPauseAnnotationBeforeDeletion(ctx, resource)
@@ -1715,7 +1716,7 @@ func TestAddPauseAnnotationMultipleCalls(t *testing.T) {
 
 	annotations2 := verifyResource2.GetAnnotations()
 	assert.NotNil(t, annotations2)
-	assert.Equal(t, "true", annotations2[PauseAnnotation])
+	assert.Equal(t, "true", annotations2[HivePauseAnnotation])
 }
 
 func TestRemoveMigrationResources(t *testing.T) {
