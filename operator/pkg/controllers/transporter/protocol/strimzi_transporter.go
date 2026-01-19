@@ -41,6 +41,11 @@ const (
 	// kafka storage
 	DefaultKafkaDefaultStorageSize = "10Gi"
 
+	// Kafka topic retention policy
+	// Messages are deleted when EITHER condition is met (time OR size)
+	DefaultKafkaRetentionMs    = "86400000"   // 24 hours in milliseconds
+	DefaultKafkaRetentionBytes = "1073741824" // 1GB per partition in bytes
+
 	// Global hub kafkaUser name
 	DefaultGlobalHubKafkaUserName = "global-hub-kafka-user"
 
@@ -634,14 +639,14 @@ func (k *strimziTransporter) newKafkaTopic(topicName string, topicConfig *apiext
 			Replicas:   &k.topicPartitionReplicas,
 			// Kafka topic retention policy:
 			// - cleanup.policy: "compact,delete" enables both log compaction and time/size-based deletion
-			// - retention.ms: "86400000" (24 hours) deletes messages older than 24 hours
-			// - retention.bytes: "1073741824" (1GB per partition) deletes old messages when partition exceeds 1GB
+			// - retention.ms: 24 hours (see DefaultKafkaRetentionMs)
+			// - retention.bytes: 1GB per partition (see DefaultKafkaRetentionBytes)
 			// Messages are deleted when EITHER condition is met, preventing unbounded storage growth
-			Config: &apiextensions.JSON{Raw: []byte(`{
+			Config: &apiextensions.JSON{Raw: []byte(fmt.Sprintf(`{
 				"cleanup.policy": "compact,delete",
-				"retention.ms": "86400000",
-				"retention.bytes": "1073741824"
-			}`)},
+				"retention.ms": "%s",
+				"retention.bytes": "%s"
+			}`, DefaultKafkaRetentionMs, DefaultKafkaRetentionBytes))},
 		},
 	}
 	if topicConfig != nil {
