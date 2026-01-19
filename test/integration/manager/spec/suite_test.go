@@ -127,9 +127,11 @@ var _ = BeforeSuite(func() {
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig,
 		managerConfig.TransportConfig.KafkaCredential.SpecTopic, nil)
 	Expect(err).NotTo(HaveOccurred())
-	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
-		[]string{managerConfig.TransportConfig.KafkaCredential.SpecTopic})
+	consumer, err := genericconsumer.NewGenericConsumer(false, false)
 	Expect(err).NotTo(HaveOccurred())
+	go func() {
+		consumer.ConfigChan() <- managerConfig.TransportConfig
+	}()
 	// use the dispatcher to consume events from transport
 	agentDispatcher, err = agentspec.AddGenericDispatcher(mgr, consumer,
 		agentconfigs.AgentConfig{LeafHubName: leafhubName})

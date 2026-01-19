@@ -214,11 +214,25 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternal
 	}
 
 	for _, topic := range topics {
-
-		// mock the consumer in manager
+		// mock the producer in agent (create first to setup the channel in Extends)
 		transConfig.EnableDatabaseOffset = false
 		transConfig.KafkaCredential.StatusTopic = topic
-		consumer, err := genericconsumer.NewGenericConsumer(transConfig, []string{topic})
+		producer, err := genericproducer.NewGenericProducer(transConfig, topic, nil)
+		if err != nil {
+			return trans, err
+		}
+
+		// mock the consumer in manager (isManager=true to receive from StatusTopic)
+		// Deep copy the config for this topic to preserve the StatusTopic value
+		topicConfig := &transport.TransportInternalConfig{
+			TransportType:        transConfig.TransportType,
+			EnableDatabaseOffset: transConfig.EnableDatabaseOffset,
+			Extends:              transConfig.Extends, // share the Extends map for channel sharing
+			KafkaCredential: &transport.KafkaConfig{
+				StatusTopic: topic, // use the current topic
+			},
+		}
+		consumer, err := genericconsumer.NewGenericConsumer(true, false)
 		if err != nil {
 			return trans, err
 		}
@@ -227,13 +241,9 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternal
 				logf.Log.Error(err, "error to start the chan consumer")
 			}
 		}()
-		Expect(err).NotTo(HaveOccurred())
-
-		// mock the producer in agent
-		producer, err := genericproducer.NewGenericProducer(transConfig, topic, nil)
-		if err != nil {
-			return trans, err
-		}
+		go func() {
+			consumer.ConfigChan() <- topicConfig
+		}()
 
 		trans.consumers[topic] = consumer
 		trans.producers[topic] = producer
