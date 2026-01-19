@@ -118,6 +118,11 @@ fi
 
 echo -e "${YELLOW} installing ocm and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
+# Update ClusterManager CRD to the latest version from OCM main branch
+# This is required to support autoApproveUsers field used in migration e2e tests
+echo -e "${YELLOW}Updating ClusterManager CRD to support autoApproveUsers${NC}"
+kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/ocm/main/deploy/cluster-manager/config/crds/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml --kubeconfig "$GH_KUBECONFIG" 2>/dev/null || true
+
 # Install managed-serviceaccount addon on global hub
 # This is required for migration functionality to create ServiceAccounts and collect tokens
 echo -e "${YELLOW}Installing managed-serviceaccount addon on global hub${NC}"
