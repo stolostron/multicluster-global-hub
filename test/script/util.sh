@@ -227,14 +227,6 @@ ensure_cluster() {
 init_hub() {
   echo -e "${CYAN} Init Hub $1 ... $NC"
   clusteradm init --wait --context "$1" >/dev/null 2>&1 # not echo the senetive information
-
-  # Update ClusterManager CRD to support autoApproveUsers field (required for migration tests)
-  # This must be done AFTER clusteradm init, as clusteradm deploys its own CRD version
-  # The autoApproveUsers field was added in OCM API v0.16.0
-  echo -e "${YELLOW}Updating ClusterManager CRD on $1 to support autoApproveUsers${NC}"
-  kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/api/v0.16.0/operator/v1/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml --context "$1" 2>/dev/null || true
-  sleep 2
-
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
