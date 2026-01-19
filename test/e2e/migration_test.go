@@ -617,6 +617,13 @@ func verifyAutoApproveUsersSupport(ctx context.Context, hubClient client.Client)
 		err = hubClient.Update(ctx, clusterManager)
 		Expect(err).NotTo(HaveOccurred(), "Should be able to enable ManagedClusterAutoApproval feature gate")
 		klog.Infof("[DEBUG] Enabled ManagedClusterAutoApproval feature gate")
+
+		// Wait a bit for the ClusterManager to process the feature gate change
+		time.Sleep(5 * time.Second)
+
+		// Re-fetch the ClusterManager after enabling feature gate
+		err = hubClient.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, clusterManager)
+		Expect(err).NotTo(HaveOccurred(), "Should be able to re-fetch ClusterManager")
 	}
 
 	// Test if autoApproveUsers can be set and retrieved
