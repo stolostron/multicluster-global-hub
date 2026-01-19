@@ -440,7 +440,10 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 		return err
 	}
 
-	// In OCM environment, delay 1 minute after all resources are created to allow manual testing
+	// In OCM environment, delay 1 minute after all resources are created to allow manual testing.
+	// This delay is necessary because OCM environments may require additional setup time for
+	// ClusterRole and RBAC resources to be properly propagated before proceeding with migration.
+	// In ACM/MCE environments, these resources are pre-configured, so no delay is needed.
 	if s.isOCMEnvironment(ctx) {
 		log.Infof("OCM environment detected, delaying 1 minute after initializing to allow manual resource mocking")
 		time.Sleep(1 * time.Minute)
@@ -806,7 +809,10 @@ func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Contex
 }
 
 // getBootstrapClusterRoleName dynamically detects the bootstrap ClusterRole name.
-// It first checks for ACM/MCE ClusterRole, then falls back to OCM ClusterRole.
+// It first checks for ACM/MCE ClusterRole (higher priority), then falls back to OCM ClusterRole.
+// ACM/MCE takes priority because it provides agent-registration capabilities in those environments,
+// while OCM environments use the standard bootstrap ClusterRole. This prioritization ensures
+// compatibility with multiple cluster management platforms.
 func (s *MigrationTargetSyncer) getBootstrapClusterRoleName(ctx context.Context) (string, error) {
 	// Try ACM/MCE ClusterRole first
 	cr := &rbacv1.ClusterRole{}
