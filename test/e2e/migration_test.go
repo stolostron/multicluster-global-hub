@@ -606,38 +606,10 @@ func verifyAutoApproveUsersSupport(ctx context.Context, hubClient client.Client)
 		}
 	}
 
-	// Enable the feature gate if not already enabled
-	if !featureGateEnabled {
-		clusterManager.Spec.RegistrationConfiguration.FeatureGates = append(
-			clusterManager.Spec.RegistrationConfiguration.FeatureGates,
-			operatorv1.FeatureGate{
-				Feature: "ManagedClusterAutoApproval",
-				Mode:    operatorv1.FeatureGateModeTypeEnable,
-			},
-		)
-		err = hubClient.Update(ctx, clusterManager)
-		Expect(err).NotTo(HaveOccurred(), "Should be able to enable ManagedClusterAutoApproval feature gate")
-		klog.Infof("[DEBUG] Enabled ManagedClusterAutoApproval feature gate, waiting for it to take effect...")
-
-		// Wait for the feature gate to be processed by ClusterManager controller
-		// Use Eventually to poll until the feature gate is reflected in the status or we can set autoApproveUsers
-		Eventually(func() bool {
-			tempCM := &operatorv1.ClusterManager{}
-			if err := hubClient.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, tempCM); err != nil {
-				return false
-			}
-			// Update our reference to the latest ClusterManager
-			clusterManager = tempCM
-			return true
-		}, 2*time.Minute, 5*time.Second).Should(BeTrue(), "ClusterManager should be retrievable after feature gate update")
-
-		klog.Infof("[DEBUG] ClusterManager is ready after feature gate update")
-	}
-
-	// Test if autoApproveUsers can be set and retrieved
 	testUser := "system:test:migration-verify"
 
-	// Use Eventually to set and verify autoApproveUsers, with retries in case of transient issues
+	// Set both feature gate and autoApproveUsers in the same update operation
+	// This mirrors the actual migration code behavior and avoids webhook/controller timing issues
 	Eventually(func() error {
 		// Get latest ClusterManager
 		cm := &operatorv1.ClusterManager{}
@@ -645,15 +617,42 @@ func verifyAutoApproveUsersSupport(ctx context.Context, hubClient client.Client)
 			return err
 		}
 
-		// Set autoApproveUsers
+		// Ensure RegistrationConfiguration exists
 		if cm.Spec.RegistrationConfiguration == nil {
 			cm.Spec.RegistrationConfiguration = &operatorv1.RegistrationHubConfiguration{}
 		}
+
+		// Enable feature gate if not already enabled
+		if !featureGateEnabled {
+			// Check again in case it was enabled by another process
+			fgEnabled := false
+			for _, fg := range cm.Spec.RegistrationConfiguration.FeatureGates {
+				if fg.Feature == "ManagedClusterAutoApproval" && fg.Mode == operatorv1.FeatureGateModeTypeEnable {
+					fgEnabled = true
+					break
+				}
+			}
+			if !fgEnabled {
+				cm.Spec.RegistrationConfiguration.FeatureGates = append(
+					cm.Spec.RegistrationConfiguration.FeatureGates,
+					operatorv1.FeatureGate{
+						Feature: "ManagedClusterAutoApproval",
+						Mode:    operatorv1.FeatureGateModeTypeEnable,
+					},
+				)
+			}
+			// Mark as enabled for next iterations
+			featureGateEnabled = true
+		}
+
+		// Set autoApproveUsers in the same update
 		cm.Spec.RegistrationConfiguration.AutoApproveUsers = []string{testUser}
 
 		if err := hubClient.Update(ctx, cm); err != nil {
-			return err
+			return fmt.Errorf("failed to update ClusterManager: %w", err)
 		}
+
+		klog.Infof("[DEBUG] Updated ClusterManager with feature gate and autoApproveUsers")
 
 		// Verify the value was saved
 		updatedCM := &operatorv1.ClusterManager{}
@@ -667,7 +666,7 @@ func verifyAutoApproveUsersSupport(ctx context.Context, hubClient client.Client)
 
 		// Check if testUser is in the list
 		if !slices.Contains(updatedCM.Spec.RegistrationConfiguration.AutoApproveUsers, testUser) {
-			return fmt.Errorf("autoApproveUsers does not contain test user")
+			return fmt.Errorf("autoApproveUsers does not contain test user, got: %v", updatedCM.Spec.RegistrationConfiguration.AutoApproveUsers)
 		}
 
 		return nil
