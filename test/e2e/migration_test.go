@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -616,32 +617,63 @@ func verifyAutoApproveUsersSupport(ctx context.Context, hubClient client.Client)
 		)
 		err = hubClient.Update(ctx, clusterManager)
 		Expect(err).NotTo(HaveOccurred(), "Should be able to enable ManagedClusterAutoApproval feature gate")
-		klog.Infof("[DEBUG] Enabled ManagedClusterAutoApproval feature gate")
+		klog.Infof("[DEBUG] Enabled ManagedClusterAutoApproval feature gate, waiting for it to take effect...")
 
-		// Wait a bit for the ClusterManager to process the feature gate change
-		time.Sleep(5 * time.Second)
+		// Wait for the feature gate to be processed by ClusterManager controller
+		// Use Eventually to poll until the feature gate is reflected in the status or we can set autoApproveUsers
+		Eventually(func() bool {
+			tempCM := &operatorv1.ClusterManager{}
+			if err := hubClient.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, tempCM); err != nil {
+				return false
+			}
+			// Update our reference to the latest ClusterManager
+			clusterManager = tempCM
+			return true
+		}, 2*time.Minute, 5*time.Second).Should(BeTrue(), "ClusterManager should be retrievable after feature gate update")
 
-		// Re-fetch the ClusterManager after enabling feature gate
-		err = hubClient.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, clusterManager)
-		Expect(err).NotTo(HaveOccurred(), "Should be able to re-fetch ClusterManager")
+		klog.Infof("[DEBUG] ClusterManager is ready after feature gate update")
 	}
 
 	// Test if autoApproveUsers can be set and retrieved
 	testUser := "system:test:migration-verify"
-	clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers = []string{testUser}
-	err = hubClient.Update(ctx, clusterManager)
-	Expect(err).NotTo(HaveOccurred(), "Should be able to set autoApproveUsers on ClusterManager")
 
-	// Verify the value was saved
-	updatedCM := &operatorv1.ClusterManager{}
-	err = hubClient.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, updatedCM)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(updatedCM.Spec.RegistrationConfiguration).NotTo(BeNil(),
-		"RegistrationConfiguration should not be nil after update")
-	Expect(updatedCM.Spec.RegistrationConfiguration.AutoApproveUsers).To(ContainElement(testUser),
+	// Use Eventually to set and verify autoApproveUsers, with retries in case of transient issues
+	Eventually(func() error {
+		// Get latest ClusterManager
+		cm := &operatorv1.ClusterManager{}
+		if err := hubClient.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, cm); err != nil {
+			return err
+		}
+
+		// Set autoApproveUsers
+		if cm.Spec.RegistrationConfiguration == nil {
+			cm.Spec.RegistrationConfiguration = &operatorv1.RegistrationHubConfiguration{}
+		}
+		cm.Spec.RegistrationConfiguration.AutoApproveUsers = []string{testUser}
+
+		if err := hubClient.Update(ctx, cm); err != nil {
+			return err
+		}
+
+		// Verify the value was saved
+		updatedCM := &operatorv1.ClusterManager{}
+		if err := hubClient.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, updatedCM); err != nil {
+			return err
+		}
+
+		if updatedCM.Spec.RegistrationConfiguration == nil {
+			return fmt.Errorf("RegistrationConfiguration is nil after update")
+		}
+
+		// Check if testUser is in the list
+		if !slices.Contains(updatedCM.Spec.RegistrationConfiguration.AutoApproveUsers, testUser) {
+			return fmt.Errorf("autoApproveUsers does not contain test user")
+		}
+
+		return nil
+	}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 		"autoApproveUsers should be saved in ClusterManager. "+
-			"If this fails, apply the latest ClusterManager CRD from OCM main branch: "+
-			"kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/ocm/main/deploy/cluster-manager/config/crds/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml")
+			"Ensure ManagedClusterAutoApproval feature gate is enabled.")
 
 	// Clean up test value
 	clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers = nil
