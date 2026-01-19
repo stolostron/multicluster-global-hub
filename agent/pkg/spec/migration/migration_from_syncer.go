@@ -205,6 +205,8 @@ func (s *MigrationSourceSyncer) cleaning(ctx context.Context, source *migration.
 	}
 
 	// Remove finalizers from BMC credentials secrets for all clusters
+	// These secrets contain BMC (Baseboard Management Controller) credentials used by Metal3
+	// BareMetalHost resources and must have their finalizers removed to allow proper cleanup
 	log.Infof("removing finalizers from BMC credentials secrets for %d managed clusters", len(source.ManagedClusters))
 	for _, clusterName := range source.ManagedClusters {
 		if err := s.removeBMCSecretFinalizers(ctx, clusterName); err != nil {

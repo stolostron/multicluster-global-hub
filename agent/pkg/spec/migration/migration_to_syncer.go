@@ -1126,7 +1126,7 @@ func (s *MigrationTargetSyncer) removeMigrationResources(ctx context.Context, cl
 
 		// For ZTP resources (ClusterDeployment, BareMetalHost, DataImage),
 		// add pause annotation and remove resource-specific finalizers before deletion
-		if finalizerSuffix := getFinalizerSuffixForKind(objCopy.GetKind()); finalizerSuffix != "" {
+		if finalizerSuffix := getResourceFinalizerSuffix(objCopy.GetKind()); finalizerSuffix != "" {
 			if err := s.addPauseAnnotationBeforeDeletion(ctx, &objCopy); err != nil {
 				log.Errorf("failed to add pause annotation to %s/%s of kind %s: %v",
 					objCopy.GetNamespace(), objCopy.GetName(), objCopy.GetKind(), err)
@@ -1262,10 +1262,10 @@ func (s *MigrationTargetSyncer) SetMigrationID(migrationID string) {
 	s.processingMigrationId = migrationID
 }
 
-// getFinalizerSuffixForKind returns the finalizer suffix for a given resource kind
+// getResourceFinalizerSuffix returns the finalizer suffix for a given resource kind
 // based on ZTPClusterResources definition in common.go
 // Returns empty string if the kind is not a ZTP resource that needs finalizer removal
-func getFinalizerSuffixForKind(kind string) string {
+func getResourceFinalizerSuffix(kind string) string {
 	for _, ztpResource := range ZTPClusterResources {
 		if ztpResource.GVK.Kind == kind {
 			return ztpResource.FinalizerSuffix

@@ -32,15 +32,15 @@ const (
 
 var ztpLog = logger.DefaultZapLogger()
 
-// ZTPClusterResource defines a ZTP cluster resource type with its specific pause annotation and finalizer suffix
-type ZTPClusterResource struct {
+// ZTPResourceConfig contains the GVK, pause annotation and finalizer suffix for a ZTP resource type
+type ZTPResourceConfig struct {
 	GVK             schema.GroupVersionKind
 	PauseAnnotation string
 	FinalizerSuffix string // Finalizers with this suffix will be removed
 }
 
 // ZTPClusterResources defines the specific ZTP cluster resource types that need pause annotation during migration
-var ZTPClusterResources = []ZTPClusterResource{
+var ZTPClusterResources = []ZTPResourceConfig{
 	{
 		GVK: schema.GroupVersionKind{
 			Group:   "hive.openshift.io",
@@ -73,6 +73,7 @@ var ZTPClusterResources = []ZTPClusterResource{
 // AddPauseAnnotations adds pause annotations to resources defined in ZTPClusterResources
 // Each resource type uses its specific pause annotation (e.g., hive.openshift.io/reconcile-pause
 // for ClusterDeployment, baremetalhost.metal3.io/paused for BareMetalHost and DataImage)
+// Iterates through all ZTP resource types to ensure each is properly paused during migration
 func AddPauseAnnotations(ctx context.Context, c client.Client, clusterName string) error {
 	for _, ztpResource := range ZTPClusterResources {
 		resource := &unstructured.Unstructured{}
@@ -115,6 +116,8 @@ func AddPauseAnnotations(ctx context.Context, c client.Client, clusterName strin
 // RemovePauseAnnotations removes pause annotations from resources defined in ZTPClusterResources
 // Each resource type uses its specific pause annotation (e.g., hive.openshift.io/reconcile-pause
 // for ClusterDeployment, baremetalhost.metal3.io/paused for BareMetalHost and DataImage)
+// Iterates through all ZTP resource types to ensure pause annotations are cleaned up in rollback
+// stage when migration failed
 func RemovePauseAnnotations(ctx context.Context, c client.Client, clusterName string) error {
 	for _, ztpResource := range ZTPClusterResources {
 		resource := &unstructured.Unstructured{}

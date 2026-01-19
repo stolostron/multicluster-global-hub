@@ -1636,9 +1636,7 @@ func TestAddPauseAnnotationBeforeDeletion(t *testing.T) {
 
 			if c.expectError {
 				assert.Error(t, err)
-				if c.errorMessage != "" {
-					assert.Contains(t, err.Error(), c.errorMessage)
-				}
+				assert.Contains(t, err.Error(), c.errorMessage)
 			} else {
 				assert.NoError(t, err)
 
