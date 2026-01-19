@@ -46,11 +46,11 @@ func TestAddPauseAnnotations(t *testing.T) {
 			},
 			expectedError: false,
 			expectedValue: map[string]string{
-				PauseAnnotation: "true",
+				HivePauseAnnotation: "true",
 			},
 		},
 		{
-			name:        "Skip adding pause annotation to ImageClusterInstall (not in ZTPClusterResourceGVKs)",
+			name:        "Skip adding pause annotation to ImageClusterInstall (not in ZTPClusterResources)",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -96,7 +96,7 @@ func TestAddPauseAnnotations(t *testing.T) {
 			expectedError: false,
 			expectedValue: map[string]string{
 				"existing-annotation": "value",
-				PauseAnnotation:       "true",
+				HivePauseAnnotation:   "true",
 			},
 		},
 		{
@@ -141,7 +141,7 @@ func TestAddPauseAnnotations(t *testing.T) {
 			},
 			expectedError: false,
 			expectedValue: map[string]string{
-				PauseAnnotation: "true",
+				HivePauseAnnotation: "true",
 			},
 		},
 	}
@@ -157,7 +157,7 @@ func TestAddPauseAnnotations(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 
-				// Verify annotations were added only to resources in ZTPClusterResourceGVKs
+				// Verify annotations were added only to resources in ZTPClusterResources
 				for _, obj := range c.initObjects {
 					u := obj.(*unstructured.Unstructured)
 					resource := &unstructured.Unstructured{}
@@ -167,24 +167,25 @@ func TestAddPauseAnnotations(t *testing.T) {
 					assert.Nil(t, err)
 
 					annotations := resource.GetAnnotations()
-					// Only check expected annotations for resources in ZTPClusterResourceGVKs
-					isInZTPList := false
-					for _, gvk := range ZTPClusterResourceGVKs {
-						if gvk == u.GroupVersionKind() {
-							isInZTPList = true
+					// Only check expected annotations for resources in ZTPClusterResources
+					var matchedResource *ZTPResourceConfig
+					for i := range ZTPClusterResources {
+						if ZTPClusterResources[i].GVK == u.GroupVersionKind() {
+							matchedResource = &ZTPClusterResources[i]
 							break
 						}
 					}
 
-					if isInZTPList && c.expectedValue != nil {
+					if matchedResource != nil && c.expectedValue != nil {
 						for key, expectedVal := range c.expectedValue {
 							assert.Equal(t, expectedVal, annotations[key])
 						}
-					} else if !isInZTPList && c.expectedValue != nil {
-						// For resources not in ZTPClusterResourceGVKs, annotation should not be added
+					} else if matchedResource == nil && c.expectedValue != nil {
+						// For resources not in ZTPClusterResources, annotation should not be added
 						if annotations != nil {
-							_, hasKey := annotations[PauseAnnotation]
-							assert.False(t, hasKey, "Annotation should not be added to %s", u.GetKind())
+							_, hasHiveKey := annotations[HivePauseAnnotation]
+							_, hasMetal3Key := annotations[Metal3PauseAnnotation]
+							assert.False(t, hasHiveKey || hasMetal3Key, "Annotation should not be added to %s", u.GetKind())
 						}
 					}
 				}
@@ -216,7 +217,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 							"name":      "cluster1",
 							"namespace": "cluster1",
 							"annotations": map[string]interface{}{
-								PauseAnnotation: "true",
+								HivePauseAnnotation: "true",
 							},
 						},
 						"spec": map[string]interface{}{
@@ -229,7 +230,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 			shouldHaveKey: false,
 		},
 		{
-			name:        "Skip removal of pause annotation from ImageClusterInstall (not in ZTPClusterResourceGVKs)",
+			name:        "Skip removal of pause annotation from ImageClusterInstall (not in ZTPResourceConfigGVKs)",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -240,7 +241,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 							"name":      "cluster1",
 							"namespace": "cluster1",
 							"annotations": map[string]interface{}{
-								PauseAnnotation: "true",
+								HivePauseAnnotation: "true",
 							},
 						},
 						"spec": map[string]interface{}{
@@ -266,7 +267,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 							"name":      "cluster1",
 							"namespace": "cluster1",
 							"annotations": map[string]interface{}{
-								PauseAnnotation:      "true",
+								HivePauseAnnotation:  "true",
 								"other-annotation":   "value",
 								"another-annotation": "value2",
 							},
@@ -319,7 +320,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 							"name":      "cluster1",
 							"namespace": "cluster1",
 							"annotations": map[string]interface{}{
-								PauseAnnotation: "true",
+								HivePauseAnnotation: "true",
 							},
 						},
 						"spec": map[string]interface{}{
@@ -335,7 +336,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 							"name":      "cluster1",
 							"namespace": "cluster1",
 							"annotations": map[string]interface{}{
-								PauseAnnotation: "true",
+								HivePauseAnnotation: "true",
 							},
 						},
 						"spec": map[string]interface{}{
@@ -347,7 +348,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 				},
 			},
 			expectedError: false,
-			shouldHaveKey: false, // Will be checked per-resource based on ZTPClusterResourceGVKs
+			shouldHaveKey: false, // Will be checked per-resource based on ZTPResourceConfigGVKs
 		},
 	}
 
@@ -362,7 +363,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 
-				// Verify annotations were removed only from resources in ZTPClusterResourceGVKs
+				// Verify annotations were removed only from resources in ZTPClusterResources
 				for _, obj := range c.initObjects {
 					u := obj.(*unstructured.Unstructured)
 					resource := &unstructured.Unstructured{}
@@ -371,28 +372,30 @@ func TestRemovePauseAnnotations(t *testing.T) {
 					err := fakeClient.Get(ctx, client.ObjectKeyFromObject(u), resource)
 					assert.Nil(t, err)
 
-					// Check if resource is in ZTPClusterResourceGVKs
-					isInZTPList := false
-					for _, gvk := range ZTPClusterResourceGVKs {
-						if gvk == u.GroupVersionKind() {
-							isInZTPList = true
+					// Check if resource is in ZTPClusterResources and get its pause annotation
+					var matchedResource *ZTPResourceConfig
+					for i := range ZTPClusterResources {
+						if ZTPClusterResources[i].GVK == u.GroupVersionKind() {
+							matchedResource = &ZTPClusterResources[i]
 							break
 						}
 					}
 
 					annotations := resource.GetAnnotations()
 					if annotations != nil {
-						_, hasKey := annotations[PauseAnnotation]
-						if isInZTPList {
-							// For resources in ZTPClusterResourceGVKs, annotation should be removed
+						if matchedResource != nil {
+							// For resources in ZTPClusterResources, check the specific pause annotation
+							_, hasKey := annotations[matchedResource.PauseAnnotation]
+							// For resources in ZTPClusterResources, annotation should be removed
 							assert.Equal(t, c.shouldHaveKey, hasKey)
 						} else {
-							// For resources not in ZTPClusterResourceGVKs, annotation should remain
+							// For resources not in ZTPClusterResources, annotation should remain
 							// Check original object to see if it had the annotation
 							origAnnotations := obj.(*unstructured.Unstructured).GetAnnotations()
 							if origAnnotations != nil {
-								_, origHasKey := origAnnotations[PauseAnnotation]
-								assert.Equal(t, origHasKey, hasKey, "Annotation state should not change for %s", u.GetKind())
+								_, origHasHive := origAnnotations[HivePauseAnnotation]
+								_, hasHive := annotations[HivePauseAnnotation]
+								assert.Equal(t, origHasHive, hasHive, "Hive annotation state should not change for %s", u.GetKind())
 							}
 						}
 					}
@@ -436,7 +439,7 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 			expectedFinalizers: []string{"other-finalizer"},
 		},
 		{
-			name:        "Skip removal of /deprovision finalizers from ImageClusterInstall (not in ZTPClusterResourceGVKs)",
+			name:        "Skip removal of /deprovision finalizers from ImageClusterInstall (not in ZTPResourceConfigGVKs)",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -544,7 +547,7 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 				},
 			},
 			expectedError:      false,
-			expectedFinalizers: nil, // Will be checked per-resource based on ZTPClusterResourceGVKs
+			expectedFinalizers: nil, // Will be checked per-resource based on ZTPResourceConfigGVKs
 		},
 	}
 
@@ -559,7 +562,7 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 
-				// Verify only /deprovision finalizers were removed from resources in ZTPClusterResourceGVKs
+				// Verify only /deprovision finalizers were removed from resources in ZTPClusterResources
 				for _, obj := range c.initObjects {
 					u := obj.(*unstructured.Unstructured)
 					resource := &unstructured.Unstructured{}
@@ -568,11 +571,11 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 					err := fakeClient.Get(ctx, client.ObjectKeyFromObject(u), resource)
 					assert.Nil(t, err)
 
-					// Check if resource is in ZTPClusterResourceGVKs
-					isInZTPList := false
-					for _, gvk := range ZTPClusterResourceGVKs {
-						if gvk == u.GroupVersionKind() {
-							isInZTPList = true
+					// Check if resource is in ZTPClusterResources
+					var matchedResource *ZTPResourceConfig
+					for i := range ZTPClusterResources {
+						if ZTPClusterResources[i].GVK == u.GroupVersionKind() {
+							matchedResource = &ZTPClusterResources[i]
 							break
 						}
 					}
@@ -584,14 +587,14 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 							assert.Equal(t, c.expectedFinalizers, finalizers)
 						}
 					} else {
-						// For test cases with multiple resources, check based on ZTPClusterResourceGVKs
-						if isInZTPList {
-							// For resources in ZTPClusterResourceGVKs, /deprovision finalizers should be removed
+						// For test cases with multiple resources, check based on ZTPClusterResources
+						if matchedResource != nil {
+							// For resources in ZTPClusterResources, /deprovision finalizers should be removed
 							for _, f := range finalizers {
-								assert.NotContains(t, f, "/deprovision", "Resource in ZTPClusterResourceGVKs should not have /deprovision finalizer")
+								assert.NotContains(t, f, "/deprovision", "Resource in ZTPClusterResources should not have /deprovision finalizer")
 							}
 						} else {
-							// For resources not in ZTPClusterResourceGVKs, finalizers should remain unchanged
+							// For resources not in ZTPClusterResources, finalizers should remain unchanged
 							origFinalizers := obj.(*unstructured.Unstructured).GetFinalizers()
 							assert.Equal(t, origFinalizers, finalizers, "Finalizers should not change for %s", u.GetKind())
 						}
@@ -708,29 +711,56 @@ func TestRemoveDeprovisionFinalizersHelper(t *testing.T) {
 	}
 }
 
-func TestZTPClusterResourceGVKs(t *testing.T) {
-	// Verify that ZTPClusterResourceGVKs contains expected GVKs
-	// Note: ImageClusterInstall was removed from this list
-	expectedGVKs := []schema.GroupVersionKind{
+func TestZTPClusterResources(t *testing.T) {
+	// Verify that ZTPClusterResources contains expected resources
+	// This test validates the number of configured ZTP resources and their properties
+	// to ensure all necessary resource types (ClusterDeployment, BareMetalHost, DataImage)
+	// are properly configured with their pause annotations and finalizer suffixes
+	expectedResources := []ZTPResourceConfig{
 		{
-			Group:   "hive.openshift.io",
-			Version: "v1",
-			Kind:    "ClusterDeployment",
+			GVK: schema.GroupVersionKind{
+				Group:   "hive.openshift.io",
+				Version: "v1",
+				Kind:    "ClusterDeployment",
+			},
+			PauseAnnotation: HivePauseAnnotation,
+			FinalizerSuffix: "/deprovision",
+		},
+		{
+			GVK: schema.GroupVersionKind{
+				Group:   "metal3.io",
+				Version: "v1alpha1",
+				Kind:    "BareMetalHost",
+			},
+			PauseAnnotation: Metal3PauseAnnotation,
+			FinalizerSuffix: ".metal3.io",
+		},
+		{
+			GVK: schema.GroupVersionKind{
+				Group:   "metal3.io",
+				Version: "v1alpha1",
+				Kind:    "DataImage",
+			},
+			PauseAnnotation: Metal3PauseAnnotation,
+			FinalizerSuffix: ".metal3.io",
 		},
 	}
 
-	assert.Equal(t, len(expectedGVKs), len(ZTPClusterResourceGVKs), "ZTPClusterResourceGVKs should contain expected number of GVKs")
+	assert.Equal(t, len(expectedResources), len(ZTPClusterResources), "ZTPClusterResources should contain expected number of resources")
 
-	for i, expected := range expectedGVKs {
-		assert.Equal(t, expected.Group, ZTPClusterResourceGVKs[i].Group)
-		assert.Equal(t, expected.Version, ZTPClusterResourceGVKs[i].Version)
-		assert.Equal(t, expected.Kind, ZTPClusterResourceGVKs[i].Kind)
+	for i, expected := range expectedResources {
+		assert.Equal(t, expected.GVK.Group, ZTPClusterResources[i].GVK.Group)
+		assert.Equal(t, expected.GVK.Version, ZTPClusterResources[i].GVK.Version)
+		assert.Equal(t, expected.GVK.Kind, ZTPClusterResources[i].GVK.Kind)
+		assert.Equal(t, expected.PauseAnnotation, ZTPClusterResources[i].PauseAnnotation)
+		assert.Equal(t, expected.FinalizerSuffix, ZTPClusterResources[i].FinalizerSuffix)
 	}
 }
 
-func TestPauseAnnotation(t *testing.T) {
-	// Verify the pause annotation constant
-	assert.Equal(t, "hive.openshift.io/reconcile-pause", PauseAnnotation)
+func TestPauseAnnotations(t *testing.T) {
+	// Verify the pause annotation constants
+	assert.Equal(t, "hive.openshift.io/reconcile-pause", HivePauseAnnotation)
+	assert.Equal(t, "baremetalhost.metal3.io/paused", Metal3PauseAnnotation)
 }
 
 func TestFilterByLabelKey(t *testing.T) {
