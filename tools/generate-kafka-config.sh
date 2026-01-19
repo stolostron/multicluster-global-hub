@@ -76,7 +76,12 @@ metadata:
   namespace: $global_hub_namespace
 spec:
   config:
-    cleanup.policy: compact
+    # Retention policy: delete messages when EITHER condition is met
+    # - retention.ms: 24 hours (86400000 ms)
+    # - retention.bytes: 1GB per partition (1073741824 bytes)
+    cleanup.policy: compact,delete
+    retention.ms: "86400000"
+    retention.bytes: "1073741824"
   partitions: 1
   replicas: 3
 EOF
