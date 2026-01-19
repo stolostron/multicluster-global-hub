@@ -229,7 +229,9 @@ func (m *ClusterMigrationController) handleErrorList(
 		return
 	}
 	for _, errMsg := range errList {
-		m.EventRecorder.Eventf(mcm, corev1.EventTypeWarning, "ValidationFailed", errMsg)
+		m.EventRecorder.Eventf(mcm, corev1.EventTypeWarning,
+			fmt.Sprintf("%vFailed", phase),
+			errMsg)
 	}
 }
 
