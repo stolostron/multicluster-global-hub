@@ -54,6 +54,8 @@ func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
 	_ = kafkaConfigMap.SetKey("message.max.bytes", MaxSizeToSend)
 	_ = kafkaConfigMap.SetKey("acks", "1")
 	_ = kafkaConfigMap.SetKey("retries", "1")
+	// Enable snappy compression to reduce message size in broker memory (page cache)
+	_ = kafkaConfigMap.SetKey("compression.type", "snappy")
 }
 
 func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string, topicMetadataRefreshInterval int) {

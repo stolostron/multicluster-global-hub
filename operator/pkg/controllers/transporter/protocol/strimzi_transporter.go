@@ -16,6 +16,7 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
@@ -767,6 +768,22 @@ func (k *strimziTransporter) getKafkaResources(
 	mgh *operatorv1alpha4.MulticlusterGlobalHub,
 ) *kafkav1beta2.KafkaSpecKafkaResources {
 	kafkaRes := operatorutils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedSpec)
+
+	// If no custom resources specified, set defaults to prevent unbounded memory usage
+	// 3Gi limit accounts for 2Gi JVM heap + 1Gi for page cache/overhead
+	if kafkaRes == nil {
+		kafkaRes = &corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("3Gi"),
+				corev1.ResourceCPU:    resource.MustParse("1000m"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+			},
+		}
+	}
+
 	kafkaSpecRes := &kafkav1beta2.KafkaSpecKafkaResources{}
 	jsonData, err := json.Marshal(kafkaRes)
 	if err != nil {
@@ -818,7 +835,9 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 "min.insync.replicas": 1,
 "offsets.topic.replication.factor": 1,
 "transaction.state.log.min.isr": 1,
-"transaction.state.log.replication.factor": 1
+"transaction.state.log.replication.factor": 1,
+"log.segment.bytes": "268435456",
+"log.segment.ms": "3600000"
 }`
 	} else {
 		config = `{
@@ -826,7 +845,9 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 "min.insync.replicas": 2,
 "offsets.topic.replication.factor": 3,
 "transaction.state.log.min.isr": 2,
-"transaction.state.log.replication.factor": 3
+"transaction.state.log.replication.factor": 3,
+"log.segment.bytes": "268435456",
+"log.segment.ms": "3600000"
 }`
 	}
 
@@ -863,6 +884,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 	k.setTolerations(mgh, kafkaCluster)
 	k.setMetricsConfig(mgh, kafkaCluster)
 	k.setImagePullSecret(mgh, kafkaCluster)
+	k.setJvmOptions(mgh, kafkaCluster)
 
 	return kafkaCluster
 }
@@ -1043,6 +1065,22 @@ func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.Multiclust
 			return
 		}
 		kafkaCluster.Spec = updatedKafkaSpec
+	}
+}
+
+// setJvmOptions sets the JVM heap limits for Kafka brokers to prevent unbounded memory growth
+func (k *strimziTransporter) setJvmOptions(
+	mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	kafkaCluster *kafkav1beta2.Kafka,
+) {
+	// Set conservative heap limits: 512MB initial, 2GB max
+	// This prevents OOM while allowing enough memory for typical workloads
+	xms := "-Xms512M"
+	xmx := "-Xmx2048M"
+
+	kafkaCluster.Spec.Kafka.JvmOptions = &kafkav1beta2.KafkaSpecKafkaJvmOptions{
+		Xms: &xms,
+		Xmx: &xmx,
 	}
 }
 
