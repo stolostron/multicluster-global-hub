@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -22,17 +21,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/hubmanagement"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
-	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status"
-	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -46,8 +41,6 @@ import (
 const (
 	metricsHost                = "0.0.0.0"
 	metricsPort          int32 = 8384
-	webhookPort                = 9443
-	webhookCertDir             = "/webhook-certs"
 	leaderElectionLockID       = "multicluster-global-hub-manager-lock"
 	launchJobNamesEnv          = "LAUNCH_JOB_NAMES"
 	namespacePath              = "metadata.namespace"
@@ -57,7 +50,6 @@ var (
 	managerNamespace      = constants.GHDefaultNamespace
 	enableSimulation      = false
 	errFlagParameterEmpty = errors.New("flag parameter empty")
-	log                   = logger.DefaultZapLogger()
 )
 
 func parseFlags() *configs.ManagerConfig {
@@ -67,10 +59,9 @@ func parseFlags() *configs.ManagerConfig {
 		TransportConfig: &transport.TransportInternalConfig{
 			EnableDatabaseOffset: true,
 		},
-		StatisticsConfig:    &statistics.StatisticsConfig{},
-		RestAPIServerConfig: &restapis.RestApiServerConfig{},
-		ElectionConfig:      &commonobjects.LeaderElectionConfig{},
-		LaunchJobNames:      "",
+		StatisticsConfig: &statistics.StatisticsConfig{},
+		ElectionConfig:   &commonobjects.LeaderElectionConfig{},
+		LaunchJobNames:   "",
 	}
 
 	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", constants.GHDefaultNamespace,
@@ -98,19 +89,11 @@ func parseFlags() *configs.ManagerConfig {
 		"The path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "10m",
 		"The log interval for statistics.")
-	pflag.StringVar(&managerConfig.RestAPIServerConfig.ClusterAPIURL, "cluster-api-url",
-		"https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")
-	pflag.StringVar(&managerConfig.RestAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path",
-		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
-	pflag.StringVar(&managerConfig.RestAPIServerConfig.ServerBasePath, "server-base-path",
-		"/global-hub-api/v1", "The base path for nonK8s API server.")
 	pflag.IntVar(&managerConfig.ElectionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
 	pflag.IntVar(&managerConfig.ElectionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
 	pflag.IntVar(&managerConfig.ElectionConfig.RetryPeriod, "retry-period", 26, "controller leader retry period")
 	pflag.IntVar(&managerConfig.DatabaseConfig.DataRetention, "data-retention", 18,
 		"data retention indicates how many months the expired data will kept in the database")
-	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
-		"enable the global resource feature")
 	pflag.BoolVar(&managerConfig.WithACM, "with-acm", false,
 		"run on Red Hat Advanced Cluster Management")
 	pflag.BoolVar(&managerConfig.EnableInventoryAPI, "enable-inventory-api", false,
@@ -164,20 +147,6 @@ func createManager(ctx context.Context,
 		NewCache:                initCache,
 	}
 
-	if managerConfig.EnableGlobalResource {
-		options.WebhookServer = &webhook.DefaultServer{
-			Options: webhook.Options{
-				Port:    webhookPort,
-				CertDir: webhookCertDir,
-				TLSOpts: []func(*tls.Config){
-					func(config *tls.Config) {
-						config.MinVersion = tls.VersionTLS13
-					},
-				},
-			},
-		}
-	}
-
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
 	// Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
 	// Also note that you may face performance issues when using this with a high number of namespaces.
@@ -225,11 +194,6 @@ func createManager(ctx context.Context,
 	if err := backupPVC.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
-	if managerConfig.EnableGlobalResource {
-		if err := restapis.AddRestApiServer(mgr, managerConfig.RestAPIServerConfig); err != nil {
-			return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
-		}
-	}
 	return mgr, nil
 }
 
@@ -241,11 +205,6 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 		producer := transportClient.GetProducer()
 		consumer := transportClient.GetConsumer()
 		requester := transportClient.GetRequester()
-		if managerConfig.EnableGlobalResource {
-			if err := specsyncer.AddToManager(mgr, managerConfig, producer); err != nil {
-				return fmt.Errorf("failed to add global resource spec syncers: %w", err)
-			}
-		}
 
 		if consumer == nil {
 			return fmt.Errorf("consumer is not initialized")
@@ -307,14 +266,6 @@ func doMain(ctx context.Context, restConfig *rest.Config) error {
 	mgr, err := createManager(ctx, restConfig, managerConfig, sqlConn)
 	if err != nil {
 		return fmt.Errorf("failed to create manager %w", err)
-	}
-
-	if managerConfig.EnableGlobalResource {
-		hookServer := mgr.GetWebhookServer()
-		log.Info("registering webhooks to the webhook server")
-		hookServer.Register("/mutating", &webhook.Admission{
-			Handler: mgrwebhook.NewAdmissionHandler(mgr.GetScheme()),
-		})
 	}
 
 	if err := mgr.Start(ctx); err != nil {

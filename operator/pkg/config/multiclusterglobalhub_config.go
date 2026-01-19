@@ -245,16 +245,6 @@ func GetSchedulerInterval(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
 }
 
-// SkipAuth returns true to skip authenticate for non-k8s api
-func SkipAuth(mgh *v1alpha4.MulticlusterGlobalHub) bool {
-	toSkipAuth := getAnnotation(mgh, operatorconstants.AnnotationMGHSkipAuth)
-	if toSkipAuth != "" && strings.EqualFold(toSkipAuth, "true") {
-		return true
-	}
-
-	return false
-}
-
 func GetInstallCrunchyOperator(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	toInstallCrunchyOperator := getAnnotation(mgh, operatorconstants.AnnotationMGHInstallCrunchyOperator)
 	if toInstallCrunchyOperator != "" && strings.EqualFold(toInstallCrunchyOperator, "true") {
