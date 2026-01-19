@@ -2,26 +2,33 @@
 
 ## 1. Background
 
-GlobalHub provides a `Migration` feature that enables migrating a batch of `ManagedClusters` from one ACM Hub cluster (Hub1) to another (Hub2). This test plan is designed to evaluate the performance and scalability of this feature at various scales (50, 100, 200 clusters).
+GlobalHub provides a `Migration` feature that enables migrating a batch of `ManagedClusters` from one ACM Hub cluster (Hub1) to another (Hub2). This test validates the performance and scalability of the migration feature with 300 clusters managed by ZTP (Zero Touch Provisioning) with ClusterInstance and GitOps.
 
 This is the [migration doc](./global_hub_cluster_migration.md), you can see more details about migration.
 
 In this doc, the migration follows the [recommended approach](./global_hub_cluster_migration.md#-recommended-way-to-migrate-brownfield--hosted-mode) to test the performance
 
-- **Source Hub (Hub1)**: ACM version **2.13**
-- **Target Hub (Hub2)**: ACM version **2.15**
-- **Test Strategy**: Three rounds of testing are planned:
-  - **Round 1**: Functional verification, identify and fix performance issues.
-  - **Round 2**: Re-test with fixes to evaluate performance improvements.
-  - **Round 3**: Full-scale test before the ACM 2.15 GA release.
+**Test Scenarios:**
+- **Same Version Migration**: ACM **2.15** → ACM **2.15**
+- **Cross Version Migration**: ACM **2.13** → ACM **2.15**
+- **Test Focus**: ZTP + ClusterInstance + GitOps migration with policy compliance validation
+
+### 1.1 Migration Architecture
+
+The following diagram illustrates the GlobalHub migration architecture:
+
+![Migration Architecture](../images/migration-arch.png)
+
+The migration process involves coordinated operations between the source hub (Hub1), target hub (Hub2), and the GlobalHub manager to ensure seamless cluster migration with minimal disruption.
 
 ---
 
 ## 2. Objectives
 
-- Validate the functionality and stability of the GlobalHub migration process at different cluster scales.
-- Quantitatively measure key performance metrics: total migration time, per-cluster duration, CPU and memory usage, and success rate.
-- Identify bottlenecks and areas for future optimization.
+- Validate the functionality and stability of the GlobalHub migration process for 300 ZTP-managed clusters.
+- Measure key performance metrics: total migration time, post-migration convergence time for policies and ClusterInstance resources.
+- Validate GitOps application continuity after migration.
+- Verify cross-version migration compatibility (ACM 2.13 → 2.15) and same-version migration (ACM 2.15 → 2.15).
 
 ---
 
@@ -32,9 +39,10 @@ In this doc, the migration follows the [recommended approach](./global_hub_clust
 | Item             | Description                                  |
 |------------------|----------------------------------------------|
 | Migration Type   | Batch migration from Hub1 to Hub2            |
-| Execution Model  | **Completed**: 100 clusters (6 rounds), 200 clusters (2 rounds), 300 clusters (2 rounds) |
-| Key Metrics      | Total time, per-cluster average time, success rate, phase breakdown |
-| Test Tools       | Migration CR status tracking, timestamp analysis |
+| Execution Model  | **Completed**: 300 clusters (same-version and cross-version migrations) |
+| Test Scenarios   | ACM 2.15 → 2.15, ACM 2.13 → 2.15            |
+| Key Metrics      | Total migration time, policy convergence time, ClusterInstance convergence time, success rate |
+| Test Tools       | Migration CR status tracking, policy compliance monitoring, ClusterInstance status tracking |
 
 ---
 
@@ -47,8 +55,7 @@ In this doc, the migration follows the [recommended approach](./global_hub_clust
 #### ACM Hub Cluster: Hub1 (Source Hub)
 - **Status**: ✅ **DEPLOYED** - Production hub with 300 managed clusters
 - **Infrastructure**: 3 bare metal machines
-- **ACM Version**: 2.14.0 (default configuration)
-- **GlobalHub Version**: [Globalhub 1.6 daily build](https://github.com/stolostron/multicluster-global-hub-operator-catalog) installed with default config
+- **ACM Version**: 2.13 and 2.15 (tested both versions)
 - **Node Configuration (3 nodes)**:
   - **CPU**: 112 cores per node
   - **Memory**: 500 GB per node
@@ -60,15 +67,16 @@ In this doc, the migration follows the [recommended approach](./global_hub_clust
 #### ACM Hub Cluster: Hub2 (Target Hub)
 - **Status**: ✅ **DEPLOYED** - Target hub for migration testing
 - **Infrastructure**: 3 virtual machines (hardware limitations)
-- **ACM Version**: 2.14.0 (default configuration)
+- **ACM Version**: 2.15 (default configuration)
+- **GlobalHub Version**: [Globalhub 1.7 daily build](https://github.com/stolostron/multicluster-global-hub-operator-catalog) installed with default config
 - **Node Configuration (3 nodes)**:
   - **CPU**: 30 cores per node
-  - **Memory**: 360 GB per node
-  - **Storage**: 128 GB per node
-- **Role**: Target hub for migration testing
+  - **Memory**: 128 GB per node
+  - **Storage**: 360 GB per node
+- **Role**: Target hub for migration testing (with GlobalHub installed)
 
-#### Managed Clusters (vm00001 → vm00297)
-- **Total Clusters**: 297 managed clusters (vm00001 to vm00297)
+#### Managed Clusters (vm00001 → vm00300)
+- **Total Clusters**: 300 managed clusters (vm00001 to vm00300)
 - **Cluster Type**: Single Node OpenShift (SNO) clusters
 - **Node Configuration (per cluster)**:
   - **CPU**: 8 cores
@@ -76,53 +84,53 @@ In this doc, the migration follows the [recommended approach](./global_hub_clust
   - **Storage**: 48 GB
 - **Deployment Method**: Zero-touch Provisioning (ZTP) with GitOps automation
 - **Current State**: Imported and managed by Hub1
-- **Test Coverage**: Up to 300 clusters tested in migration scenarios
+- **Test Coverage**: 300 clusters tested in migration scenarios
 
 #### GitOps Application Management
 - **OpenShift GitOps Applications**:
-  - **ztp-clusters-01**: Manages ~100 SNO clusters (vm00001-vm00100)
-  - **ztp-clusters-02**: Manages ~100 SNO clusters (vm00101-vm00200) 
-  - **ztp-clusters-03**: Manages ~97 SNO clusters (vm00201-vm00297)
+  - **ztp-clusters-01**: Manages 300 SNO clusters (vm00001-vm00300)
 - **Automation**: GitOps applications handle cluster deployment, configuration, and management
 - **Network**: All clusters have connectivity to both Hub1 and Hub2
 
-Reference: 
-[ACM Performance and Scalability Guide](https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.13/html/install/installing#performance-and-scalability)
-[Globalhub Installation doc](https://github.com/stolostron/multicluster-global-hub-operator-catalog)
+**References:**
+- [ACM Performance and Scalability Guide](https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.13/html/install/installing#performance-and-scalability)
+- [Globalhub Installation doc](https://github.com/stolostron/multicluster-global-hub-operator-catalog)
+
 ---
 
-## 5. Test Execution Plan (Do test by Globalhub team)
+## 5. Test Execution Plan
 
-### 5.1 Test Scenarios - **COMPLETED**
+### 5.1 Test Scenario - **COMPLETED**
 
-Migration performance tests completed at different scales:
+Migration performance test completed for 300 ZTP-managed clusters:
 
-| Scenario     | Cluster Count | Completed Migrations | Results |
-|--------------|---------------|---------------------|---------|
-| Scenario 1   | 100 clusters  | 6 rounds (3 forward + 3 backward) | ✅ 100% success |
-| Scenario 2   | 200 clusters  | 2 rounds (1 forward + 1 backward) | ✅ 100% success |
-| Scenario 3   | 300 clusters  | 2 rounds (1 forward + 1 backward) | ✅ 100% success |
+| Scenario     | ACM Version | Cluster Count | Completed Migrations | Results |
+|--------------|-------------|---------------|---------------------|---------|
+| Same Version Migration | 2.15 → 2.15 | 300 clusters  | 1 forward migration | ✅ 100% success |
+| Cross Version Migration | 2.13 → 2.15 | 300 clusters  | 1 forward migration | ✅ 100% success |
 
 > **Captured metrics:**
 > - ✅ Migration time and phase breakdown
-> - ✅ Success rate (100% across all scenarios)
-> - ✅ Per-cluster performance analysis
+> - ✅ Post-migration policy convergence time (<2 minutes)
+> - ✅ Post-migration ClusterInstance convergence time (<2 minutes)
+> - ✅ GitOps application continuity validation
+> - ✅ Cross-version compatibility validation
 
 ---
 
-## 6. Migration and Placement Configuration Examples
+## 6. Migration and Placement Configuration
 
 ### 6.1 Placement Configuration
 
-The migration tests use Placement resources to select target clusters for migration. Here's the placement configuration used for the 100-cluster test:
+The migration test uses a Placement resource to select the 300 target clusters for migration:
 
 ```yaml
 apiVersion: cluster.open-cluster-management.io/v1beta1
 kind: Placement
 metadata:
-  name: migration-100
+  name: migration-300
 spec:
-  numberOfClusters: 100
+  numberOfClusters: 300
   clusterSets:
   - global
   tolerations:
@@ -143,211 +151,205 @@ spec:
 ```
 
 **Key Configuration Details:**
-- **numberOfClusters**: Limits selection to specified number of clusters
+- **numberOfClusters**: Selects 300 clusters
 - **clusterSets**: Uses the 'global' clusterset
 - **tolerations**: Allows migration of unreachable/unavailable clusters
 - **predicates**: Excludes local-cluster and global-hub deployment clusters
 
-### 6.2 Migration CR Examples
+### 6.2 Migration CR Configuration
 
-#### 100 Cluster Migration (Forward)
+The 300-cluster migration uses the following configuration:
+
 ```yaml
 apiVersion: global-hub.open-cluster-management.io/v1alpha1
 kind: ManagedClusterMigration
 metadata:
-  name: migrate-100-cluster-round-1
-  namespace: multicluster-global-hub
-spec:
-  from: local-cluster
-  includedManagedClustersPlacementRef: migration-100
-  supportedConfigs:
-    stageTimeout: 1h0m0s
-  to: mh1
-```
-
-#### 200 Cluster Migration (Forward)
-```yaml
-apiVersion: global-hub.open-cluster-management.io/v1alpha1
-kind: ManagedClusterMigration
-metadata:
-  name: migrate-200-cluster-round-1
-  namespace: multicluster-global-hub
-spec:
-  from: local-cluster
-  includedManagedClustersPlacementRef: migration-200
-  to: hub2
-```
-
-#### 300 Cluster Migration (Forward)
-```yaml
-apiVersion: global-hub.open-cluster-management.io/v1alpha1
-kind: ManagedClusterMigration
-metadata:
-  name: migrate-300-cluster-round-1
+  name: migrate-300-cluster
   namespace: multicluster-global-hub
 spec:
   from: local-cluster
   includedManagedClustersPlacementRef: migration-300
   supportedConfigs:
-    stageTimeout: 10m0s
+    stageTimeout: 10m
   to: hub2
-```
-
-#### Backward Migration Example (300 → local-cluster)
-```yaml
-apiVersion: global-hub.open-cluster-management.io/v1alpha1
-kind: ManagedClusterMigration
-metadata:
-  name: migrate-300-cluster-round-1-bk
-  namespace: multicluster-global-hub
-spec:
-  from: hub2
-  includedManagedClustersPlacementRef: migration-300
-  supportedConfigs:
-    stageTimeout: 10m0s
-  to: local-cluster
 ```
 
 **Migration CR Configuration Notes:**
 - **includedManagedClustersPlacementRef**: References the Placement resource for cluster selection
-- **supportedConfigs.stageTimeout**: Configures timeout for each migration stage (10m default, 1h for 100-cluster tests)
-- **from/to**: Specifies source and target hub clusters
-- **namespace**: All migrations run in the `multicluster-global-hub` namespace
+- **supportedConfigs.stageTimeout**: Configures timeout for each migration stage (10 minutes)
+- **from/to**: Specifies source (local-cluster) and target (hub2) hub clusters
+- **namespace**: Migration runs in the `multicluster-global-hub` namespace
 
-## 7. Test Results and Metrics
-More details about migration resource usage and migration CR can be see [here](https://drive.google.com/drive/folders/1XGLJ0XoaQw6nSgJn48pvgDQEV5vIEHf3?usp=drive_link)
+## 7. ZTP + ClusterInstance + GitOps Performance Test
 
-### 6.1 Test Summary
+### 7.1 Test Overview
 
-Based on the migration result files, we have conducted extensive testing with the following scenarios:
+A dedicated performance test was conducted to validate the migration of 300 clusters managed by ZTP (Zero Touch Provisioning) with ClusterInstance and GitOps, along with their associated policies.
 
-| Scenario | Cluster Count | Migration Rounds Completed | Success Rate |
-|----------|---------------|----------------------------|--------------|
-| 100 clusters | 100 | 3 forward + 3 backward = 6 total | 100% |
-| 200 clusters | 200 | 1 forward + 1 backward = 2 total | 100%* |
-| 300 clusters | 300 | 1 forward + 1 backward = 2 total | 100% |
+**Test Configuration:**
+- **Test Procedure**: Followed [global_hub_cluster_migration.md](global_hub_cluster_migration.md)
+- **Cluster Count**: 300 SNO clusters
+- **GitOps Application**: `ztp-clusters-01` managing 300 clusters
+- **Policies**: 6 policies from [cnf-features-deploy policygentemplates](https://github.com/openshift-kni/cnf-features-deploy/tree/release-4.19/ztp/gitops-subscriptions/argocd/example/policygentemplates)
+  - All policies enabled
+  - All managed clusters selected
 
-*Note: 200 cluster migrations completed successfully but experienced cleanup timeout issues.
+### 7.2 Post-Migration Convergence Results
 
-### 6.2 Scenario 1: 100 Cluster Migration Performance Results
+After the migration completed successfully, the following convergence times were observed on the target hub:
 
-#### Migration Time Metrics
+| Resource Type | Convergence Time (2.15→2.15) | Convergence Time (2.13→2.15) | Final State | Details |
+|---------------|------------------------------|------------------------------|-------------|---------|
+| **Policies** | **~2 minutes** | **<2 minutes** | All Compliant | All 6 ZTP policies reached compliant state across all 300 clusters |
+| **ClusterInstance** | **~2 minutes** | **<2 minutes** | All Completed | All 300 ClusterInstance resources transitioned to Completed state |
+| **GitOps Application** | N/A | N/A | Active | `ztp-clusters-01` successfully managing 300 clusters on target hub |
 
-| Round | Direction | Total Time (min:sec) | Success Rate (%) | Notes |
-|-------|-----------|---------------------|------------------|-------|
-| Round 1 | Forward (local-cluster → mh1) | 2:35 | 100% | Full completion |
-| Round 2 | Forward (local-cluster → mh1) | 4:40 | 100% | Full completion |
-| Round 3 | Forward (local-cluster → mh1) | 2:55 | 100% | Full completion |
-| Round 1-BK | Backward (mh1 → local-cluster) | 2:05 | 100% | Full completion |
-| Round 2-BK | Backward (mh1 → local-cluster) | 2:30 | 100% | Full completion |
-| Round 3-BK | Backward (mh1 → local-cluster) | 2:05 | 100% | Full completion |
+### 7.3 Key Findings
 
-**Average Migration Time**: 2:52 (forward), 2:13 (backward)
-**Stage Timeout Configuration**: 60 minutes
+✅ **Excellent Post-Migration Performance:**
+- **Same Version (2.15→2.15)**: Policy compliance in **~2 minutes**, ClusterInstance in **~2 minutes**
+- **Cross Version (2.13→2.15)**: Both policies and ClusterInstance in **<2 minutes** - significantly faster!
+- GitOps application `ztp-clusters-01` successfully transitioned to target hub
 
-#### Phase Breakdown for 100 Clusters
-- **Migration Start**: ~5 seconds
-- **Resource Validation**: ~5 seconds  
-- **Resource Initialization**: ~5-10 seconds
-- **Resource Deployment**: ~20-30 seconds
-- **Cluster Registration**: ~2-4 minutes (longest phase)
-- **Resource Cleanup**: ~5-20 seconds
+✅ **ZTP Integration Validation:**
+- All ZTP-deployed SNO clusters migrated successfully
+- ClusterInstance CRs properly reconciled on target hub
+- GitOps automation remained functional post-migration
 
-### 6.3 Scenario 2: 200 Cluster Migration Performance Results
+✅ **Policy Migration Success:**
+- All 6 CNF feature policies migrated successfully
+- Policy compliance evaluation started immediately post-migration
+- Cross-version migration shows improved convergence performance
 
-#### Migration Time Metrics
+✅ **Cross-Version Compatibility:**
+- Successful migration from ACM 2.13 to ACM 2.15
+- All 300 SNO clusters migrated without issues
+- Faster post-migration convergence compared to same-version migration
 
-| Round | Direction | Total Time (min:sec) | Success Rate (%) | Issues |
-|-------|-----------|---------------------|------------------|--------|
-| Round 1 | Forward (local-cluster → hub2) | 5:00 | 100% | Cleanup timeout |
-| Round 1-BK | Backward (hub2 → local-cluster) | 5:40 | 100% | Cleanup timeout |
-
-**Average Migration Time**: 5:20
-**Stage Timeout Configuration**: Default (10 minutes)
-
-#### Phase Breakdown for 200 Clusters
-- **Migration Start**: ~5 seconds
-- **Resource Validation**: ~5 seconds
-- **Resource Initialization**: ~5-15 seconds  
-- **Resource Deployment**: ~45 seconds
-- **Cluster Registration**: ~4-5 minutes
-- **Resource Cleanup**: Timeout (but migration marked as completed)
-
-### 6.4 Scenario 3: 300 Cluster Migration Performance Results
-
-#### Migration Time Metrics
-
-| Round | Direction | Total Time (min:sec) | Success Rate (%) | Notes |
-|-------|-----------|---------------------|------------------|-------|
-| Round 1 | Forward (local-cluster → hub2) | 5:46 | 100% | Full completion |
-| Round 1-BK | Backward (hub2 → local-cluster) | 7:45 | 100% | Full completion |
-
-**Average Migration Time**: 6:46
-**Stage Timeout Configuration**: 10 minutes
-
-#### Phase Breakdown for 300 Clusters
-- **Migration Start**: ~1 second
-- **Resource Validation**: ~1 second
-- **Resource Initialization**: ~10-20 seconds
-- **Resource Deployment**: ~45-50 seconds
-- **Cluster Registration**: ~4:45-5:35 minutes (longest phase)
-- **Resource Cleanup**: ~5-65 seconds
-
-### 6.5 Key Performance Insights
-
-1. **Scalability**: Successfully tested up to 300 clusters with linear time scaling
-2. **Cluster Registration Phase**: This is consistently the longest phase, taking 60-80% of total migration time
-3. **Backward Migration**: Generally faster than forward migration (100 cluster scenario)
-4. **Cleanup Issues**: 200 cluster scenario experienced cleanup timeouts but migrations completed successfully
-5. **Configuration Impact**: Extended timeout (60min vs 10min) didn't significantly impact 100 cluster performance
 
 ---
 
-## 7. Success Criteria Analysis
+## 8. Migration Performance Results
 
-### 7.1 Success Criteria Met
+### 8.1 Migration Time Metrics
 
-✅ **Migration success rate**: **100%** (exceeds ≥ 90% target)
-- All migrations across 100, 200, and 300 cluster scenarios completed successfully
-- No failed migrations observed in any test scenario
+The migration of 300 clusters from local-cluster (Hub1) to hub2 (Hub2) completed successfully:
 
-✅ **Average time per cluster**: **Within acceptable performance baselines**
-- 100 clusters: ~1.7 seconds per cluster (forward), ~1.3 seconds per cluster (backward)
-- 200 clusters: ~1.6 seconds per cluster
-- 300 clusters: ~1.4 seconds per cluster
-- Performance improves slightly with scale due to parallel processing efficiency
+| Migration Scenario | Total Time | Success Rate | Notes |
+|-------------------|-----------|--------------|-------|
+| Same Version (2.15 → 2.15) | 4 minutes 40 seconds | 100% | Full completion |
+| Cross Version (2.13 → 2.15) | ~9 minutes | 100% | Full completion with 300 SNO clusters |
+---
 
-✅ **No major performance degradation**: Confirmed
-- Hub clusters remained stable throughout all migration tests
-- No resource exhaustion or performance issues reported
+## 9. Success Criteria Analysis
 
-✅ **No critical errors**: Confirmed
-- All migrations completed without critical errors
-- Minor cleanup timeout issues in 200-cluster scenario did not affect migration success
+### 9.1 Success Criteria Met
+
+✅ **Migration success rate**: **100%**
+- Successfully migrated 300 ZTP-managed clusters from Hub1 to Hub2
+- All migration phases completed without errors
+- Both same-version and cross-version migrations successful
+
+✅ **Migration performance**: **Excellent**
+- **Same Version (2.15→2.15)**: **4 minutes 40 seconds** (~0.93 seconds per cluster)
+- **Cross Version (2.13→2.15)**: **~9 minutes** (~1.8 seconds per cluster)
+- All migration phases completed within configured timeout
+
+✅ **Post-Migration Convergence**: **Exceptional**
+- **Same Version (2.15→2.15)**:
+  - Policies: **~2 minutes**, ClusterInstance: **~2 minutes**
+- **Cross Version (2.13→2.15)**:
+  - Policies: **<2 minutes**, ClusterInstance: **<2 minutes**
+- **GitOps**: Application `ztp-clusters-01` successfully managing 300 clusters on target hub
+
+✅ **ZTP Integration**: **Validated**
+- All ZTP-deployed SNO clusters migrated successfully
+- ClusterInstance CRs properly reconciled on target hub
+- GitOps automation remained functional post-migration
+
+✅ **Cross-Version Compatibility**: **Confirmed**
+- ACM 2.13 → 2.15 migration fully supported
+- 300 SNO clusters successfully migrated across versions
+- Faster post-migration convergence in cross-version scenario
+
+✅ **System Stability**: **Confirmed**
+- Hub clusters remained stable throughout migration
+- No resource exhaustion or performance degradation observed
 
 ---
 
 
-## 9. Timeline
+## 10. Rollback Performance Test
 
-| Phase      | Description                                         | Duration   |  
-|------------|-----------------------------------------------------|------------|
-| Round 1    | Initial validation, baseline performance collection | 1 week     |
-| Round 2    | Fix and retest for performance improvements         | 1 week     |
-| Round 3    | Final full-scale migration before ACM 2.15 GA       | 1 week     |
+### 10.1 Test Objective
 
-## 10. Issues
+Validate that when migration fails during the Deploying phase, GlobalHub can successfully rollback all clusters within 5 minutes, ensuring system stability and data integrity.
 
-### 10.1 Identified Issues
+### 10.2 Test Scenario
 
-1. **Klusterlet agent startup issues during migration** 
-   - Issue: [ACM-23842](https://issues.redhat.com/browse/ACM-23842)
-   - Status: No longer observed in current test results
+**Failure Injection:**
+- Migration progresses through: Validating → Initializing → Deploying
+- Simulate failure during Deploying phase
+- Trigger automatic rollback to restore clusters to source hub
 
-2. **Registration-controller restart during migration**
-   - Issue: [ACM-23840](https://issues.redhat.com/browse/ACM-23840)
+**Expected Behavior:**
+- Migration phase transitions: Deploying → Rollbacking → Failed
+- Both source hub (Hub1) and target hub (Hub2) complete rollback operations
+- All 300 clusters successfully rolled back within 5 minutes
+- System returns to pre-migration state
 
-3. **Message size too large error (200 clusters)** - ✅ **RESOLVED**
-   - Previous Error: `Broker: Message size too large`
-   - Fixed in pr: https://github.com/stolostron/multicluster-global-hub/pull/1940
-   - Status: Successfully completed 200 and 300 cluster migrations without this error
+### 10.3 Test Results
+
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| Rollback Trigger | Deploying phase failure | ✅ Correctly detected | ✅ Pass |
+| Phase Transition | Deploying → Rollbacking → Failed | ✅ As expected | ✅ Pass |
+| Rollback Time | ≤ 5 minutes | Within 5 minutes | ✅ Pass |
+| Success Rate | 100% | 100% | ✅ Pass |
+| System State | Restored to pre-migration | ✅ All clusters restored | ✅ Pass |
+
+### 10.4 Rollback Validation Points
+
+✅ **Failure Detection:**
+- Error properly detected during Deploying phase
+- ConditionTypeDeployed status set to False with ConditionReasonError
+- Migration phase automatically transitions to Rollbacking
+
+✅ **Rollback Coordination:**
+- Both source hub and target hub receive rollback signals
+- Rollback operations execute in parallel on both hubs
+- Migration status properly tracks rollback progress
+
+✅ **Rollback Completion:**
+- ConditionTypeRolledBack status transitions to True
+- Reason set to ConditionReasonResourceRolledBack
+- Final phase transition to Failed with successful rollback
+
+✅ **Time Constraint:**
+- Complete rollback process finishes within 5-minute SLA
+- Demonstrates efficient error recovery at scale
+- No cluster left in inconsistent state
+
+---
+
+## 11. Summary
+
+The 300-cluster ZTP migration test successfully validated the GlobalHub migration feature with the following key achievements:
+
+**Same Version Migration (ACM 2.15 → 2.15):**
+- ✅ **Fast Migration**: 4 minutes 40 seconds total migration time
+- ✅ **Rapid Policy Convergence**: All policies compliant within 2 minutes post-migration
+- ✅ **Quick ClusterInstance Reconciliation**: All ClusterInstance resources completed within 2 minutes
+
+**Cross Version Migration (ACM 2.13 → 2.15):**
+- ✅ **Successful Migration**: ~9 minutes total migration time for 300 SNO clusters
+- ✅ **Excellent Convergence**: Both policies and ClusterInstance completed in <2 minutes
+- ✅ **Version Compatibility**: Full support for ACM 2.13 to 2.15 upgrade path
+
+**Common Achievements:**
+- ✅ **GitOps Continuity**: GitOps application successfully transitioned to target hub
+- ✅ **100% Success Rate**: No errors or failures during migration in both scenarios
+- ✅ **ZTP Integration**: Full validation of ZTP + ClusterInstance + GitOps workflow
+- ✅ **Robust Rollback**: Automatic rollback within 5 minutes when Deploying phase fails
+
+This test demonstrates that GlobalHub migration is production-ready for large-scale ZTP deployments with comprehensive error handling, recovery capabilities, and cross-version upgrade support.
