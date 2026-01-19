@@ -645,14 +645,21 @@ func verifyAutoApproveUsersSupport(ctx context.Context, hubClient client.Client)
 			featureGateEnabled = true
 		}
 
+		// Log current state before update
+		klog.Infof("[DEBUG] Before update - FeatureGates: %+v, AutoApproveUsers: %v",
+			cm.Spec.RegistrationConfiguration.FeatureGates,
+			cm.Spec.RegistrationConfiguration.AutoApproveUsers)
+
 		// Set autoApproveUsers in the same update
 		cm.Spec.RegistrationConfiguration.AutoApproveUsers = []string{testUser}
+
+		klog.Infof("[DEBUG] Attempting to update ClusterManager with AutoApproveUsers: %v", cm.Spec.RegistrationConfiguration.AutoApproveUsers)
 
 		if err := hubClient.Update(ctx, cm); err != nil {
 			return fmt.Errorf("failed to update ClusterManager: %w", err)
 		}
 
-		klog.Infof("[DEBUG] Updated ClusterManager with feature gate and autoApproveUsers")
+		klog.Infof("[DEBUG] Update succeeded, verifying...")
 
 		// Verify the value was saved
 		updatedCM := &operatorv1.ClusterManager{}
@@ -664,10 +671,17 @@ func verifyAutoApproveUsersSupport(ctx context.Context, hubClient client.Client)
 			return fmt.Errorf("RegistrationConfiguration is nil after update")
 		}
 
+		klog.Infof("[DEBUG] After Get - FeatureGates: %+v, AutoApproveUsers: %v, ResourceVersion: %s",
+			updatedCM.Spec.RegistrationConfiguration.FeatureGates,
+			updatedCM.Spec.RegistrationConfiguration.AutoApproveUsers,
+			updatedCM.ResourceVersion)
+
 		// Check if testUser is in the list
 		if !slices.Contains(updatedCM.Spec.RegistrationConfiguration.AutoApproveUsers, testUser) {
 			return fmt.Errorf("autoApproveUsers does not contain test user, got: %v", updatedCM.Spec.RegistrationConfiguration.AutoApproveUsers)
 		}
+
+		klog.Infof("[DEBUG] Verification successful!")
 
 		return nil
 	}, 2*time.Minute, 5*time.Second).Should(Succeed(),
