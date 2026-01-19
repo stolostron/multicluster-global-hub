@@ -70,16 +70,6 @@ for i in $(seq 1 "${MH_NUM}"); do
   kubectl create namespace multicluster-engine --kubeconfig "${CONFIG_DIR}/hub$i" 2>/dev/null || true
 done
 
-# Update ClusterManager CRD to version that supports autoApproveUsers field
-# This is required for migration e2e tests that need to configure auto-approval
-# The autoApproveUsers field was added in OCM API v0.16.0
-for i in $(seq 1 "${MH_NUM}"); do
-  echo -e "${YELLOW}Updating ClusterManager CRD on hub$i to support autoApproveUsers${NC}"
-  kubectl apply -f https://raw.githubusercontent.com/open-cluster-management-io/api/v0.16.0/operator/v1/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml --kubeconfig "${CONFIG_DIR}/hub$i" 2>/dev/null || true
-  # Wait a moment for the CRD to be fully updated
-  sleep 2
-done
-
 # async ocm, policy
 start_time=$(date +%s)
 
