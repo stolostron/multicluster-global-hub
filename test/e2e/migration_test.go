@@ -262,15 +262,7 @@ var _ = Describe("Migration E2E", Label("e2e-test-migration"), Ordered, func() {
 					return false
 				}
 
-				isAvailable := false
-				for _, cond := range mc.Status.Conditions {
-					if cond.Type == clusterv1.ManagedClusterConditionAvailable && cond.Status == metav1.ConditionTrue {
-						isAvailable = true
-						break
-					}
-				}
-
-				if !isAvailable {
+				if !isManagedClusterAvailable(mc) {
 					return false
 				}
 
@@ -283,16 +275,7 @@ var _ = Describe("Migration E2E", Label("e2e-test-migration"), Ordered, func() {
 					return false
 				}
 
-				// Check if ManifestWork has Applied condition
-				isApplied := false
-				for _, cond := range mw.Status.Conditions {
-					if cond.Type == workv1.WorkApplied && cond.Status == metav1.ConditionTrue {
-						isApplied = true
-						break
-					}
-				}
-
-				if !isApplied {
+				if !isManifestWorkApplied(mw) {
 					// Manually set Applied status to true
 					By("ManifestWork not Applied, manually updating status")
 					mw.Status.Conditions = append(mw.Status.Conditions, metav1.Condition{
@@ -387,16 +370,10 @@ func createInitializingManifestWork(ctx context.Context, sourceHubClient, manage
 			},
 		},
 	}
-	// Add image specs if they exist in the original klusterlet
-	if existingKlusterlet.Spec.ImagePullSpec != "" {
-		klusterletSpec["imagePullSpec"] = existingKlusterlet.Spec.ImagePullSpec
-	}
-	if existingKlusterlet.Spec.RegistrationImagePullSpec != "" {
-		klusterletSpec["registrationImagePullSpec"] = existingKlusterlet.Spec.RegistrationImagePullSpec
-	}
-	if existingKlusterlet.Spec.WorkImagePullSpec != "" {
-		klusterletSpec["workImagePullSpec"] = existingKlusterlet.Spec.WorkImagePullSpec
-	}
+	// Add optional image specs from the original klusterlet
+	addIfNotEmpty(klusterletSpec, "imagePullSpec", existingKlusterlet.Spec.ImagePullSpec)
+	addIfNotEmpty(klusterletSpec, "registrationImagePullSpec", existingKlusterlet.Spec.RegistrationImagePullSpec)
+	addIfNotEmpty(klusterletSpec, "workImagePullSpec", existingKlusterlet.Spec.WorkImagePullSpec)
 	if len(existingKlusterlet.Spec.ExternalServerURLs) > 0 {
 		urls := make([]map[string]any, len(existingKlusterlet.Spec.ExternalServerURLs))
 		for i, u := range existingKlusterlet.Spec.ExternalServerURLs {
@@ -440,45 +417,52 @@ func createInitializingManifestWork(ctx context.Context, sourceHubClient, manage
 		Expect(sourceHubClient.Create(ctx, manifestWork)).To(Succeed())
 	}
 
-	// Since there's no work-agent in Kind e2e environment, directly apply resources to managed cluster
-	// Apply bootstrap secret
-	managedClusterBootstrapSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      bootstrapSecretName,
-			Namespace: agentNamespace,
-		},
-		Data: bootstrapSecret.Data,
-		Type: corev1.SecretTypeOpaque,
-	}
-	existingSecret := &corev1.Secret{}
-	err = managedClusterClient.Get(ctx, client.ObjectKeyFromObject(managedClusterBootstrapSecret), existingSecret)
-	if errors.IsNotFound(err) {
-		Expect(managedClusterClient.Create(ctx, managedClusterBootstrapSecret)).To(Succeed())
-	}
+	// NOTE: Direct bootstrap secret application is temporarily disabled since ManifestWork
+	// is now working correctly in the e2e environment. The ManifestWork created above
+	// includes the bootstrap secret and klusterlet configuration.
+	//
+	// If ManifestWork stops working in the future, uncomment this section to apply directly.
+	/*
+		// Since there's no work-agent in Kind e2e environment, directly apply resources to managed cluster
+		// Apply bootstrap secret
+		managedClusterBootstrapSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bootstrapSecretName,
+				Namespace: agentNamespace,
+			},
+			Data: bootstrapSecret.Data,
+			Type: corev1.SecretTypeOpaque,
+		}
+		existingSecret := &corev1.Secret{}
+		err = managedClusterClient.Get(ctx, client.ObjectKeyFromObject(managedClusterBootstrapSecret), existingSecret)
+		if errors.IsNotFound(err) {
+			Expect(managedClusterClient.Create(ctx, managedClusterBootstrapSecret)).To(Succeed())
+		}
 
-	// Apply klusterlet update
-	klusterletToUpdate := &operatorv1.Klusterlet{}
-	err = managedClusterClient.Get(ctx, types.NamespacedName{Name: "klusterlet"}, klusterletToUpdate)
-	Expect(err).NotTo(HaveOccurred())
+		// Apply klusterlet update
+		klusterletToUpdate := &operatorv1.Klusterlet{}
+		err = managedClusterClient.Get(ctx, types.NamespacedName{Name: "klusterlet"}, klusterletToUpdate)
+		Expect(err).NotTo(HaveOccurred())
 
-	klusterletToUpdate.Spec.RegistrationConfiguration = &operatorv1.RegistrationConfiguration{
-		FeatureGates: []operatorv1.FeatureGate{
-			{Feature: "ClusterClaim", Mode: operatorv1.FeatureGateModeTypeEnable},
-			{Feature: "AddonManagement", Mode: operatorv1.FeatureGateModeTypeEnable},
-			{Feature: "MultipleHubs", Mode: operatorv1.FeatureGateModeTypeEnable},
-		},
-		BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
-			Type: operatorv1.LocalSecrets,
-			LocalSecrets: &operatorv1.LocalSecretsConfig{
-				HubConnectionTimeoutSeconds: 180,
-				KubeConfigSecrets: []operatorv1.KubeConfigSecret{
-					{Name: bootstrapSecretName},
-					{Name: "hub-kubeconfig-secret"},
+		klusterletToUpdate.Spec.RegistrationConfiguration = &operatorv1.RegistrationConfiguration{
+			FeatureGates: []operatorv1.FeatureGate{
+				{Feature: "ClusterClaim", Mode: operatorv1.FeatureGateModeTypeEnable},
+				{Feature: "AddonManagement", Mode: operatorv1.FeatureGateModeTypeEnable},
+				{Feature: "MultipleHubs", Mode: operatorv1.FeatureGateModeTypeEnable},
+			},
+			BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
+				Type: operatorv1.LocalSecrets,
+				LocalSecrets: &operatorv1.LocalSecretsConfig{
+					HubConnectionTimeoutSeconds: 180,
+					KubeConfigSecrets: []operatorv1.KubeConfigSecret{
+						{Name: bootstrapSecretName},
+						{Name: "hub-kubeconfig-secret"},
+					},
 				},
 			},
-		},
-	}
-	Expect(managedClusterClient.Update(ctx, klusterletToUpdate)).To(Succeed())
+		}
+		Expect(managedClusterClient.Update(ctx, klusterletToUpdate)).To(Succeed())
+	*/
 }
 
 // createRegisteringManifestWork creates a ReadOnly ManifestWork on target hub
@@ -679,4 +663,31 @@ func restoreManagedClusterAcceptance(ctx context.Context, hubClient client.Clien
 	}
 	mc.Spec.HubAcceptsClient = true
 	_ = hubClient.Update(ctx, mc)
+}
+
+// isManagedClusterAvailable checks if a ManagedCluster has the Available condition set to True.
+func isManagedClusterAvailable(mc *clusterv1.ManagedCluster) bool {
+	for _, cond := range mc.Status.Conditions {
+		if cond.Type == clusterv1.ManagedClusterConditionAvailable && cond.Status == metav1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+// isManifestWorkApplied checks if a ManifestWork has the Applied condition set to True.
+func isManifestWorkApplied(mw *workv1.ManifestWork) bool {
+	for _, cond := range mw.Status.Conditions {
+		if cond.Type == workv1.WorkApplied && cond.Status == metav1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+// addIfNotEmpty adds a key-value pair to the map only if the value is not empty.
+func addIfNotEmpty(m map[string]any, key, value string) {
+	if value != "" {
+		m[key] = value
+	}
 }
