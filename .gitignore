@@ -46,4 +46,5 @@ output
 AGENTS.md
 openspec/*
 .claude/commands/openspec
+.claude/rules/
 .venv/
