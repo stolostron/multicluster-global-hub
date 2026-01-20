@@ -1101,7 +1101,7 @@ func (k *strimziTransporter) setJvmOptions(
 	// - G1HeapRegionSize: 16MB regions optimal for 1-2GB heaps
 	// Note: Strimzi XX field requires option names WITHOUT -XX: prefix
 	gcOpts := map[string]string{
-		"UseG1GC":                        "",    // Enable G1GC (empty value for boolean flags)
+		"UseG1GC":                        "true", // Enable G1GC
 		"MaxGCPauseMillis":               "20",  // Target 20ms pause times
 		"InitiatingHeapOccupancyPercent": "35",  // Start GC at 35% heap
 		"G1HeapRegionSize":               "16M", // 16MB regions for 1-2GB heaps

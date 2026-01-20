@@ -131,7 +131,7 @@ func TestNewKafkaCluster(t *testing.T) {
                     "MaxGCPauseMillis": "20",
                     "MaxMetaspaceFreeRatio": "80",
                     "MinMetaspaceFreeRatio": "50",
-                    "UseG1GC": ""
+                    "UseG1GC": "true"
                 },
                 "-Xms": "1024M",
                 "-Xmx": "1024M"
@@ -223,7 +223,7 @@ func TestNewKafkaCluster(t *testing.T) {
                     "MaxGCPauseMillis": "20",
                     "MaxMetaspaceFreeRatio": "80",
                     "MinMetaspaceFreeRatio": "50",
-                    "UseG1GC": ""
+                    "UseG1GC": "true"
                 },
                 "-Xms": "1024M",
                 "-Xmx": "1024M"
@@ -318,7 +318,7 @@ func TestNewKafkaCluster(t *testing.T) {
                     "MaxGCPauseMillis": "20",
                     "MaxMetaspaceFreeRatio": "80",
                     "MinMetaspaceFreeRatio": "50",
-                    "UseG1GC": ""
+                    "UseG1GC": "true"
                 },
                 "-Xms": "1024M",
                 "-Xmx": "1024M"
