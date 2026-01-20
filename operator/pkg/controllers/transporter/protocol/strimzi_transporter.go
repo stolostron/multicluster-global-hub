@@ -769,17 +769,22 @@ func (k *strimziTransporter) getKafkaResources(
 ) *kafkav1beta2.KafkaSpecKafkaResources {
 	kafkaRes := operatorutils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedSpec)
 
-	// If no custom resources specified, set defaults to prevent unbounded memory usage
-	// 3Gi limit accounts for 2Gi JVM heap + 1Gi for page cache/overhead
-	if kafkaRes == nil {
+	// If no custom resources specified in AdvancedSpec, use Kafka default heap (1GB) with Strimzi 5x formula
+	// For 1GB heap: 5GB total memory (1GB JVM heap + ~3.5GB page cache + ~0.5GB overhead)
+	// Suitable for low-to-medium throughput workloads (Global Hub management platform)
+	// Reference: https://strimzi.io/blog/2021/06/08/broker-tuning/
+	// Note: GetResources returns default test resources if AdvancedSpec.Kafka is nil
+	//       We override these with production-appropriate defaults
+	if mgh.Spec.AdvancedSpec == nil || mgh.Spec.AdvancedSpec.Kafka == nil ||
+		mgh.Spec.AdvancedSpec.Kafka.Resources == nil {
 		kafkaRes = &corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("3Gi"),
-				corev1.ResourceCPU:    resource.MustParse("1000m"),
+				corev1.ResourceMemory: resource.MustParse("5Gi"),
+				corev1.ResourceCPU:    resource.MustParse("1500m"),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
-				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("4Gi"),
+				corev1.ResourceCPU:    resource.MustParse("750m"),
 			},
 		}
 	}
@@ -837,7 +842,11 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 "transaction.state.log.min.isr": 1,
 "transaction.state.log.replication.factor": 1,
 "log.segment.bytes": "268435456",
-"log.segment.ms": "3600000"
+"log.segment.ms": "3600000",
+"log.retention.bytes": "1073741824",
+"log.retention.ms": "86400000",
+"log.retention.check.interval.ms": "300000",
+"compression.type": "snappy"
 }`
 	} else {
 		config = `{
@@ -847,7 +856,11 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 "transaction.state.log.min.isr": 2,
 "transaction.state.log.replication.factor": 3,
 "log.segment.bytes": "268435456",
-"log.segment.ms": "3600000"
+"log.segment.ms": "3600000",
+"log.retention.bytes": "1073741824",
+"log.retention.ms": "86400000",
+"log.retention.check.interval.ms": "300000",
+"compression.type": "snappy"
 }`
 	}
 
@@ -1073,15 +1086,33 @@ func (k *strimziTransporter) setJvmOptions(
 	mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	kafkaCluster *kafkav1beta2.Kafka,
 ) {
-	// Set conservative heap limits: 512MB initial, 2GB max
-	// This prevents OOM while allowing enough memory for typical workloads
-	// Strimzi API expects values without -Xms/-Xmx prefix (e.g., "512M" not "-Xms512M")
-	xms := "512M"
-	xmx := "2048M"
+	// Kafka community default: 1GB heap with matching Xms=Xmx
+	// With 5GB memory limit: 1GB JVM heap + ~3.5GB OS page cache + ~0.5GB overhead
+	// Matching Xms=Xmx prevents runtime reallocation and reduces GC overhead
+	// 1GB is sufficient for low-to-medium throughput workloads (management platform)
+	// Reference: https://dev.to/devopsfundamentals/kafka-fundamentals-kafka-heap-tuning-1f14
+	// Strimzi API expects values without -Xms/-Xmx prefix (e.g., "1024M" not "-Xms1024M")
+	xms := "1024M"
+	xmx := "1024M"
+
+	// G1GC tuning for better performance (LinkedIn/Confluent production best practices)
+	// - MaxGCPauseMillis: Target 20ms pause times (vs default ~100ms)
+	// - InitiatingHeapOccupancyPercent: Start GC at 35% heap occupancy
+	// - G1HeapRegionSize: 16MB regions optimal for 1-2GB heaps
+	// Note: Strimzi XX field requires option names WITHOUT -XX: prefix
+	gcOpts := map[string]string{
+		"UseG1GC":                        "",    // Enable G1GC (empty value for boolean flags)
+		"MaxGCPauseMillis":               "20",  // Target 20ms pause times
+		"InitiatingHeapOccupancyPercent": "35",  // Start GC at 35% heap
+		"G1HeapRegionSize":               "16M", // 16MB regions for 1-2GB heaps
+		"MinMetaspaceFreeRatio":          "50",  // Min free metaspace ratio
+		"MaxMetaspaceFreeRatio":          "80",  // Max free metaspace ratio
+	}
 
 	kafkaCluster.Spec.Kafka.JvmOptions = &kafkav1beta2.KafkaSpecKafkaJvmOptions{
 		Xms: &xms,
 		Xmx: &xmx,
+		XX:  gcOpts,
 	}
 }
 
