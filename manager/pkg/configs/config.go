@@ -6,27 +6,24 @@ package configs
 import (
 	"time"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 type ManagerConfig struct {
-	ManagerNamespace     string
-	WatchNamespace       string
-	SchedulerInterval    string
-	SyncerConfig         *SyncerConfig
-	DatabaseConfig       *DatabaseConfig
-	TransportConfig      *transport.TransportInternalConfig
-	StatisticsConfig     *statistics.StatisticsConfig
-	RestAPIServerConfig  *restapis.RestApiServerConfig
-	ElectionConfig       *commonobjects.LeaderElectionConfig
-	EnableGlobalResource bool
-	EnableInventoryAPI   bool
-	WithACM              bool
-	LaunchJobNames       string
-	EnablePprof          bool
+	ManagerNamespace   string
+	WatchNamespace     string
+	SchedulerInterval  string
+	SyncerConfig       *SyncerConfig
+	DatabaseConfig     *DatabaseConfig
+	TransportConfig    *transport.TransportInternalConfig
+	StatisticsConfig   *statistics.StatisticsConfig
+	ElectionConfig     *commonobjects.LeaderElectionConfig
+	EnableInventoryAPI bool
+	WithACM            bool
+	LaunchJobNames     string
+	EnablePprof        bool
 }
 
 type SyncerConfig struct {

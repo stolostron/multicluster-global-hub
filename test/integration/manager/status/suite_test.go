@@ -100,8 +100,7 @@ var _ = BeforeSuite(func() {
 		StatisticsConfig: &statistics.StatisticsConfig{
 			LogInterval: "10s",
 		},
-		EnableGlobalResource: true,
-		EnableInventoryAPI:   true,
+		EnableInventoryAPI: true,
 	}
 
 	By("Start cloudevents producer and consumer")
