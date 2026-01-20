@@ -3337,6 +3337,7 @@ func TestIsOCMEnvironment(t *testing.T) {
 		name        string
 		initObjects []client.Object
 		expected    bool
+		expectError bool
 	}{
 		{
 			name: "ACM ClusterRole exists - should return false (not OCM environment)",
@@ -3347,7 +3348,8 @@ func TestIsOCMEnvironment(t *testing.T) {
 					},
 				},
 			},
-			expected: false,
+			expected:    false,
+			expectError: false,
 		},
 		{
 			name: "Only OCM ClusterRole exists - should return true (OCM environment)",
@@ -3358,7 +3360,8 @@ func TestIsOCMEnvironment(t *testing.T) {
 					},
 				},
 			},
-			expected: true,
+			expected:    true,
+			expectError: false,
 		},
 		{
 			name: "Both ACM and OCM ClusterRoles exist - should return false (ACM takes priority)",
@@ -3374,12 +3377,14 @@ func TestIsOCMEnvironment(t *testing.T) {
 					},
 				},
 			},
-			expected: false,
+			expected:    false,
+			expectError: false,
 		},
 		{
-			name:        "Neither ClusterRole exists - should return false",
+			name:        "Neither ClusterRole exists - should return error",
 			initObjects: []client.Object{},
 			expected:    false,
+			expectError: true,
 		},
 	}
 
@@ -3391,8 +3396,14 @@ func TestIsOCMEnvironment(t *testing.T) {
 				client: fakeClient,
 			}
 
-			result := syncer.isOCMEnvironment(ctx)
-			assert.Equal(t, c.expected, result)
+			result, err := syncer.isOCMEnvironment(ctx)
+			if c.expectError {
+				assert.NotNil(t, err)
+				assert.Contains(t, err.Error(), "no bootstrap ClusterRole found")
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, c.expected, result)
+			}
 		})
 	}
 }
