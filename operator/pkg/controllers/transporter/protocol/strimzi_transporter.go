@@ -1075,8 +1075,9 @@ func (k *strimziTransporter) setJvmOptions(
 ) {
 	// Set conservative heap limits: 512MB initial, 2GB max
 	// This prevents OOM while allowing enough memory for typical workloads
-	xms := "-Xms512M"
-	xmx := "-Xmx2048M"
+	// Strimzi API expects values without -Xms/-Xmx prefix (e.g., "512M" not "-Xms512M")
+	xms := "512M"
+	xmx := "2048M"
 
 	kafkaCluster.Spec.Kafka.JvmOptions = &kafkav1beta2.KafkaSpecKafkaJvmOptions{
 		Xms: &xms,
