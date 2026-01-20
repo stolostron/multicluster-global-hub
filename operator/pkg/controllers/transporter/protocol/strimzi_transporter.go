@@ -1102,11 +1102,11 @@ func (k *strimziTransporter) setJvmOptions(
 	// Note: Strimzi XX field requires option names WITHOUT -XX: prefix
 	gcOpts := map[string]string{
 		"UseG1GC":                        "true", // Enable G1GC
-		"MaxGCPauseMillis":               "20",  // Target 20ms pause times
-		"InitiatingHeapOccupancyPercent": "35",  // Start GC at 35% heap
-		"G1HeapRegionSize":               "16M", // 16MB regions for 1-2GB heaps
-		"MinMetaspaceFreeRatio":          "50",  // Min free metaspace ratio
-		"MaxMetaspaceFreeRatio":          "80",  // Max free metaspace ratio
+		"MaxGCPauseMillis":               "20",   // Target 20ms pause times
+		"InitiatingHeapOccupancyPercent": "35",   // Start GC at 35% heap
+		"G1HeapRegionSize":               "16M",  // 16MB regions for 1-2GB heaps
+		"MinMetaspaceFreeRatio":          "50",   // Min free metaspace ratio
+		"MaxMetaspaceFreeRatio":          "80",   // Max free metaspace ratio
 	}
 
 	kafkaCluster.Spec.Kafka.JvmOptions = &kafkav1beta2.KafkaSpecKafkaJvmOptions{
