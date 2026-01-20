@@ -20,8 +20,11 @@ import (
 )
 
 const (
-	// PauseAnnotation is the annotation key to pause Hive reconciliation
-	PauseAnnotation = "hive.openshift.io/reconcile-pause"
+	// HivePauseAnnotation is the annotation key to pause Hive reconciliation
+	HivePauseAnnotation = "hive.openshift.io/reconcile-pause"
+
+	// Metal3PauseAnnotation is the annotation key to pause Metal3 reconciliation
+	Metal3PauseAnnotation = "baremetalhost.metal3.io/paused"
 
 	// errFailedToGetResourceFmt is the error message format for resource retrieval failures
 	errFailedToGetResourceFmt = "failed to get %s: %w"
@@ -29,31 +32,61 @@ const (
 
 var ztpLog = logger.DefaultZapLogger()
 
-// ZTPClusterResourceGVKs defines the specific ZTP cluster resource types
-// ClusterDeployment that need pause annotation during migration
-var ZTPClusterResourceGVKs = []schema.GroupVersionKind{
+// ZTPResourceConfig contains the GVK, pause annotation and finalizer suffix for a ZTP resource type
+type ZTPResourceConfig struct {
+	GVK             schema.GroupVersionKind
+	PauseAnnotation string
+	FinalizerSuffix string // Finalizers with this suffix will be removed
+}
+
+// ZTPClusterResources defines the specific ZTP cluster resource types that need pause annotation during migration
+var ZTPClusterResources = []ZTPResourceConfig{
 	{
-		Group:   "hive.openshift.io",
-		Version: "v1",
-		Kind:    "ClusterDeployment",
+		GVK: schema.GroupVersionKind{
+			Group:   "hive.openshift.io",
+			Version: "v1",
+			Kind:    "ClusterDeployment",
+		},
+		PauseAnnotation: HivePauseAnnotation,
+		FinalizerSuffix: "/deprovision",
+	},
+	{
+		GVK: schema.GroupVersionKind{
+			Group:   "metal3.io",
+			Version: "v1alpha1",
+			Kind:    "BareMetalHost",
+		},
+		PauseAnnotation: Metal3PauseAnnotation,
+		FinalizerSuffix: ".metal3.io",
+	},
+	{
+		GVK: schema.GroupVersionKind{
+			Group:   "metal3.io",
+			Version: "v1alpha1",
+			Kind:    "DataImage",
+		},
+		PauseAnnotation: Metal3PauseAnnotation,
+		FinalizerSuffix: ".metal3.io",
 	},
 }
 
-// AddPauseAnnotations adds hive.openshift.io/reconcile-pause=true annotation
-// to resources defined in ZTPClusterResourceGVKs
+// AddPauseAnnotations adds pause annotations to resources defined in ZTPClusterResources
+// Each resource type uses its specific pause annotation (e.g., hive.openshift.io/reconcile-pause
+// for ClusterDeployment, baremetalhost.metal3.io/paused for BareMetalHost and DataImage)
+// Iterates through all ZTP resource types to ensure each is properly paused during migration
 func AddPauseAnnotations(ctx context.Context, c client.Client, clusterName string) error {
-	for _, gvk := range ZTPClusterResourceGVKs {
+	for _, ztpResource := range ZTPClusterResources {
 		resource := &unstructured.Unstructured{}
-		resource.SetGroupVersionKind(gvk)
+		resource.SetGroupVersionKind(ztpResource.GVK)
 
 		if err := c.Get(ctx, types.NamespacedName{
 			Name:      clusterName,
 			Namespace: clusterName,
 		}, resource); err != nil {
 			if !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-				return fmt.Errorf(errFailedToGetResourceFmt, gvk.Kind, err)
+				return fmt.Errorf(errFailedToGetResourceFmt, ztpResource.GVK.Kind, err)
 			}
-			ztpLog.Debugf("%s not found for cluster %s, skipping pause annotation", gvk.Kind, clusterName)
+			ztpLog.Debugf("%s not found for cluster %s, skipping pause annotation", ztpResource.GVK.Kind, clusterName)
 			continue
 		}
 
@@ -68,39 +101,42 @@ func AddPauseAnnotations(ctx context.Context, c client.Client, clusterName strin
 			if annotations == nil {
 				annotations = make(map[string]string)
 			}
-			annotations[PauseAnnotation] = "true"
+			annotations[ztpResource.PauseAnnotation] = "true"
 			resource.SetAnnotations(annotations)
 			return c.Update(ctx, resource)
 		}); err != nil {
-			return fmt.Errorf("failed to add pause annotation to %s: %w", gvk.Kind, err)
+			return fmt.Errorf("failed to add pause annotation to %s: %w", ztpResource.GVK.Kind, err)
 		}
-		ztpLog.Infof("added pause annotation to %s %s", gvk.Kind, clusterName)
+		ztpLog.Infof("added pause annotation %s to %s %s", ztpResource.PauseAnnotation, ztpResource.GVK.Kind, clusterName)
 	}
 
 	return nil
 }
 
-// RemovePauseAnnotations removes hive.openshift.io/reconcile-pause annotation
-// from resources defined in ZTPClusterResourceGVKs
+// RemovePauseAnnotations removes pause annotations from resources defined in ZTPClusterResources
+// Each resource type uses its specific pause annotation (e.g., hive.openshift.io/reconcile-pause
+// for ClusterDeployment, baremetalhost.metal3.io/paused for BareMetalHost and DataImage)
+// Iterates through all ZTP resource types to ensure pause annotations are cleaned up in rollback
+// stage when migration failed
 func RemovePauseAnnotations(ctx context.Context, c client.Client, clusterName string) error {
-	for _, gvk := range ZTPClusterResourceGVKs {
+	for _, ztpResource := range ZTPClusterResources {
 		resource := &unstructured.Unstructured{}
-		resource.SetGroupVersionKind(gvk)
+		resource.SetGroupVersionKind(ztpResource.GVK)
 
 		if err := c.Get(ctx, types.NamespacedName{
 			Name:      clusterName,
 			Namespace: clusterName,
 		}, resource); err != nil {
 			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-				ztpLog.Debugf("%s not found for cluster %s, skipping pause annotation removal", gvk.Kind, clusterName)
+				ztpLog.Debugf("%s not found for cluster %s, skipping pause annotation removal", ztpResource.GVK.Kind, clusterName)
 				continue
 			}
-			return fmt.Errorf(errFailedToGetResourceFmt, gvk.Kind, err)
+			return fmt.Errorf(errFailedToGetResourceFmt, ztpResource.GVK.Kind, err)
 		}
 
 		annotations := resource.GetAnnotations()
-		if annotations == nil || annotations[PauseAnnotation] == "" {
-			ztpLog.Debugf("%s %s has no pause annotation", gvk.Kind, clusterName)
+		if annotations == nil || annotations[ztpResource.PauseAnnotation] == "" {
+			ztpLog.Debugf("%s %s has no pause annotation", ztpResource.GVK.Kind, clusterName)
 			continue
 		}
 
@@ -113,24 +149,27 @@ func RemovePauseAnnotations(ctx context.Context, c client.Client, clusterName st
 			}
 			annotations := resource.GetAnnotations()
 			if annotations != nil {
-				delete(annotations, PauseAnnotation)
+				delete(annotations, ztpResource.PauseAnnotation)
 				resource.SetAnnotations(annotations)
 			}
 			return c.Update(ctx, resource)
 		}); err != nil {
-			return fmt.Errorf("failed to remove pause annotation from %s: %w", gvk.Kind, err)
+			return fmt.Errorf("failed to remove pause annotation from %s: %w", ztpResource.GVK.Kind, err)
 		}
-		ztpLog.Infof("removed pause annotation from %s %s", gvk.Kind, clusterName)
+		ztpLog.Infof("removed pause annotation %s from %s %s", ztpResource.PauseAnnotation, ztpResource.GVK.Kind, clusterName)
 	}
 
 	return nil
 }
 
-// RemoveDeprovisionFinalizers removes /deprovision finalizers from resources defined in ZTPClusterResourceGVKs
+// RemoveDeprovisionFinalizers removes finalizers from resources defined in ZTPClusterResources
+// Each resource type has its specific finalizer suffix pattern:
+// - ClusterDeployment: finalizers ending with "/deprovision"
+// - BareMetalHost and DataImage: finalizers ending with ".metal3.io"
 func RemoveDeprovisionFinalizers(ctx context.Context, c client.Client, clusterName string) error {
-	for _, gvk := range ZTPClusterResourceGVKs {
+	for _, ztpResource := range ZTPClusterResources {
 		resource := &unstructured.Unstructured{}
-		resource.SetGroupVersionKind(gvk)
+		resource.SetGroupVersionKind(ztpResource.GVK)
 		resource.SetName(clusterName)
 		resource.SetNamespace(clusterName)
 
@@ -139,25 +178,31 @@ func RemoveDeprovisionFinalizers(ctx context.Context, c client.Client, clusterNa
 			Namespace: clusterName,
 		}, resource); err != nil {
 			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-				ztpLog.Debugf("%s not found for cluster %s, skipping finalizer removal", gvk.Kind, clusterName)
+				ztpLog.Debugf("%s not found for cluster %s, skipping finalizer removal", ztpResource.GVK.Kind, clusterName)
 				continue
 			}
-			return fmt.Errorf(errFailedToGetResourceFmt, gvk.Kind, err)
+			return fmt.Errorf(errFailedToGetResourceFmt, ztpResource.GVK.Kind, err)
 		}
 
-		if err := removeDeprovisionFinalizers(ctx, c, resource); err != nil {
-			return fmt.Errorf("failed to remove deprovision finalizers from %s: %w", gvk.Kind, err)
+		if err := removeFinalizersWithSuffix(ctx, c, resource, ztpResource.FinalizerSuffix); err != nil {
+			return fmt.Errorf("failed to remove finalizers with suffix %s from %s: %w",
+				ztpResource.FinalizerSuffix, ztpResource.GVK.Kind, err)
 		}
 	}
 
 	return nil
 }
 
+// removeFinalizersWithSuffix removes finalizers with the specified suffix from a resource
+func removeFinalizersWithSuffix(ctx context.Context, c client.Client, obj client.Object, suffix string) error {
+	return removeFinalizersWithFilter(ctx, c, obj, func(f string) bool {
+		return strings.HasSuffix(f, suffix)
+	}, suffix)
+}
+
 // removeDeprovisionFinalizers removes only finalizers with /deprovision suffix from a resource
 func removeDeprovisionFinalizers(ctx context.Context, c client.Client, obj client.Object) error {
-	return removeFinalizersWithFilter(ctx, c, obj, func(f string) bool {
-		return strings.HasSuffix(f, "/deprovision")
-	}, "/deprovision")
+	return removeFinalizersWithSuffix(ctx, c, obj, "/deprovision")
 }
 
 // removeFinalizers removes all finalizers from a resource
@@ -174,11 +219,6 @@ func removeFinalizersWithFilter(ctx context.Context, c client.Client, obj client
 	filterFn func(string) bool, filterDesc string,
 ) error {
 	if obj == nil {
-		return nil
-	}
-
-	if len(obj.GetFinalizers()) == 0 {
-		log.Debugf("resource %s/%s has no finalizers", obj.GetNamespace(), obj.GetName())
 		return nil
 	}
 

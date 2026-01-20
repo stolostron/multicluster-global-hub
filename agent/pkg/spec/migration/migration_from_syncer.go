@@ -204,9 +204,69 @@ func (s *MigrationSourceSyncer) cleaning(ctx context.Context, source *migration.
 		}
 	}
 
+	// Remove finalizers from BMC credentials secrets for all clusters
+	// These secrets contain BMC (Baseboard Management Controller) credentials used by Metal3
+	// BareMetalHost resources and must have their finalizers removed to allow proper cleanup
+	log.Infof("removing finalizers from BMC credentials secrets for %d managed clusters", len(source.ManagedClusters))
+	for _, clusterName := range source.ManagedClusters {
+		if err := s.removeBMCSecretFinalizers(ctx, clusterName); err != nil {
+			log.Warnf("failed to remove BMC secret finalizers for cluster %s: %v", clusterName, err)
+		}
+	}
+
 	// Clean up managed clusters
 	log.Infof("cleaning up %d managed clusters", len(source.ManagedClusters))
 	return s.deleteClusterIfExists(ctx, source.ManagedClusters)
+}
+
+// removeBMCSecretFinalizers removes finalizers from BMC credentials secrets for a cluster
+// It lists all BareMetalHost resources, finds their BMC secrets, and removes finalizers
+func (s *MigrationSourceSyncer) removeBMCSecretFinalizers(ctx context.Context, clusterName string) error {
+	// 1. List all BareMetalHost resources in the cluster namespace
+	bmhList := &unstructured.UnstructuredList{}
+	bmhList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "metal3.io",
+		Version: "v1alpha1",
+		Kind:    "BareMetalHost",
+	})
+	if err := s.client.List(ctx, bmhList, client.InNamespace(clusterName)); err != nil {
+		if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
+			log.Debugf("no BareMetalHost resources found for cluster %s", clusterName)
+			return nil
+		}
+		return fmt.Errorf("failed to list BareMetalHost: %w", err)
+	}
+
+	// 2. For each BareMetalHost, find and remove finalizers from its BMC credentials secret
+	for i := range bmhList.Items {
+		bmh := &bmhList.Items[i]
+		credentialsName, found, err := unstructured.NestedString(bmh.Object, "spec", "bmc", "credentialsName")
+		if err != nil {
+			log.Warnf("failed to get credentialsName from BareMetalHost %s/%s: %v",
+				clusterName, bmh.GetName(), err)
+			continue
+		}
+		if !found || credentialsName == "" {
+			log.Debugf("BareMetalHost %s/%s has no BMC credentials secret", clusterName, bmh.GetName())
+			continue
+		}
+
+		// 3. Remove finalizers from the BMC credentials secret
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      credentialsName,
+				Namespace: clusterName,
+			},
+		}
+		if err := removeFinalizers(ctx, s.client, secret); err != nil {
+			log.Warnf("failed to remove finalizers from BMC secret %s in namespace %s: %v",
+				credentialsName, clusterName, err)
+		} else {
+			log.Infof("removed finalizers from BMC secret %s in namespace %s", credentialsName, clusterName)
+		}
+	}
+
+	return nil
 }
 
 // deploying: send clusters and addon config into target hub in batches
@@ -332,7 +392,14 @@ func (s *MigrationSourceSyncer) processResourceByType(
 		// Remove pause annotation from ClusterDeployment
 		annotations := resource.GetAnnotations()
 		if annotations != nil {
-			delete(annotations, PauseAnnotation)
+			delete(annotations, HivePauseAnnotation)
+		}
+		resource.SetAnnotations(annotations)
+	case "BareMetalHost", "DataImage":
+		// Remove pause annotation from BareMetalHost and DataImage
+		annotations := resource.GetAnnotations()
+		if annotations != nil {
+			delete(annotations, Metal3PauseAnnotation)
 		}
 		resource.SetAnnotations(annotations)
 	}
