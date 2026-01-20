@@ -808,27 +808,6 @@ func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Contex
 	return nil
 }
 
-// getBootstrapClusterRoleName dynamically detects the bootstrap ClusterRole name.
-// It first checks for ACM/MCE ClusterRole (higher priority), then falls back to OCM ClusterRole.
-// ACM/MCE takes priority because it provides agent-registration capabilities in those environments,
-// while OCM environments use the standard bootstrap ClusterRole. This prioritization ensures
-// compatibility with multiple cluster management platforms.
-func (s *MigrationTargetSyncer) getBootstrapClusterRoleName(ctx context.Context) (string, error) {
-	// Try ACM/MCE ClusterRole first
-	cr := &rbacv1.ClusterRole{}
-	if err := s.client.Get(ctx, types.NamespacedName{Name: DefaultACMBootstrapClusterRole}, cr); err == nil {
-		return DefaultACMBootstrapClusterRole, nil
-	}
-
-	// Fallback to OCM ClusterRole
-	if err := s.client.Get(ctx, types.NamespacedName{Name: DefaultOCMBootstrapClusterRole}, cr); err == nil {
-		return DefaultOCMBootstrapClusterRole, nil
-	}
-
-	return "", fmt.Errorf("no bootstrap ClusterRole found (tried %s and %s)",
-		DefaultACMBootstrapClusterRole, DefaultOCMBootstrapClusterRole)
-}
-
 // isOCMEnvironment checks if running in OCM environment (not ACM/MCE)
 // Returns true if only OCM ClusterRole exists, false if ACM ClusterRole exists
 func (s *MigrationTargetSyncer) isOCMEnvironment(ctx context.Context) bool {
@@ -847,9 +826,9 @@ func (s *MigrationTargetSyncer) isOCMEnvironment(ctx context.Context) bool {
 func (s *MigrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
-	registrationClusterRoleName, err := s.getBootstrapClusterRoleName(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get bootstrap ClusterRole name: %w", err)
+	registrationClusterRoleName := DefaultACMBootstrapClusterRole
+	if s.isOCMEnvironment(ctx) {
+		registrationClusterRoleName = DefaultOCMBootstrapClusterRole
 	}
 	log.Infof("using bootstrap ClusterRole: %s", registrationClusterRoleName)
 	registrationClusterRoleBindingName := GetAgentRegistrationClusterRoleBindingName(msaName)

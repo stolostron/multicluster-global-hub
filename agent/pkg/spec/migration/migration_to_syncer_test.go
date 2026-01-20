@@ -3328,19 +3328,18 @@ func TestRemoveVeleroRestoreLabelFromImageClusterInstall(t *testing.T) {
 	}
 }
 
-// TestGetBootstrapClusterRoleName tests the dynamic ClusterRole detection logic
-func TestGetBootstrapClusterRoleName(t *testing.T) {
+// TestIsOCMEnvironment tests the OCM environment detection logic
+func TestIsOCMEnvironment(t *testing.T) {
 	ctx := context.Background()
 	scheme := configs.GetRuntimeScheme()
 
 	cases := []struct {
-		name                    string
-		initObjects             []client.Object
-		expectedClusterRoleName string
-		expectedError           string
+		name        string
+		initObjects []client.Object
+		expected    bool
 	}{
 		{
-			name: "ACM ClusterRole exists - should return ACM ClusterRole name",
+			name: "ACM ClusterRole exists - should return false (not OCM environment)",
 			initObjects: []client.Object{
 				&rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
@@ -3348,11 +3347,10 @@ func TestGetBootstrapClusterRoleName(t *testing.T) {
 					},
 				},
 			},
-			expectedClusterRoleName: DefaultACMBootstrapClusterRole,
-			expectedError:           "",
+			expected: false,
 		},
 		{
-			name: "Only OCM ClusterRole exists - should return OCM ClusterRole name",
+			name: "Only OCM ClusterRole exists - should return true (OCM environment)",
 			initObjects: []client.Object{
 				&rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
@@ -3360,11 +3358,10 @@ func TestGetBootstrapClusterRoleName(t *testing.T) {
 					},
 				},
 			},
-			expectedClusterRoleName: DefaultOCMBootstrapClusterRole,
-			expectedError:           "",
+			expected: true,
 		},
 		{
-			name: "Both ACM and OCM ClusterRoles exist - should return ACM ClusterRole name (priority)",
+			name: "Both ACM and OCM ClusterRoles exist - should return false (ACM takes priority)",
 			initObjects: []client.Object{
 				&rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
@@ -3377,14 +3374,12 @@ func TestGetBootstrapClusterRoleName(t *testing.T) {
 					},
 				},
 			},
-			expectedClusterRoleName: DefaultACMBootstrapClusterRole,
-			expectedError:           "",
+			expected: false,
 		},
 		{
-			name:                    "Neither ClusterRole exists - should return error",
-			initObjects:             []client.Object{},
-			expectedClusterRoleName: "",
-			expectedError:           "no bootstrap ClusterRole found",
+			name:        "Neither ClusterRole exists - should return false",
+			initObjects: []client.Object{},
+			expected:    false,
 		},
 	}
 
@@ -3396,16 +3391,8 @@ func TestGetBootstrapClusterRoleName(t *testing.T) {
 				client: fakeClient,
 			}
 
-			clusterRoleName, err := syncer.getBootstrapClusterRoleName(ctx)
-
-			if c.expectedError != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), c.expectedError)
-				assert.Equal(t, "", clusterRoleName)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, c.expectedClusterRoleName, clusterRoleName)
-			}
+			result := syncer.isOCMEnvironment(ctx)
+			assert.Equal(t, c.expected, result)
 		})
 	}
 }

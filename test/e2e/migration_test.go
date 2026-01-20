@@ -179,7 +179,7 @@ var _ = Describe("Migration E2E", Label("e2e-test-migration"), Ordered, func() {
 				klog.Infof("[DEBUG] Migration phase: %s", mcm.Status.Phase)
 				return string(mcm.Status.Phase)
 			}, 2*time.Minute, migrationPollInterval).Should(
-				Or(Equal("Initializing"), Equal("Deploying"), Equal("Registering")))
+				Or(Equal(migrationv1alpha1.PhaseInitializing), Equal(migrationv1alpha1.PhaseDeploying), Equal(migrationv1alpha1.PhaseRegistering)))
 
 			By("Waiting for bootstrap secret to be created in multicluster-engine namespace")
 			Eventually(func() error {
@@ -244,7 +244,7 @@ var _ = Describe("Migration E2E", Label("e2e-test-migration"), Ordered, func() {
 					return ""
 				}
 				return string(mcm.Status.Phase)
-			}, 5*time.Minute, migrationPollInterval).Should(Equal("Registering"))
+			}, 5*time.Minute, migrationPollInterval).Should(Equal(migrationv1alpha1.PhaseRegistering))
 
 			By("Step 6: Creating ReadOnly ManifestWork on target hub (Mock Registering Phase)")
 			createRegisteringManifestWork(ctx, targetHubClient, clusterToMigrate)
