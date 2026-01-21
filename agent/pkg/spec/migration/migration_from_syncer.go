@@ -711,7 +711,9 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 
 		// Remove pause annotation from ZTP resources
 		if err := RemovePauseAnnotations(ctx, s.client, managedCluster); err != nil {
-			log.Warnf("failed to remove pause annotations for cluster %s: %v", managedCluster, err)
+			s.clusterErrors[managedCluster] = fmt.Sprintf("failed to remove pause annotations for cluster %s: %v",
+				managedCluster, err)
+			continue
 		}
 		log.Infof("successfully removed pause annotations for cluster: %s", managedCluster)
 	}

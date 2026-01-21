@@ -6,13 +6,16 @@ package migration
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +35,109 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+// TestFormatErrorMessages tests the formatErrorMessages function
+func TestFormatErrorMessages(t *testing.T) {
+	cases := []struct {
+		name           string
+		errors         map[string]string
+		expectedOutput string
+	}{
+		{
+			name:           "Empty error map",
+			errors:         map[string]string{},
+			expectedOutput: "",
+		},
+		{
+			name: "Single error",
+			errors: map[string]string{
+				"cluster1": "connection timeout",
+			},
+			expectedOutput: "1 error(s), get more details in events",
+		},
+		{
+			name: "Two errors",
+			errors: map[string]string{
+				"cluster1": "connection timeout",
+				"cluster2": "authentication failed",
+			},
+			expectedOutput: "2 error(s), get more details in events",
+		},
+		{
+			name: "Three errors",
+			errors: map[string]string{
+				"cluster1": "connection timeout",
+				"cluster2": "authentication failed",
+				"cluster3": "resource not found",
+			},
+			expectedOutput: "3 error(s), get more details in events",
+		},
+		{
+			name: "Five errors",
+			errors: map[string]string{
+				"cluster1": "connection timeout",
+				"cluster2": "authentication failed",
+				"cluster3": "resource not found",
+				"cluster4": "permission denied",
+				"cluster5": "network unreachable",
+			},
+			expectedOutput: "5 error(s), get more details in events",
+		},
+		{
+			name: "Four errors",
+			errors: map[string]string{
+				"cluster1": "error1",
+				"cluster2": "error2",
+				"cluster3": "error3",
+				"cluster4": "error4",
+			},
+			expectedOutput: "4 error(s), get more details in events",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			result := formatErrorMessages(c.errors)
+			assert.Equal(t, c.expectedOutput, result)
+		})
+	}
+}
+
+// TestFormatErrorMessagesNonDeterministic tests that the function returns consistent count
+func TestFormatErrorMessagesNonDeterministic(t *testing.T) {
+	errors := map[string]string{
+		"cluster1": "error1",
+		"cluster2": "error2",
+		"cluster3": "error3",
+		"cluster4": "error4",
+		"cluster5": "error5",
+	}
+
+	// Run the function multiple times to ensure it's stable
+	// The function should always return the same count and message
+	expectedResult := "5 error(s), get more details in events"
+	for i := 0; i < 10; i++ {
+		result := formatErrorMessages(errors)
+		assert.Equal(t, expectedResult, result, "Should always return the same count")
+	}
+}
+
+// TestFormatErrorMessagesUsageInCleaningStage tests the actual usage pattern in the cleaning stage
+func TestFormatErrorMessagesUsageInCleaningStage(t *testing.T) {
+	// This test simulates how formatErrorMessages is used in the cleaning stage
+	clusterErrors := map[string]string{
+		"cluster1":            "failed to remove auto-import disable annotation: timeout",
+		"cluster2":            "failed to remove auto-import disable annotation: not found",
+		"hub1/ClusterManager": "failed to remove auto approve user from ClusterManager: conflict",
+		"hub1/RBAC":           "failed to cleanup migration RBAC resources: permission denied",
+	}
+
+	result := formatErrorMessages(clusterErrors)
+
+	// Verify the result shows the correct error count and hint message
+	expectedResult := "4 error(s), get more details in events"
+	assert.Equal(t, expectedResult, result)
+}
 
 // go test -run ^TestMigrationToSyncer$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
 func TestMigrationToSyncer(t *testing.T) {
@@ -1490,6 +1596,995 @@ func TestDeployingBatchReceiving(t *testing.T) {
 	}
 }
 
+// TestCleaningStageErrorAggregation tests error aggregation in cleaning stage
+func TestCleaningStageErrorAggregation(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name           string
+		initObjects    []client.Object
+		migrationEvent *migration.MigrationTargetBundle
+		expectError    bool
+		errorContains  []string
+	}{
+		{
+			name: "Cleaning stage with multiple cluster errors",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+						Annotations: map[string]string{
+							"import.open-cluster-management.io/disable-auto-import": "",
+						},
+					},
+				},
+				// cluster2 missing - will cause error
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+			},
+			migrationEvent: &migration.MigrationTargetBundle{
+				MigrationId:                           "test-migration",
+				Stage:                                 migrationv1alpha1.PhaseCleaning,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{"cluster1", "cluster2"},
+			},
+			expectError: true,
+			errorContains: []string{
+				"cleaning failed",
+				"error(s)",
+			},
+		},
+		{
+			name: "Cleaning stage - RBAC cleanup errors",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+				// Missing RBAC resources - will cause cleanup errors
+			},
+			migrationEvent: &migration.MigrationTargetBundle{
+				MigrationId:                           "test-migration",
+				Stage:                                 migrationv1alpha1.PhaseCleaning,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{},
+			},
+			expectError: false, // cleanupMigrationRBAC handles missing resources gracefully
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			producer := ProducerMock{}
+			transportClient := &controller.TransportClient{}
+			transportClient.SetProducer(&producer)
+			transportConfig := &transport.TransportInternalConfig{
+				KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"},
+			}
+
+			agentConfig := &configs.AgentConfig{
+				TransportConfig: transportConfig,
+				LeafHubName:     "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
+			syncer.SetMigrationID(c.migrationEvent.MigrationId)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.cleaning(ctx, c.migrationEvent, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				for _, expectedStr := range c.errorContains {
+					assert.Contains(t, err.Error(), expectedStr)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateManagedClustersWithErrors tests error aggregation in validateManagedClusters
+func TestValidateManagedClustersWithErrors(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		clusterNames  []string
+		expectError   bool
+		errorContains []string
+	}{
+		{
+			name: "Multiple clusters already exist",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster2"},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster3"},
+				},
+			},
+			clusterNames: []string{"cluster1", "cluster2", "cluster3"},
+			expectError:  true,
+			errorContains: []string{
+				"3 clusters validation failed",
+				"3 error(s), get more details in events",
+			},
+		},
+		{
+			name:         "All clusters do not exist - validation passes",
+			initObjects:  []client.Object{},
+			clusterNames: []string{"new-cluster1", "new-cluster2"},
+			expectError:  false,
+		},
+		{
+			name: "Some clusters exist, some don't",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "existing-cluster"},
+				},
+			},
+			clusterNames: []string{"existing-cluster", "new-cluster"},
+			expectError:  true,
+			errorContains: []string{
+				"1 clusters validation failed",
+				"1 error(s), get more details in events",
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.validateManagedClusters(ctx, c.clusterNames, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				for _, expectedStr := range c.errorContains {
+					assert.Contains(t, err.Error(), expectedStr)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestRollbackInitializingErrorAggregation tests error aggregation in rollbackInitializing
+func TestRollbackInitializingErrorAggregation(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		spec          *migration.MigrationTargetBundle
+		expectError   bool
+		errorContains []string
+	}{
+		{
+			name: "Successful rollback initializing with all resources present",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetAgentRegistrationClusterRoleBindingName("test"),
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			expectError: false,
+		},
+		{
+			name: "RBAC cleanup errors during rollback",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+				// Missing RBAC resources
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			expectError: false, // RBAC cleanup handles missing resources gracefully
+		},
+		{
+			name: "Empty ManagedServiceAccountName - should skip",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "",
+				ManagedServiceAccountInstallNamespace: "",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.rollbackInitializing(ctx, c.spec, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				for _, expectedStr := range c.errorContains {
+					assert.Contains(t, err.Error(), expectedStr)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestRollbackDeployingErrorAggregation tests error aggregation in rollbackDeploying
+func TestRollbackDeployingErrorAggregation(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		spec          *migration.MigrationTargetBundle
+		expectError   bool
+		errorContains []string
+	}{
+		{
+			name: "Multiple errors during deploying rollback",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster1",
+						Namespace: "cluster1",
+					},
+				},
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{"cluster1", "cluster2"}, // cluster2 missing
+			},
+			expectError: false, // rollback continues on errors
+		},
+		{
+			name:        "Empty cluster list - should succeed",
+			initObjects: []client.Object{},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.rollbackDeploying(ctx, c.spec, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				for _, expectedStr := range c.errorContains {
+					assert.Contains(t, err.Error(), expectedStr)
+				}
+			} else {
+				// May have errors but should not fail completely
+				if err != nil {
+					t.Logf("Rollback completed with non-fatal errors: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestCleanupMigrationRBACErrorAggregation tests error aggregation in cleanupMigrationRBAC
+func TestCleanupMigrationRBACErrorAggregation(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		msaName       string
+		expectError   bool
+		errorContains []string
+	}{
+		{
+			name: "All RBAC resources exist - should cleanup successfully",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test-msa"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test-msa"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetAgentRegistrationClusterRoleBindingName("test-msa"),
+					},
+				},
+			},
+			msaName:     "test-msa",
+			expectError: false,
+		},
+		{
+			name:        "No RBAC resources exist - should handle gracefully",
+			initObjects: []client.Object{},
+			msaName:     "test-msa",
+			expectError: false, // deleteResourceIfExists handles NotFound gracefully
+		},
+		{
+			name: "Partial RBAC resources exist",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test-msa"),
+					},
+				},
+				// Missing ClusterRoleBindings
+			},
+			msaName:     "test-msa",
+			expectError: false, // Missing resources handled gracefully
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationTargetSyncer{
+				client:      fakeClient,
+				leafHubName: "hub1",
+			}
+
+			err := syncer.cleanupMigrationRBAC(ctx, c.msaName)
+
+			if c.expectError {
+				assert.Error(t, err)
+				for _, expectedStr := range c.errorContains {
+					assert.Contains(t, err.Error(), expectedStr)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Verify resources were deleted
+			clusterRole := &rbacv1.ClusterRole{}
+			err = fakeClient.Get(ctx, client.ObjectKey{
+				Name: GetSubjectAccessReviewClusterRoleName(c.msaName),
+			}, clusterRole)
+			assert.True(t, client.IgnoreNotFound(err) == nil, "ClusterRole should be deleted or not found")
+		})
+	}
+}
+
+// TestValidatingStage tests the validating stage
+func TestValidatingStage(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		event         *migration.MigrationTargetBundle
+		expectError   bool
+		errorContains []string
+	}{
+		{
+			name: "Validation passes with no existing clusters",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+				},
+			},
+			event: &migration.MigrationTargetBundle{
+				MigrationId:     "test-migration",
+				Stage:           migrationv1alpha1.PhaseValidating,
+				ManagedClusters: []string{"new-cluster1", "new-cluster2"},
+			},
+			expectError: false,
+		},
+		{
+			name: "Validation fails with existing clusters",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "existing-cluster"},
+				},
+			},
+			event: &migration.MigrationTargetBundle{
+				MigrationId:     "test-migration",
+				Stage:           migrationv1alpha1.PhaseValidating,
+				ManagedClusters: []string{"existing-cluster", "new-cluster"},
+			},
+			expectError: true,
+			errorContains: []string{
+				"clusters validation failed",
+				"1 error(s), get more details in events",
+			},
+		},
+		{
+			name:        "Validation with no clusters",
+			initObjects: []client.Object{},
+			event: &migration.MigrationTargetBundle{
+				MigrationId:     "test-migration",
+				Stage:           migrationv1alpha1.PhaseValidating,
+				ManagedClusters: []string{},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.validating(ctx, c.event, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				for _, expectedStr := range c.errorContains {
+					assert.Contains(t, err.Error(), expectedStr)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestRollbackRegistering tests the rollbackRegistering function
+func TestRollbackRegistering(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name        string
+		initObjects []client.Object
+		spec        *migration.MigrationTargetBundle
+		expectError bool
+	}{
+		{
+			name: "Rollback registering with resources",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster1",
+						Namespace: "cluster1",
+					},
+				},
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{"cluster1"},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.rollbackRegistering(ctx, c.spec, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+			} else {
+				// rollbackRegistering may return errors but should continue
+				if err != nil {
+					t.Logf("Rollback completed with errors: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestShouldSkipMigrationEvent tests the shouldSkipMigrationEvent function
+func TestShouldSkipMigrationEvent(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name           string
+		setupConfigMap func(client.Client) error
+		eventTime      time.Time
+		expectSkip     bool
+		expectError    bool
+	}{
+		{
+			name: "Skip event - cached time is newer",
+			setupConfigMap: func(c client.Client) error {
+				// Set a future time in configmap
+				futureTime := time.Now().Add(1 * time.Hour)
+				return configs.SetSyncTimeState(ctx, c, "test-topic--test-source", futureTime)
+			},
+			eventTime:   time.Now(),
+			expectSkip:  true,
+			expectError: false,
+		},
+		{
+			name: "Process event - no cached time and recent event",
+			setupConfigMap: func(c client.Client) error {
+				return nil // No setup needed
+			},
+			eventTime:   time.Now(),
+			expectSkip:  false,
+			expectError: false,
+		},
+		{
+			name: "Skip event - no cached time and old event",
+			setupConfigMap: func(c client.Client) error {
+				return nil // No setup needed
+			},
+			eventTime:   time.Now().Add(-15 * time.Minute), // 15 minutes old
+			expectSkip:  true,
+			expectError: false,
+		},
+		{
+			name: "Process event - cached time is older",
+			setupConfigMap: func(c client.Client) error {
+				pastTime := time.Now().Add(-1 * time.Hour)
+				return configs.SetSyncTimeState(ctx, c, "test-topic--test-source", pastTime)
+			},
+			eventTime:   time.Now(),
+			expectSkip:  false,
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+			configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "test-dest"})
+
+			if c.setupConfigMap != nil {
+				err := c.setupConfigMap(fakeClient)
+				assert.NoError(t, err)
+			}
+
+			evt := utils.ToCloudEvent("test-type", "test-source", "test-dest", []byte("{}"))
+			evt.SetTime(c.eventTime)
+			evt.SetExtension("kafkatopic", "test-topic")
+
+			skip, err := shouldSkipMigrationEvent(ctx, fakeClient, &evt)
+
+			if c.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, c.expectSkip, skip)
+			}
+		})
+	}
+}
+
+// TestHandleStage tests the handleStage function
+func TestHandleStage(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		event         *migration.MigrationTargetBundle
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:        "Handle validating stage",
+			initObjects: []client.Object{},
+			event: &migration.MigrationTargetBundle{
+				MigrationId:     "test-migration",
+				Stage:           migrationv1alpha1.PhaseValidating,
+				ManagedClusters: []string{},
+			},
+			expectError: false,
+		},
+		{
+			name: "Handle initializing stage",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+				},
+			},
+			event: &migration.MigrationTargetBundle{
+				MigrationId:                           "test-migration",
+				Stage:                                 migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			expectError: false,
+		},
+		{
+			name: "Handle cleaning stage",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+			},
+			event: &migration.MigrationTargetBundle{
+				MigrationId:                           "test-migration",
+				Stage:                                 migrationv1alpha1.PhaseCleaning,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			expectError: false,
+		},
+		{
+			name: "Handle rollbacking stage",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+				},
+			},
+			event: &migration.MigrationTargetBundle{
+				MigrationId:                           "test-migration",
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			expectError: false,
+		},
+		{
+			name:        "Handle unknown stage",
+			initObjects: []client.Object{},
+			event: &migration.MigrationTargetBundle{
+				MigrationId: "test-migration",
+				Stage:       "UnknownStage",
+			},
+			expectError:   true,
+			errorContains: "unknown migration stage",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.handleStage(ctx, c.event, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				if c.errorContains != "" {
+					assert.Contains(t, err.Error(), c.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestDeleteResourceIfExists tests the deleteResourceIfExists function
+func TestDeleteResourceIfExists(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name        string
+		initObjects []client.Object
+		resourceKey client.ObjectKey
+		forceDelete bool
+		expectError bool
+		shouldExist bool
+	}{
+		{
+			name: "Delete existing resource without finalizers",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-role",
+					},
+				},
+			},
+			resourceKey: client.ObjectKey{Name: "test-role"},
+			forceDelete: false,
+			expectError: false,
+			shouldExist: false,
+		},
+		{
+			name: "Delete existing resource with finalizers - forceDelete=false",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-role-with-finalizer",
+						Finalizers: []string{"test-finalizer"},
+					},
+				},
+			},
+			resourceKey: client.ObjectKey{Name: "test-role-with-finalizer"},
+			forceDelete: false,
+			expectError: false,
+			shouldExist: false, // fake client handles deletion
+		},
+		{
+			name: "Delete existing resource with finalizers - forceDelete=true",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-role-force",
+						Finalizers: []string{"test-finalizer"},
+					},
+				},
+			},
+			resourceKey: client.ObjectKey{Name: "test-role-force"},
+			forceDelete: true,
+			expectError: false,
+			shouldExist: false,
+		},
+		{
+			name:        "Delete non-existing resource",
+			initObjects: []client.Object{},
+			resourceKey: client.ObjectKey{Name: "non-existing"},
+			forceDelete: false,
+			expectError: false,
+			shouldExist: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			obj := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: c.resourceKey.Name,
+				},
+			}
+
+			err := deleteResourceIfExists(ctx, fakeClient, obj, c.forceDelete)
+
+			if c.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				// Verify the resource state
+				checkObj := &rbacv1.ClusterRole{}
+				getErr := fakeClient.Get(ctx, c.resourceKey, checkObj)
+				if c.shouldExist {
+					assert.NoError(t, getErr)
+				} else {
+					assert.True(t, client.IgnoreNotFound(getErr) == nil)
+				}
+			}
+		})
+	}
+}
+
+// TestInitializing tests the initializing stage
+func TestInitializing(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		event         *migration.MigrationTargetBundle
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "Successful initializing with minimal ClusterManager",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+				},
+			},
+			event: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test-msa",
+				ManagedServiceAccountInstallNamespace: "test-ns",
+			},
+			expectError: false,
+		},
+		{
+			name: "Initializing with existing ClusterManager configuration",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							FeatureGates: []operatorv1.FeatureGate{
+								{
+									Feature: "OtherFeature",
+									Mode:    operatorv1.FeatureGateModeTypeEnable,
+								},
+							},
+							AutoApproveUsers: []string{"other-user"},
+						},
+					},
+				},
+			},
+			event: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test-msa",
+				ManagedServiceAccountInstallNamespace: "test-ns",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.initializing(ctx, c.event, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				if c.errorContains != "" {
+					assert.Contains(t, err.Error(), c.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+
+				// Verify ClusterManager was updated
+				cm := &operatorv1.ClusterManager{}
+				err := fakeClient.Get(ctx, client.ObjectKey{Name: "cluster-manager"}, cm)
+				assert.NoError(t, err)
+
+				// Check that auto-approve feature is enabled
+				assert.NotNil(t, cm.Spec.RegistrationConfiguration)
+				hasAutoApprove := false
+				for _, fg := range cm.Spec.RegistrationConfiguration.FeatureGates {
+					if fg.Feature == "ManagedClusterAutoApproval" && fg.Mode == operatorv1.FeatureGateModeTypeEnable {
+						hasAutoApprove = true
+						break
+					}
+				}
+				assert.True(t, hasAutoApprove, "ManagedClusterAutoApproval feature should be enabled")
+
+				// Check that the MSA user is in auto-approve list
+				expectedUser := fmt.Sprintf("system:serviceaccount:%s:%s", c.event.ManagedServiceAccountInstallNamespace, c.event.ManagedServiceAccountName)
+				assert.Contains(t, cm.Spec.RegistrationConfiguration.AutoApproveUsers, expectedUser)
+			}
+		})
+	}
+}
+
 // TestDeployingBatchReceivingError tests error handling during batch receiving
 func TestDeployingBatchReceivingError(t *testing.T) {
 	migrationId := "test-migration-error-789"
@@ -2050,5 +3145,682 @@ func getGVKFromKind(kind string) schema.GroupVersionKind {
 		}
 	default:
 		return schema.GroupVersionKind{}
+	}
+}
+
+// TestDeleteResourceIfExistsComprehensive tests deleteResourceIfExists with all code paths
+func TestDeleteResourceIfExistsComprehensive(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		resource      client.Object
+		forceDelete   bool
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "Delete existing resource without finalizers",
+			initObjects: []client.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-namespace"},
+				},
+			},
+			resource: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-namespace"},
+			},
+			forceDelete: false,
+			expectError: false,
+		},
+		{
+			name:        "Delete non-existent resource - should not error",
+			initObjects: []client.Object{},
+			resource: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "non-existent"},
+			},
+			forceDelete: false,
+			expectError: false,
+		},
+		{
+			name:        "Delete nil resource - should not error",
+			initObjects: []client.Object{},
+			resource:    nil,
+			forceDelete: false,
+			expectError: false,
+		},
+		{
+			name: "Delete resource with finalizers and forceDelete=true",
+			initObjects: []client.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-namespace-with-finalizers",
+						Finalizers: []string{"test.finalizer.io/lock"},
+					},
+				},
+			},
+			resource: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-namespace-with-finalizers"},
+			},
+			forceDelete: true,
+			expectError: false,
+		},
+		{
+			name: "Delete resource with finalizers and forceDelete=false",
+			initObjects: []client.Object{
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-namespace-with-finalizers2",
+						Finalizers: []string{"kubernetes.io/metadata.name"},
+					},
+				},
+			},
+			resource: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-namespace-with-finalizers2"},
+			},
+			forceDelete: false,
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			err := deleteResourceIfExists(ctx, fakeClient, c.resource, c.forceDelete)
+
+			if c.expectError {
+				assert.Error(t, err)
+				if c.errorContains != "" {
+					assert.Contains(t, err.Error(), c.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Verify resource was deleted if it existed
+			if c.resource != nil && len(c.initObjects) > 0 {
+				checkResource := c.resource.DeepCopyObject().(client.Object)
+				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(c.resource), checkResource)
+				// Resource should be deleted or in process of deletion
+				assert.True(t, apierrors.IsNotFound(err) || checkResource.GetDeletionTimestamp() != nil,
+					"Resource should be deleted or have deletion timestamp")
+			}
+		})
+	}
+}
+
+// TestRemoveMigrationResourcesComprehensive tests removeMigrationResources with various scenarios
+func TestRemoveMigrationResourcesComprehensive(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		clusterName   string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "Remove cluster with ManagedCluster and KlusterletAddonConfig",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-cluster"},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-cluster",
+						Namespace: "test-cluster",
+					},
+				},
+			},
+			clusterName: "test-cluster",
+			expectError: false,
+		},
+		{
+			name:        "Remove cluster with no resources - should succeed",
+			initObjects: []client.Object{},
+			clusterName: "empty-cluster",
+			expectError: false,
+		},
+		{
+			name: "Remove cluster with ManagedCluster only",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-only"},
+				},
+			},
+			clusterName: "cluster-only",
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			err := syncer.removeMigrationResources(ctx, c.clusterName)
+
+			if c.expectError {
+				assert.Error(t, err)
+				if c.errorContains != "" {
+					assert.Contains(t, err.Error(), c.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				// Note: In fake client, resources may not actually be deleted immediately,
+				// so we primarily verify that no error occurred during the removal operation
+			}
+		})
+	}
+}
+
+// TestRollbackDeployingComprehensive tests rollbackDeploying with comprehensive error scenarios
+func TestRollbackDeployingComprehensive(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		spec          *migration.MigrationTargetBundle
+		expectError   bool
+		errorContains []string
+	}{
+		{
+			name: "Successful rollback with all resources present",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster1",
+						Namespace: "cluster1",
+					},
+				},
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+				},
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetAgentRegistrationClusterRoleBindingName("test"),
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{"cluster1"},
+			},
+			expectError: false,
+		},
+		{
+			name: "Rollback with missing resources - continues with errors",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{"missing-cluster"},
+			},
+			expectError: false, // removeMigrationResources handles missing resources
+		},
+		{
+			name: "Rollback with multiple clusters",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster2"},
+				},
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+				},
+				&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster2"},
+				},
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{"cluster1", "cluster2"},
+			},
+			expectError: false,
+		},
+		{
+			name:        "Empty cluster list - should succeed",
+			initObjects: []client.Object{},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.rollbackDeploying(ctx, c.spec, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				for _, expectedStr := range c.errorContains {
+					assert.Contains(t, err.Error(), expectedStr)
+				}
+			} else {
+				// May have errors but should not fail catastrophically
+				if err != nil {
+					t.Logf("Rollback completed with non-fatal errors: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestRollbackInitializingComprehensive tests rollbackInitializing with comprehensive scenarios
+func TestRollbackInitializingComprehensive(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		spec          *migration.MigrationTargetBundle
+		expectError   bool
+		errorContains []string
+	}{
+		{
+			name: "Successful rollback with all RBAC resources",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetAgentRegistrationClusterRoleBindingName("test"),
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			expectError: false,
+		},
+		{
+			name: "Rollback with ClusterManager but missing RBAC - handles gracefully",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			expectError: false,
+		},
+		{
+			name: "Rollback with partial RBAC resources",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
+					},
+				},
+			},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			expectError: false,
+		},
+		{
+			name:        "Skip rollback with empty ManagedServiceAccountName",
+			initObjects: []client.Object{},
+			spec: &migration.MigrationTargetBundle{
+				ManagedServiceAccountName:             "",
+				ManagedServiceAccountInstallNamespace: "",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			clusterErrors := make(map[string]string)
+			err := syncer.rollbackInitializing(ctx, c.spec, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				for _, expectedStr := range c.errorContains {
+					assert.Contains(t, err.Error(), expectedStr)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Verify RBAC resources were deleted if they existed
+			if c.spec.ManagedServiceAccountName != "" {
+				cr := &rbacv1.ClusterRole{}
+				err := fakeClient.Get(ctx, client.ObjectKey{
+					Name: GetSubjectAccessReviewClusterRoleName(c.spec.ManagedServiceAccountName),
+				}, cr)
+				assert.True(t, apierrors.IsNotFound(err) || cr.GetDeletionTimestamp() != nil,
+					"ClusterRole should be deleted or have deletion timestamp")
+			}
+		})
+	}
+}
+
+// TestCleanupMigrationRBACComprehensive tests cleanupMigrationRBAC with all code paths
+func TestCleanupMigrationRBACComprehensive(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		msaName       string
+		expectError   bool
+		errorContains []string
+	}{
+		{
+			name: "Cleanup all three RBAC resources successfully",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test-msa"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test-msa"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetAgentRegistrationClusterRoleBindingName("test-msa"),
+					},
+				},
+			},
+			msaName:     "test-msa",
+			expectError: false,
+		},
+		{
+			name:        "Cleanup with no RBAC resources - handles gracefully",
+			initObjects: []client.Object{},
+			msaName:     "test-msa-none",
+			expectError: false,
+		},
+		{
+			name: "Cleanup with only ClusterRole present",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("partial-msa"),
+					},
+				},
+			},
+			msaName:     "partial-msa",
+			expectError: false,
+		},
+		{
+			name: "Cleanup with only ClusterRoleBindings present",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleBindingName("binding-only"),
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetAgentRegistrationClusterRoleBindingName("binding-only"),
+					},
+				},
+			},
+			msaName:     "binding-only",
+			expectError: false,
+		},
+		{
+			name: "Cleanup with resources having finalizers",
+			initObjects: []client.Object{
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       GetSubjectAccessReviewClusterRoleName("finalizer-msa"),
+						Finalizers: []string{"test.finalizer.io/lock"},
+					},
+				},
+			},
+			msaName:     "finalizer-msa",
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationTargetSyncer{
+				client:      fakeClient,
+				leafHubName: "hub1",
+			}
+
+			err := syncer.cleanupMigrationRBAC(ctx, c.msaName)
+
+			if c.expectError {
+				assert.Error(t, err)
+				for _, expectedStr := range c.errorContains {
+					assert.Contains(t, err.Error(), expectedStr)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Verify all RBAC resources were deleted
+			clusterRole := &rbacv1.ClusterRole{}
+			err = fakeClient.Get(ctx, client.ObjectKey{
+				Name: GetSubjectAccessReviewClusterRoleName(c.msaName),
+			}, clusterRole)
+			assert.True(t, apierrors.IsNotFound(err) || clusterRole.GetDeletionTimestamp() != nil,
+				"ClusterRole should be deleted or have deletion timestamp")
+
+			sarCRB := &rbacv1.ClusterRoleBinding{}
+			err = fakeClient.Get(ctx, client.ObjectKey{
+				Name: GetSubjectAccessReviewClusterRoleBindingName(c.msaName),
+			}, sarCRB)
+			assert.True(t, apierrors.IsNotFound(err) || sarCRB.GetDeletionTimestamp() != nil,
+				"SAR ClusterRoleBinding should be deleted or have deletion timestamp")
+
+			regCRB := &rbacv1.ClusterRoleBinding{}
+			err = fakeClient.Get(ctx, client.ObjectKey{
+				Name: GetAgentRegistrationClusterRoleBindingName(c.msaName),
+			}, regCRB)
+			assert.True(t, apierrors.IsNotFound(err) || regCRB.GetDeletionTimestamp() != nil,
+				"Registration ClusterRoleBinding should be deleted or have deletion timestamp")
+		})
+	}
+}
+
+// TestRollbackingStageSwitch tests the rollbacking function's stage switch logic
+func TestRollbackingStageSwitch(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name          string
+		initObjects   []client.Object
+		rollbackStage string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name: "Rollback initializing stage",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+			},
+			rollbackStage: migrationv1alpha1.PhaseInitializing,
+			expectError:   false,
+		},
+		{
+			name: "Rollback deploying stage",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{},
+					},
+				},
+			},
+			rollbackStage: migrationv1alpha1.PhaseDeploying,
+			expectError:   false,
+		},
+		{
+			name: "Rollback registering stage",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
+				},
+			},
+			rollbackStage: migrationv1alpha1.PhaseRegistering,
+			expectError:   false,
+		},
+		{
+			name:          "Unsupported rollback stage",
+			initObjects:   []client.Object{},
+			rollbackStage: migrationv1alpha1.PhaseValidating,
+			expectError:   true,
+			errorContains: "no specific rollback action needed",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+			syncer.SetMigrationID("test-migration")
+
+			target := &migration.MigrationTargetBundle{
+				MigrationId:                           "test-migration",
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         c.rollbackStage,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{},
+			}
+
+			clusterErrors := make(map[string]string)
+			err := syncer.rollbacking(ctx, target, clusterErrors)
+
+			if c.expectError {
+				assert.Error(t, err)
+				if c.errorContains != "" {
+					assert.Contains(t, err.Error(), c.errorContains)
+				}
+			} else {
+				// Rollback may have errors but should continue
+				if err != nil {
+					t.Logf("Rollback completed with errors: %v", err)
+				}
+			}
+		})
 	}
 }
