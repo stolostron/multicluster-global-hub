@@ -2938,7 +2938,7 @@ func TestDeleteObservabilityAddon_CleaningPhaseIntegration(t *testing.T) {
 				Name: "cluster1",
 			},
 			Spec: clusterv1.ManagedClusterSpec{
-				HubAcceptsClient:     false, // Set to false so it will be deleted
+				HubAcceptsClient:     false, // Value doesn't affect deletion - clusters are always deleted in cleaning phase
 				LeaseDurationSeconds: 60,
 			},
 		}

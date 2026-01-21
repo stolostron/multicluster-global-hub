@@ -894,6 +894,8 @@ func (s *MigrationSourceSyncer) deleteClusterIfExists(ctx context.Context, clust
 }
 
 // cleanupSingleCluster handles cleanup logic for a single managed cluster
+// During cleaning stage, the cluster has successfully migrated to the target hub,
+// so we unconditionally delete it from the source hub regardless of HubAcceptsClient status.
 func (s *MigrationSourceSyncer) cleanupSingleCluster(ctx context.Context, clusterName string) error {
 	mc := &clusterv1.ManagedCluster{}
 	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, mc); err != nil {
@@ -904,13 +906,11 @@ func (s *MigrationSourceSyncer) cleanupSingleCluster(ctx context.Context, cluste
 		return fmt.Errorf("failed to get managed cluster: %w", err)
 	}
 
-	// For cleaning stage, delete the cluster if HubAcceptsClient is false
-	if !mc.Spec.HubAcceptsClient {
-		if err := s.client.Delete(ctx, mc); err != nil && !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete managed cluster: %w", err)
-		}
-		log.Infof("deleted managed cluster %s", clusterName)
+	// For cleaning stage, always delete the cluster - it has successfully migrated to target hub
+	if err := s.client.Delete(ctx, mc); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete managed cluster: %w", err)
 	}
+	log.Infof("deleted managed cluster %s", clusterName)
 	return nil
 }
 

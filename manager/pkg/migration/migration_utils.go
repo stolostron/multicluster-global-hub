@@ -163,6 +163,24 @@ func (m *ClusterMigrationController) UpdateSuccessClustersToConfigMap(ctx contex
 	})
 }
 
+// UpdateSuccessAndFailureClustersToConfigMap updates the ConfigMap with both successful and failed
+// cluster information. It only updates the keys that have non-empty cluster lists.
+func (m *ClusterMigrationController) UpdateSuccessAndFailureClustersToConfigMap(ctx context.Context,
+	mcm *migrationv1alpha1.ManagedClusterMigration, successClusters, failedClusters []string,
+) error {
+	clustersMap := make(map[string][]string)
+	if len(successClusters) > 0 {
+		clustersMap[successClustersConfigMapKey] = successClusters
+	}
+	if len(failedClusters) > 0 {
+		clustersMap[failedClustersConfigMapKey] = failedClusters
+	}
+	if len(clustersMap) == 0 {
+		return nil
+	}
+	return m.storeClustersToConfigMap(ctx, mcm, clustersMap)
+}
+
 // UpdateAllClustersToConfigMap updates the ConfigMap with all cluster information.
 // Currently it only stores successful clusters, but the name suggests it should handle all clusters.
 // This function appears to be a duplicate of UpdateSuccessClustersConfimap.

@@ -88,15 +88,12 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		migration.SetClusterList(bundle.MigrationId, bundle.ManagedClusters)
 		log.Infof("status: set cluster list, id: %s, clusters: %v", bundle.MigrationId, bundle.ManagedClusters)
 	}
+	migration.SetClusterErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ClusterErrors)
 
 	if bundle.ErrMessage != "" {
 		migration.SetErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
-		migration.SetClusterErrorDetailMap(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ClusterErrors)
 		log.Infof("status: migration failed, id: %s, hub: %s, stage: %s, error: %s",
 			bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
-		if len(bundle.ClusterErrors) > 0 {
-			log.Infof("status: cluster errors, id: %s, errors: %v", bundle.MigrationId, bundle.ClusterErrors)
-		}
 	} else {
 		migration.SetFinished(bundle.MigrationId, hubClusterName, bundle.Stage)
 		log.Infof("status: migration stage completed, id: %s, hub: %s, stage: %s",
