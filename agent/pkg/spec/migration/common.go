@@ -372,7 +372,7 @@ func listAndFilterResources(
 
 	// If no resources found, return empty array
 	if len(resourceList.Items) == 0 {
-		log.Warnf("no resources found: GVK=%s, Namespace=%s, AnnotationKey=%s, LabelKey=%s",
+		log.Debugf("no resources found: GVK=%s, Namespace=%s, AnnotationKey=%s, LabelKey=%s",
 			migrateResource.gvk.String(), clusterName, migrateResource.annotationKey, migrateResource.labelKey)
 		return nil, nil
 	}
