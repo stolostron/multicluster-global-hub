@@ -769,8 +769,8 @@ func (k *strimziTransporter) getKafkaResources(
 ) *kafkav1beta2.KafkaSpecKafkaResources {
 	kafkaRes := operatorutils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedSpec)
 
-	// If no custom resources specified in AdvancedSpec, use Kafka default heap (1GB) with Strimzi 5x formula
-	// For 1GB heap: 5GB total memory (1GB JVM heap + ~3.5GB page cache + ~0.5GB overhead)
+	// If no custom resources specified in AdvancedSpec, use Kafka default heap (1GB) with 4Gi total
+	// Memory composition: 1GB JVM heap + ~2.5GB OS page cache + ~0.5GB overhead
 	// Suitable for low-to-medium throughput workloads (Global Hub management platform)
 	// Reference: https://strimzi.io/blog/2021/06/08/broker-tuning/
 	// Note: GetResources returns default test resources if AdvancedSpec.Kafka is nil
@@ -779,12 +779,12 @@ func (k *strimziTransporter) getKafkaResources(
 		mgh.Spec.AdvancedSpec.Kafka.Resources == nil {
 		kafkaRes = &corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("5Gi"),
-				corev1.ResourceCPU:    resource.MustParse("1500m"),
+				corev1.ResourceMemory: resource.MustParse("4Gi"),
+				corev1.ResourceCPU:    resource.MustParse("1000m"),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("4Gi"),
-				corev1.ResourceCPU:    resource.MustParse("750m"),
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+				corev1.ResourceCPU:    resource.MustParse("500m"),
 			},
 		}
 	}

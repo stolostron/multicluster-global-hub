@@ -149,12 +149,12 @@ func TestNewKafkaCluster(t *testing.T) {
             ],
             "resources": {
                 "limits": {
-                    "cpu": "1500m",
-                    "memory": "5Gi"
+                    "cpu": "1",
+                    "memory": "4Gi"
                 },
                 "requests": {
-                    "cpu": "750m",
-                    "memory": "4Gi"
+                    "cpu": "500m",
+                    "memory": "2Gi"
                 }
             },
             "version": "4.1.0"
@@ -241,12 +241,12 @@ func TestNewKafkaCluster(t *testing.T) {
             ],
             "resources": {
                 "limits": {
-                    "cpu": "1500m",
-                    "memory": "5Gi"
+                    "cpu": "1",
+                    "memory": "4Gi"
                 },
                 "requests": {
-                    "cpu": "750m",
-                    "memory": "4Gi"
+                    "cpu": "500m",
+                    "memory": "2Gi"
                 }
             },
             "version": "4.1.0"
@@ -347,12 +347,12 @@ func TestNewKafkaCluster(t *testing.T) {
             ],
             "resources": {
                 "limits": {
-                    "cpu": "1500m",
-                    "memory": "5Gi"
+                    "cpu": "1",
+                    "memory": "4Gi"
                 },
                 "requests": {
-                    "cpu": "750m",
-                    "memory": "4Gi"
+                    "cpu": "500m",
+                    "memory": "2Gi"
                 }
             },
             "version": "4.1.0"
