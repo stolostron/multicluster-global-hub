@@ -6,6 +6,7 @@
 - [Prerequisites](#prerequisites)
 - [Migration Process](#migration-process)
 - [Rollback Procedures](#rollback-procedures)
+- [Known Issues](#known-issues)
 - [Summary](#summary)
 
 ## Overview
@@ -726,6 +727,39 @@ done
 ```bash
 # Wait for clusters to reconnect (may take 1-2 minutes)
 oc get managedcluster sno1,sno2,sno3
+```
+
+---
+
+## Known Issues
+
+### ImageClusterInstall REQUIREMENTSMET Shows Incorrect Status on ACM 2.15 or Earlier
+
+**Affected Versions**: Target hub running ACM 2.15 or earlier versions
+
+**Symptoms**:
+After migration completes, you may observe:
+- Cannot login to the SNO managed cluster using kubeadmin password
+- `ImageClusterInstall` resource shows `REQUIREMENTSMET: HostConfigurationSucceeded` instead of `HostValidationSucceeded`
+
+**Root Cause**:
+This is a known issue in the image-based-install-operator component. The ImageClusterInstall status is not correctly restored after migration on older ACM versions.
+
+**Tracking Issue**: [MGMT-22757](https://issues.redhat.com/browse/MGMT-22757)
+
+**Workaround**:
+Before performing the migration, disable the `image-based-install-operator` on the target hub:
+
+```bash
+oc patch mce multiclusterengine \
+  --type=merge \
+  -p='
+spec:
+  overrides:
+    components:
+    - name: image-based-install-operator
+      enabled: false
+'
 ```
 
 ---
