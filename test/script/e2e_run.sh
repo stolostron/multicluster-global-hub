@@ -49,7 +49,7 @@ export GH_NAMESPACE
 echo "namespace: "$GH_NAMESPACE
 
 # hub cluster
-hub_api_server=$(kubectl config view -o jsonpath="{.clusters[0].cluster.server}" --kubeconfig "$GH_KUBECONFIG" --context "$GH_NAME")
+hub_api_server=$(kubectl config view -o jsonpath="{.clusters[0].cluster.server}" --kubeconfig "${GH_KUBECONFIG}" --context "${GH_NAME}")
 global_hub_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${GH_NAME}-control-plane)
 
 # container nonk8s api server
@@ -104,8 +104,11 @@ export CGO_ENABLED=1
 # need set it as kafka advertiesehost to pass tls authn
 export GLOBAL_HUB_NODE_IP=${global_hub_node_ip}
 
+# Ensure namespace exists before applying ConfigMap
+kubectl create namespace "$GH_NAMESPACE" --dry-run=client -o yaml | kubectl --kubeconfig "${GH_KUBECONFIG}" apply -f - 2>/dev/null || true
+
 # set log level to debug
-cat <<EOF | kubectl apply --kubeconfig $GH_KUBECONFIG -n $GH_NAMESPACE -f -
+cat <<EOF | kubectl apply --kubeconfig ${GH_KUBECONFIG} -n ${GH_NAMESPACE} -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:

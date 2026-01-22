@@ -44,6 +44,10 @@ const (
 	KlusterletManifestWorkSuffix = "-klusterlet"
 	ClusterManagerName           = "cluster-manager"
 	errMsgFailedToGet            = "failed to get %s from source resource: %w"
+
+	// Bootstrap ClusterRole names for different environments
+	DefaultACMBootstrapClusterRole = "open-cluster-management:managedcluster:bootstrap:agent-registration"
+	DefaultOCMBootstrapClusterRole = "open-cluster-management:bootstrap"
 )
 
 var (
@@ -436,6 +440,15 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 		return err
 	}
 
+	// In OCM environment, delay 1 minute after all resources are created to allow manual testing.
+	// This delay is necessary because OCM environments may require additional setup time for
+	// ClusterRole and RBAC resources to be properly propagated before proceeding with migration.
+	// In ACM/MCE environments, these resources are pre-configured, so no delay is needed.
+	if isOCM, _ := s.isOCMEnvironment(ctx); isOCM {
+		log.Infof("OCM environment detected, delaying 1 minute after initializing to allow manual resource mocking")
+		time.Sleep(1 * time.Minute)
+	}
+
 	return nil
 }
 
@@ -795,10 +808,36 @@ func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Contex
 	return nil
 }
 
+// isOCMEnvironment checks if running in OCM environment (not ACM/MCE)
+// Returns (false, nil) if ACM ClusterRole exists
+// Returns (true, nil) if only OCM ClusterRole exists
+// Returns (false, error) if neither ClusterRole exists
+func (s *MigrationTargetSyncer) isOCMEnvironment(ctx context.Context) (bool, error) {
+	cr := &rbacv1.ClusterRole{}
+	// If ACM ClusterRole exists, it's not OCM environment
+	if err := s.client.Get(ctx, types.NamespacedName{Name: DefaultACMBootstrapClusterRole}, cr); err == nil {
+		return false, nil
+	}
+	// If only OCM ClusterRole exists, it's OCM environment
+	if err := s.client.Get(ctx, types.NamespacedName{Name: DefaultOCMBootstrapClusterRole}, cr); err == nil {
+		return true, nil
+	}
+	return false, fmt.Errorf("no bootstrap ClusterRole found: neither %s nor %s exists",
+		DefaultACMBootstrapClusterRole, DefaultOCMBootstrapClusterRole)
+}
+
 func (s *MigrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
-	registrationClusterRoleName := "open-cluster-management:managedcluster:bootstrap:agent-registration"
+	isOCM, err := s.isOCMEnvironment(ctx)
+	if err != nil {
+		return err
+	}
+	registrationClusterRoleName := DefaultACMBootstrapClusterRole
+	if isOCM {
+		registrationClusterRoleName = DefaultOCMBootstrapClusterRole
+	}
+	log.Infof("using bootstrap ClusterRole: %s", registrationClusterRoleName)
 	registrationClusterRoleBindingName := GetAgentRegistrationClusterRoleBindingName(msaName)
 	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
