@@ -135,8 +135,14 @@ create_pr() {
 
     # Checkout release branch
     echo -e "${BLUE}📌 Checking out ${RELEASE_BRANCH}...${NC}"
-    git checkout "${RELEASE_BRANCH}"
-    git pull upstream "${RELEASE_BRANCH}"
+    if git rev-parse --verify "${RELEASE_BRANCH}" >/dev/null 2>&1; then
+        # Local branch exists, just checkout and pull
+        git checkout "${RELEASE_BRANCH}"
+        git pull upstream "${RELEASE_BRANCH}"
+    else
+        # Local branch doesn't exist, create from upstream
+        git checkout -b "${RELEASE_BRANCH}" "upstream/${RELEASE_BRANCH}"
+    fi
 
     # Create new branch
     echo -e "${BLUE}🌿 Creating branch ${PR_BRANCH}...${NC}"
