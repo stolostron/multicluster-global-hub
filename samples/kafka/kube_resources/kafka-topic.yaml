@@ -10,5 +10,7 @@ spec:
   partitions: 1
   replicas: 1
   config:
+    # Retention policy for migration: 10 minutes to align with migration timeout
     cleanup.policy: compact,delete
-    retention.ms: 600000  # messages kept for 10 minute, algin with migration timeout
+    retention.ms: 600000  # 10 minutes for migration timeout
+    retention.bytes: "1073741824"  # 1GB per partition

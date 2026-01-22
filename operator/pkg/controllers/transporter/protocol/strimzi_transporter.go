@@ -16,6 +16,7 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
@@ -40,6 +41,11 @@ const (
 	KafkaClusterName = "kafka"
 	// kafka storage
 	DefaultKafkaDefaultStorageSize = "10Gi"
+
+	// Kafka topic retention policy
+	// Messages are deleted when EITHER condition is met (time OR size)
+	DefaultKafkaRetentionMs    = "86400000"   // 24 hours in milliseconds
+	DefaultKafkaRetentionBytes = "1073741824" // 1GB per partition in bytes
 
 	// Global hub kafkaUser name
 	DefaultGlobalHubKafkaUserName = "global-hub-kafka-user"
@@ -632,9 +638,16 @@ func (k *strimziTransporter) newKafkaTopic(topicName string, topicConfig *apiext
 		Spec: &kafkav1beta2.KafkaTopicSpec{
 			Partitions: &DefaultPartition,
 			Replicas:   &k.topicPartitionReplicas,
-			Config: &apiextensions.JSON{Raw: []byte(`{
-				"cleanup.policy": "compact"
-			}`)},
+			// Kafka topic retention policy:
+			// - cleanup.policy: "compact,delete" enables both log compaction and time/size-based deletion
+			// - retention.ms: 24 hours (see DefaultKafkaRetentionMs)
+			// - retention.bytes: 1GB per partition (see DefaultKafkaRetentionBytes)
+			// Messages are deleted when EITHER condition is met, preventing unbounded storage growth
+			Config: &apiextensions.JSON{Raw: []byte(fmt.Sprintf(`{
+				"cleanup.policy": "compact,delete",
+				"retention.ms": "%s",
+				"retention.bytes": "%s"
+			}`, DefaultKafkaRetentionMs, DefaultKafkaRetentionBytes))},
 		},
 	}
 	if topicConfig != nil {
@@ -755,6 +768,27 @@ func (k *strimziTransporter) getKafkaResources(
 	mgh *operatorv1alpha4.MulticlusterGlobalHub,
 ) *kafkav1beta2.KafkaSpecKafkaResources {
 	kafkaRes := operatorutils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedSpec)
+
+	// If no custom resources specified in AdvancedSpec, use Kafka default heap (1GB) with 4Gi total
+	// Memory composition: 1GB JVM heap + ~2.5GB OS page cache + ~0.5GB overhead
+	// Suitable for low-to-medium throughput workloads (Global Hub management platform)
+	// Reference: https://strimzi.io/blog/2021/06/08/broker-tuning/
+	// Note: GetResources returns default test resources if AdvancedSpec.Kafka is nil
+	//       We override these with production-appropriate defaults
+	if mgh.Spec.AdvancedSpec == nil || mgh.Spec.AdvancedSpec.Kafka == nil ||
+		mgh.Spec.AdvancedSpec.Kafka.Resources == nil {
+		kafkaRes = &corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("4Gi"),
+				// CPU limit removed - only set requests to avoid throttling
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+			},
+		}
+	}
+
 	kafkaSpecRes := &kafkav1beta2.KafkaSpecKafkaResources{}
 	jsonData, err := json.Marshal(kafkaRes)
 	if err != nil {
@@ -806,7 +840,13 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 "min.insync.replicas": 1,
 "offsets.topic.replication.factor": 1,
 "transaction.state.log.min.isr": 1,
-"transaction.state.log.replication.factor": 1
+"transaction.state.log.replication.factor": 1,
+"log.segment.bytes": "268435456",
+"log.segment.ms": "3600000",
+"log.retention.bytes": "1073741824",
+"log.retention.ms": "86400000",
+"log.retention.check.interval.ms": "300000",
+"compression.type": "snappy"
 }`
 	} else {
 		config = `{
@@ -814,7 +854,13 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 "min.insync.replicas": 2,
 "offsets.topic.replication.factor": 3,
 "transaction.state.log.min.isr": 2,
-"transaction.state.log.replication.factor": 3
+"transaction.state.log.replication.factor": 3,
+"log.segment.bytes": "268435456",
+"log.segment.ms": "3600000",
+"log.retention.bytes": "1073741824",
+"log.retention.ms": "86400000",
+"log.retention.check.interval.ms": "300000",
+"compression.type": "snappy"
 }`
 	}
 
@@ -851,6 +897,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 	k.setTolerations(mgh, kafkaCluster)
 	k.setMetricsConfig(mgh, kafkaCluster)
 	k.setImagePullSecret(mgh, kafkaCluster)
+	k.setJvmOptions(mgh, kafkaCluster)
 
 	return kafkaCluster
 }
@@ -1031,6 +1078,41 @@ func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.Multiclust
 			return
 		}
 		kafkaCluster.Spec = updatedKafkaSpec
+	}
+}
+
+// setJvmOptions sets the JVM heap limits for Kafka brokers to prevent unbounded memory growth
+func (k *strimziTransporter) setJvmOptions(
+	mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	kafkaCluster *kafkav1beta2.Kafka,
+) {
+	// Kafka community default: 1GB heap with matching Xms=Xmx
+	// With 5GB memory limit: 1GB JVM heap + ~3.5GB OS page cache + ~0.5GB overhead
+	// Matching Xms=Xmx prevents runtime reallocation and reduces GC overhead
+	// 1GB is sufficient for low-to-medium throughput workloads (management platform)
+	// Reference: https://dev.to/devopsfundamentals/kafka-fundamentals-kafka-heap-tuning-1f14
+	// Strimzi API expects values without -Xms/-Xmx prefix (e.g., "1024M" not "-Xms1024M")
+	xms := "1024M"
+	xmx := "1024M"
+
+	// G1GC tuning for better performance (LinkedIn/Confluent production best practices)
+	// - MaxGCPauseMillis: Target 20ms pause times (vs default ~100ms)
+	// - InitiatingHeapOccupancyPercent: Start GC at 35% heap occupancy
+	// - G1HeapRegionSize: 16MB regions optimal for 1-2GB heaps
+	// Note: Strimzi XX field requires option names WITHOUT -XX: prefix
+	gcOpts := map[string]string{
+		"UseG1GC":                        "true", // Enable G1GC
+		"MaxGCPauseMillis":               "20",   // Target 20ms pause times
+		"InitiatingHeapOccupancyPercent": "35",   // Start GC at 35% heap
+		"G1HeapRegionSize":               "16M",  // 16MB regions for 1-2GB heaps
+		"MinMetaspaceFreeRatio":          "50",   // Min free metaspace ratio
+		"MaxMetaspaceFreeRatio":          "80",   // Max free metaspace ratio
+	}
+
+	kafkaCluster.Spec.Kafka.JvmOptions = &kafkav1beta2.KafkaSpecKafkaJvmOptions{
+		Xms: &xms,
+		Xmx: &xmx,
+		XX:  gcOpts,
 	}
 }
 

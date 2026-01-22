@@ -116,7 +116,25 @@ func TestNewKafkaCluster(t *testing.T) {
                 "min.insync.replicas": 1,
                 "offsets.topic.replication.factor": 1,
                 "transaction.state.log.min.isr": 1,
-                "transaction.state.log.replication.factor": 1
+                "transaction.state.log.replication.factor": 1,
+                "log.segment.bytes": "268435456",
+                "log.segment.ms": "3600000",
+                "log.retention.bytes": "1073741824",
+                "log.retention.ms": "86400000",
+                "log.retention.check.interval.ms": "300000",
+                "compression.type": "snappy"
+            },
+            "jvmOptions": {
+                "-XX": {
+                    "G1HeapRegionSize": "16M",
+                    "InitiatingHeapOccupancyPercent": "35",
+                    "MaxGCPauseMillis": "20",
+                    "MaxMetaspaceFreeRatio": "80",
+                    "MinMetaspaceFreeRatio": "50",
+                    "UseG1GC": "true"
+                },
+                "-Xms": "1024M",
+                "-Xmx": "1024M"
             },
             "listeners": [
                 {
@@ -130,9 +148,12 @@ func TestNewKafkaCluster(t *testing.T) {
                 }
             ],
             "resources": {
+                "limits": {
+                    "memory": "4Gi"
+                },
                 "requests": {
-                    "cpu": "25m",
-                    "memory": "128Mi"
+                    "cpu": "500m",
+                    "memory": "2Gi"
                 }
             },
             "version": "4.1.0"
@@ -186,7 +207,25 @@ func TestNewKafkaCluster(t *testing.T) {
                 "min.insync.replicas": 2,
                 "offsets.topic.replication.factor": 3,
                 "transaction.state.log.min.isr": 2,
-                "transaction.state.log.replication.factor": 3
+                "transaction.state.log.replication.factor": 3,
+                "log.segment.bytes": "268435456",
+                "log.segment.ms": "3600000",
+                "log.retention.bytes": "1073741824",
+                "log.retention.ms": "86400000",
+                "log.retention.check.interval.ms": "300000",
+                "compression.type": "snappy"
+            },
+            "jvmOptions": {
+                "-XX": {
+                    "G1HeapRegionSize": "16M",
+                    "InitiatingHeapOccupancyPercent": "35",
+                    "MaxGCPauseMillis": "20",
+                    "MaxMetaspaceFreeRatio": "80",
+                    "MinMetaspaceFreeRatio": "50",
+                    "UseG1GC": "true"
+                },
+                "-Xms": "1024M",
+                "-Xmx": "1024M"
             },
             "listeners": [
                 {
@@ -200,9 +239,12 @@ func TestNewKafkaCluster(t *testing.T) {
                 }
             ],
             "resources": {
+                "limits": {
+                    "memory": "4Gi"
+                },
                 "requests": {
-                    "cpu": "25m",
-                    "memory": "128Mi"
+                    "cpu": "500m",
+                    "memory": "2Gi"
                 }
             },
             "version": "4.1.0"
@@ -259,7 +301,25 @@ func TestNewKafkaCluster(t *testing.T) {
                 "min.insync.replicas": 2,
                 "offsets.topic.replication.factor": 3,
                 "transaction.state.log.min.isr": 2,
-                "transaction.state.log.replication.factor": 3
+                "transaction.state.log.replication.factor": 3,
+                "log.segment.bytes": "268435456",
+                "log.segment.ms": "3600000",
+                "log.retention.bytes": "1073741824",
+                "log.retention.ms": "86400000",
+                "log.retention.check.interval.ms": "300000",
+                "compression.type": "snappy"
+            },
+            "jvmOptions": {
+                "-XX": {
+                    "G1HeapRegionSize": "16M",
+                    "InitiatingHeapOccupancyPercent": "35",
+                    "MaxGCPauseMillis": "20",
+                    "MaxMetaspaceFreeRatio": "80",
+                    "MinMetaspaceFreeRatio": "50",
+                    "UseG1GC": "true"
+                },
+                "-Xms": "1024M",
+                "-Xmx": "1024M"
             },
             "listeners": [
                 {
@@ -284,9 +344,12 @@ func TestNewKafkaCluster(t *testing.T) {
                 }
             ],
             "resources": {
+                "limits": {
+                    "memory": "4Gi"
+                },
                 "requests": {
-                    "cpu": "25m",
-                    "memory": "128Mi"
+                    "cpu": "500m",
+                    "memory": "2Gi"
                 }
             },
             "version": "4.1.0"
