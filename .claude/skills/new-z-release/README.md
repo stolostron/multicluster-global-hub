@@ -98,16 +98,30 @@ RELEASE_VERSION=v1.5.3 .claude/skills/new-z-release/scripts/04-onboard-release.s
 
 ### 4. Konflux Integration (`05-konflux-pr.sh`)
 
-Creates PR to konflux-release-data repository for release configuration.
+Creates MR to konflux-release-data repository for release configuration.
 
 **What it does:**
-- Guides PR creation to konflux-release-data
-- Updates release configurations for new z-stream
+- Navigates to `../../../gitlab.cee.redhat.com/konflux-release-data`
+- Fetches and pulls latest changes from origin
+- Updates prod and stage ReleasePlanAdmission files
+- Updates `product_version` and version tags
+- Creates MR using GitLab CLI (glab)
+
+**Prerequisites:**
+- GitLab CLI (glab) installed: `brew install glab`
+- Authenticated to GitLab: `glab auth login`
 
 **Usage:**
 ```bash
 RELEASE_VERSION=v1.5.3 .claude/skills/new-z-release/scripts/05-konflux-pr.sh
+
+# Dry-run mode
+DRY_RUN=true RELEASE_VERSION=v1.5.3 .claude/skills/new-z-release/scripts/05-konflux-pr.sh
 ```
+
+**Files Updated:**
+- `config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/acm-multicluster-glo/acm-multicluster-glo-{MAJOR}-{MINOR}-rpa-prod.yaml`
+- `config/stone-prd-rh01.pg1f.p1/product/ReleasePlanAdmission/acm-multicluster-glo/acm-multicluster-glo-{MAJOR}-{MINOR}-rpa-stage.yaml`
 
 ## Version Format
 

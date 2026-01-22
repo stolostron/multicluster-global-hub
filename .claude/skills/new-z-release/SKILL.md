@@ -78,20 +78,28 @@ RELEASE_VERSION=v1.5.3 .claude/skills/new-z-release/scripts/04-onboard-release.s
    - Commit with sign-off and push
 
 ### 4. Konflux Integration (`05-konflux-pr.sh`)
-Creates PR to konflux-release-data repository.
+Creates MR to konflux-release-data repository.
 
 **Usage:**
 ```bash
 RELEASE_VERSION=v1.5.3 .claude/skills/new-z-release/scripts/05-konflux-pr.sh
+DRY_RUN=true RELEASE_VERSION=v1.5.3 .claude/skills/new-z-release/scripts/05-konflux-pr.sh
 ```
 
 **What it does:**
-- Guides PR creation to konflux-release-data
-- Updates release configurations
+- Navigates to `../../../gitlab.cee.redhat.com/konflux-release-data`
+- Fetches latest from origin and pulls main branch
+- Updates prod and stage ReleasePlanAdmission YAML files
+- Updates `product_version` and version tags
+- Creates MR using GitLab CLI (glab)
 
-**When user requests konflux PR:**
-1. Run the script to get release information
-2. Create PR with release configuration updates
+**Prerequisites:**
+- GitLab CLI (glab): `brew install glab`
+- Authenticated: `glab auth login`
+
+**When user requests konflux MR:**
+1. Run the script (it handles everything automatically)
+2. If glab not available, script provides manual MR creation URL
 
 ## Execution Instructions for Claude
 
@@ -145,14 +153,20 @@ When user says: "Create onboarding PR for v1.5.3"
 6. Commit with sign-off
 7. Push and create PR using `gh pr create`
 
-### For Konflux PR Requests
+### For Konflux MR Requests
 
-When user says: "Create konflux PR for v1.5.3"
+When user says: "Create konflux MR for v1.5.3" or "Create konflux PR for v1.5.3"
 
 **Steps:**
-1. Run `05-konflux-pr.sh` to get release info
-2. Create PR to konflux-release-data repository
-3. Update release configurations
+1. Run `05-konflux-pr.sh` (script handles everything):
+   - Navigates to konflux-release-data repo
+   - Fetches and pulls latest from origin/main
+   - Creates MR branch: `bump-globalhub-{version}`
+   - Updates prod and stage RPA YAML files
+   - Commits and pushes changes
+   - Creates MR using glab CLI (or provides manual URL)
+
+**Note:** If glab CLI not available, script provides manual MR creation URL
 
 ## Version Calculations
 
@@ -221,7 +235,9 @@ If script fails or agent returns no results:
 1. **Always run scripts first** - They calculate correct parameters
 2. **Use jira-administrator agent** - Don't use CLI directly
 3. **Verify version format** - Must be v1.5.3 style (not 1.5.3)
-4. **Check prerequisites** - Ensure gh CLI authenticated for PR creation
+4. **Check prerequisites** - Ensure CLI tools are installed and authenticated:
+   - GitHub CLI (gh): `brew install gh` and `gh auth login`
+   - GitLab CLI (glab): `brew install glab` and `glab auth login`
 5. **Review before executing** - Show user what will be done
 
 ## Example Complete Workflow
