@@ -6,34 +6,6 @@ metadata:
     component: multicluster-global-hub-agent
 rules:
 - apiGroups:
-  - "app.k8s.io"
-  resources:
-  - applications
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - "apps.open-cluster-management.io"
-  resources:
-  - channels
-  - placementrules
-  - subscriptionreports
-  - subscriptions
-  - subscriptionstatuses
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - "policy.open-cluster-management.io"
   resources:
   - placementbindings

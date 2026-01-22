@@ -336,28 +336,6 @@ func SetResourcesFromCR(res *shared.ResourceRequirements, requests corev1.Resour
 	}
 }
 
-func RemoveManagedHubClusterFinalizer(ctx context.Context, c client.Client) error {
-	clusters := &clusterv1.ManagedClusterList{}
-	if err := c.List(ctx, clusters, &client.ListOptions{}); err != nil {
-		return err
-	}
-
-	for idx := range clusters.Items {
-		managedHub := &clusters.Items[idx]
-
-		if managedHub.Labels[constants.LocalClusterName] == "true" {
-			continue
-		}
-
-		if ok := controllerutil.RemoveFinalizer(managedHub, constants.GlobalHubCleanupFinalizer); ok {
-			if err := c.Update(ctx, managedHub, &client.UpdateOptions{}); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // add addon.open-cluster-management.io/on-multicluster-hub annotation to the managed hub
 // clusters indicate the addons are running on a hub cluster
 func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {

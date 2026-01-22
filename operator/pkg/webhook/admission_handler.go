@@ -25,7 +25,12 @@ import (
 
 var log = logger.DefaultZapLogger()
 
-// NewAdmissionHandler is to handle the admission webhook for placementrule and placement
+// NewAdmissionHandler creates a new admission webhook handler.
+// It handles ManagedCluster and KlusterletAddonConfig resources.
+// For ManagedCluster, it checks for a specific label to determine if the cluster
+// should be treated as hosted, and adds necessary annotations.
+// For KlusterletAddonConfig, it disables addons if the corresponding ManagedCluster
+// is in hosted mode.
 func NewAdmissionHandler(c client.Client, s *runtime.Scheme) admission.Handler {
 	return &admissionHandler{
 		client:  c,

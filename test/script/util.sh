@@ -541,8 +541,6 @@ install_crds() {
   # cluster
   kubectl --context "$ctx" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml
 
-  # placementrule
-  kubectl --context "$ctx" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_apps.open-cluster-management.io_placementrules.crd.yaml
 }
 
 install_mch() {

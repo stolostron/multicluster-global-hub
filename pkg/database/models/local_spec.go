@@ -23,15 +23,3 @@ type LocalSpecPolicy struct {
 func (LocalSpecPolicy) TableName() string {
 	return "local_spec.policies"
 }
-
-type LocalSpecPlacementRule struct {
-	ID          string         `gorm:"column:id;primaryKey"`
-	LeafHubName string         `gorm:"column:leaf_hub_name"`
-	Payload     datatypes.JSON `gorm:"column:payload;type:jsonb"`
-	CreatedAt   time.Time      `gorm:"column:created_at;autoCreateTime:true"`
-	UpdatedAt   time.Time      `gorm:"column:updated_at;autoUpdateTime:true"`
-}
-
-func (LocalSpecPlacementRule) TableName() string {
-	return "local_spec.placementrules"
-}

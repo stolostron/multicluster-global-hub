@@ -27,7 +27,7 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "root-policy-test123",
 				Namespace:  "default",
-				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
+				Finalizers: []string{},
 			},
 			Spec: policyv1.PolicySpec{
 				Disabled:        true,

@@ -21,8 +21,6 @@ const (
 	// GHAgentConfigCMName is the name of configmap that stores important global hub settings
 	// eg. aggregationLevel and enableLocalPolicy.
 	GHAgentConfigCMName = "multicluster-global-hub-agent-config"
-	// GlobalHubSchedulerName - placementrule scheduler name.
-	GlobalHubSchedulerName = "global-hub"
 	// OpenShift console namespace
 	OpenShiftConsoleNamespace = "openshift-console"
 	// OpenShift console route name
@@ -131,19 +129,13 @@ const (
 	GlobalHubAddonOwnerLabelVal = "global-hub-addon"
 	GHAgentOwnerLabelValue      = "global-hub-agent"
 	GHOperatorOwnerLabelVal     = "global-hub-operator"
-	// Deprecated identify the resource is a local-resource
-	// GlobalHubLocalResource = "global-hub.open-cluster-management.io/local-resource"
-	// if the resource with this label, it will be synced to database and then propagated to managed hub
-	GlobalHubGlobalResourceLabel = "global-hub.open-cluster-management.io/global-resource"
-	GlobalHubMetricsLabel        = "global-hub.open-cluster-management.io/metrics-resource"
+	GlobalHubMetricsLabel       = "global-hub.open-cluster-management.io/metrics-resource"
 )
 
 // store all the annotations
 const (
 	// identify the managed cluster is managed by the specified managed hub cluster
 	ManagedClusterManagedByAnnotation = "global-hub.open-cluster-management.io/managed-by"
-	// identify the resource is from the global hub cluster
-	OriginOwnerReferenceAnnotation = "global-hub.open-cluster-management.io/origin-ownerreference-uid"
 	// identy the kafka is upgrade from zookeeper mode
 	UpgradeKafkaFromZookeeperAnnotation = "global-hub.open-cluster-management.io/upgrade-from-zookeeper"
 	// kafka-cluster-id save the current kafka cluster id
@@ -152,8 +144,7 @@ const (
 
 // store all the finalizers
 const (
-	// The finalizer is only for the global resource. The finalizer will be added if it has the
-	// GlobalHubGlobalResourceLabel or OriginOwnerReferenceAnnotation
+	// The finalizer is only for the global hub to cleanup resources.
 	GlobalHubCleanupFinalizer = "global-hub.open-cluster-management.io/resource-cleanup"
 
 	// indicate the removing the global hub finalizer, shouldn't add it back to the resource

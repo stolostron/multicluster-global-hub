@@ -23,9 +23,6 @@ import (
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 )
 
 func GetRuntimeScheme() *runtime.Scheme {
@@ -43,9 +40,6 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(coordinationv1.AddToScheme(scheme))
 	utilruntime.Must(mchv1.AddToScheme(scheme))
 	utilruntime.Must(policyv1.AddToScheme(scheme))
-	utilruntime.Must(placementrulev1.AddToScheme(scheme))
-	utilruntime.Must(channelv1.AddToScheme(scheme))
-	utilruntime.Must(appv1beta1.AddToScheme(scheme))
 	utilruntime.Must(clusterinfov1beta1.AddToScheme(scheme))
 	utilruntime.Must(klusterletv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(addonv1.SchemeBuilder.AddToScheme(scheme))

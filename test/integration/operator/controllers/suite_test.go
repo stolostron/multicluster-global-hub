@@ -81,9 +81,7 @@ var _ = BeforeSuite(func() {
 	}
 	config.SetKafkaResourceReady(true)
 	config.SetACMResourceReady(true)
-	operatorConfig = &config.OperatorConfig{
-		GlobalResourceEnabled: false,
-	}
+	operatorConfig = &config.OperatorConfig{}
 	testEnv.ControlPlane.GetAPIServer().Configure().Set("disable-admission-plugins",
 		"ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook")
 

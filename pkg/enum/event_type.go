@@ -12,8 +12,6 @@ const (
 	ManagedClusterMigrationType EventType = EventTypePrefix + "managedclustermigration"
 	ManagedClusterType          EventType = EventTypePrefix + "managedcluster"
 	ManagedClusterInfoType      EventType = EventTypePrefix + "managedclusterinfo"
-	SubscriptionReportType      EventType = EventTypePrefix + "subscription.report"
-	SubscriptionStatusType      EventType = EventTypePrefix + "subscription.status"
 
 	// used by the local resources
 	LocalComplianceType         EventType = EventTypePrefix + "policy.localcompliance"
@@ -32,11 +30,6 @@ const (
 
 	ManagedClusterEventType       EventType = EventTypePrefix + "event.managedcluster"
 	ClusterGroupUpgradesEventType EventType = EventTypePrefix + "event.clustergroupupgrade"
-
-	PlacementDecisionType      EventType = EventTypePrefix + "placementdecision"
-	LocalPlacementRuleSpecType EventType = EventTypePrefix + "placementrule.localspec"
-	PlacementRuleSpecType      EventType = EventTypePrefix + "placementrule.spec"
-	PlacementSpecType          EventType = EventTypePrefix + "placement.spec"
 
 	// Used to send security alerts:
 	SecurityAlertCountsType EventType = EventTypePrefix + "security.alertcounts"

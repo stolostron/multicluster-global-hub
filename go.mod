@@ -6,7 +6,6 @@ require (
 	github.com/IBM/sarama v1.46.3
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/authzed/spicedb-operator v1.20.1
-	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20251125184210-ee1cae0e0f5d
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.16.2
 	github.com/cloudevents/sdk-go/v2 v2.16.2
@@ -16,7 +15,6 @@ require (
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/fergusstrange/embedded-postgres v1.33.0
-	github.com/gin-gonic/gin v1.10.1
 	github.com/go-co-op/gocron v1.37.0
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/go-logr/logr v1.4.3
@@ -58,9 +56,6 @@ require (
 	open-cluster-management.io/api v1.0.0
 	open-cluster-management.io/governance-policy-propagator v0.16.0
 	open-cluster-management.io/managed-serviceaccount v0.8.0
-	open-cluster-management.io/multicloud-operators-channel v0.16.0
-	open-cluster-management.io/multicloud-operators-subscription v0.16.0
-	sigs.k8s.io/application v0.8.3
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/kustomize/api v0.20.1
 	sigs.k8s.io/kustomize/kyaml v0.20.1
@@ -70,6 +65,7 @@ require (
 require (
 	github.com/containerd/containerd v1.7.29 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/go-playground/assert/v2 v2.2.0 // indirect
 	github.com/gonvenience/idem v0.0.2 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.36.0 // indirect
@@ -92,11 +88,8 @@ require (
 	github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
-	github.com/bytedance/sonic v1.13.2 // indirect
-	github.com/bytedance/sonic/loader v0.2.4 // indirect
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cloudwego/base64x v0.1.5 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/eapache/go-resiliency v1.7.0 // indirect
@@ -106,8 +99,6 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
-	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-kratos/aegis v0.2.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -115,13 +106,9 @@ require (
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.1 // indirect
 	github.com/go-playground/form/v4 v4.2.1 // indirect
-	github.com/go-playground/locales v0.14.1 // indirect
-	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.26.0 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
@@ -151,8 +138,6 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.1 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
-	github.com/leodido/go-urn v1.4.0 // indirect; indirec
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mattn/go-ciede2000 v0.0.0-20170301095244-782e8c62fec3 // indirect
@@ -167,7 +152,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
@@ -182,8 +166,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
 	github.com/texttheater/golang-levenshtein v1.0.1 // indirect
-	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
-	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/virtuald/go-ordered-json v0.0.0-20170621173500-b18e6e673d74 // indirect
 	github.com/weppos/publicsuffix-go v0.30.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -195,7 +177,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/arch v0.16.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
 	golang.org/x/net v0.48.0 // indirect
@@ -223,6 +204,11 @@ require (
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
 )
+
+// Exclude old monolithic cloud.google.com/go module to avoid ambiguous import
+exclude cloud.google.com/go v0.81.0
+
+exclude cloud.google.com/go v0.26.0
 
 replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726154733-8b0c20506380
 

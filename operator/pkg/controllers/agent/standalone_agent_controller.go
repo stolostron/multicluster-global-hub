@@ -126,7 +126,6 @@ func StartStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error
 // +kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=list;watch
 // +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="internal.open-cluster-management.io",resources=managedclusterinfos,verbs=get;list;watch;update
-// +kubebuilder:rbac:groups="apps.open-cluster-management.io",resources=placementrules;subscriptionreports,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=create;get;list;watch;patch;update
 
 func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

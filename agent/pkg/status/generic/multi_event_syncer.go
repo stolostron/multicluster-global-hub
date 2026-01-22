@@ -14,7 +14,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/interfaces"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -31,7 +30,6 @@ type multiEventSyncer struct {
 	eventEmitters    []*EmitterHandler
 	leafHubName      string
 	syncIntervalFunc func() time.Duration
-	finalizerName    string
 	startOnce        sync.Once
 	lock             sync.Mutex
 }
@@ -53,7 +51,6 @@ func LaunchMultiEventSyncer(name string, mgr ctrl.Manager, controller interfaces
 		controller:       controller,
 		eventEmitters:    eventEmitters,
 		leafHubName:      configs.GetLeafHubName(),
-		finalizerName:    constants.GlobalHubCleanupFinalizer,
 	}
 
 	// start the periodic syncer

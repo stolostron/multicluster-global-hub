@@ -13,7 +13,6 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -171,50 +170,6 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 				}
 				return nil
 			}, 3*time.Minute, 1*time.Second).Should(Succeed())
-		})
-	})
-
-	// no need to add the finalizer to the local policy
-	Context("Global Hub Cleanup Finalizer", func() {
-		It("check the policy hasn't been added the finalizer", func() {
-			Eventually(func() error {
-				for _, hubClient := range hubClients {
-					policy := &policiesv1.Policy{}
-					err := hubClient.Get(ctx, client.ObjectKey{
-						Namespace: LOCAL_POLICY_NAMESPACE, Name: LOCAL_POLICY_NAME,
-					}, policy)
-					if err != nil {
-						return err
-					}
-					for _, finalizer := range policy.Finalizers {
-						if finalizer == constants.GlobalHubCleanupFinalizer {
-							return fmt.Errorf("the local policy(%s) has been added the cleanup finalizer", policy.GetName())
-						}
-					}
-				}
-				return nil
-			}, 1*time.Minute, 1*time.Second).Should(Succeed())
-		})
-		It("check the placementbinding", func() {
-			Eventually(func() error {
-				for _, hubClient := range hubClients {
-					placementbinding := &policiesv1.PlacementBinding{}
-					err := hubClient.Get(ctx, client.ObjectKey{
-						Namespace: LOCAL_POLICY_NAMESPACE,
-						Name:      LOCAL_PLACEMENTBINDING_NAME,
-					}, placementbinding)
-					if err != nil {
-						return err
-					}
-					for _, finalizer := range placementbinding.Finalizers {
-						if finalizer == constants.GlobalHubCleanupFinalizer {
-							return fmt.Errorf("the local placementbinding(%s) has been added the cleanup finalizer",
-								placementbinding.GetName())
-						}
-					}
-				}
-				return nil
-			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 		})
 	})
 
