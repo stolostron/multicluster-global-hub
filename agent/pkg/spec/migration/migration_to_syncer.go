@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
@@ -279,6 +280,7 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 	msaNamespace := event.ManagedServiceAccountInstallNamespace
 
 	// Clean up the auto-import disable annotation from the managed clusters
+	// and remove the velero restore label from ImageClusterInstall
 	for _, clusterName := range event.ManagedClusters {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			mc := &clusterv1.ManagedCluster{}
@@ -300,6 +302,12 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 			log.Errorf("cluster %s: %s", clusterName, errMsg)
 			clusterErrors[clusterName] = errMsg
 			// Continue to next cluster instead of returning
+		}
+
+		// Remove velero restore label from ImageClusterInstall
+		if err := s.removeVeleroRestoreLabelFromImageClusterInstall(ctx, clusterName); err != nil {
+			log.Warnf("failed to remove velero restore label from ImageClusterInstall for cluster %s: %v",
+				clusterName, err)
 		}
 	}
 
@@ -1341,4 +1349,40 @@ func getResourceFinalizerSuffix(kind string) string {
 		}
 	}
 	return ""
+}
+
+// removeVeleroRestoreLabelFromImageClusterInstall removes the velero restore label from ImageClusterInstall
+// This label was added during migration to prevent the image-based-install-operator from reconciling
+func (s *MigrationTargetSyncer) removeVeleroRestoreLabelFromImageClusterInstall(
+	ctx context.Context, clusterName string,
+) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		ici := &unstructured.Unstructured{}
+		ici.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "extensions.hive.openshift.io",
+			Version: "v1alpha1",
+			Kind:    "ImageClusterInstall",
+		})
+		if err := s.client.Get(ctx, types.NamespacedName{
+			Name:      clusterName,
+			Namespace: clusterName,
+		}, ici); err != nil {
+			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+				return nil
+			}
+			return err
+		}
+
+		labels := ici.GetLabels()
+		if labels == nil {
+			return nil
+		}
+		if labels[VeleroRestoreNameLabel] != GlobalHubRestoreName {
+			return nil
+		}
+
+		delete(labels, VeleroRestoreNameLabel)
+		ici.SetLabels(labels)
+		return s.client.Update(ctx, ici)
+	})
 }

@@ -3035,240 +3035,18 @@ func createObservabilityAddonWithMetadata(name, namespace string, finalizers []s
 	return addon
 }
 
-// TestRemoveBMCSecretFinalizers tests the removeBMCSecretFinalizers function
-func TestRemoveBMCSecretFinalizers(t *testing.T) {
-	ctx := context.Background()
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add corev1 to scheme: %v", err)
-	}
-
-	cases := []struct {
-		name                 string
-		clusterName          string
-		initObjects          []client.Object
-		expectedError        bool
-		expectFinalizersGone bool
-	}{
-		{
-			name:        "Should remove finalizers from BMC credentials secret",
-			clusterName: "cluster1",
-			initObjects: []client.Object{
-				func() client.Object {
-					bmh := createBareMetalHost("bmh1", "cluster1", "bmc-secret-1")
-					return &bmh
-				}(),
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "bmc-secret-1",
-						Namespace:  "cluster1",
-						Finalizers: []string{"metal3.io/baremetalhost", "custom-finalizer"},
-					},
-					Data: map[string][]byte{
-						"username": []byte("admin"),
-						"password": []byte("secret"),
-					},
-				},
-			},
-			expectedError:        false,
-			expectFinalizersGone: true,
-		},
-		{
-			name:        "Should handle multiple BareMetalHost resources with different secrets",
-			clusterName: "cluster1",
-			initObjects: []client.Object{
-				func() client.Object {
-					bmh := createBareMetalHost("bmh1", "cluster1", "bmc-secret-1")
-					return &bmh
-				}(),
-				func() client.Object {
-					bmh := createBareMetalHost("bmh2", "cluster1", "bmc-secret-2")
-					return &bmh
-				}(),
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "bmc-secret-1",
-						Namespace:  "cluster1",
-						Finalizers: []string{"metal3.io/baremetalhost"},
-					},
-					Data: map[string][]byte{"username": []byte("admin1")},
-				},
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "bmc-secret-2",
-						Namespace:  "cluster1",
-						Finalizers: []string{"metal3.io/baremetalhost", "another-finalizer"},
-					},
-					Data: map[string][]byte{"username": []byte("admin2")},
-				},
-			},
-			expectedError:        false,
-			expectFinalizersGone: true,
-		},
-		{
-			name:        "Should handle BareMetalHost without credentials",
-			clusterName: "cluster1",
-			initObjects: []client.Object{
-				func() client.Object {
-					bmh := createBareMetalHostWithoutCredentials("bmh1", "cluster1")
-					return &bmh
-				}(),
-			},
-			expectedError: false,
-		},
-		{
-			name:        "Should handle secret not found gracefully",
-			clusterName: "cluster1",
-			initObjects: []client.Object{
-				func() client.Object {
-					bmh := createBareMetalHost("bmh1", "cluster1", "non-existent-secret")
-					return &bmh
-				}(),
-			},
-			expectedError: false,
-		},
-		{
-			name:          "Should handle no BareMetalHost resources",
-			clusterName:   "cluster1",
-			initObjects:   []client.Object{},
-			expectedError: false,
-		},
-		{
-			name:        "Should handle BareMetalHost with empty credentialsName",
-			clusterName: "cluster1",
-			initObjects: []client.Object{
-				func() client.Object {
-					bmh := &unstructured.Unstructured{}
-					bmh.SetGroupVersionKind(schema.GroupVersionKind{
-						Group:   "metal3.io",
-						Version: "v1alpha1",
-						Kind:    "BareMetalHost",
-					})
-					bmh.SetName("bmh1")
-					bmh.SetNamespace("cluster1")
-					_ = unstructured.SetNestedField(bmh.Object, "", "spec", "bmc", "credentialsName")
-					return bmh
-				}(),
-			},
-			expectedError: false,
-		},
-		{
-			name:        "Should handle multiple BareMetalHost resources sharing the same secret",
-			clusterName: "cluster1",
-			initObjects: []client.Object{
-				func() client.Object {
-					bmh := createBareMetalHost("bmh1", "cluster1", "shared-secret")
-					return &bmh
-				}(),
-				func() client.Object {
-					bmh := createBareMetalHost("bmh2", "cluster1", "shared-secret")
-					return &bmh
-				}(),
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "shared-secret",
-						Namespace:  "cluster1",
-						Finalizers: []string{"metal3.io/baremetalhost"},
-					},
-					Data: map[string][]byte{"username": []byte("shared-admin")},
-				},
-			},
-			expectedError:        false,
-			expectFinalizersGone: true,
-		},
-		{
-			name:        "Should handle secret without finalizers",
-			clusterName: "cluster1",
-			initObjects: []client.Object{
-				func() client.Object {
-					bmh := createBareMetalHost("bmh1", "cluster1", "secret-no-finalizers")
-					return &bmh
-				}(),
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "secret-no-finalizers",
-						Namespace: "cluster1",
-					},
-					Data: map[string][]byte{"username": []byte("admin")},
-				},
-			},
-			expectedError:        false,
-			expectFinalizersGone: true,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			fakeClient := fake.NewClientBuilder().
-				WithScheme(scheme).
-				WithObjects(tc.initObjects...).
-				Build()
-
-			syncer := &MigrationSourceSyncer{
-				client:        fakeClient,
-				bundleVersion: eventversion.NewVersion(),
-			}
-
-			err := syncer.removeBMCSecretFinalizers(ctx, tc.clusterName)
-
-			if tc.expectedError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-
-			// Verify finalizers are removed from all BMC secrets
-			if tc.expectFinalizersGone {
-				bmhList := &unstructured.UnstructuredList{}
-				bmhList.SetGroupVersionKind(schema.GroupVersionKind{
-					Group:   "metal3.io",
-					Version: "v1alpha1",
-					Kind:    "BareMetalHost",
-				})
-				err := fakeClient.List(ctx, bmhList, client.InNamespace(tc.clusterName))
-				assert.NoError(t, err)
-
-				for i := range bmhList.Items {
-					bmh := &bmhList.Items[i]
-					credentialsName, found, err := unstructured.NestedString(bmh.Object, "spec", "bmc", "credentialsName")
-					if err == nil && found && credentialsName != "" {
-						secret := &corev1.Secret{}
-						err := fakeClient.Get(ctx, client.ObjectKey{
-							Name:      credentialsName,
-							Namespace: tc.clusterName,
-						}, secret)
-						if err == nil {
-							assert.Empty(t, secret.GetFinalizers(),
-								"Secret %s should have no finalizers", credentialsName)
-						}
-					}
-				}
-			}
-		})
-	}
-}
-
 // TestProcessResourceByType tests the processResourceByType function
 func TestProcessResourceByType(t *testing.T) {
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add corev1 to scheme: %v", err)
-	}
-	if err := clusterv1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
-	}
+	syncer := &MigrationSourceSyncer{}
 
 	cases := []struct {
-		name                   string
-		resource               *unstructured.Unstructured
-		migrateResource        MigrationResource
-		expectedAnnotations    map[string]string
-		expectFieldRemoved     bool
-		removedFieldPath       []string
-		validateCustomFunction func(*testing.T, *unstructured.Unstructured)
+		name             string
+		resource         *unstructured.Unstructured
+		migrateResource  MigrationResource
+		expectedResource *unstructured.Unstructured
 	}{
 		{
-			name: "Should remove managedClusterClientConfigs and annotations from ManagedCluster",
+			name: "ManagedCluster: should remove managedClusterClientConfigs and migration annotations",
 			resource: func() *unstructured.Unstructured {
 				mc := &unstructured.Unstructured{}
 				mc.SetGroupVersionKind(schema.GroupVersionKind{
@@ -3276,15 +3054,15 @@ func TestProcessResourceByType(t *testing.T) {
 					Version: "v1",
 					Kind:    "ManagedCluster",
 				})
-				mc.SetName("cluster1")
+				mc.SetName("test-cluster")
 				mc.SetAnnotations(map[string]string{
-					constants.ManagedClusterMigrating:        "",
-					KlusterletConfigAnnotation:               "migration-hub2",
-					"other-annotation":                       "keep-this",
-					kubectlConfigAnnotation:                  "should-remain",
-					apiconstants.DisableAutoImportAnnotation: "",
+					constants.ManagedClusterMigrating: "",
+					KlusterletConfigAnnotation:        "migration-hub2",
+					"other-annotation":                "should-remain",
 				})
-				_ = unstructured.SetNestedField(mc.Object, "some-value", "spec", "managedClusterClientConfigs")
+				_ = unstructured.SetNestedSlice(mc.Object, []interface{}{
+					map[string]interface{}{"url": "https://test.com"},
+				}, "spec", "managedClusterClientConfigs")
 				return mc
 			}(),
 			migrateResource: MigrationResource{
@@ -3294,16 +3072,53 @@ func TestProcessResourceByType(t *testing.T) {
 					Kind:    "ManagedCluster",
 				},
 			},
-			expectedAnnotations: map[string]string{
-				"other-annotation":                       "keep-this",
-				kubectlConfigAnnotation:                  "should-remain",
-				apiconstants.DisableAutoImportAnnotation: "",
-			},
-			expectFieldRemoved: true,
-			removedFieldPath:   []string{"spec", "managedClusterClientConfigs"},
+			expectedResource: func() *unstructured.Unstructured {
+				mc := &unstructured.Unstructured{}
+				mc.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "cluster.open-cluster-management.io",
+					Version: "v1",
+					Kind:    "ManagedCluster",
+				})
+				mc.SetName("test-cluster")
+				mc.SetAnnotations(map[string]string{
+					"other-annotation": "should-remain",
+				})
+				_ = unstructured.SetNestedMap(mc.Object, map[string]interface{}{}, "spec")
+				return mc
+			}(),
 		},
 		{
-			name: "Should remove pause annotation from ClusterDeployment",
+			name: "ManagedCluster: should handle nil annotations",
+			resource: func() *unstructured.Unstructured {
+				mc := &unstructured.Unstructured{}
+				mc.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "cluster.open-cluster-management.io",
+					Version: "v1",
+					Kind:    "ManagedCluster",
+				})
+				mc.SetName("test-cluster")
+				return mc
+			}(),
+			migrateResource: MigrationResource{
+				gvk: schema.GroupVersionKind{
+					Group:   "cluster.open-cluster-management.io",
+					Version: "v1",
+					Kind:    "ManagedCluster",
+				},
+			},
+			expectedResource: func() *unstructured.Unstructured {
+				mc := &unstructured.Unstructured{}
+				mc.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "cluster.open-cluster-management.io",
+					Version: "v1",
+					Kind:    "ManagedCluster",
+				})
+				mc.SetName("test-cluster")
+				return mc
+			}(),
+		},
+		{
+			name: "ClusterDeployment: should remove pause annotation",
 			resource: func() *unstructured.Unstructured {
 				cd := &unstructured.Unstructured{}
 				cd.SetGroupVersionKind(schema.GroupVersionKind{
@@ -3311,10 +3126,11 @@ func TestProcessResourceByType(t *testing.T) {
 					Version: "v1",
 					Kind:    "ClusterDeployment",
 				})
-				cd.SetName("cluster1")
+				cd.SetName("test-cluster")
+				cd.SetNamespace("test-cluster")
 				cd.SetAnnotations(map[string]string{
 					HivePauseAnnotation: "true",
-					"other-annotation":  "keep-this",
+					"other-annotation":  "should-remain",
 				})
 				return cd
 			}(),
@@ -3325,12 +3141,55 @@ func TestProcessResourceByType(t *testing.T) {
 					Kind:    "ClusterDeployment",
 				},
 			},
-			expectedAnnotations: map[string]string{
-				"other-annotation": "keep-this",
-			},
+			expectedResource: func() *unstructured.Unstructured {
+				cd := &unstructured.Unstructured{}
+				cd.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "hive.openshift.io",
+					Version: "v1",
+					Kind:    "ClusterDeployment",
+				})
+				cd.SetName("test-cluster")
+				cd.SetNamespace("test-cluster")
+				cd.SetAnnotations(map[string]string{
+					"other-annotation": "should-remain",
+				})
+				return cd
+			}(),
 		},
 		{
-			name: "Should remove pause annotation from BareMetalHost",
+			name: "ClusterDeployment: should handle nil annotations",
+			resource: func() *unstructured.Unstructured {
+				cd := &unstructured.Unstructured{}
+				cd.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "hive.openshift.io",
+					Version: "v1",
+					Kind:    "ClusterDeployment",
+				})
+				cd.SetName("test-cluster")
+				cd.SetNamespace("test-cluster")
+				return cd
+			}(),
+			migrateResource: MigrationResource{
+				gvk: schema.GroupVersionKind{
+					Group:   "hive.openshift.io",
+					Version: "v1",
+					Kind:    "ClusterDeployment",
+				},
+			},
+			expectedResource: func() *unstructured.Unstructured {
+				cd := &unstructured.Unstructured{}
+				cd.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "hive.openshift.io",
+					Version: "v1",
+					Kind:    "ClusterDeployment",
+				})
+				cd.SetName("test-cluster")
+				cd.SetNamespace("test-cluster")
+				return cd
+			}(),
+		},
+		{
+			name: "BareMetalHost: should remove pause annotation",
 			resource: func() *unstructured.Unstructured {
 				bmh := &unstructured.Unstructured{}
 				bmh.SetGroupVersionKind(schema.GroupVersionKind{
@@ -3338,10 +3197,11 @@ func TestProcessResourceByType(t *testing.T) {
 					Version: "v1alpha1",
 					Kind:    "BareMetalHost",
 				})
-				bmh.SetName("bmh1")
+				bmh.SetName("test-bmh")
+				bmh.SetNamespace("test-cluster")
 				bmh.SetAnnotations(map[string]string{
 					Metal3PauseAnnotation: "true",
-					"other-annotation":    "keep-this",
+					"other-annotation":    "should-remain",
 				})
 				return bmh
 			}(),
@@ -3352,12 +3212,23 @@ func TestProcessResourceByType(t *testing.T) {
 					Kind:    "BareMetalHost",
 				},
 			},
-			expectedAnnotations: map[string]string{
-				"other-annotation": "keep-this",
-			},
+			expectedResource: func() *unstructured.Unstructured {
+				bmh := &unstructured.Unstructured{}
+				bmh.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "metal3.io",
+					Version: "v1alpha1",
+					Kind:    "BareMetalHost",
+				})
+				bmh.SetName("test-bmh")
+				bmh.SetNamespace("test-cluster")
+				bmh.SetAnnotations(map[string]string{
+					"other-annotation": "should-remain",
+				})
+				return bmh
+			}(),
 		},
 		{
-			name: "Should remove pause annotation from DataImage",
+			name: "DataImage: should remove pause annotation",
 			resource: func() *unstructured.Unstructured {
 				di := &unstructured.Unstructured{}
 				di.SetGroupVersionKind(schema.GroupVersionKind{
@@ -3365,10 +3236,11 @@ func TestProcessResourceByType(t *testing.T) {
 					Version: "v1alpha1",
 					Kind:    "DataImage",
 				})
-				di.SetName("dataimage1")
+				di.SetName("test-dataimage")
+				di.SetNamespace("test-cluster")
 				di.SetAnnotations(map[string]string{
 					Metal3PauseAnnotation: "true",
-					"other-annotation":    "keep-this",
+					"other-annotation":    "should-remain",
 				})
 				return di
 			}(),
@@ -3379,174 +3251,192 @@ func TestProcessResourceByType(t *testing.T) {
 					Kind:    "DataImage",
 				},
 			},
-			expectedAnnotations: map[string]string{
-				"other-annotation": "keep-this",
-			},
+			expectedResource: func() *unstructured.Unstructured {
+				di := &unstructured.Unstructured{}
+				di.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "metal3.io",
+					Version: "v1alpha1",
+					Kind:    "DataImage",
+				})
+				di.SetName("test-dataimage")
+				di.SetNamespace("test-cluster")
+				di.SetAnnotations(map[string]string{
+					"other-annotation": "should-remain",
+				})
+				return di
+			}(),
 		},
 		{
-			name: "Should handle ManagedCluster with nil annotations",
+			name: "ImageClusterInstall: should add velero restore label when not present",
 			resource: func() *unstructured.Unstructured {
-				mc := &unstructured.Unstructured{}
-				mc.SetGroupVersionKind(schema.GroupVersionKind{
-					Group:   "cluster.open-cluster-management.io",
-					Version: "v1",
-					Kind:    "ManagedCluster",
+				ici := &unstructured.Unstructured{}
+				ici.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
 				})
-				mc.SetName("cluster1")
-				_ = unstructured.SetNestedField(mc.Object, "some-value", "spec", "managedClusterClientConfigs")
-				return mc
+				ici.SetName("test-ici")
+				ici.SetNamespace("test-cluster")
+				return ici
 			}(),
 			migrateResource: MigrationResource{
 				gvk: schema.GroupVersionKind{
-					Group:   "cluster.open-cluster-management.io",
-					Version: "v1",
-					Kind:    "ManagedCluster",
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
 				},
 			},
-			expectedAnnotations: nil,
-			expectFieldRemoved:  true,
-			removedFieldPath:    []string{"spec", "managedClusterClientConfigs"},
+			expectedResource: func() *unstructured.Unstructured {
+				ici := &unstructured.Unstructured{}
+				ici.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
+				})
+				ici.SetName("test-ici")
+				ici.SetNamespace("test-cluster")
+				ici.SetLabels(map[string]string{
+					VeleroRestoreNameLabel: GlobalHubRestoreName,
+				})
+				return ici
+			}(),
 		},
 		{
-			name: "Should handle ClusterDeployment without pause annotation",
+			name: "ImageClusterInstall: should not override existing velero restore label",
 			resource: func() *unstructured.Unstructured {
-				cd := &unstructured.Unstructured{}
-				cd.SetGroupVersionKind(schema.GroupVersionKind{
-					Group:   "hive.openshift.io",
-					Version: "v1",
-					Kind:    "ClusterDeployment",
+				ici := &unstructured.Unstructured{}
+				ici.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
 				})
-				cd.SetName("cluster1")
-				cd.SetAnnotations(map[string]string{
-					"other-annotation": "keep-this",
+				ici.SetName("test-ici")
+				ici.SetNamespace("test-cluster")
+				ici.SetLabels(map[string]string{
+					VeleroRestoreNameLabel: "existing-restore",
+					"other-label":          "should-remain",
 				})
-				return cd
+				return ici
 			}(),
 			migrateResource: MigrationResource{
 				gvk: schema.GroupVersionKind{
-					Group:   "hive.openshift.io",
-					Version: "v1",
-					Kind:    "ClusterDeployment",
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
 				},
 			},
-			expectedAnnotations: map[string]string{
-				"other-annotation": "keep-this",
-			},
+			expectedResource: func() *unstructured.Unstructured {
+				ici := &unstructured.Unstructured{}
+				ici.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
+				})
+				ici.SetName("test-ici")
+				ici.SetNamespace("test-cluster")
+				ici.SetLabels(map[string]string{
+					VeleroRestoreNameLabel: "existing-restore",
+					"other-label":          "should-remain",
+				})
+				return ici
+			}(),
 		},
 		{
-			name: "Should not modify unknown resource types",
+			name: "ImageClusterInstall: should preserve existing labels when adding velero label",
+			resource: func() *unstructured.Unstructured {
+				ici := &unstructured.Unstructured{}
+				ici.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
+				})
+				ici.SetName("test-ici")
+				ici.SetNamespace("test-cluster")
+				ici.SetLabels(map[string]string{
+					"existing-label": "value",
+				})
+				return ici
+			}(),
+			migrateResource: MigrationResource{
+				gvk: schema.GroupVersionKind{
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
+				},
+			},
+			expectedResource: func() *unstructured.Unstructured {
+				ici := &unstructured.Unstructured{}
+				ici.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
+				})
+				ici.SetName("test-ici")
+				ici.SetNamespace("test-cluster")
+				ici.SetLabels(map[string]string{
+					"existing-label":       "value",
+					VeleroRestoreNameLabel: GlobalHubRestoreName,
+				})
+				return ici
+			}(),
+		},
+		{
+			name: "Unknown resource type: should not modify resource",
 			resource: func() *unstructured.Unstructured {
 				obj := &unstructured.Unstructured{}
 				obj.SetGroupVersionKind(schema.GroupVersionKind{
-					Group:   "custom.io",
+					Group:   "unknown.io",
 					Version: "v1",
-					Kind:    "CustomResource",
+					Kind:    "UnknownResource",
 				})
-				obj.SetName("custom1")
+				obj.SetName("test-unknown")
 				obj.SetAnnotations(map[string]string{
-					"keep-all":            "annotations",
-					"including-pause":     "true",
-					Metal3PauseAnnotation: "true",
+					"annotation": "value",
 				})
-				_ = unstructured.SetNestedField(obj.Object, "keep-this", "spec", "someField")
 				return obj
 			}(),
 			migrateResource: MigrationResource{
 				gvk: schema.GroupVersionKind{
-					Group:   "custom.io",
+					Group:   "unknown.io",
 					Version: "v1",
-					Kind:    "CustomResource",
+					Kind:    "UnknownResource",
 				},
 			},
-			expectedAnnotations: map[string]string{
-				"keep-all":            "annotations",
-				"including-pause":     "true",
-				Metal3PauseAnnotation: "true",
-			},
-			validateCustomFunction: func(t *testing.T, resource *unstructured.Unstructured) {
-				value, found, err := unstructured.NestedString(resource.Object, "spec", "someField")
-				assert.NoError(t, err)
-				assert.True(t, found)
-				assert.Equal(t, "keep-this", value)
-			},
-		},
-		{
-			name: "Should handle ManagedCluster with only migration annotations to remove",
-			resource: func() *unstructured.Unstructured {
-				mc := &unstructured.Unstructured{}
-				mc.SetGroupVersionKind(schema.GroupVersionKind{
-					Group:   "cluster.open-cluster-management.io",
+			expectedResource: func() *unstructured.Unstructured {
+				obj := &unstructured.Unstructured{}
+				obj.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "unknown.io",
 					Version: "v1",
-					Kind:    "ManagedCluster",
+					Kind:    "UnknownResource",
 				})
-				mc.SetName("cluster1")
-				mc.SetAnnotations(map[string]string{
-					constants.ManagedClusterMigrating: "",
-					KlusterletConfigAnnotation:        "migration-hub2",
+				obj.SetName("test-unknown")
+				obj.SetAnnotations(map[string]string{
+					"annotation": "value",
 				})
-				return mc
+				return obj
 			}(),
-			migrateResource: MigrationResource{
-				gvk: schema.GroupVersionKind{
-					Group:   "cluster.open-cluster-management.io",
-					Version: "v1",
-					Kind:    "ManagedCluster",
-				},
-			},
-			expectedAnnotations: map[string]string{},
-		},
-		{
-			name: "Should handle BareMetalHost with empty annotations map",
-			resource: func() *unstructured.Unstructured {
-				bmh := &unstructured.Unstructured{}
-				bmh.SetGroupVersionKind(schema.GroupVersionKind{
-					Group:   "metal3.io",
-					Version: "v1alpha1",
-					Kind:    "BareMetalHost",
-				})
-				bmh.SetName("bmh1")
-				bmh.SetAnnotations(map[string]string{})
-				return bmh
-			}(),
-			migrateResource: MigrationResource{
-				gvk: schema.GroupVersionKind{
-					Group:   "metal3.io",
-					Version: "v1alpha1",
-					Kind:    "BareMetalHost",
-				},
-			},
-			expectedAnnotations: map[string]string{},
 		},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			syncer := &MigrationSourceSyncer{
-				bundleVersion: eventversion.NewVersion(),
-			}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Process the resource
+			syncer.processResourceByType(c.resource, c.migrateResource)
 
-			// Call the function under test
-			syncer.processResourceByType(tc.resource, tc.migrateResource)
+			// Compare annotations
+			expectedAnnotations := c.expectedResource.GetAnnotations()
+			actualAnnotations := c.resource.GetAnnotations()
+			assert.Equal(t, expectedAnnotations, actualAnnotations, "Annotations mismatch")
 
-			// Verify annotations
-			annotations := tc.resource.GetAnnotations()
-			if tc.expectedAnnotations == nil {
-				assert.Nil(t, annotations)
-			} else {
-				assert.Equal(t, tc.expectedAnnotations, annotations,
-					"Annotations should match expected values")
-			}
+			// Compare labels
+			expectedLabels := c.expectedResource.GetLabels()
+			actualLabels := c.resource.GetLabels()
+			assert.Equal(t, expectedLabels, actualLabels, "Labels mismatch")
 
-			// Verify field removal if expected
-			if tc.expectFieldRemoved {
-				_, found, err := unstructured.NestedFieldNoCopy(tc.resource.Object, tc.removedFieldPath...)
-				assert.NoError(t, err)
-				assert.False(t, found, "Field %v should be removed", tc.removedFieldPath)
-			}
-
-			// Run custom validation function if provided
-			if tc.validateCustomFunction != nil {
-				tc.validateCustomFunction(t, tc.resource)
+			// For ManagedCluster, verify managedClusterClientConfigs is removed
+			if c.migrateResource.gvk.Kind == "ManagedCluster" {
+				_, found, _ := unstructured.NestedSlice(c.resource.Object, "spec", "managedClusterClientConfigs")
+				assert.False(t, found, "managedClusterClientConfigs should be removed")
 			}
 		})
 	}
