@@ -149,7 +149,6 @@ func TestNewKafkaCluster(t *testing.T) {
             ],
             "resources": {
                 "limits": {
-                    "cpu": "1",
                     "memory": "4Gi"
                 },
                 "requests": {
@@ -241,7 +240,6 @@ func TestNewKafkaCluster(t *testing.T) {
             ],
             "resources": {
                 "limits": {
-                    "cpu": "1",
                     "memory": "4Gi"
                 },
                 "requests": {
@@ -347,7 +345,6 @@ func TestNewKafkaCluster(t *testing.T) {
             ],
             "resources": {
                 "limits": {
-                    "cpu": "1",
                     "memory": "4Gi"
                 },
                 "requests": {
