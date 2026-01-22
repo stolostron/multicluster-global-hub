@@ -125,18 +125,18 @@ create_pr() {
 
     # Ensure we're on the release branch and it's up to date
     echo -e "${BLUE}🔄 Fetching latest changes...${NC}"
-    git fetch origin
+    git fetch upstream
 
     # Check if release branch exists
-    if ! git rev-parse --verify "origin/${RELEASE_BRANCH}" >/dev/null 2>&1; then
-        echo -e "${RED}❌ Release branch ${RELEASE_BRANCH} does not exist${NC}"
+    if ! git rev-parse --verify "upstream/${RELEASE_BRANCH}" >/dev/null 2>&1; then
+        echo -e "${RED}❌ Release branch ${RELEASE_BRANCH} does not exist on upstream${NC}"
         return 1
     fi
 
     # Checkout release branch
     echo -e "${BLUE}📌 Checking out ${RELEASE_BRANCH}...${NC}"
     git checkout "${RELEASE_BRANCH}"
-    git pull origin "${RELEASE_BRANCH}"
+    git pull upstream "${RELEASE_BRANCH}"
 
     # Create new branch
     echo -e "${BLUE}🌿 Creating branch ${PR_BRANCH}...${NC}"
