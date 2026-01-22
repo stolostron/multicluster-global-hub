@@ -780,7 +780,7 @@ func (k *strimziTransporter) getKafkaResources(
 		kafkaRes = &corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("4Gi"),
-				corev1.ResourceCPU:    resource.MustParse("1000m"),
+				// CPU limit removed - only set requests to avoid throttling
 			},
 			Requests: corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("2Gi"),
