@@ -2354,6 +2354,11 @@ func TestHandleStage(t *testing.T) {
 				&operatorv1.ClusterManager{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			event: &migration.MigrationTargetBundle{
 				MigrationId:                           "test-migration",
@@ -2550,6 +2555,11 @@ func TestInitializing(t *testing.T) {
 				&operatorv1.ClusterManager{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			event: &migration.MigrationTargetBundle{
 				ManagedServiceAccountName:             "test-msa",
@@ -2572,6 +2582,11 @@ func TestInitializing(t *testing.T) {
 							},
 							AutoApproveUsers: []string{"other-user"},
 						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					},
 				},
 			},
