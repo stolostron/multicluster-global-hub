@@ -40,7 +40,7 @@ require (
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20250415191038-1e368a726d8b
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
-	gopkg.in/ini.v1 v1.67.0
+	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.0
