@@ -125,11 +125,11 @@ create_pr() {
 
     # Ensure we're on the release branch and it's up to date
     echo -e "${BLUE}🔄 Fetching latest changes...${NC}"
-    git fetch upstream
+    git fetch origin
 
     # Check if release branch exists
-    if ! git rev-parse --verify "upstream/${RELEASE_BRANCH}" >/dev/null 2>&1; then
-        echo -e "${RED}❌ Release branch ${RELEASE_BRANCH} does not exist on upstream${NC}"
+    if ! git rev-parse --verify "origin/${RELEASE_BRANCH}" >/dev/null 2>&1; then
+        echo -e "${RED}❌ Release branch ${RELEASE_BRANCH} does not exist on origin${NC}"
         return 1
     fi
 
@@ -138,10 +138,10 @@ create_pr() {
     if git rev-parse --verify "${RELEASE_BRANCH}" >/dev/null 2>&1; then
         # Local branch exists, just checkout and pull
         git checkout "${RELEASE_BRANCH}"
-        git pull upstream "${RELEASE_BRANCH}"
+        git pull origin "${RELEASE_BRANCH}"
     else
-        # Local branch doesn't exist, create from upstream
-        git checkout -b "${RELEASE_BRANCH}" "upstream/${RELEASE_BRANCH}"
+        # Local branch doesn't exist, create from origin
+        git checkout -b "${RELEASE_BRANCH}" "origin/${RELEASE_BRANCH}"
     fi
 
     # Create new branch
@@ -205,7 +205,7 @@ create_pr() {
 
     # Show diff
     echo -e "${BLUE}📊 Changes made:${NC}"
-    git diff
+    git --no-pager diff
     echo ""
 
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -251,12 +251,20 @@ create_pr() {
     git checkout "${RELEASE_BRANCH}"
 }
 
-# Process multicluster-global-hub repository (current directory)
-MAIN_REPO_PATH="$(pwd)"
-create_pr "$MAIN_REPO_PATH" "multicluster-global-hub"
+# Save original directory
+ORIGINAL_DIR="$(pwd)"
+
+# Process multicluster-global-hub repository
+MAIN_REPO_PATH="../../stolostron/multicluster-global-hub"
+if [[ -d "$MAIN_REPO_PATH" ]]; then
+    create_pr "$MAIN_REPO_PATH" "multicluster-global-hub"
+else
+    echo -e "${RED}❌ Main repository not found at: $MAIN_REPO_PATH${NC}"
+    exit 1
+fi
 
 # Process multicluster-global-hub-operator-bundle repository
-BUNDLE_REPO_PATH="../multicluster-global-hub-operator-bundle"
+BUNDLE_REPO_PATH="../../stolostron/multicluster-global-hub-operator-bundle"
 if [[ -d "$BUNDLE_REPO_PATH" ]]; then
     create_pr "$BUNDLE_REPO_PATH" "multicluster-global-hub-operator-bundle"
 else
@@ -265,8 +273,8 @@ else
     echo ""
 fi
 
-# Return to main repo
-cd "$MAIN_REPO_PATH"
+# Return to original directory
+cd "$ORIGINAL_DIR"
 
 echo -e "${CYAN}════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}✓ Onboarding complete!${NC}"

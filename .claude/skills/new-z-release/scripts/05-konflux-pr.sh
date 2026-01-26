@@ -136,7 +136,7 @@ echo ""
 
 # Show diff
 echo -e "${BLUE}📊 Changes made:${NC}"
-git diff
+git --no-pager diff
 echo ""
 
 if [[ "$DRY_RUN" == "true" ]]; then
