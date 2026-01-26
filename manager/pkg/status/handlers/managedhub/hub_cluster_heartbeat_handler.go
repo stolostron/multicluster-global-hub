@@ -27,6 +27,7 @@ func handleHeartbeatEvent(ctx context.Context, evt *cloudevents.Event) error {
 	db := database.GetGorm()
 	heartbeat := models.LeafHubHeartbeat{
 		Name:         evt.Source(),
+		Status:       "active",
 		LastUpdateAt: time.Now(),
 	}
 	err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&heartbeat).Error
