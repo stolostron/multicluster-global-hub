@@ -207,9 +207,9 @@ echo "Debug: Project=$PROJECT, Type=Epic, Assignee=$ASSIGNEE"
 
 # Capture full output first for debugging
 set +e  # Don't exit on error
-EPIC_OUTPUT=$(jira issue create \
+EPIC_OUTPUT=$(jira epic create \
     --project "$PROJECT" \
-    --type "Epic" \
+    --name "$EPIC_TITLE" \
     --summary "$EPIC_TITLE" \
     --body "$EPIC_DESCRIPTION" \
     --component "$COMPONENT" \
@@ -217,7 +217,7 @@ EPIC_OUTPUT=$(jira issue create \
     --affects-version "$AFFECTED_VERSION" \
     --fix-version "$FIX_VERSION" \
     --custom activity-type="${ACTIVITY_TYPE}" \
-    --priority High \
+    --priority Critical \
     --assignee "$ASSIGNEE" \
     --no-input 2>&1)
 JIRA_EXIT_CODE=$?
