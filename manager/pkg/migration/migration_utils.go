@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // ConfigMap keys used to store cluster migration results
@@ -27,6 +26,22 @@ const (
 	// failedClustersConfigMapKey stores clusters that failed during migration
 	failedClustersConfigMapKey = "failure"
 )
+
+// DiffClusters returns clusters that are in allClusters but not in excludeClusters.
+// It uses a map for O(n) lookup instead of O(n*m) with ContainsString.
+func DiffClusters(allClusters, excludeClusters []string) []string {
+	excludeMap := make(map[string]bool)
+	for _, cluster := range excludeClusters {
+		excludeMap[cluster] = true
+	}
+	var result []string
+	for _, cluster := range allClusters {
+		if !excludeMap[cluster] {
+			result = append(result, cluster)
+		}
+	}
+	return result
+}
 
 // storeClustersToConfigMap creates or updates a ConfigMap with cluster data for the migration.
 // The ConfigMap is named with the migration name and has an owner reference to the migration object.
@@ -135,12 +150,7 @@ func (m *ClusterMigrationController) UpdateFailureClustersToConfigMap(ctx contex
 	}
 
 	// failedClusters = allClusters - successClusters
-	failedClusters := []string{}
-	for _, cluster := range allClusters {
-		if !utils.ContainsString(successClusters, cluster) {
-			failedClusters = append(failedClusters, cluster)
-		}
-	}
+	failedClusters := DiffClusters(allClusters, successClusters)
 
 	if err := m.storeClustersToConfigMap(ctx, mcm,
 		map[string][]string{
@@ -190,6 +200,26 @@ func (m *ClusterMigrationController) UpdateAllClustersToConfigMap(ctx context.Co
 	return m.storeClustersToConfigMap(ctx, mcm, map[string][]string{
 		allClustersConfigMapKey: clusters,
 	})
+}
+
+// CalculateAndUpdateClusterResults calculates success clusters from all clusters minus failed clusters,
+// logs the results, and updates the ConfigMap with both success and failure clusters.
+// Returns the calculated success clusters list.
+func (m *ClusterMigrationController) CalculateAndUpdateClusterResults(ctx context.Context,
+	mcm *migrationv1alpha1.ManagedClusterMigration, allClusters, failedClusters []string,
+) []string {
+	// Calculate success clusters: all - failed
+	successClusters := DiffClusters(allClusters, failedClusters)
+
+	log.Infof("cluster migration results: %d failed clusters: %v, %d success clusters: %v",
+		len(failedClusters), failedClusters, len(successClusters), successClusters)
+
+	// Update ConfigMap with success/failure clusters for later use
+	if err := m.UpdateSuccessAndFailureClustersToConfigMap(ctx, mcm, successClusters, failedClusters); err != nil {
+		log.Warnf("failed to update success/failure clusters to ConfigMap: %v", err)
+	}
+
+	return successClusters
 }
 
 // RestoreClusterList sets the cluster list to the memory cache, it invoked in the beginning of the reconciling process.
@@ -248,13 +278,7 @@ func (m *ClusterMigrationController) GetFailureClusters(ctx context.Context,
 	}
 
 	// failedClusters = allClusters - successClusters
-	failedClusters := []string{}
-	for _, cluster := range allClusters {
-		if !utils.ContainsString(successClusters, cluster) {
-			failedClusters = append(failedClusters, cluster)
-		}
-	}
-	return failedClusters, nil
+	return DiffClusters(allClusters, successClusters), nil
 }
 
 // getClusterFromConfigMap attempts to retrieve clusters from an existing ConfigMap

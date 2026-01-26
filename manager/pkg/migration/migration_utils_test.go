@@ -1224,3 +1224,412 @@ func TestGetClusterFromConfigMap_DifferentNamespaces(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, clusters3)
 }
+
+// TestUpdateSuccessAndFailureClustersToConfigMap tests the UpdateSuccessAndFailureClustersToConfigMap function
+// which updates ConfigMap with both successful and failed cluster information.
+func TestUpdateSuccessAndFailureClustersToConfigMap(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = migrationv1alpha1.AddToScheme(scheme)
+
+	tests := []struct {
+		name                  string
+		migration             *migrationv1alpha1.ManagedClusterMigration
+		existingConfigMap     *corev1.ConfigMap
+		successClusters       []string
+		failedClusters        []string
+		expectedError         bool
+		expectedConfigMapData map[string]string
+		expectNoConfigMap     bool
+	}{
+		{
+			name: "Both success and failure clusters - should store both",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-1"),
+				},
+			},
+			successClusters: []string{"cluster1", "cluster2"},
+			failedClusters:  []string{"cluster3", "cluster4"},
+			expectedConfigMapData: map[string]string{
+				"success": clustersToJSON([]string{"cluster1", "cluster2"}),
+				"failure": clustersToJSON([]string{"cluster3", "cluster4"}),
+			},
+		},
+		{
+			name: "Only success clusters - should store only success",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-2"),
+				},
+			},
+			successClusters: []string{"cluster1", "cluster2"},
+			failedClusters:  []string{},
+			expectedConfigMapData: map[string]string{
+				"success": clustersToJSON([]string{"cluster1", "cluster2"}),
+			},
+		},
+		{
+			name: "Only failure clusters - should store only failure",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-3"),
+				},
+			},
+			successClusters: []string{},
+			failedClusters:  []string{"cluster3", "cluster4"},
+			expectedConfigMapData: map[string]string{
+				"failure": clustersToJSON([]string{"cluster3", "cluster4"}),
+			},
+		},
+		{
+			name: "Both empty - should not create configmap",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-4"),
+				},
+			},
+			successClusters:   []string{},
+			failedClusters:    []string{},
+			expectNoConfigMap: true,
+		},
+		{
+			name: "Both nil - should not create configmap",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-5"),
+				},
+			},
+			successClusters:   nil,
+			failedClusters:    nil,
+			expectNoConfigMap: true,
+		},
+		{
+			name: "Update existing configmap - should update values",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-6"),
+				},
+			},
+			existingConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+				},
+				Data: map[string]string{
+					"all-clusters": clustersToJSON([]string{"cluster1", "cluster2", "cluster3"}),
+				},
+			},
+			successClusters: []string{"cluster1", "cluster2"},
+			failedClusters:  []string{"cluster3"},
+			expectedConfigMapData: map[string]string{
+				"success": clustersToJSON([]string{"cluster1", "cluster2"}),
+				"failure": clustersToJSON([]string{"cluster3"}),
+			},
+		},
+		{
+			name: "Single success cluster",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-7"),
+				},
+			},
+			successClusters: []string{"cluster1"},
+			failedClusters:  []string{},
+			expectedConfigMapData: map[string]string{
+				"success": clustersToJSON([]string{"cluster1"}),
+			},
+		},
+		{
+			name: "Single failure cluster",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-8"),
+				},
+			},
+			successClusters: []string{},
+			failedClusters:  []string{"cluster1"},
+			expectedConfigMapData: map[string]string{
+				"failure": clustersToJSON([]string{"cluster1"}),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var objs []client.Object
+			if tt.existingConfigMap != nil {
+				objs = append(objs, tt.existingConfigMap)
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+
+			controller := &ClusterMigrationController{
+				Client: fakeClient,
+				Scheme: scheme,
+			}
+
+			err := controller.UpdateSuccessAndFailureClustersToConfigMap(
+				context.TODO(),
+				tt.migration,
+				tt.successClusters,
+				tt.failedClusters,
+			)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			if tt.expectNoConfigMap {
+				configMap := &corev1.ConfigMap{}
+				err := fakeClient.Get(context.TODO(), types.NamespacedName{
+					Name:      tt.migration.Name,
+					Namespace: tt.migration.Namespace,
+				}, configMap)
+				if tt.existingConfigMap == nil {
+					assert.Error(t, err, "ConfigMap should not exist")
+				}
+				return
+			}
+
+			// Verify configmap was created/updated with expected data
+			configMap := &corev1.ConfigMap{}
+			err = fakeClient.Get(context.TODO(), types.NamespacedName{
+				Name:      tt.migration.Name,
+				Namespace: tt.migration.Namespace,
+			}, configMap)
+			assert.NoError(t, err)
+
+			for key, expectedValue := range tt.expectedConfigMapData {
+				actualValue, exists := configMap.Data[key]
+				assert.True(t, exists, "Expected key %s to exist in configmap", key)
+				assert.Equal(t, expectedValue, actualValue, "Expected value for key %s", key)
+			}
+
+			// Verify owner reference is set (only for newly created ConfigMaps)
+			if tt.existingConfigMap == nil {
+				assert.Len(t, configMap.OwnerReferences, 1)
+				assert.Equal(t, tt.migration.Name, configMap.OwnerReferences[0].Name)
+				assert.Equal(t, tt.migration.UID, configMap.OwnerReferences[0].UID)
+			}
+		})
+	}
+}
+
+// TestCalculateAndUpdateClusterResults tests the CalculateAndUpdateClusterResults function
+// which calculates success clusters from all clusters minus failed clusters and updates ConfigMap.
+func TestCalculateAndUpdateClusterResults(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = migrationv1alpha1.AddToScheme(scheme)
+
+	tests := []struct {
+		name                    string
+		migration               *migrationv1alpha1.ManagedClusterMigration
+		allClusters             []string
+		failedClusters          []string
+		expectedSuccessClusters []string
+		expectedConfigMapData   map[string]string
+	}{
+		{
+			name: "All clusters successful - no failures",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-1"),
+				},
+			},
+			allClusters:             []string{"cluster1", "cluster2", "cluster3"},
+			failedClusters:          []string{},
+			expectedSuccessClusters: []string{"cluster1", "cluster2", "cluster3"},
+			expectedConfigMapData: map[string]string{
+				"success": clustersToJSON([]string{"cluster1", "cluster2", "cluster3"}),
+			},
+		},
+		{
+			name: "Some clusters failed",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-2"),
+				},
+			},
+			allClusters:             []string{"cluster1", "cluster2", "cluster3", "cluster4"},
+			failedClusters:          []string{"cluster2", "cluster4"},
+			expectedSuccessClusters: []string{"cluster1", "cluster3"},
+			expectedConfigMapData: map[string]string{
+				"success": clustersToJSON([]string{"cluster1", "cluster3"}),
+				"failure": clustersToJSON([]string{"cluster2", "cluster4"}),
+			},
+		},
+		{
+			name: "All clusters failed",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-3"),
+				},
+			},
+			allClusters:             []string{"cluster1", "cluster2"},
+			failedClusters:          []string{"cluster1", "cluster2"},
+			expectedSuccessClusters: nil, // DiffClusters returns nil when no results
+			expectedConfigMapData: map[string]string{
+				"failure": clustersToJSON([]string{"cluster1", "cluster2"}),
+			},
+		},
+		{
+			name: "Single cluster success",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-4"),
+				},
+			},
+			allClusters:             []string{"cluster1"},
+			failedClusters:          []string{},
+			expectedSuccessClusters: []string{"cluster1"},
+			expectedConfigMapData: map[string]string{
+				"success": clustersToJSON([]string{"cluster1"}),
+			},
+		},
+		{
+			name: "Single cluster failed",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-5"),
+				},
+			},
+			allClusters:             []string{"cluster1"},
+			failedClusters:          []string{"cluster1"},
+			expectedSuccessClusters: nil, // DiffClusters returns nil when no results
+			expectedConfigMapData: map[string]string{
+				"failure": clustersToJSON([]string{"cluster1"}),
+			},
+		},
+		{
+			name: "Empty all clusters - edge case",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-6"),
+				},
+			},
+			allClusters:             []string{},
+			failedClusters:          []string{},
+			expectedSuccessClusters: nil, // DiffClusters returns nil when no results
+			expectedConfigMapData:   nil, // No ConfigMap update when both are empty
+		},
+		{
+			name: "Failed clusters not in all clusters - should be ignored",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-7"),
+				},
+			},
+			allClusters:             []string{"cluster1", "cluster2"},
+			failedClusters:          []string{"cluster3"}, // cluster3 not in allClusters
+			expectedSuccessClusters: []string{"cluster1", "cluster2"},
+			expectedConfigMapData: map[string]string{
+				"success": clustersToJSON([]string{"cluster1", "cluster2"}),
+				"failure": clustersToJSON([]string{"cluster3"}),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+			controller := &ClusterMigrationController{
+				Client: fakeClient,
+				Scheme: scheme,
+			}
+
+			successClusters := controller.CalculateAndUpdateClusterResults(
+				context.TODO(),
+				tt.migration,
+				tt.allClusters,
+				tt.failedClusters,
+			)
+
+			// Verify returned success clusters
+			assert.Equal(t, tt.expectedSuccessClusters, successClusters)
+
+			// Verify ConfigMap data if expected
+			if tt.expectedConfigMapData != nil {
+				configMap := &corev1.ConfigMap{}
+				err := fakeClient.Get(context.TODO(), types.NamespacedName{
+					Name:      tt.migration.Name,
+					Namespace: tt.migration.Namespace,
+				}, configMap)
+				assert.NoError(t, err)
+
+				for key, expectedValue := range tt.expectedConfigMapData {
+					actualValue, exists := configMap.Data[key]
+					assert.True(t, exists, "Expected key %s to exist in configmap", key)
+					assert.Equal(t, expectedValue, actualValue, "Expected value for key %s", key)
+				}
+			}
+		})
+	}
+}
+
+// TestCalculateAndUpdateClusterResults_ConfigMapError tests error handling when ConfigMap update fails
+func TestCalculateAndUpdateClusterResults_ConfigMapError(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = migrationv1alpha1.AddToScheme(scheme)
+
+	// Create a migration without UID to cause owner reference error
+	migration := &migrationv1alpha1.ManagedClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-migration",
+			Namespace: utils.GetDefaultNamespace(),
+			// No UID - will cause issues with owner reference
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	controller := &ClusterMigrationController{
+		Client: fakeClient,
+		Scheme: scheme,
+	}
+
+	// Function should still return success clusters even if ConfigMap update fails
+	successClusters := controller.CalculateAndUpdateClusterResults(
+		context.TODO(),
+		migration,
+		[]string{"cluster1", "cluster2"},
+		[]string{"cluster2"},
+	)
+
+	// Success clusters should still be calculated correctly
+	assert.Equal(t, []string{"cluster1"}, successClusters)
+}

@@ -523,7 +523,8 @@ func TestHandleRollbackStatus(t *testing.T) {
 			ctx := context.TODO()
 			waitingHub := "test-hub"
 			failedStage := "Initializing"
-			controller.handleRollbackStatus(ctx, tt.migration, tt.condition, tt.nextPhase, &waitingHub, failedStage)
+			var calculatedSuccessClusters []string
+			controller.handleRollbackStatus(ctx, tt.migration, tt.condition, tt.nextPhase, &waitingHub, failedStage, &calculatedSuccessClusters)
 
 			// Verify the results
 			assert.Equal(t, tt.expectedPhase, tt.migration.Status.Phase)

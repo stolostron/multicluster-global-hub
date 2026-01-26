@@ -772,3 +772,428 @@ func TestResetStageState(t *testing.T) {
 		t.Run(tt.name, tt.testFunc)
 	}
 }
+
+// TestSetFailedClusters tests the SetFailedClusters function which stores the failed clusters list
+// for a given migration stage. This is called when the target hub reports failed clusters during rollback.
+func TestSetFailedClusters(t *testing.T) {
+	tests := []struct {
+		name           string
+		migrationID    string
+		hub            string
+		phase          string
+		failedClusters []string
+		shouldSetup    bool
+		expectedSet    bool
+	}{
+		{
+			name:           "Set failed clusters for existing migration",
+			migrationID:    "test-set-failed-1",
+			hub:            "target-hub",
+			phase:          migrationv1alpha1.PhaseRollbacking,
+			failedClusters: []string{"cluster1", "cluster2"},
+			shouldSetup:    true,
+			expectedSet:    true,
+		},
+		{
+			name:           "Set single failed cluster",
+			migrationID:    "test-set-failed-2",
+			hub:            "target-hub",
+			phase:          migrationv1alpha1.PhaseRollbacking,
+			failedClusters: []string{"single-cluster"},
+			shouldSetup:    true,
+			expectedSet:    true,
+		},
+		{
+			name:           "Set empty failed clusters list",
+			migrationID:    "test-set-failed-3",
+			hub:            "target-hub",
+			phase:          migrationv1alpha1.PhaseRollbacking,
+			failedClusters: []string{},
+			shouldSetup:    true,
+			expectedSet:    true,
+		},
+		{
+			name:           "Set nil failed clusters",
+			migrationID:    "test-set-failed-4",
+			hub:            "target-hub",
+			phase:          migrationv1alpha1.PhaseRollbacking,
+			failedClusters: nil,
+			shouldSetup:    true,
+			expectedSet:    true,
+		},
+		{
+			name:           "Set failed clusters for non-existent migration",
+			migrationID:    "non-existent-migration",
+			hub:            "target-hub",
+			phase:          migrationv1alpha1.PhaseRollbacking,
+			failedClusters: []string{"cluster1"},
+			shouldSetup:    false,
+			expectedSet:    false,
+		},
+		{
+			name:           "Set multiple failed clusters with special names",
+			migrationID:    "test-set-failed-5",
+			hub:            "hub-with-dashes",
+			phase:          migrationv1alpha1.PhaseRollbacking,
+			failedClusters: []string{"cluster-with-dashes", "cluster_with_underscores", "cluster.with.dots"},
+			shouldSetup:    true,
+			expectedSet:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clean up before test
+			migrationStatuses = make(map[string]*MigrationStatus)
+			currentMigrationClusterList = make(map[string][]string)
+
+			// Setup migration status if needed
+			if tt.shouldSetup {
+				AddMigrationStatus(tt.migrationID)
+				defer RemoveMigrationStatus(tt.migrationID)
+			}
+
+			// Call SetFailedClusters - should not panic
+			assert.NotPanics(t, func() {
+				SetFailedClusters(tt.migrationID, tt.hub, tt.phase, tt.failedClusters)
+			})
+
+			// Verify the result
+			result := GetFailedClusters(tt.migrationID, tt.hub, tt.phase)
+			if tt.expectedSet {
+				assert.Equal(t, tt.failedClusters, result)
+				assert.True(t, HasFailedClustersReported(tt.migrationID, tt.hub, tt.phase))
+			} else {
+				assert.Nil(t, result)
+				assert.False(t, HasFailedClustersReported(tt.migrationID, tt.hub, tt.phase))
+			}
+		})
+	}
+}
+
+// TestGetFailedClusters tests the GetFailedClusters function which retrieves the failed clusters list
+// for a given migration stage.
+func TestGetFailedClusters(t *testing.T) {
+	tests := []struct {
+		name                   string
+		migrationID            string
+		hub                    string
+		phase                  string
+		setupFunc              func(migrationID, hub, phase string)
+		expectedFailedClusters []string
+		expectedReportedFlag   bool
+	}{
+		{
+			name:        "Get failed clusters when set",
+			migrationID: "test-get-failed-1",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetFailedClusters(migrationID, hub, phase, []string{"cluster1", "cluster2", "cluster3"})
+			},
+			expectedFailedClusters: []string{"cluster1", "cluster2", "cluster3"},
+			expectedReportedFlag:   true,
+		},
+		{
+			name:        "Get empty failed clusters list",
+			migrationID: "test-get-failed-2",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetFailedClusters(migrationID, hub, phase, []string{})
+			},
+			expectedFailedClusters: []string{},
+			expectedReportedFlag:   true,
+		},
+		{
+			name:        "Get failed clusters for non-existent migration",
+			migrationID: "non-existent-migration",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				// Don't add migration status
+			},
+			expectedFailedClusters: nil,
+			expectedReportedFlag:   false,
+		},
+		{
+			name:        "Get failed clusters when not set (stage state exists)",
+			migrationID: "test-get-failed-3",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetStarted(migrationID, hub, phase) // Create stage state without failed clusters
+			},
+			expectedFailedClusters: nil,
+			expectedReportedFlag:   false,
+		},
+		{
+			name:        "Get failed clusters for different hub-phase combination",
+			migrationID: "test-get-failed-4",
+			hub:         "source-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				// Set failed clusters for target-hub, not source-hub
+				SetFailedClusters(migrationID, "target-hub", phase, []string{"cluster1"})
+			},
+			expectedFailedClusters: nil,
+			expectedReportedFlag:   false,
+		},
+		{
+			name:        "Get failed clusters after reset",
+			migrationID: "test-get-failed-5",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetFailedClusters(migrationID, hub, phase, []string{"cluster1", "cluster2"})
+				// Reset the stage state
+				ResetStageState(migrationID, hub, phase)
+			},
+			expectedFailedClusters: nil,
+			expectedReportedFlag:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clean up before test
+			migrationStatuses = make(map[string]*MigrationStatus)
+			currentMigrationClusterList = make(map[string][]string)
+
+			// Setup test state
+			tt.setupFunc(tt.migrationID, tt.hub, tt.phase)
+
+			// Test GetFailedClusters
+			result := GetFailedClusters(tt.migrationID, tt.hub, tt.phase)
+
+			// Verify result
+			assert.Equal(t, tt.expectedFailedClusters, result)
+
+			// Verify HasFailedClustersReported
+			assert.Equal(t, tt.expectedReportedFlag, HasFailedClustersReported(tt.migrationID, tt.hub, tt.phase))
+
+			// Cleanup
+			RemoveMigrationStatus(tt.migrationID)
+		})
+	}
+}
+
+// TestHasFailedClustersReported tests the HasFailedClustersReported function which returns true
+// if failed clusters have been explicitly reported for the given stage.
+func TestHasFailedClustersReported(t *testing.T) {
+	tests := []struct {
+		name        string
+		migrationID string
+		hub         string
+		phase       string
+		setupFunc   func(migrationID, hub, phase string)
+		expected    bool
+	}{
+		{
+			name:        "Returns true when failed clusters have been reported",
+			migrationID: "test-reported-1",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetFailedClusters(migrationID, hub, phase, []string{"cluster1"})
+			},
+			expected: true,
+		},
+		{
+			name:        "Returns true when empty failed clusters list is reported",
+			migrationID: "test-reported-2",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetFailedClusters(migrationID, hub, phase, []string{})
+			},
+			expected: true,
+		},
+		{
+			name:        "Returns true when nil failed clusters is reported",
+			migrationID: "test-reported-3",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetFailedClusters(migrationID, hub, phase, nil)
+			},
+			expected: true,
+		},
+		{
+			name:        "Returns false when stage state exists but no failed clusters reported",
+			migrationID: "test-reported-4",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetStarted(migrationID, hub, phase)
+				SetFinished(migrationID, hub, phase)
+			},
+			expected: false,
+		},
+		{
+			name:        "Returns false for non-existent migration",
+			migrationID: "non-existent-migration",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				// Don't add migration status
+			},
+			expected: false,
+		},
+		{
+			name:        "Returns false for different hub",
+			migrationID: "test-reported-5",
+			hub:         "source-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				// Report for target-hub, not source-hub
+				SetFailedClusters(migrationID, "target-hub", phase, []string{"cluster1"})
+			},
+			expected: false,
+		},
+		{
+			name:        "Returns false for different phase",
+			migrationID: "test-reported-6",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseDeploying,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				// Report for rollbacking phase, not deploying
+				SetFailedClusters(migrationID, hub, migrationv1alpha1.PhaseRollbacking, []string{"cluster1"})
+			},
+			expected: false,
+		},
+		{
+			name:        "Returns false after ResetStageState",
+			migrationID: "test-reported-7",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetFailedClusters(migrationID, hub, phase, []string{"cluster1", "cluster2"})
+				ResetStageState(migrationID, hub, phase)
+			},
+			expected: false,
+		},
+		{
+			name:        "Returns false after ResetMigrationStatus",
+			migrationID: "test-reported-8",
+			hub:         "target-hub",
+			phase:       migrationv1alpha1.PhaseRollbacking,
+			setupFunc: func(migrationID, hub, phase string) {
+				AddMigrationStatus(migrationID)
+				SetFailedClusters(migrationID, hub, phase, []string{"cluster1"})
+				ResetMigrationStatus(hub)
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clean up before test
+			migrationStatuses = make(map[string]*MigrationStatus)
+			currentMigrationClusterList = make(map[string][]string)
+
+			// Setup test state
+			tt.setupFunc(tt.migrationID, tt.hub, tt.phase)
+
+			// Test HasFailedClustersReported
+			result := HasFailedClustersReported(tt.migrationID, tt.hub, tt.phase)
+
+			// Verify result
+			assert.Equal(t, tt.expected, result)
+
+			// Cleanup
+			RemoveMigrationStatus(tt.migrationID)
+		})
+	}
+}
+
+// TestFailedClustersIntegration tests the integration between SetFailedClusters, GetFailedClusters,
+// and HasFailedClustersReported functions.
+func TestFailedClustersIntegration(t *testing.T) {
+	t.Run("Complete workflow: set, get, check reported, and reset", func(t *testing.T) {
+		migrationID := "test-integration-1"
+		hub := "target-hub"
+		phase := migrationv1alpha1.PhaseRollbacking
+		failedClusters := []string{"cluster1", "cluster2", "cluster3"}
+
+		// Clean up before test
+		migrationStatuses = make(map[string]*MigrationStatus)
+		currentMigrationClusterList = make(map[string][]string)
+
+		// Initialize migration
+		AddMigrationStatus(migrationID)
+		defer RemoveMigrationStatus(migrationID)
+
+		// Initially, no failed clusters should be reported
+		assert.Nil(t, GetFailedClusters(migrationID, hub, phase))
+		assert.False(t, HasFailedClustersReported(migrationID, hub, phase))
+
+		// Set failed clusters
+		SetFailedClusters(migrationID, hub, phase, failedClusters)
+
+		// Now failed clusters should be returned
+		assert.Equal(t, failedClusters, GetFailedClusters(migrationID, hub, phase))
+		assert.True(t, HasFailedClustersReported(migrationID, hub, phase))
+
+		// Reset the stage state
+		ResetStageState(migrationID, hub, phase)
+
+		// After reset, failed clusters should be cleared
+		assert.Nil(t, GetFailedClusters(migrationID, hub, phase))
+		assert.False(t, HasFailedClustersReported(migrationID, hub, phase))
+
+		// Set failed clusters again
+		SetFailedClusters(migrationID, hub, phase, []string{"cluster4"})
+		assert.Equal(t, []string{"cluster4"}, GetFailedClusters(migrationID, hub, phase))
+		assert.True(t, HasFailedClustersReported(migrationID, hub, phase))
+	})
+
+	t.Run("Multiple hubs with different failed clusters", func(t *testing.T) {
+		migrationID := "test-integration-2"
+		sourceHub := "source-hub"
+		targetHub := "target-hub"
+		phase := migrationv1alpha1.PhaseRollbacking
+
+		// Clean up before test
+		migrationStatuses = make(map[string]*MigrationStatus)
+		currentMigrationClusterList = make(map[string][]string)
+
+		// Initialize migration
+		AddMigrationStatus(migrationID)
+		defer RemoveMigrationStatus(migrationID)
+
+		// Set different failed clusters for each hub
+		SetFailedClusters(migrationID, sourceHub, phase, []string{"cluster1", "cluster2"})
+		SetFailedClusters(migrationID, targetHub, phase, []string{"cluster3"})
+
+		// Verify each hub has its own failed clusters
+		assert.Equal(t, []string{"cluster1", "cluster2"}, GetFailedClusters(migrationID, sourceHub, phase))
+		assert.Equal(t, []string{"cluster3"}, GetFailedClusters(migrationID, targetHub, phase))
+
+		assert.True(t, HasFailedClustersReported(migrationID, sourceHub, phase))
+		assert.True(t, HasFailedClustersReported(migrationID, targetHub, phase))
+
+		// Reset only source hub
+		ResetStageState(migrationID, sourceHub, phase)
+
+		// Source hub should be reset, target hub should remain
+		assert.Nil(t, GetFailedClusters(migrationID, sourceHub, phase))
+		assert.False(t, HasFailedClustersReported(migrationID, sourceHub, phase))
+
+		assert.Equal(t, []string{"cluster3"}, GetFailedClusters(migrationID, targetHub, phase))
+		assert.True(t, HasFailedClustersReported(migrationID, targetHub, phase))
+	})
+}

@@ -143,12 +143,13 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			MigrationId: receivedMigrationId,
 			Stage:       receivedStage,
 		}
-		if len(clusterErrors) > 0 {
-			migrationStatus.ClusterErrors = clusterErrors
-		}
+
 		reportStatus := true
 		if err != nil {
 			migrationStatus.ErrMessage = err.Error()
+			if len(clusterErrors) > 0 {
+				migrationStatus.ClusterErrors = clusterErrors
+			}
 		} else {
 			if receivedStage == migrationv1alpha1.PhaseDeploying {
 				if s.deployingTotalClusters > 0 && len(s.deployingProcessedClusters) == s.deployingTotalClusters {
@@ -250,8 +251,6 @@ func (s *MigrationTargetSyncer) handleStage(ctx context.Context, target *migrati
 		return s.executeStage(ctx, target, s.cleaning, clusterErrors)
 	case migrationv1alpha1.PhaseRollbacking:
 		return s.executeStage(ctx, target, s.rollbacking, clusterErrors)
-	case migrationv1alpha1.PhaseQueryMigrationStatus:
-		return s.executeStage(ctx, target, s.queryMigrationStatus, clusterErrors)
 	default:
 		log.Warnf("unknown migration stage: %s", target.Stage)
 		return fmt.Errorf("unknown migration stage: %s", target.Stage)
@@ -1020,12 +1019,35 @@ func (s *MigrationTargetSyncer) removeAutoApproveUser(ctx context.Context, saNam
 	return nil
 }
 
-// rollbacking handles rollback operations for different stages on the target hub
+// rollbacking handles rollback operations for different stages on the target hub.
+// For registering stage, it first queries which clusters failed migration, immediately sends
+// this list to the manager so it can start source hub rollback in parallel, then proceeds
+// with the target hub rollback.
 func (s *MigrationTargetSyncer) rollbacking(ctx context.Context,
 	target *migration.MigrationTargetBundle,
 	clusterErrors map[string]string,
 ) error {
 	log.Infof("performing rollback for stage: %s", target.RollbackStage)
+
+	// For registering stage, first query which clusters failed migration
+	// and immediately send this list to the manager
+	if target.RollbackStage == migrationv1alpha1.PhaseRegistering {
+		log.Infof("querying cluster status before rollback for registering stage")
+		failedClusters := s.queryFailedClusters(ctx, target.ManagedClusters)
+		log.Infof("found %d failed clusters for rollback: %v", len(failedClusters), failedClusters)
+
+		// Immediately send the failed clusters list to manager so it can
+		// start source hub rollback in parallel
+		if err := s.reportFailedClusters(ctx, target.MigrationId, failedClusters); err != nil {
+			log.Warnf("failed to report failed clusters: %v", err)
+			// Continue with rollback even if reporting fails
+		}
+		if len(failedClusters) == 0 {
+			return nil
+		}
+		target.ManagedClusters = failedClusters
+	}
+
 	switch target.RollbackStage {
 	case migrationv1alpha1.PhaseInitializing:
 		return s.rollbackInitializing(ctx, target, clusterErrors)
@@ -1036,6 +1058,47 @@ func (s *MigrationTargetSyncer) rollbacking(ctx context.Context,
 	default:
 		return fmt.Errorf("no specific rollback action needed for stage: %s", target.RollbackStage)
 	}
+}
+
+// reportFailedClusters immediately sends the failed clusters list to the manager
+// so it can start source hub rollback in parallel.
+func (s *MigrationTargetSyncer) reportFailedClusters(ctx context.Context,
+	migrationId string, failedClusters []string,
+) error {
+	if s.transportConfig == nil || s.transportClient == nil {
+		log.Warnf("transport not configured, skipping failed clusters report")
+		return nil
+	}
+
+	migrationStatus := &migration.MigrationStatusBundle{
+		MigrationId:            migrationId,
+		Stage:                  migrationv1alpha1.PhaseRollbacking,
+		FailedClusters:         failedClusters,
+		FailedClustersReported: true,
+	}
+
+	log.Infof("immediately reporting %d failed clusters to manager: %v", len(failedClusters), failedClusters)
+
+	return ReportMigrationStatus(
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+		s.transportClient, migrationStatus, s.bundleVersion)
+}
+
+// queryFailedClusters checks which clusters failed to migrate.
+// Returns the list of failed clusters and populates clusterErrors with error details.
+func (s *MigrationTargetSyncer) queryFailedClusters(ctx context.Context,
+	clusters []string,
+) []string {
+	var failedClusters []string
+	for _, clusterName := range clusters {
+		// Check if the cluster has been successfully migrated (ManifestWork is ready)
+		if err := s.checkClusterManifestWork(ctx, clusterName); err != nil {
+			failedClusters = append(failedClusters, clusterName)
+			log.Debugf("cluster %s migration incomplete: %v", clusterName, err)
+			continue
+		}
+	}
+	return failedClusters
 }
 
 // rollbackInitializing handles rollback of initializing phase on target hub
@@ -1339,22 +1402,6 @@ func (s *MigrationTargetSyncer) checkClusterManifestWork(ctx context.Context, cl
 	return nil
 }
 
-// checkManagedClusterAvailable checks if the managed cluster is available
-func (s *MigrationTargetSyncer) checkManagedClusterAvailable(ctx context.Context, clusterName string) error {
-	mc := &clusterv1.ManagedCluster{}
-	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, mc); err != nil {
-		return fmt.Errorf("failed to get managed cluster %s: %w", clusterName, err)
-	}
-
-	for _, cond := range mc.Status.Conditions {
-		if cond.Type == clusterv1.ManagedClusterConditionAvailable && cond.Status == metav1.ConditionTrue {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("managed cluster %s is not available", clusterName)
-}
-
 // deleteResourceIfExists deletes a resource if it exists, ignoring NotFound errors
 // If forceDelete is true, removes all finalizers before deletion
 func deleteResourceIfExists(ctx context.Context, c client.Client, obj client.Object, forceDelete bool) error {
@@ -1441,39 +1488,4 @@ func (s *MigrationTargetSyncer) removeVeleroRestoreLabelFromImageClusterInstall(
 		ici.SetLabels(labels)
 		return s.client.Update(ctx, ici)
 	})
-}
-
-// queryMigrationStatus checks which clusters have been successfully migrated to the target hub.
-// It uses the same check as the registering phase - verifying if the cluster's ManifestWork is ready.
-// Clusters that have their ManifestWork ready are considered successfully migrated.
-// Clusters that don't have ready ManifestWork are reported as errors (migration incomplete/failed).
-// This is used before retrying rollback to get the accurate success/failure cluster lists.
-func (s *MigrationTargetSyncer) queryMigrationStatus(ctx context.Context,
-	event *migration.MigrationTargetBundle, clusterErrors map[string]string,
-) error {
-	log.Infof("querying migration status for %d clusters on target hub", len(event.ManagedClusters))
-
-	for _, clusterName := range event.ManagedClusters {
-		// Check if the cluster has been successfully migrated (ManifestWork is ready)
-		// This is the same check used in the registering phase
-		if err := s.checkClusterManifestWork(ctx, clusterName); err != nil {
-			clusterErrors[clusterName] = err.Error()
-			log.Debugf("cluster %s migration incomplete: %v", clusterName, err)
-			continue
-		}
-		// Check if the managed cluster is available
-		if err := s.checkManagedClusterAvailable(ctx, clusterName); err != nil {
-			clusterErrors[clusterName] = err.Error()
-			log.Debugf("cluster %s is not available: %v", clusterName, err)
-		}
-	}
-	log.Debugf("querying clusterErrors: %v", clusterErrors)
-
-	if len(clusterErrors) > 0 {
-		log.Infof("%d clusters have incomplete migration", len(clusterErrors))
-	} else {
-		log.Infof("all %d clusters have been successfully migrated", len(event.ManagedClusters))
-	}
-
-	return nil
 }

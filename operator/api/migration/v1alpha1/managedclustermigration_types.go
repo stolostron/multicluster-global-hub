@@ -31,10 +31,6 @@ const (
 	PhaseCleaning     = "Cleaning"
 	PhaseCompleted    = "Completed"
 	PhaseFailed       = "Failed"
-
-	// PhaseQueryMigrationStatus is an internal phase used to query the migration status
-	// of clusters from the target hub before retrying rollback. This is not a CR status phase.
-	PhaseQueryMigrationStatus = "QueryMigrationStatus"
 )
 
 // Migration Condition Types
