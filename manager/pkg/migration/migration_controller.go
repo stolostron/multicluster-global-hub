@@ -139,13 +139,23 @@ func (m *ClusterMigrationController) SetupWithManager(mgr ctrl.Manager) error {
 func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Debugf("reconcile managed cluster migration %v", req)
 
-	// get the current migration
+	// get the current migration - prioritize normal migrations first
 	mcm, err := m.selectAndPrepareMigration(ctx, req)
 	if err != nil {
 		log.Errorf("failed to get managedclustermigration %v", err)
 		return ctrl.Result{}, err
 	}
+
+	// If no active migration found, check if a failed migration needs rollback retry
 	if mcm == nil {
+		requeue, err := m.handleRollbackRetryRequest(ctx, req)
+		if err != nil {
+			log.Errorf("failed to handle rollback retry request: %v", err)
+			return ctrl.Result{}, err
+		}
+		if requeue {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 		return ctrl.Result{}, nil
 	}
 

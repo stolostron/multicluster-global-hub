@@ -97,6 +97,20 @@ func getStageState(migrationId, hub, phase string) *StageState {
 	return status.HubState[key]
 }
 
+// ResetStageState resets the stage state for the given hub and phase, allowing re-execution.
+// This is used when a rollback retry is requested via annotation.
+func ResetStageState(migrationId, hub, phase string) {
+	mu.Lock()
+	defer mu.Unlock()
+	if p := getStageState(migrationId, hub, phase); p != nil {
+		p.started = false
+		p.finished = false
+		p.error = ""
+		p.clusterErrors = nil
+		log.Infof("reset stage state for migrationId: %s, hub: %s, phase: %s", migrationId, hub, phase)
+	}
+}
+
 // SetStarted sets the status of the given stage to started for the hub cluster
 func SetStarted(migrationId, hub, phase string) {
 	mu.Lock()

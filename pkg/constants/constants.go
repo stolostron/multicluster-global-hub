@@ -230,6 +230,18 @@ const (
 	InventoryResourceFinalizer = "global-hub.open-cluster-management.io/inventory-resource-cleanup"
 )
 
+const (
+	// MigrationRequestAnnotationKey is the annotation key used on ManagedClusterMigration CR
+	// to request re-execution of a migration phase. When a migration is in Failed state,
+	// users can add this annotation with MigrationRollbackAnnotationValue to trigger
+	// a retry of the rollback process.
+	MigrationRequestAnnotationKey = "global-hub.open-cluster-management.io/migration-request"
+	// MigrationRollbackAnnotationValue is the annotation value that triggers a rollback retry.
+	// When set on a Failed migration CR with MigrationRequestAnnotationKey, the controller
+	// will re-execute the rollback phase to restore the system to its previous state.
+	MigrationRollbackAnnotationValue = "rollback"
+)
+
 // global hub agent constants
 const (
 	GHClusterManagementAddonName = "multicluster-global-hub-controller"

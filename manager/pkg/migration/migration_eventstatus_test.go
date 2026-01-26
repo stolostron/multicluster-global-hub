@@ -578,3 +578,197 @@ func TestGetReadyClusters(t *testing.T) {
 		})
 	}
 }
+
+// TestResetStageState tests the ResetStageState function which resets stage state for a specific
+// hub and phase combination. This is used when a rollback retry is requested via annotation.
+func TestResetStageState(t *testing.T) {
+	tests := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "Should reset stage state for existing hub and phase",
+			testFunc: func(t *testing.T) {
+				migrationID := "test-reset-stage-1"
+				hub := "source-hub"
+				phase := migrationv1alpha1.PhaseRollbacking
+
+				// Setup initial state
+				AddMigrationStatus(migrationID)
+				defer RemoveMigrationStatus(migrationID)
+
+				SetStarted(migrationID, hub, phase)
+				SetFinished(migrationID, hub, phase)
+				SetErrorMessage(migrationID, hub, phase, "rollback failed")
+				SetClusterErrorDetailMap(migrationID, hub, phase, map[string]string{
+					"cluster1": "connection error",
+					"cluster2": "timeout",
+				})
+
+				// Verify initial state is set
+				assert.True(t, GetStarted(migrationID, hub, phase))
+				assert.True(t, GetFinished(migrationID, hub, phase))
+				assert.Equal(t, "rollback failed", GetErrorMessage(migrationID, hub, phase))
+				assert.Equal(t, map[string]string{
+					"cluster1": "connection error",
+					"cluster2": "timeout",
+				}, GetClusterErrors(migrationID, hub, phase))
+
+				// Reset the stage state
+				ResetStageState(migrationID, hub, phase)
+
+				// Verify state is reset
+				assert.False(t, GetStarted(migrationID, hub, phase))
+				assert.False(t, GetFinished(migrationID, hub, phase))
+				assert.Empty(t, GetErrorMessage(migrationID, hub, phase))
+				assert.Nil(t, GetClusterErrors(migrationID, hub, phase))
+			},
+		},
+		{
+			name: "Should not affect other hub-phase combinations",
+			testFunc: func(t *testing.T) {
+				migrationID := "test-reset-stage-2"
+				hub1 := "source-hub"
+				hub2 := "target-hub"
+				phase := migrationv1alpha1.PhaseRollbacking
+
+				// Setup initial state for both hubs
+				AddMigrationStatus(migrationID)
+				defer RemoveMigrationStatus(migrationID)
+
+				// Set state for hub1
+				SetStarted(migrationID, hub1, phase)
+				SetFinished(migrationID, hub1, phase)
+				SetErrorMessage(migrationID, hub1, phase, "hub1 error")
+
+				// Set state for hub2
+				SetStarted(migrationID, hub2, phase)
+				SetFinished(migrationID, hub2, phase)
+				SetErrorMessage(migrationID, hub2, phase, "hub2 error")
+
+				// Reset only hub1
+				ResetStageState(migrationID, hub1, phase)
+
+				// Verify hub1 is reset
+				assert.False(t, GetStarted(migrationID, hub1, phase))
+				assert.False(t, GetFinished(migrationID, hub1, phase))
+				assert.Empty(t, GetErrorMessage(migrationID, hub1, phase))
+
+				// Verify hub2 is unchanged
+				assert.True(t, GetStarted(migrationID, hub2, phase))
+				assert.True(t, GetFinished(migrationID, hub2, phase))
+				assert.Equal(t, "hub2 error", GetErrorMessage(migrationID, hub2, phase))
+			},
+		},
+		{
+			name: "Should not affect different phases for same hub",
+			testFunc: func(t *testing.T) {
+				migrationID := "test-reset-stage-3"
+				hub := "source-hub"
+				phase1 := migrationv1alpha1.PhaseRollbacking
+				phase2 := migrationv1alpha1.PhaseDeploying
+
+				// Setup initial state for both phases
+				AddMigrationStatus(migrationID)
+				defer RemoveMigrationStatus(migrationID)
+
+				SetStarted(migrationID, hub, phase1)
+				SetFinished(migrationID, hub, phase1)
+				SetErrorMessage(migrationID, hub, phase1, "phase1 error")
+
+				SetStarted(migrationID, hub, phase2)
+				SetFinished(migrationID, hub, phase2)
+				SetErrorMessage(migrationID, hub, phase2, "phase2 error")
+
+				// Reset only phase1
+				ResetStageState(migrationID, hub, phase1)
+
+				// Verify phase1 is reset
+				assert.False(t, GetStarted(migrationID, hub, phase1))
+				assert.False(t, GetFinished(migrationID, hub, phase1))
+				assert.Empty(t, GetErrorMessage(migrationID, hub, phase1))
+
+				// Verify phase2 is unchanged
+				assert.True(t, GetStarted(migrationID, hub, phase2))
+				assert.True(t, GetFinished(migrationID, hub, phase2))
+				assert.Equal(t, "phase2 error", GetErrorMessage(migrationID, hub, phase2))
+			},
+		},
+		{
+			name: "Should handle non-existent migration gracefully",
+			testFunc: func(t *testing.T) {
+				migrationID := "non-existent-migration"
+				hub := "source-hub"
+				phase := migrationv1alpha1.PhaseRollbacking
+
+				// Should not panic
+				assert.NotPanics(t, func() {
+					ResetStageState(migrationID, hub, phase)
+				})
+			},
+		},
+		{
+			name: "Should handle non-existent hub-phase for existing migration",
+			testFunc: func(t *testing.T) {
+				migrationID := "test-reset-stage-4"
+				existingHub := "existing-hub"
+				nonExistentHub := "non-existent-hub"
+				phase := migrationv1alpha1.PhaseRollbacking
+
+				// Setup migration with one hub
+				AddMigrationStatus(migrationID)
+				defer RemoveMigrationStatus(migrationID)
+
+				SetStarted(migrationID, existingHub, phase)
+				SetFinished(migrationID, existingHub, phase)
+
+				// Reset non-existent hub - this will create a new stage state and reset it
+				assert.NotPanics(t, func() {
+					ResetStageState(migrationID, nonExistentHub, phase)
+				})
+
+				// Existing hub should be unchanged
+				assert.True(t, GetStarted(migrationID, existingHub, phase))
+				assert.True(t, GetFinished(migrationID, existingHub, phase))
+			},
+		},
+		{
+			name: "Should clear cluster errors map",
+			testFunc: func(t *testing.T) {
+				migrationID := "test-reset-stage-5"
+				hub := "source-hub"
+				phase := migrationv1alpha1.PhaseRollbacking
+
+				// Setup with cluster errors
+				AddMigrationStatus(migrationID)
+				defer RemoveMigrationStatus(migrationID)
+
+				SetClusterList(migrationID, []string{"cluster1", "cluster2", "cluster3"})
+				SetStarted(migrationID, hub, phase)
+				SetClusterErrorDetailMap(migrationID, hub, phase, map[string]string{
+					"cluster1": "error1",
+					"cluster2": "error2",
+				})
+
+				// Verify cluster errors are set
+				errors := GetClusterErrors(migrationID, hub, phase)
+				assert.Len(t, errors, 2)
+
+				// Reset stage state
+				ResetStageState(migrationID, hub, phase)
+
+				// Verify cluster errors are cleared
+				errors = GetClusterErrors(migrationID, hub, phase)
+				assert.Nil(t, errors)
+
+				// GetReadyClusters should now return all clusters
+				readyClusters := GetReadyClusters(migrationID, hub, phase)
+				assert.Equal(t, []string{"cluster1", "cluster2", "cluster3"}, readyClusters)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, tt.testFunc)
+	}
+}
