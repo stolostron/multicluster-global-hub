@@ -9,6 +9,11 @@ set -euo pipefail
 # Configuration
 RELEASE_VERSION="${RELEASE_VERSION:-}"
 DRY_RUN="${DRY_RUN:-false}"
+WORK_DIR="/tmp/globalhub-release"
+
+# Repository URLs
+MAIN_REPO_URL="git@github.com:stolostron/multicluster-global-hub.git"
+BUNDLE_REPO_URL="git@github.com:stolostron/multicluster-global-hub-operator-bundle.git"
 
 # Colors
 RED='\033[0;31m'
@@ -71,6 +76,47 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
+# Function to clone or update repository
+clone_or_update_repo() {
+    local repo_url=$1
+    local repo_name=$2
+    local repo_path="${WORK_DIR}/${repo_name}"
+
+    echo -e "${BLUE}📦 Setting up ${repo_name}...${NC}"
+
+    if [[ -d "$repo_path" ]]; then
+        # Check if it's a valid git repository
+        if git -C "$repo_path" rev-parse --git-dir > /dev/null 2>&1; then
+            echo -e "${GREEN}  Repository exists, using existing clone${NC}"
+            echo -e "${BLUE}  Fetching latest changes...${NC}"
+            git -C "$repo_path" fetch origin > /dev/null 2>&1
+            echo -e "${GREEN}  ✓ Updated successfully${NC}"
+        else
+            echo -e "${YELLOW}  Directory exists but not a git repo, removing and re-cloning...${NC}"
+            rm -rf "$repo_path"
+            echo -e "${BLUE}  Cloning ${repo_url}...${NC}"
+            git clone "$repo_url" "$repo_path" > /dev/null 2>&1
+            echo -e "${GREEN}  ✓ Cloned successfully${NC}"
+        fi
+    else
+        echo -e "${BLUE}  Cloning ${repo_url}...${NC}"
+        git clone "$repo_url" "$repo_path" > /dev/null 2>&1
+        echo -e "${GREEN}  ✓ Cloned successfully${NC}"
+    fi
+    echo ""
+}
+
+# Setup work directory
+echo -e "${BOLD}Setup:${NC}"
+echo "  Work directory: ${WORK_DIR}"
+echo ""
+
+mkdir -p "$WORK_DIR"
+
+# Clone repositories
+clone_or_update_repo "$MAIN_REPO_URL" "multicluster-global-hub"
+clone_or_update_repo "$BUNDLE_REPO_URL" "multicluster-global-hub-operator-bundle"
+
 # Function to update version in a file
 update_version() {
     local file=$1
@@ -82,8 +128,37 @@ update_version() {
         return 1
     fi
 
-    sed -i '' "s/${old_version}/${new_version}/g" "$file"
-    echo -e "${GREEN}  ✓ Updated $file${NC}"
+    # Try to replace the old_version
+    if grep -q "${old_version}" "$file"; then
+        sed -i '' "s/${old_version}/${new_version}/g" "$file"
+        echo -e "${GREEN}  ✓ Updated $file (from ${old_version})${NC}"
+    else
+        # If old_version not found, try with older versions (decrement patch)
+        local temp_old_version="${old_version}"
+        local found=false
+
+        # Extract version components from old_version pattern
+        if [[ "$old_version" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+            local major="${BASH_REMATCH[1]}"
+            local minor="${BASH_REMATCH[2]}"
+            local patch="${BASH_REMATCH[3]}"
+
+            # Try decreasing patch versions
+            for ((i=patch-1; i>=0; i--)); do
+                local try_version="${old_version/${major}.${minor}.${patch}/${major}.${minor}.${i}}"
+                if grep -q "${try_version}" "$file"; then
+                    sed -i '' "s/${try_version}/${new_version}/g" "$file"
+                    echo -e "${GREEN}  ✓ Updated $file (from ${try_version})${NC}"
+                    found=true
+                    break
+                fi
+            done
+        fi
+
+        if [[ "$found" == "false" ]]; then
+            echo -e "${YELLOW}  ⚠ Could not find version to replace in $file${NC}"
+        fi
+    fi
 }
 
 # Function to create PR for a repository
@@ -220,13 +295,21 @@ create_pr() {
     git add .
     git commit -s -m ":sparkles: Bump to ${VERSION_NO_V}"
 
-    # Push branch
+    # Push branch (force push if branch already exists)
     echo -e "${BLUE}🚀 Pushing branch to origin...${NC}"
-    git push -u origin "${PR_BRANCH}"
+    git push -f -u origin "${PR_BRANCH}"
 
-    # Create PR
-    echo -e "${BLUE}📬 Creating pull request...${NC}"
-    PR_BODY="Bump version to ${VERSION_NO_V} for z-stream release.
+    # Check if PR already exists
+    echo -e "${BLUE}📬 Checking for existing pull request...${NC}"
+    EXISTING_PR=$(gh pr list --head "${PR_BRANCH}" --json number,url --jq '.[0].url' 2>/dev/null || echo "")
+
+    if [[ -n "$EXISTING_PR" ]]; then
+        echo -e "${GREEN}✓ Updated existing pull request!${NC}"
+        echo -e "${BLUE}🔗 ${EXISTING_PR}${NC}"
+    else
+        # Create PR
+        echo -e "${BLUE}📬 Creating pull request...${NC}"
+        PR_BODY="Bump version to ${VERSION_NO_V} for z-stream release.
 
 ## Changes
 - Updated version from ${PREV_VERSION} to ${VERSION_NO_V}
@@ -236,45 +319,29 @@ create_pr() {
 - Part of z-stream release ${RELEASE_VERSION}
 "
 
-    PR_URL=$(gh pr create \
-        --base "${RELEASE_BRANCH}" \
-        --head "${PR_BRANCH}" \
-        --title ":sparkles: Bump to ${VERSION_NO_V}" \
-        --body "$PR_BODY" \
-        2>&1)
+        PR_URL=$(gh pr create \
+            --base "${RELEASE_BRANCH}" \
+            --head "${PR_BRANCH}" \
+            --title ":sparkles: Bump to ${VERSION_NO_V}" \
+            --body "$PR_BODY" \
+            2>&1)
 
-    echo -e "${GREEN}✓ Pull request created!${NC}"
-    echo -e "${BLUE}🔗 ${PR_URL}${NC}"
+        echo -e "${GREEN}✓ Pull request created!${NC}"
+        echo -e "${BLUE}🔗 ${PR_URL}${NC}"
+    fi
     echo ""
 
     # Switch back to release branch
     git checkout "${RELEASE_BRANCH}"
 }
 
-# Save original directory
-ORIGINAL_DIR="$(pwd)"
-
 # Process multicluster-global-hub repository
-MAIN_REPO_PATH="../../stolostron/multicluster-global-hub"
-if [[ -d "$MAIN_REPO_PATH" ]]; then
-    create_pr "$MAIN_REPO_PATH" "multicluster-global-hub"
-else
-    echo -e "${RED}❌ Main repository not found at: $MAIN_REPO_PATH${NC}"
-    exit 1
-fi
+MAIN_REPO_PATH="${WORK_DIR}/multicluster-global-hub"
+create_pr "$MAIN_REPO_PATH" "multicluster-global-hub"
 
 # Process multicluster-global-hub-operator-bundle repository
-BUNDLE_REPO_PATH="../../stolostron/multicluster-global-hub-operator-bundle"
-if [[ -d "$BUNDLE_REPO_PATH" ]]; then
-    create_pr "$BUNDLE_REPO_PATH" "multicluster-global-hub-operator-bundle"
-else
-    echo -e "${YELLOW}⚠️  Bundle repository not found at: $BUNDLE_REPO_PATH${NC}"
-    echo "Skipping bundle repository PR creation."
-    echo ""
-fi
-
-# Return to original directory
-cd "$ORIGINAL_DIR"
+BUNDLE_REPO_PATH="${WORK_DIR}/multicluster-global-hub-operator-bundle"
+create_pr "$BUNDLE_REPO_PATH" "multicluster-global-hub-operator-bundle"
 
 echo -e "${CYAN}════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}✓ Onboarding complete!${NC}"

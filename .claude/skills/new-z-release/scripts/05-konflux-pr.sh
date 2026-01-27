@@ -7,7 +7,9 @@ set -euo pipefail
 # Configuration
 RELEASE_VERSION="${RELEASE_VERSION:-}"
 DRY_RUN="${DRY_RUN:-false}"
-KONFLUX_REPO_PATH="${KONFLUX_REPO_PATH:-../../../gitlab.cee.redhat.com/konflux-release-data}"
+WORK_DIR="/tmp/globalhub-release"
+KONFLUX_REPO_URL="git@gitlab.cee.redhat.com:releng/konflux-release-data.git"
+KONFLUX_REPO_PATH="${WORK_DIR}/konflux-release-data"
 
 # Colors
 RED='\033[0;31m'
@@ -71,31 +73,41 @@ echo "  - ${PROD_FILE}"
 echo "  - ${STAGE_FILE}"
 echo ""
 
-# Check if konflux repo exists
-if [[ ! -d "$KONFLUX_REPO_PATH" ]]; then
-    echo -e "${RED}❌ Konflux repo not found: $KONFLUX_REPO_PATH${NC}"
-    exit 1
-fi
+# Setup work directory
+echo -e "${BOLD}Setup:${NC}"
+echo "  Work directory: ${WORK_DIR}"
+echo ""
 
-# Save current directory
-ORIGINAL_DIR="$(pwd)"
+mkdir -p "$WORK_DIR"
+
+# Clone konflux-release-data repository
+echo -e "${BLUE}📦 Setting up konflux-release-data...${NC}"
+
+if [[ -d "$KONFLUX_REPO_PATH" ]]; then
+    # Check if it's a valid git repository
+    if git -C "$KONFLUX_REPO_PATH" rev-parse --git-dir > /dev/null 2>&1; then
+        echo -e "${GREEN}  Repository exists, using existing clone${NC}"
+        echo -e "${BLUE}  Fetching latest changes...${NC}"
+        git -C "$KONFLUX_REPO_PATH" fetch origin > /dev/null 2>&1
+        echo -e "${GREEN}  ✓ Updated successfully${NC}"
+    else
+        echo -e "${YELLOW}  Directory exists but not a git repo, removing and re-cloning...${NC}"
+        rm -rf "$KONFLUX_REPO_PATH"
+        echo -e "${BLUE}  Cloning ${KONFLUX_REPO_URL}...${NC}"
+        git clone "$KONFLUX_REPO_URL" "$KONFLUX_REPO_PATH" > /dev/null 2>&1
+        echo -e "${GREEN}  ✓ Cloned successfully${NC}"
+    fi
+else
+    echo -e "${BLUE}  Cloning ${KONFLUX_REPO_URL}...${NC}"
+    git clone "$KONFLUX_REPO_URL" "$KONFLUX_REPO_PATH" > /dev/null 2>&1
+    echo -e "${GREEN}  ✓ Cloned successfully${NC}"
+fi
+echo ""
 
 cd "$KONFLUX_REPO_PATH"
 
 echo -e "${BLUE}📍 Working in: $(pwd)${NC}"
 echo ""
-
-# Check if we're in a git repository
-if ! git rev-parse --git-dir > /dev/null 2>&1; then
-    echo -e "${RED}❌ Not a git repository: $KONFLUX_REPO_PATH${NC}"
-    exit 1
-fi
-
-# Fetch and pull latest changes
-echo -e "${BLUE}🔄 Fetching latest changes from origin...${NC}"
-git fetch origin
-git checkout main
-git pull origin main
 
 # Check if files exist
 if [[ ! -f "$PROD_FILE" ]]; then
@@ -161,9 +173,9 @@ Changes:
 Related: z-stream release ${RELEASE_VERSION}
 "
 
-# Push branch
+# Push branch (force push if branch already exists)
 echo -e "${BLUE}🚀 Pushing branch to origin...${NC}"
-git push -u origin "${MR_BRANCH}"
+git push -f -u origin "${MR_BRANCH}"
 
 # Create MR using GitLab CLI
 echo -e "${BLUE}📬 Creating merge request...${NC}"
