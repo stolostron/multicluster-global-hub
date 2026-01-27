@@ -319,6 +319,15 @@ for component in agent manager operator; do
         echo "   ℹ️  No version label found in $CONTAINERFILE"
       fi
     fi
+
+    # Update CPE label version (multicluster_globalhub:X.Y)
+    if grep -q "multicluster_globalhub:${GH_VERSION_SHORT}" "$CONTAINERFILE"; then
+      echo "   ℹ️  CPE already correct: ${GH_VERSION_SHORT}"
+    elif grep -q "multicluster_globalhub:${PREV_GH_VERSION_SHORT}" "$CONTAINERFILE"; then
+      sed "${SED_INPLACE[@]}" "s/multicluster_globalhub:${PREV_GH_VERSION_SHORT}/multicluster_globalhub:${GH_VERSION_SHORT}/g" "$CONTAINERFILE"
+      echo "   ✅ Updated CPE: ${PREV_GH_VERSION_SHORT} -> ${GH_VERSION_SHORT}"
+      CONTAINERFILE_UPDATED=true
+    fi
   else
     echo "   ⚠️  File not found: $CONTAINERFILE" >&2
   fi
