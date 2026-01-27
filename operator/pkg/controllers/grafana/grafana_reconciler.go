@@ -728,9 +728,9 @@ func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken stri
 		IsDefault: true,
 		URL:       objURI.Host,
 		User:      objURI.User.Username(),
-		Database:  database,
 		Editable:  false,
 		JSONData: &JsonData{
+			Database:     database,
 			QueryTimeout: "300s",
 			TimeInterval: "30s",
 		},
@@ -796,7 +796,6 @@ type GrafanaDatasource struct {
 	OrgID             int             `yaml:"orgId,omitempty"`
 	Type              string          `yaml:"type,omitempty"`
 	URL               string          `yaml:"url,omitempty"`
-	Database          string          `yaml:"database,omitempty"`
 	User              string          `yaml:"user,omitempty"`
 	Version           int             `yaml:"version,omitempty"`
 	JSONData          *JsonData       `yaml:"jsonData,omitempty"`
@@ -804,6 +803,7 @@ type GrafanaDatasource struct {
 }
 
 type JsonData struct {
+	Database               string `yaml:"database,omitempty"`
 	SSLMode                string `yaml:"sslmode,omitempty"`
 	TLSAuth                bool   `yaml:"tlsAuth,omitempty"`
 	TLSAuthWithCACert      bool   `yaml:"tlsAuthWithCACert,omitempty"`
