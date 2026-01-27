@@ -224,5 +224,5 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  replaces: multicluster-global-hub-operator.v1.4.1
+  replaces: multicluster-global-hub-operator.v1.4.3
   version: 0.0.1
