@@ -83,6 +83,10 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 	log.Infof("status: migration event, id: %s, hub: %s, stage: %s",
 		bundle.MigrationId, hubClusterName, bundle.Stage)
 
+	// Ensure migration status is initialized (lazy initialization for restart scenarios)
+	// This is safe to call multiple times as AddMigrationStatus is idempotent
+	migration.AddMigrationStatus(bundle.MigrationId)
+
 	// Store managed clusters in validating phase and it should not change
 	if bundle.Stage == migrationv1alpha1.PhaseValidating && len(bundle.ManagedClusters) > 0 {
 		migration.SetClusterList(bundle.MigrationId, bundle.ManagedClusters)
