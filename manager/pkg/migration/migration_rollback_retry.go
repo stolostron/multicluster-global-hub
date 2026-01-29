@@ -62,7 +62,10 @@ func (m *ClusterMigrationController) handleRollbackRetryRequest(ctx context.Cont
 			return err
 		}
 		// Remove the existing RolledBack and Cleaned conditions to reset LastTransitionTime
+		// Cleaned condition must also be removed because rollback can transition to cleaning phase
+		// and the old True status would cause cleaning() to return early
 		meta.RemoveStatusCondition(&mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack)
+		meta.RemoveStatusCondition(&mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned)
 		// Add new condition with fresh LastTransitionTime
 		meta.SetStatusCondition(&mcm.Status.Conditions, metav1.Condition{
 			Type:               migrationv1alpha1.ConditionTypeRolledBack,
@@ -77,9 +80,12 @@ func (m *ClusterMigrationController) handleRollbackRetryRequest(ctx context.Cont
 		return false, fmt.Errorf("failed to reset migration to rollbacking phase: %w", err)
 	}
 
-	// Reset the rollback stage states in memory cache to allow re-execution
+	// Reset the rollback and cleaning stage states in memory cache to allow re-execution
+	// Both phases need to be reset because rollback can transition to cleaning if success clusters exist
 	ResetStageState(string(mcm.GetUID()), mcm.Spec.From, migrationv1alpha1.PhaseRollbacking)
 	ResetStageState(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking)
+	ResetStageState(string(mcm.GetUID()), mcm.Spec.From, migrationv1alpha1.PhaseCleaning)
+	ResetStageState(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)
 
 	log.Infof("migration %s reset to rollbacking phase for retry", mcm.Name)
 	return true, nil

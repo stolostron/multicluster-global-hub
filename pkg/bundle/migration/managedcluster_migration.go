@@ -50,6 +50,15 @@ type MigrationStatusBundle struct {
 	Resync          bool              `json:"resync,omitempty"`
 	ManagedClusters []string          `json:"managedClusters,omitempty"`
 	ClusterErrors   map[string]string `json:"clusterErrors,omitempty"`
+	// FailedClusters contains the list of clusters that failed to migrate.
+	// This is sent by the target hub during registering stage rollback so the manager
+	// can immediately send the rollback request to source hub for these clusters
+	// without waiting for target hub rollback to complete.
+	FailedClusters []string `json:"failedClusters,omitempty"`
+	// FailedClustersReported indicates this bundle contains the failed clusters query result.
+	// When true, the manager should process FailedClusters field to determine which clusters
+	// need rollback on source hub.
+	FailedClustersReported bool `json:"failedClustersReported,omitempty"`
 }
 
 type MigrationResourceBundle struct {

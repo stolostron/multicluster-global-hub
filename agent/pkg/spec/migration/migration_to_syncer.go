@@ -1019,12 +1019,35 @@ func (s *MigrationTargetSyncer) removeAutoApproveUser(ctx context.Context, saNam
 	return nil
 }
 
-// rollbacking handles rollback operations for different stages on the target hub
+// rollbacking handles rollback operations for different stages on the target hub.
+// For registering stage, it first queries which clusters failed migration, immediately sends
+// this list to the manager so it can start source hub rollback in parallel, then proceeds
+// with the target hub rollback.
 func (s *MigrationTargetSyncer) rollbacking(ctx context.Context,
 	target *migration.MigrationTargetBundle,
 	clusterErrors map[string]string,
 ) error {
 	log.Infof("performing rollback for stage: %s", target.RollbackStage)
+
+	// For registering stage, first query which clusters failed migration
+	// and immediately send this list to the manager
+	if target.RollbackStage == migrationv1alpha1.PhaseRegistering {
+		log.Infof("querying cluster status before rollback for registering stage")
+		failedClusters := s.queryFailedClusters(ctx, target.ManagedClusters)
+		log.Infof("found %d failed clusters for rollback: %v", len(failedClusters), failedClusters)
+
+		// Immediately send the failed clusters list to manager so it can
+		// start source hub rollback in parallel
+		if err := s.reportFailedClusters(ctx, target.MigrationId, failedClusters); err != nil {
+			log.Warnf("failed to report failed clusters: %v", err)
+			// Continue with rollback even if reporting fails
+		}
+		if len(failedClusters) == 0 {
+			return nil
+		}
+		target.ManagedClusters = failedClusters
+	}
+
 	switch target.RollbackStage {
 	case migrationv1alpha1.PhaseInitializing:
 		return s.rollbackInitializing(ctx, target, clusterErrors)
@@ -1035,6 +1058,47 @@ func (s *MigrationTargetSyncer) rollbacking(ctx context.Context,
 	default:
 		return fmt.Errorf("no specific rollback action needed for stage: %s", target.RollbackStage)
 	}
+}
+
+// reportFailedClusters immediately sends the failed clusters list to the manager
+// so it can start source hub rollback in parallel.
+func (s *MigrationTargetSyncer) reportFailedClusters(ctx context.Context,
+	migrationId string, failedClusters []string,
+) error {
+	if s.transportConfig == nil || s.transportClient == nil {
+		log.Warnf("transport not configured, skipping failed clusters report")
+		return nil
+	}
+
+	migrationStatus := &migration.MigrationStatusBundle{
+		MigrationId:            migrationId,
+		Stage:                  migrationv1alpha1.PhaseRollbacking,
+		FailedClusters:         failedClusters,
+		FailedClustersReported: true,
+	}
+
+	log.Infof("immediately reporting %d failed clusters to manager: %v", len(failedClusters), failedClusters)
+
+	return ReportMigrationStatus(
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+		s.transportClient, migrationStatus, s.bundleVersion)
+}
+
+// queryFailedClusters checks which clusters failed to migrate.
+// Returns the list of failed clusters and populates clusterErrors with error details.
+func (s *MigrationTargetSyncer) queryFailedClusters(ctx context.Context,
+	clusters []string,
+) []string {
+	var failedClusters []string
+	for _, clusterName := range clusters {
+		// Check if the cluster has been successfully migrated (ManifestWork is ready)
+		if err := s.checkClusterManifestWork(ctx, clusterName); err != nil {
+			failedClusters = append(failedClusters, clusterName)
+			log.Debugf("cluster %s migration incomplete: %v", clusterName, err)
+			continue
+		}
+	}
+	return failedClusters
 }
 
 // rollbackInitializing handles rollback of initializing phase on target hub
