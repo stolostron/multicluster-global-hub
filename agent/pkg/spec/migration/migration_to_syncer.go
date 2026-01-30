@@ -1307,6 +1307,10 @@ func (s *MigrationTargetSyncer) removeMigrationResources(ctx context.Context, cl
 					objCopy.GetNamespace(), objCopy.GetName(), err)
 			}
 		}
+		// For BareMetalHost, delete dependent secrets first (BMH itself will be deleted below)
+		if err := s.deleteBMHAndDependentResources(ctx, &objCopy); err != nil {
+			return err
+		}
 
 		if err := s.client.Delete(ctx, &objCopy); err != nil {
 			if !apierrors.IsNotFound(err) {
@@ -1452,6 +1456,67 @@ func getResourceFinalizerSuffix(kind string) string {
 		}
 	}
 	return ""
+}
+
+// deleteBMHAndDependentResources deletes the dependent resources of a BareMetalHost (BMC credentials secret).
+// The BMH itself is NOT deleted by this function - it should be deleted by the caller.
+func (s *MigrationTargetSyncer) deleteBMHAndDependentResources(
+	ctx context.Context, bmh *unstructured.Unstructured,
+) error {
+	if bmh.GetKind() != "BareMetalHost" {
+		return nil
+	}
+	resourceKey := fmt.Sprintf("%s/%s", bmh.GetNamespace(), bmh.GetName())
+	log.Debugf("deleting dependent resources for BareMetalHost: %s", resourceKey)
+
+	// Get the BMC credentials secret name from BMH
+	credentialsName, found, err := unstructured.NestedString(bmh.Object, "spec", "bmc", "credentialsName")
+	if err != nil {
+		return fmt.Errorf("failed to get bmc.credentialsName from BareMetalHost %s: %w", resourceKey, err)
+	}
+
+	// Delete the dependent BMC credentials secret if exists
+	if !found || credentialsName == "" {
+		log.Debugf("no bmc.credentialsName found in BareMetalHost %s, skipping dependent secret deletion", resourceKey)
+		return nil
+	}
+
+	log.Infof("deleting dependent BMC credentials secret %s/%s", bmh.GetNamespace(), credentialsName)
+
+	bmcSecret := &corev1.Secret{}
+	if err := s.client.Get(ctx, types.NamespacedName{
+		Name:      credentialsName,
+		Namespace: bmh.GetNamespace(),
+	}, bmcSecret); err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Debugf("BMC credentials secret %s/%s already deleted", bmh.GetNamespace(), credentialsName)
+			return nil
+		}
+		return fmt.Errorf("failed to get BMC credentials secret %s/%s: %w",
+			bmh.GetNamespace(), credentialsName, err)
+	}
+
+	// Remove all finalizers from the secret before deletion
+	if len(bmcSecret.GetFinalizers()) > 0 {
+		log.Infof("removing finalizers from BMC credentials secret %s/%s", bmh.GetNamespace(), credentialsName)
+		if err := removeFinalizers(ctx, s.client, bmcSecret); err != nil {
+			return fmt.Errorf("failed to remove finalizers from BMC credentials secret %s/%s: %w",
+				bmh.GetNamespace(), credentialsName, err)
+		}
+	}
+
+	// Delete the BMC credentials secret
+	if err := s.client.Delete(ctx, bmcSecret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete BMC credentials secret %s/%s: %w",
+				bmh.GetNamespace(), credentialsName, err)
+		}
+		log.Debugf("BMC credentials secret %s/%s already deleted", bmh.GetNamespace(), credentialsName)
+	} else {
+		log.Infof("successfully deleted BMC credentials secret %s/%s", bmh.GetNamespace(), credentialsName)
+	}
+
+	return nil
 }
 
 // removeVeleroRestoreLabelFromImageClusterInstall removes the velero restore label from ImageClusterInstall

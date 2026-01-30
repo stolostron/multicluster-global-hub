@@ -4578,3 +4578,222 @@ func TestQueryFailedClusters(t *testing.T) {
 		})
 	}
 }
+
+// TestDeleteBMHAndDependentResources tests the deleteBMHAndDependentResources function
+func TestDeleteBMHAndDependentResources(t *testing.T) {
+	ctx := context.Background()
+	scheme := configs.GetRuntimeScheme()
+
+	cases := []struct {
+		name                string
+		bmh                 *unstructured.Unstructured
+		initObjects         []client.Object
+		expectedError       bool
+		expectedSecretExist bool
+	}{
+		{
+			name: "Non-BareMetalHost resource - should return nil",
+			bmh: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "test-cm",
+						"namespace": "test-ns",
+					},
+				},
+			},
+			initObjects:         []client.Object{},
+			expectedError:       false,
+			expectedSecretExist: false,
+		},
+		{
+			name: "BareMetalHost with no credentialsName - should return nil",
+			bmh: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "metal3.io/v1alpha1",
+					"kind":       "BareMetalHost",
+					"metadata": map[string]interface{}{
+						"name":      "test-bmh",
+						"namespace": "test-ns",
+					},
+					"spec": map[string]interface{}{
+						"bmc": map[string]interface{}{
+							"address": "idrac-virtualmedia://192.168.1.1/redfish/v1/Systems/System.Embedded.1",
+						},
+					},
+				},
+			},
+			initObjects:         []client.Object{},
+			expectedError:       false,
+			expectedSecretExist: false,
+		},
+		{
+			name: "BareMetalHost with empty credentialsName - should return nil",
+			bmh: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "metal3.io/v1alpha1",
+					"kind":       "BareMetalHost",
+					"metadata": map[string]interface{}{
+						"name":      "test-bmh",
+						"namespace": "test-ns",
+					},
+					"spec": map[string]interface{}{
+						"bmc": map[string]interface{}{
+							"address":         "idrac-virtualmedia://192.168.1.1/redfish/v1/Systems/System.Embedded.1",
+							"credentialsName": "",
+						},
+					},
+				},
+			},
+			initObjects:         []client.Object{},
+			expectedError:       false,
+			expectedSecretExist: false,
+		},
+		{
+			name: "BareMetalHost with credentialsName but secret not found - should return nil",
+			bmh: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "metal3.io/v1alpha1",
+					"kind":       "BareMetalHost",
+					"metadata": map[string]interface{}{
+						"name":      "test-bmh",
+						"namespace": "test-ns",
+					},
+					"spec": map[string]interface{}{
+						"bmc": map[string]interface{}{
+							"address":         "idrac-virtualmedia://192.168.1.1/redfish/v1/Systems/System.Embedded.1",
+							"credentialsName": "bmc-secret",
+						},
+					},
+				},
+			},
+			initObjects:         []client.Object{},
+			expectedError:       false,
+			expectedSecretExist: false,
+		},
+		{
+			name: "BareMetalHost with credentialsName and secret exists without finalizers - should delete secret",
+			bmh: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "metal3.io/v1alpha1",
+					"kind":       "BareMetalHost",
+					"metadata": map[string]interface{}{
+						"name":      "test-bmh",
+						"namespace": "test-ns",
+					},
+					"spec": map[string]interface{}{
+						"bmc": map[string]interface{}{
+							"address":         "idrac-virtualmedia://192.168.1.1/redfish/v1/Systems/System.Embedded.1",
+							"credentialsName": "bmc-secret",
+						},
+					},
+				},
+			},
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bmc-secret",
+						Namespace: "test-ns",
+					},
+					Data: map[string][]byte{
+						"username": []byte("admin"),
+						"password": []byte("password"),
+					},
+				},
+			},
+			expectedError:       false,
+			expectedSecretExist: false,
+		},
+		{
+			name: "BareMetalHost with credentialsName and secret exists with finalizers - should remove finalizers and delete secret",
+			bmh: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "metal3.io/v1alpha1",
+					"kind":       "BareMetalHost",
+					"metadata": map[string]interface{}{
+						"name":      "test-bmh",
+						"namespace": "test-ns",
+					},
+					"spec": map[string]interface{}{
+						"bmc": map[string]interface{}{
+							"address":         "idrac-virtualmedia://192.168.1.1/redfish/v1/Systems/System.Embedded.1",
+							"credentialsName": "bmc-secret-with-finalizer",
+						},
+					},
+				},
+			},
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "bmc-secret-with-finalizer",
+						Namespace:  "test-ns",
+						Finalizers: []string{"test-finalizer", "another-finalizer"},
+					},
+					Data: map[string][]byte{
+						"username": []byte("admin"),
+						"password": []byte("password"),
+					},
+				},
+			},
+			expectedError:       false,
+			expectedSecretExist: false,
+		},
+		{
+			name: "BareMetalHost with no bmc spec at all - should return nil",
+			bmh: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "metal3.io/v1alpha1",
+					"kind":       "BareMetalHost",
+					"metadata": map[string]interface{}{
+						"name":      "test-bmh",
+						"namespace": "test-ns",
+					},
+					"spec": map[string]interface{}{},
+				},
+			},
+			initObjects:         []client.Object{},
+			expectedError:       false,
+			expectedSecretExist: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(c.initObjects...).
+				Build()
+
+			agentConfig := &configs.AgentConfig{
+				LeafHubName: "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			err := syncer.deleteBMHAndDependentResources(ctx, c.bmh)
+
+			if c.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Check if secret exists or not based on expectation
+			if c.bmh.GetKind() == "BareMetalHost" {
+				credentialsName, found, _ := unstructured.NestedString(c.bmh.Object, "spec", "bmc", "credentialsName")
+				if found && credentialsName != "" {
+					secret := &corev1.Secret{}
+					err := fakeClient.Get(ctx, types.NamespacedName{
+						Name:      credentialsName,
+						Namespace: c.bmh.GetNamespace(),
+					}, secret)
+					if c.expectedSecretExist {
+						assert.NoError(t, err, "Secret should exist")
+					} else {
+						assert.True(t, apierrors.IsNotFound(err), "Secret should be deleted")
+					}
+				}
+			}
+		})
+	}
+}
