@@ -61,13 +61,13 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering)
 	if errMessage != "" {
-		condition.Message = fmt.Sprintf("registering to hub %s error: %s", fromHub, errMessage)
+		condition.Message = fmt.Sprintf("Registering to hub %s error: %s", fromHub, errMessage)
 		condition.Reason = ConditionReasonError
 		return false, nil
 	}
 
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering) {
-		condition.Message = fmt.Sprintf("waiting for managed clusters to migrating from source hub %s", fromHub)
+		condition.Message = fmt.Sprintf("Waiting for managed clusters to migrating from source hub %s", fromHub)
 		setRetry(mcm, migrationv1alpha1.PhaseRegistering, migrationv1alpha1.ConditionTypeRegistered, fromHub)
 		return true, nil
 	}
@@ -87,7 +87,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	errMessage = GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
 	if errMessage != "" {
 		m.handleErrorList(mcm, mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
-		condition.Message = fmt.Sprintf("registering to hub %s error: %s", mcm.Spec.To, errMessage)
+		condition.Message = fmt.Sprintf("Registering to hub %s error: %s", mcm.Spec.To, errMessage)
 		condition.Reason = ConditionReasonError
 
 		registeringReadyClusters := GetReadyClusters(string(mcm.UID), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
@@ -100,7 +100,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
-		condition.Message = fmt.Sprintf("waiting for managed clusters to register to the target hub %s", mcm.Spec.To)
+		condition.Message = fmt.Sprintf("Waiting for managed clusters to register to the target hub %s", mcm.Spec.To)
 		setRetry(mcm, migrationv1alpha1.PhaseRegistering, migrationv1alpha1.ConditionTypeRegistered, mcm.Spec.To)
 		return true, nil
 	}
