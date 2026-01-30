@@ -64,14 +64,14 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 
 	errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
 	if errMessage != "" {
-		condition.Message = fmt.Sprintf("deploying source hub %s error: %s", fromHub, errMessage)
+		condition.Message = fmt.Sprintf("Deploying source hub %s error: %s", fromHub, errMessage)
 		condition.Reason = ConditionReasonError
 		return false, nil
 	}
 
 	// waiting the source hub confirmation
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
-		condition.Message = fmt.Sprintf("waiting for resources to be prepared in the source hub %s", fromHub)
+		condition.Message = fmt.Sprintf("Waiting for resources to be prepared in the source hub %s", fromHub)
 		setRetry(mcm, migrationv1alpha1.PhaseDeploying, migrationv1alpha1.ConditionTypeDeployed, fromHub)
 		return true, nil
 	}
@@ -79,14 +79,14 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	// 2. target hub: check the confirmation and error message
 	errMessage = GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying)
 	if errMessage != "" {
-		condition.Message = fmt.Sprintf("deploying to hub %s error: %s", mcm.Spec.To, errMessage)
+		condition.Message = fmt.Sprintf("Deploying to hub %s error: %s", mcm.Spec.To, errMessage)
 		condition.Reason = ConditionReasonError
 		return false, nil
 	}
 
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying) {
-		condition.Message = fmt.Sprintf("waiting for resources to be deployed into the target hub %s", mcm.Spec.To)
+		condition.Message = fmt.Sprintf("Waiting for resources to be deployed into the target hub %s", mcm.Spec.To)
 		// NOTE: retry the deploying stage on the source hub, let it resend the resources to the target hub
 		setRetry(mcm, migrationv1alpha1.PhaseDeploying, migrationv1alpha1.ConditionTypeDeployed, fromHub)
 		return true, nil

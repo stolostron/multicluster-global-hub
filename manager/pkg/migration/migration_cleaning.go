@@ -50,7 +50,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	// Be cautious — this action may carry potential risks.
 	if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
 		log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
-		condition.Message = fmt.Sprintf("failed to delete managedServiceAccount: %v", err)
+		condition.Message = fmt.Sprintf("Failed to delete managedServiceAccount: %v", err)
 		condition.Reason = ConditionReasonError
 		return false, nil // Let defer handle the status update
 	}
@@ -74,7 +74,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseCleaning) {
 		if err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseCleaning, cleaningClusters,
 			bootstrapSecret, ""); err != nil {
-			condition.Message = fmt.Sprintf("failed to send cleanup event to source hub %s: %v", fromHub, err)
+			condition.Message = fmt.Sprintf("Failed to send cleanup event to source hub %s: %v", fromHub, err)
 			condition.Reason = ConditionReasonError
 			return false, nil // Let defer handle the status update
 		}
@@ -85,7 +85,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	// cleanup the target hub: cleaning or failed state
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
 		if err := m.sendEventToTargetHub(ctx, mcm, mcm.Status.Phase, cleaningClusters, ""); err != nil {
-			condition.Message = fmt.Sprintf("failed to send cleanup event to destination hub %s: %v", mcm.Spec.To, err)
+			condition.Message = fmt.Sprintf("Failed to send cleanup event to destination hub %s: %v", mcm.Spec.To, err)
 			condition.Reason = ConditionReasonError
 			return false, nil // Let defer handle the status update
 		}
@@ -96,13 +96,13 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	// check error message
 	errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)
 	if errMsg != "" {
-		condition.Message = fmt.Sprintf("cleaning target hub %s with err :%s", mcm.Spec.To, errMsg)
+		condition.Message = fmt.Sprintf("Cleaning target hub %s with err: %s", mcm.Spec.To, errMsg)
 		condition.Reason = ConditionReasonError
 		return false, nil
 	}
 	errMsg = GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseCleaning)
 	if errMsg != "" {
-		condition.Message = fmt.Sprintf("cleaning source hub %s with err :%s", fromHub, errMsg)
+		condition.Message = fmt.Sprintf("Cleaning source hub %s with err: %s", fromHub, errMsg)
 		condition.Reason = ConditionReasonError
 		return false, nil
 	}

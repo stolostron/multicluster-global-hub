@@ -72,7 +72,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		condition.Reason = ConditionReasonError
 		return false, err
 	} else if apierrors.IsNotFound(err) {
-		condition.Message = fmt.Sprintf("waiting for token secret (%s/%s) to be created", token.Namespace, token.Name)
+		condition.Message = fmt.Sprintf("Waiting for token secret (%s/%s) to be created", token.Namespace, token.Name)
 		log.Info(condition.Message)
 		return true, nil
 	}
@@ -116,24 +116,24 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	// 4. Check the status from hubs: if the source and target hub are initialized, if not, waiting for the initialization
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing); errMsg != "" {
-		condition.Message = fmt.Sprintf("initializing target hub %s with err :%s", mcm.Spec.To, errMsg)
+		condition.Message = fmt.Sprintf("Initializing target hub %s with err: %s", mcm.Spec.To, errMsg)
 		condition.Reason = ConditionReasonError
 		return false, nil
 	}
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseInitializing); errMsg != "" {
-		condition.Message = fmt.Sprintf("initializing source hub %s with err :%s", fromHub, errMsg)
+		condition.Message = fmt.Sprintf("Initializing source hub %s with err: %s", fromHub, errMsg)
 		condition.Reason = ConditionReasonError
 		return false, nil
 	}
 
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
-		condition.Message = fmt.Sprintf("waiting for target hub %s to complete initialization", mcm.Spec.To)
+		condition.Message = fmt.Sprintf("Waiting for target hub %s to complete initialization", mcm.Spec.To)
 		setRetry(mcm, migrationv1alpha1.PhaseInitializing, migrationv1alpha1.ConditionTypeInitialized, mcm.Spec.To)
 		return true, nil
 	}
 
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseInitializing) {
-		condition.Message = fmt.Sprintf("waiting for source hub %s to complete initialization", fromHub)
+		condition.Message = fmt.Sprintf("Waiting for source hub %s to complete initialization", fromHub)
 		setRetry(mcm, migrationv1alpha1.PhaseInitializing, migrationv1alpha1.ConditionTypeInitialized, fromHub)
 		return true, nil
 	}
