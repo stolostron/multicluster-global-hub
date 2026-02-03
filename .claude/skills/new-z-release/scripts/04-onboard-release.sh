@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Create PRs to onboard z-stream release in both repositories:
+# Create PRs to onboard z-stream release in these repositories:
 # - multicluster-global-hub
 # - multicluster-global-hub-operator-bundle
+# - multicluster-global-hub-operator-catalog
 
 set -euo pipefail
 
@@ -14,6 +15,7 @@ WORK_DIR="/tmp/globalhub-release"
 # Repository URLs
 MAIN_REPO_URL="git@github.com:stolostron/multicluster-global-hub.git"
 BUNDLE_REPO_URL="git@github.com:stolostron/multicluster-global-hub-operator-bundle.git"
+CATALOG_REPO_URL="git@github.com:stolostron/multicluster-global-hub-operator-catalog.git"
 
 # Colors
 RED='\033[0;31m'
@@ -116,6 +118,7 @@ mkdir -p "$WORK_DIR"
 # Clone repositories
 clone_or_update_repo "$MAIN_REPO_URL" "multicluster-global-hub"
 clone_or_update_repo "$BUNDLE_REPO_URL" "multicluster-global-hub-operator-bundle"
+clone_or_update_repo "$CATALOG_REPO_URL" "multicluster-global-hub-operator-catalog"
 
 # Function to update version in a file
 update_version() {
@@ -161,6 +164,71 @@ update_version() {
     fi
 }
 
+# Function to update catalog template
+update_catalog_template() {
+    local file=$1
+    local new_version=$2
+    local prev_version=$3
+
+    if [[ ! -f "$file" ]]; then
+        echo -e "${RED}❌ File not found: $file${NC}"
+        return 1
+    fi
+
+    # Use Python to update the JSON file
+    python3 - <<EOF
+import json
+import sys
+
+try:
+    with open('$file', 'r') as f:
+        data = json.load(f)
+
+    # Find the correct channel (release-MAJOR.MINOR)
+    channel_name = "release-${MAJOR}.${MINOR}"
+    channel = None
+    for ch in data.get('channels', []):
+        if ch.get('name') == channel_name:
+            channel = ch
+            break
+
+    if not channel:
+        print("${RED}❌ Channel ${channel_name} not found${NC}", file=sys.stderr)
+        sys.exit(1)
+
+    entries = channel.get('entries', [])
+
+    # Check if the new version already exists
+    new_entry_name = "multicluster-global-hub-operator-rh.v${new_version}"
+    exists = any(e.get('name') == new_entry_name for e in entries)
+
+    if not exists:
+        # Add the new entry
+        new_entry = {
+            "name": new_entry_name,
+            "replaces": "multicluster-global-hub-operator-rh.v${prev_version}"
+        }
+        entries.append(new_entry)
+
+        # Write back to file
+        with open('$file', 'w') as f:
+            json.dump(data, f, indent=4)
+
+        print("${GREEN}  ✓ Updated $file - Added v${new_version} entry${NC}")
+    else:
+        print("${YELLOW}  ⚠ v${new_version} already exists in $file${NC}")
+
+except Exception as e:
+    print(f"${RED}❌ Error updating catalog template: {e}${NC}", file=sys.stderr)
+    sys.exit(1)
+EOF
+
+    if [[ $? -ne 0 ]]; then
+        echo -e "${RED}❌ Failed to update catalog template${NC}"
+        return 1
+    fi
+}
+
 # Function to create PR for a repository
 create_pr() {
     local repo_path=$1
@@ -173,6 +241,9 @@ create_pr() {
         RELEASE_BRANCH="release-2.${ACM_VERSION}"
     elif [[ "$repo_name" == "multicluster-global-hub-operator-bundle" ]]; then
         # For bundle repo: v1.5.3 → release-1.5 (major.minor)
+        RELEASE_BRANCH="release-${MAJOR}.${MINOR}"
+    elif [[ "$repo_name" == "multicluster-global-hub-operator-catalog" ]]; then
+        # For catalog repo: v1.5.3 → release-1.5 (major.minor)
         RELEASE_BRANCH="release-${MAJOR}.${MINOR}"
     fi
 
@@ -274,6 +345,10 @@ create_pr() {
         update_version "bundle/manifests/multicluster-global-hub-operator.clusterserviceversion.yaml" \
             "replaces: multicluster-global-hub-operator.v${PREV_PREV_VERSION}" \
             "replaces: multicluster-global-hub-operator.v${PREV_VERSION}"
+
+    elif [[ "$repo_name" == "multicluster-global-hub-operator-catalog" ]]; then
+        # Update catalog-template-current.json
+        update_catalog_template "catalog-template-current.json" "${VERSION_NO_V}" "${PREV_VERSION}"
     fi
 
     echo ""
@@ -343,6 +418,10 @@ create_pr "$MAIN_REPO_PATH" "multicluster-global-hub"
 BUNDLE_REPO_PATH="${WORK_DIR}/multicluster-global-hub-operator-bundle"
 create_pr "$BUNDLE_REPO_PATH" "multicluster-global-hub-operator-bundle"
 
+# Process multicluster-global-hub-operator-catalog repository
+CATALOG_REPO_PATH="${WORK_DIR}/multicluster-global-hub-operator-catalog"
+create_pr "$CATALOG_REPO_PATH" "multicluster-global-hub-operator-catalog"
+
 echo -e "${CYAN}════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}✓ Onboarding complete!${NC}"
 echo -e "${CYAN}════════════════════════════════════════════════${NC}"
@@ -351,6 +430,7 @@ echo -e "${BOLD}Summary:${NC}"
 echo "  Version: ${RELEASE_VERSION}"
 echo "  Main Repo Branch: release-2.${ACM_VERSION}"
 echo "  Bundle Repo Branch: release-${MAJOR}.${MINOR}"
+echo "  Catalog Repo Branch: release-${MAJOR}.${MINOR}"
 echo "  PRs created for version bump from ${PREV_VERSION} to ${VERSION_NO_V}"
 echo ""
 echo -e "${BOLD}Next Steps:${NC}"
