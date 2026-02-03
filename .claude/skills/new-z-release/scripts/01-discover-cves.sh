@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load utilities
 source "${SCRIPT_DIR}/lib/jira-utils.sh" 2>/dev/null || true
+source "${SCRIPT_DIR}/lib/get-sla-date.sh" 2>/dev/null || true
 
 # Configuration
 RELEASE_VERSION="${RELEASE_VERSION:-}"
@@ -160,26 +161,29 @@ while IFS=$'\t' read -r KEY SUMMARY REST; do
         ISSUE_KEYS="${KEY}"
     fi
 
-    # Get issue details for SLA date
-    ISSUE_VIEW=$(jira issue view "$KEY" 2>&1 < /dev/null | head -3)
+    # Get SLA date using helper function
+    SLA_DATE_RAW=$(get_sla_date "$KEY")
 
-    # Extract SLA date from header (format: "⌛ Fri, 09 Jan 26")
-    SLA_DATE=$(echo "$ISSUE_VIEW" | grep -o '⌛[^👷]*' | sed 's/⌛[[:space:]]*//' | xargs)
+    # Format SLA date for display
+    if [[ -n "$SLA_DATE_RAW" ]]; then
+        SLA_DATE=$(format_sla_date "$SLA_DATE_RAW")
+    else
+        SLA_DATE=""
+    fi
 
     # Truncate summary to 80 chars
     if [[ ${#SUMMARY} -gt 80 ]]; then
         SUMMARY="${SUMMARY:0:77}..."
     fi
 
-    if [[ -z "$SLA_DATE" ]]; then
+    if [[ -z "$SLA_DATE" ]] || [[ "$SLA_DATE" == "N/A" ]]; then
         printf "%-12s %-15s %-25s %s\n" "$KEY" "N/A" "-" "$SUMMARY"
         OUTPUT_DETAILS="${OUTPUT_DETAILS}${KEY}\tN/A\t-\t${SUMMARY}\n"
     else
-        # Parse date and calculate days remaining
-        SLA_EPOCH=$(date -j -f "%a, %d %b %y" "$SLA_DATE" +%s 2>/dev/null || echo "0")
+        # Calculate days remaining using the raw date
+        DAYS_REMAINING=$(calculate_days_remaining "$SLA_DATE_RAW")
 
-        if [[ "$SLA_EPOCH" != "0" ]]; then
-            DAYS_REMAINING=$(( (SLA_EPOCH - CURRENT_DATE) / 86400 ))
+        if [[ "$DAYS_REMAINING" != "999" ]]; then
 
             # Determine urgency and color
             if [[ $DAYS_REMAINING -lt 0 ]]; then
