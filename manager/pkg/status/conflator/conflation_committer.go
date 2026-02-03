@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -38,6 +39,11 @@ func NewKafkaConflationCommitter(metadataFunc MetadataFunc) *ConflationCommitter
 }
 
 func (k *ConflationCommitter) Start(ctx context.Context) error {
+	// Migrate existing transport records from old format (topic) to new format (topic@partition)
+	if err := k.migrateTransportTable(); err != nil {
+		k.log.Warnw("failed to migrate transport table, will continue with normal operation", "error", err)
+	}
+
 	go func() {
 		ticker := time.NewTicker(time.Second * 5)
 
@@ -58,6 +64,71 @@ func (k *ConflationCommitter) Start(ctx context.Context) error {
 		}
 	}()
 	return nil
+}
+
+// migrateTransportTable migrates existing transport records from old format (topic only)
+// to new format (topic@partition). This handles the upgrade case where old records exist.
+func (k *ConflationCommitter) migrateTransportTable() error {
+	db := database.GetGorm()
+
+	// Find all records that don't contain the @ delimiter (old format)
+	var oldRecords []models.Transport
+	if err := db.Where("name NOT LIKE ?", "%@%").Find(&oldRecords).Error; err != nil {
+		return fmt.Errorf("failed to query old transport records: %w", err)
+	}
+
+	if len(oldRecords) == 0 {
+		k.log.Info("no transport records to migrate")
+		return nil
+	}
+
+	k.log.Infow("migrating transport records to new format", "count", len(oldRecords))
+
+	// Process each old record
+	var newRecords []models.Transport
+	var oldRecordNames []string
+
+	for _, oldRecord := range oldRecords {
+		// Extract partition from payload
+		var eventPos transport.EventPosition
+		if err := json.Unmarshal(oldRecord.Payload, &eventPos); err != nil {
+			k.log.Warnw("failed to unmarshal payload, skipping record", "name", oldRecord.Name, "error", err)
+			continue
+		}
+
+		// Create new record with topic@partition format
+		newName := positionKey(oldRecord.Name, eventPos.Partition)
+		newRecords = append(newRecords, models.Transport{
+			Name:      newName,
+			Payload:   oldRecord.Payload,
+			CreatedAt: oldRecord.CreatedAt,
+			UpdatedAt: time.Now(),
+		})
+		oldRecordNames = append(oldRecordNames, oldRecord.Name)
+	}
+
+	if len(newRecords) == 0 {
+		k.log.Info("no valid records to migrate")
+		return nil
+	}
+
+	// Insert new records and delete old ones in a transaction
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Insert new records with ON CONFLICT to handle duplicates
+		if err := tx.Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).CreateInBatches(newRecords, 100).Error; err != nil {
+			return fmt.Errorf("failed to insert migrated records: %w", err)
+		}
+
+		// Delete old records
+		if err := tx.Where("name IN ?", oldRecordNames).Delete(&models.Transport{}).Error; err != nil {
+			return fmt.Errorf("failed to delete old records: %w", err)
+		}
+
+		k.log.Infow("successfully migrated transport records", "count", len(newRecords))
+		return nil
+	})
 }
 
 func (k *ConflationCommitter) commit() error {
@@ -85,7 +156,7 @@ func (k *ConflationCommitter) commit() error {
 			return err
 		}
 		databaseTransports = append(databaseTransports, models.Transport{
-			Name:    transPosition.Topic,
+			Name:    positionKey(transPosition.Topic, transPosition.Partition),
 			Payload: payload,
 		})
 		k.committedPositions[key] = int64(transPosition.Offset)
