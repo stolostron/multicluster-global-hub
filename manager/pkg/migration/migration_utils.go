@@ -63,6 +63,10 @@ func (m *ClusterMigrationController) storeClustersToConfigMap(ctx context.Contex
 
 	configMapData := make(map[string]string)
 	for key, clusters := range clustersMap {
+		// Skip nil or empty slices to avoid storing "null" in the ConfigMap
+		if len(clusters) == 0 {
+			continue
+		}
 		clustersData, err := json.Marshal(clusters)
 		if err != nil {
 			return fmt.Errorf("failed to marshal clusters data: %w", err)
