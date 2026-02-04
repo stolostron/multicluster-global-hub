@@ -617,12 +617,14 @@ oc get namespace -A | grep -E 'sno1|sno2|sno3'
 
 ## Rollback Procedures
 
-If migration encounters issues, you can roll back to restore clusters to the source hub.
+If migration encounters issues, Global Hub will attempt automatic rollback to restore clusters to the source hub. However, automatic rollback may fail due to power outages, network disconnections, or Kafka connection issues. Once the cluster environment recovers, you can trigger a manual rollback.
 
 ### Understanding Rollback
 
 **Automatic Rollback**: If migration fails, Global Hub automatically attempts to rollback changes.
-**Manual Rollback**: If automatic rollback fails, manual intervention is required.
+**Manual Rollback**: You can trigger a manual rollback by adding the annotation `global-hub.open-cluster-management.io/migration-request:rollback` to the ManagedClusterMigration CR. Before adding this annotation, you must ensure that both the source and target Global Hub status are healthy.
+
+> **Key Point**: Rollback only affects clusters that failed migration. Clusters that were successfully migrated will remain on the target hub and will not be rolled back.
 
 ### Automatic Rollback
 
@@ -640,92 +642,65 @@ If automatic rollback completes successfully:
 
 ### Manual Rollback
 
-If automatic rollback fails, follow these steps.
+If automatic rollback fails or you need to manually trigger a rollback, you can use the rollback annotation.
 
-#### Manual Rollback: Target Hub Cleanup
+#### Prerequisites
 
-Execute these steps on the **target hub** to remove partially migrated resources.
+Before triggering a manual rollback, ensure:
 
-**Step 1**: Pause Reconciliation
+1. **Source Hub Status**: The source hub cluster is healthy and accessible
+2. **Target Hub Status**: The target hub (Global Hub) cluster is healthy and accessible
+3. **Network Connectivity**: All migrated Managed clusters should have network connectivity with both hubs
+4. **Kafka Connectivity**: The connection between Global Hub and Kafka is healthy
+
+#### Trigger Manual Rollback
+
+Add the rollback annotation to the ManagedClusterMigration CR:
 
 ```bash
-# Switch to target hub
-# Pause ClusterDeployment reconciliation
-for cluster in sno1 sno2 sno3; do
-  oc annotate clusterdeployment ${cluster} -n ${cluster} \
-    hive.openshift.io/reconcile-pause=true --overwrite || echo "Not found: ${cluster}"
-done
-
+oc annotate managedclustermigration ztp-sno-migration -n multicluster-global-hub \
+  global-hub.open-cluster-management.io/migration-request=rollback
 ```
 
-**Step 2**: Remove Resource Finalizers
+#### Monitor Rollback Progress
 
 ```bash
-# Remove ClusterDeployment finalizers
-for cluster in sno1 sno2 sno3; do
-  oc patch clusterdeployment ${cluster} -n ${cluster} --type json \
-    -p='[{"op": "remove", "path": "/metadata/finalizers"}]' || echo "Not found: ${cluster}"
-done
+# Check migration status for rollback progress
+oc get managedclustermigration ztp-sno-migration -n multicluster-global-hub
+
+# View detailed status
+oc describe managedclustermigration ztp-sno-migration -n multicluster-global-hub
 ```
 
-**Step 3**: Force Delete Resources
+#### Verify Rollback Completion
+
+After rollback completes, check the migration resource conditions:
 
 ```bash
-# Delete ClusterDeployment
-for cluster in sno1 sno2 sno3; do
-  oc delete clusterdeployment ${cluster} -n ${cluster} --wait=false || echo "Not found: ${cluster}"
-done
-
-# Delete ManagedCluster
-for cluster in sno1 sno2 sno3; do
-  oc delete managedcluster ${cluster} --wait=false || echo "Not found: ${cluster}"
-done
-
-# Delete namespaces
-oc delete namespace sno1 sno2 sno3 --wait=false
+# Check migration conditions
+oc get managedclustermigration ztp-sno-migration -n multicluster-global-hub -o yaml
 ```
 
-#### Manual Rollback: Source Hub Restoration
+A successful rollback will show the following conditions:
 
-Execute these steps on the **source hub** to restore cluster connectivity.
-
-**Step 1**: Remove Pause Annotations
-
-```bash
-# Switch to source hub
-# Remove pause annotation from ClusterDeployment
-for cluster in sno1 sno2 sno3; do
-  oc annotate clusterdeployment ${cluster} -n ${cluster} \
-    hive.openshift.io/reconcile-pause- || echo "Annotation not found: ${cluster}"
-done
-
+```yaml
+conditions:
+  - lastTransitionTime: "2026-01-28T05:03:07Z"
+    message: Registering rollback completed
+    reason: ResourceRolledBack
+    status: "True"
+    type: ResourceRolledBack
+  - lastTransitionTime: "2026-01-28T05:03:12Z"
+    message: Resources have been successfully cleaned up from the hub clusters
+    reason: ResourceCleaned
+    status: "True"
+    type: ResourceCleaned
 ```
 
-**Step 2**: Remove Migration Annotations
+Verify clusters are back on source hub:
 
 ```bash
-# Remove migration-related annotations from ManagedCluster
-for cluster in sno1 sno2 sno3; do
-  oc annotate managedcluster ${cluster} \
-    global-hub.open-cluster-management.io/migrating- \
-    agent.open-cluster-management.io/klusterlet-config- || echo "Annotations not found: ${cluster}"
-done
-```
-
-**Step 3**: Restore Hub Connectivity
-
-```bash
-# Re-enable hub connectivity
-for cluster in sno1 sno2 sno3; do
-  oc patch managedcluster ${cluster} --type json \
-    -p='[{"op": "replace", "path": "/spec/hubAcceptsClient", "value": true}]' || echo "Failed to patch: ${cluster}"
-done
-```
-
-**Step 4**: Verify Cluster Restoration
-
-```bash
-# Wait for clusters to reconnect (may take 1-2 minutes)
+# Switch to source hub context
 oc get managedcluster sno1,sno2,sno3
 ```
 
