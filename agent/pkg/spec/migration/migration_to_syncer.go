@@ -519,15 +519,15 @@ func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace s
 			Name: namespace,
 		},
 	}
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		operation, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error {
-			return nil
-		})
-		log.Debugf("namespace %s is %s", ns.Name, operation)
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create or update namespace %s: %w", ns.Name, err)
+	err := s.client.Get(ctx, types.NamespacedName{Name: namespace}, ns)
+	if apierrors.IsNotFound(err) {
+		err = s.client.Create(ctx, ns)
+		if err != nil {
+			return fmt.Errorf("failed to create namespace %s: %w", namespace, err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get namespace %s: %w", namespace, err)
 	}
 	return nil
 }
