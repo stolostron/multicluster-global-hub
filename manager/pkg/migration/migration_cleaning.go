@@ -108,12 +108,12 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	}
 
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
-		condition.Message = fmt.Sprintf("The target hub %s is cleaning", mcm.Spec.To)
+		condition.Message = fmt.Sprintf("Waiting for cleaning resources on target hub %s to complete", mcm.Spec.To)
 		return true, nil
 	}
 
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseCleaning) {
-		condition.Message = fmt.Sprintf("The source hub %s is cleaning", fromHub)
+		condition.Message = fmt.Sprintf("Waiting for cleaning resources on source hub %s to complete", fromHub)
 		return true, nil
 	}
 
@@ -152,9 +152,11 @@ func (m *ClusterMigrationController) handleCleaningStatus(ctx context.Context,
 ) {
 	_ = updateConditionWithTimeout(mcm, condition, stageTimeout, "")
 
-	// Handle errors - convert to warning and set Completed status
-	if condition.Reason == ConditionReasonError {
-		condition.Message = fmt.Sprintf("[Warning - Cleanup Issues] %s.", condition.Message)
+	// Handle errors or timeout - convert to warning and set Completed status
+	if condition.Reason == ConditionReasonError || condition.Reason == ConditionReasonTimeout {
+		condition.Message = fmt.Sprintf("[Warning - Cleanup Issues] %s. "+
+			"Please follow the official documentation to manually clean up resources on the source and target hubs.",
+			condition.Message)
 		condition.Status = metav1.ConditionFalse
 	}
 
