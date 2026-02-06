@@ -737,6 +737,24 @@ spec:
 '
 ```
 
+### Global Hub Agent Sync Issues During Manual Rollback
+
+**Symptom**: During manual rollback, you may encounter errors related to migration ID mismatch, such as:
+
+```
+Deploying stage rollback failed on hub <hub-name>: expected migrationId xxx, but got xxx
+```
+
+**Solution**: Restart the Global Hub agent pods on both the source hub and target hub:
+
+```bash
+# On Source Hub
+kubectl rollout restart deployment multicluster-global-hub-agent -n <Globalhub Agent Namespce>
+
+# On Target Hub
+kubectl rollout restart deployment multicluster-global-hub-agent -n <Globalhub Namespace>
+```
+
 ---
 
 ## Summary
