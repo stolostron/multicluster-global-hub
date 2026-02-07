@@ -882,8 +882,8 @@ k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 h1:hwvWFiBzdWw1FhfY1FooPn3kzWuJ8
 k8s.io/utils v0.0.0-20250604170112-4c0f3b243397/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 open-cluster-management.io/addon-framework v1.0.1 h1:hWrA+PVN5/Sjk5sBiBcyimDt01/5Hi+BLDNhS1dWVl0=
 open-cluster-management.io/addon-framework v1.0.1/go.mod h1:Gw9zRGvuNJJ3XhTYanIuA7FFFw0EjtoE74l5OBZCZf8=
-open-cluster-management.io/api v1.0.0 h1:54QllH9DTudCk6VrGt0q8CDsE3MghqJeTaTN4RHZpE0=
-open-cluster-management.io/api v1.0.0/go.mod h1:/OeqXycNBZQoe3WG6ghuWsMgsKGuMZrK8ZpsU6gWL0Y=
+open-cluster-management.io/api v1.1.0 h1:fu5xst9T/Ya6o41kqdd0zbNiDU+D3nNMTvoRVeF8j+U=
+open-cluster-management.io/api v1.1.0/go.mod h1:lEc5Wkc9ON5ym/qAtIqNgrE7NW7IEOCOC611iQMlnKM=
 open-cluster-management.io/governance-policy-propagator v0.16.0 h1:2oBWdVYgJXcx75d8RS4Ttsic5SIaE5ioG+mug4RAPqI=
 open-cluster-management.io/governance-policy-propagator v0.16.0/go.mod h1:bLA1TlVhKm6f14f4ZgqvTFqGSN3buBYVjbqZ6CQ63zM=
 open-cluster-management.io/managed-serviceaccount v0.8.0 h1:8+Z142IUqVT/enxXkyb0nzLUL7JaR7dBM2fDtlCA4pM=
