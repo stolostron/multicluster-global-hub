@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	addonapi "github.com/stolostron/klusterlet-addon-controller/pkg/apis"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -133,15 +134,28 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	err := c.Delete(ctx, &clusterv1.ManagedCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: localClusterName,
-		},
-	})
-	Expect(err).NotTo(HaveOccurred())
+	if c != nil {
+		err := c.Delete(ctx, &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: localClusterName,
+			},
+		})
+		if err != nil {
+			Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		}
+	}
 
-	cancel()
-	Expect(testEnv.Stop()).NotTo(HaveOccurred())
+	if cancel != nil {
+		cancel()
+	}
+	if testEnv != nil {
+		err := testEnv.Stop()
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testEnv.Stop()
+		}
+	}
 })
 
 func initializeWebhookInEnvironment() {
