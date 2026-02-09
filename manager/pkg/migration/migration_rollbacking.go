@@ -108,7 +108,17 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	log.Infof("rollbacking clusters on source hub: %v", rollbackingClusters)
 
-	// 3. Send rollback event to source hub with the clusters that need rollback
+	// 3. Delete managed service account BEFORE sending rollback to source hub.
+	// The MSA generates the token used in the bootstrap kubeconfig. If the MSA still exists,
+	// the klusterlet considers the target hub kubeconfig valid, which prevents triggering
+	// the switch-hub reconnect mechanism back to the source hub.
+	if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
+		condition.Message = fmt.Sprintf("Failed to cleanup managed service account: %v", err)
+		condition.Reason = ConditionReasonError
+		return false, err
+	}
+
+	// 4. Send rollback event to source hub with the clusters that need rollback
 	// For registering stage, this runs in parallel with target hub rollback
 	if !GetStarted(migrationID, fromHub, migrationv1alpha1.PhaseRollbacking) {
 		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, rollbackingClusters,
@@ -155,13 +165,6 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		waitingHub = mcm.Spec.To
 		setRetry(mcm, migrationv1alpha1.PhaseRollbacking, migrationv1alpha1.ConditionTypeRolledBack, mcm.Spec.To)
 		return true, nil
-	}
-
-	// 3. Clean up managed service account and related resources created during initialization
-	if err := m.cleanupManagedServiceAccount(ctx, mcm); err != nil {
-		condition.Message = fmt.Sprintf("Failed to cleanup managed service account: %v", err)
-		condition.Reason = ConditionReasonError
-		return false, err
 	}
 
 	condition.Status = metav1.ConditionTrue
@@ -212,16 +215,6 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 	if err != nil {
 		log.Errorf("failed to update the %s condition: %v", condition.Type, err)
 	}
-}
-
-// cleanupManagedServiceAccount removes the managed service account created during initialization
-func (m *ClusterMigrationController) cleanupManagedServiceAccount(ctx context.Context,
-	mcm *migrationv1alpha1.ManagedClusterMigration,
-) error {
-	// This will be handled by the existing cleanup logic when the MSA is deleted
-	// The controller watches for MSA deletions and will trigger cleanup
-	log.Infof("managed service account cleanup will be handled by existing deletion logic for migration %s", mcm.Name)
-	return nil
 }
 
 // determineFailedStage determines which stage failed by checking the migration conditions

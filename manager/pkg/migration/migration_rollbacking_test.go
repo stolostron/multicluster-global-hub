@@ -8,11 +8,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -27,6 +29,7 @@ func TestRollbacking(t *testing.T) {
 	_ = migrationv1alpha1.AddToScheme(scheme)
 	_ = clusterv1.AddToScheme(scheme)
 	_ = addonv1alpha1.AddToScheme(scheme)
+	_ = v1beta1.AddToScheme(scheme)
 
 	tests := []struct {
 		name                    string
@@ -229,6 +232,15 @@ func TestRollbacking(t *testing.T) {
 					},
 				}
 				objects = append(objects, managedServiceAccountAddon)
+
+				// Add ManagedServiceAccount for rollback cleanup verification
+				msa := &v1beta1.ManagedServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      tt.migration.Name,
+						Namespace: tt.migration.Spec.To,
+					},
+				}
+				objects = append(objects, msa)
 			}
 
 			fakeClient := fake.NewClientBuilder().
@@ -306,6 +318,16 @@ func TestRollbacking(t *testing.T) {
 				if tt.expectedConditionReason != "" {
 					assert.Equal(t, tt.expectedConditionReason, condition.Reason, condition.Message)
 				}
+			}
+
+			// Verify MSA is deleted after successful rollback
+			if tt.expectedConditionReason == ConditionReasonResourceRolledBack && tt.migration.Spec.To != "" {
+				msa := &v1beta1.ManagedServiceAccount{}
+				err := fakeClient.Get(ctx, types.NamespacedName{
+					Name:      tt.migration.Name,
+					Namespace: tt.migration.Spec.To,
+				}, msa)
+				assert.True(t, apierrors.IsNotFound(err), "ManagedServiceAccount should be deleted after rollback")
 			}
 
 			// Clean up migration status after test
