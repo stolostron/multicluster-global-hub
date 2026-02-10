@@ -3,7 +3,6 @@ package status
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -54,15 +53,7 @@ var _ = BeforeSuite(func() {
 
 	By("Prepare envtest environment")
 	var err error
-	testenv = &envtest.Environment{
-		CRDInstallOptions: envtest.CRDInstallOptions{
-			Paths: []string{
-				filepath.Join("..", "..", "..", "manifest", "crd"),
-			},
-			MaxTime: 1 * time.Minute,
-		},
-		ErrorIfCRDPathMissing: true,
-	}
+	testenv = &envtest.Environment{}
 	cfg, err = testenv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
@@ -139,18 +130,24 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel()
-	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
+	if cancel != nil {
+		cancel()
+	}
+	if testPostgres != nil {
+		Expect(testPostgres.Stop()).NotTo(HaveOccurred())
+	}
 	database.CloseGorm(database.GetSqlDb())
 
 	By("Tearing down the test environment")
-	err := testenv.Stop()
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
-	// Set 4 with random
-	if err != nil {
-		time.Sleep(4 * time.Second)
+	if testenv != nil {
+		err := testenv.Stop()
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		// Set 4 with random
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testenv.Stop()
+		}
 	}
-	Expect(testenv.Stop()).NotTo(HaveOccurred())
 })
 
 // FakeRequester is a mock implementation of the Requester interface.

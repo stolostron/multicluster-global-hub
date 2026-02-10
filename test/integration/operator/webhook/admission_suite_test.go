@@ -70,9 +70,11 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "..", "manifest", "crd"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml"),
 			},
-			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}

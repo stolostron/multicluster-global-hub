@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -114,10 +115,11 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 		Eventually(func() error {
 			// wait for managed cluster
 			key := string(enum.ManagedClusterEventType)
-			receivedEvent, ok := receivedEvents[key]
+			val, ok := receivedEvents.Load(key)
 			if !ok {
 				return fmt.Errorf("not get the event: %s", key)
 			}
+			receivedEvent := val.(*cloudevents.Event)
 			// fmt.Println(">>>>>>>>>>>>>>>>>>> managed cluster event", receivedEvent)
 
 			// Verify it's sent in batch mode
@@ -205,7 +207,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 		}, 3*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		By("Clear previous received events to avoid interference")
-		delete(receivedEvents, string(enum.ManagedClusterEventType))
+		receivedEvents.Delete(string(enum.ManagedClusterEventType))
 
 		By("Create a single cluster event to test single mode sending")
 		evt := &corev1.Event{
@@ -228,10 +230,11 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 
 		Eventually(func() error {
 			key := string(enum.ManagedClusterEventType)
-			receivedEvent, ok := receivedEvents[key]
+			val, ok := receivedEvents.Load(key)
 			if !ok {
 				return fmt.Errorf("not get the event: %s", key)
 			}
+			receivedEvent := val.(*cloudevents.Event)
 			fmt.Println(">>>>>>>>>>>>>>>>>>> managed cluster event (single mode)", receivedEvent)
 
 			// Verify it's sent in single mode
@@ -240,6 +243,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 				return fmt.Errorf("missing send mode extension")
 			}
 			if sendMode != string(constants.EventSendModeSingle) {
+				receivedEvents.Delete(key)
 				return fmt.Errorf("expected single mode, got %s", sendMode)
 			}
 

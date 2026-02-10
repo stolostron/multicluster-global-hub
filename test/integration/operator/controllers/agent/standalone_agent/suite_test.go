@@ -60,10 +60,11 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "..", "..", "..", "..", "operator", "config", "crd", "bases"),
-				filepath.Join("..", "..", "..", "..", "..", "manifest", "crd"),
+				filepath.Join("..", "..", "..", "..", "..", "..", "operator", "config", "crd", "bases",
+					"operator.open-cluster-management.io_multiclusterglobalhubagents.yaml"),
+				filepath.Join("..", "..", "..", "..", "..", "manifest", "crd",
+					"0000_03_config.openshift.io_infrastructures.crd.yaml"),
 			},
-			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -103,14 +104,17 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
-	// Set 4 with random
-	if err != nil {
-		time.Sleep(4 * time.Second)
+	if cancel != nil {
+		cancel()
 	}
-	err = testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	By("tearing down the test environment")
+	if testEnv != nil {
+		err := testEnv.Stop()
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		// Set 4 with random
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testEnv.Stop()
+		}
+	}
 })

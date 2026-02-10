@@ -41,15 +41,20 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	ctx, cancel = context.WithCancel(context.Background())
 
+	var err error
 	testenv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "..", "manifest", "crd"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_02_clusters.open-cluster-management.io_clusterclaims.crd.yaml"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
 			},
-			MaxTime: 1 * time.Minute,
 		},
+		ErrorIfCRDPathMissing: true,
 	}
-
 	restConfig, err := testenv.Start()
 	Expect(err).NotTo(HaveOccurred())
 

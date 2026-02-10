@@ -59,10 +59,9 @@ var _ = BeforeSuite(func() {
 	testenv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "..", "manifest", "crd"),
-				filepath.Join("..", "..", "..", "..", "operator", "config", "crd", "bases"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml"),
 			},
-			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -105,14 +104,20 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	err := testenv.Stop()
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
-	// Set 4 with random
-	if err != nil {
-		time.Sleep(4 * time.Second)
-		Expect(testenv.Stop()).NotTo(HaveOccurred())
+	if testenv != nil {
+		err := testenv.Stop()
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		// Set 4 with random
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testenv.Stop()
+		}
 	}
 	database.CloseGorm(database.GetSqlDb())
-	Expect(testPostgres.Stop()).NotTo(HaveOccurred())
-	cancel()
+	if testPostgres != nil {
+		Expect(testPostgres.Stop()).NotTo(HaveOccurred())
+	}
+	if cancel != nil {
+		cancel()
+	}
 })

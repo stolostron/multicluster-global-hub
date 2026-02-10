@@ -49,16 +49,28 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.Background())
 
 	By("bootstrapping test environment")
+	var err error
 	testenv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "..", "manifest", "crd"),
-				filepath.Join("..", "..", "..", "..", "operator", "config", "crd", "bases"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml"),
+				filepath.Join("..", "..", "..", "..", "operator", "config", "crd", "bases",
+					"global-hub.open-cluster-management.io_managedclustermigrations.yaml"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_00_work.open-cluster-management.io_manifestworks.crd.yaml"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"0000_00_agent.open-cluster-management.io_klusterletaddonconfigs_crd.yaml"),
+				filepath.Join("..", "..", "..", "manifest", "crd",
+					"config.open-cluster-management.io_klusterletconfigs.crd.yaml"),
 			},
-			MaxTime: 1 * time.Minute,
 		},
+		ErrorIfCRDPathMissing: true,
 	}
-
 	cfg, err := testenv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
@@ -120,16 +132,20 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel()
+	if cancel != nil {
+		cancel()
+	}
 
 	By("Tearing down the test environment")
-	err := testenv.Stop()
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
-	// Set 4 with random
-	if err != nil {
-		time.Sleep(4 * time.Second)
+	if testenv != nil {
+		err := testenv.Stop()
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		// Set 4 with random
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testenv.Stop()
+		}
 	}
-	Expect(testenv.Stop()).NotTo(HaveOccurred())
 })
 
 func verifyMigrationEvent(expectedSource, expectedType, expectedCluster, expectedMigrationID, expectedStage string) error {

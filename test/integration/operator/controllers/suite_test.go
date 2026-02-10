@@ -68,14 +68,30 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
+	crdBase := filepath.Join("..", "..", "..", "manifest", "crd")
 	testEnv = &envtest.Environment{
 		ControlPlane: envtest.ControlPlane{},
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
 				filepath.Join("..", "..", "..", "..", "operator", "config", "crd", "bases"),
-				filepath.Join("..", "..", "..", "manifest", "crd"),
+				filepath.Join(crdBase, "0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml"),
+				filepath.Join(crdBase, "0000_00_addon.open-cluster-management.io_clustermanagementaddons.crd.yaml"),
+				filepath.Join(crdBase, "0000_01_addon.open-cluster-management.io_managedclusteraddons.crd.yaml"),
+				filepath.Join(crdBase, "0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml"),
+				filepath.Join(crdBase, "0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml"),
+				filepath.Join(crdBase, "0000_04_monitoring.coreos.com_servicemonitors.crd.yaml"),
+				filepath.Join(crdBase, "0000_04_monitoring.coreos.com_podmonitors.crd.yaml"),
+				filepath.Join(crdBase, "0000_04_monitoring.coreos.com_prometheusrules.yaml"),
+				filepath.Join(crdBase, "0000_05_kafka.strimzi.io_kafkas.crd.yaml"),
+				filepath.Join(crdBase, "0000_05_kafka.strimzi.io_kafkatopics.crd.yaml"),
+				filepath.Join(crdBase, "0000_05_kafka.strimzi.io_kafkausers.crd.yaml"),
+				filepath.Join(crdBase, "0000_05_kafka.strimzi.io_kafkanodepools.crd.yaml"),
+				filepath.Join(crdBase, "0000_05_postgres-operator.crunchydata.com_postgresclusters.crd.yaml"),
+				filepath.Join(crdBase, "0000_07_spicedbclusters.crd.yaml"),
+				filepath.Join(crdBase, "0000_05_operators.coreos.com_subscriptions.crd.yaml"),
+				filepath.Join(crdBase, "operators.coreos.com_clusterserviceversions.yaml"),
+				filepath.Join(crdBase, "route.crd.yaml"),
 			},
-			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -131,15 +147,21 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel()
-	Expect(testPostgres.Stop()).To(Succeed())
+	if cancel != nil {
+		cancel()
+	}
+	if testPostgres != nil {
+		Expect(testPostgres.Stop()).To(Succeed())
+	}
 	By("tearing down the test environment")
-	err := testEnv.Stop()
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
-	// Set 4 with random
-	if err != nil {
-		time.Sleep(4 * time.Second)
-		Expect(testEnv.Stop()).To(Succeed())
+	if testEnv != nil {
+		err := testEnv.Stop()
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		// Set 4 with random
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testEnv.Stop()
+		}
 	}
 })
 

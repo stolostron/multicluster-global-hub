@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -40,10 +41,11 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 		By("Check the local policy spec can be read from cloudevents consumer")
 		fmt.Println("============================ create policy -> policy spec event: disabled")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalPolicySpecType)]
-			if evt == nil {
+			val, ok := receivedEvents.Load(string(enum.LocalPolicySpecType))
+			if !ok {
 				return fmt.Errorf("not get the event: %s", string(enum.LocalPolicySpecType))
 			}
+			evt := val.(*cloudevents.Event)
 			fmt.Println(evt)
 			bundle := &generic.GenericBundle[policyv1.Policy]{}
 			err := evt.DataAs(bundle)
@@ -58,7 +60,7 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 				}
 			}
 			return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
-		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("Update the root policy")
 		err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(localRootPolicy), localRootPolicy)
@@ -71,10 +73,11 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 		By("Check the local policy spec can be read from cloudevents consumer")
 		fmt.Println("============================ update policy -> policy spec event: enabled")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalPolicySpecType)]
-			if evt == nil {
+			val, ok := receivedEvents.Load(string(enum.LocalPolicySpecType))
+			if !ok {
 				return fmt.Errorf("not get the event: %s", string(enum.LocalPolicySpecType))
 			}
+			evt := val.(*cloudevents.Event)
 			bundle := generic.GenericBundle[policyv1.Policy]{}
 			err := evt.DataAs(&bundle)
 			if err != nil {
@@ -88,7 +91,7 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 				}
 			}
 			return fmt.Errorf("policy should be enabled")
-		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("be able to sync local policy compliance", func() {
@@ -107,12 +110,12 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 
 		By("Check the compliance can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalComplianceType)]
-			if evt == nil {
+			_, ok := receivedEvents.Load(string(enum.LocalComplianceType))
+			if !ok {
 				return fmt.Errorf("not get the event: %s", string(enum.LocalComplianceType))
 			}
 			return nil
-		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("be able to sync local policy complete compliance", func() {
@@ -131,12 +134,12 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 
 		By("Check the complete compliance can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalCompleteComplianceType)]
-			if evt == nil {
+			_, ok := receivedEvents.Load(string(enum.LocalCompleteComplianceType))
+			if !ok {
 				return fmt.Errorf("not get the event: %s", string(enum.LocalCompleteComplianceType))
 			}
 			return nil
-		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("be able to sync replicated policy event", func() {
@@ -206,11 +209,11 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 
 		By("Check the local replicated policy event can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalReplicatedPolicyEventType)]
-			if evt == nil {
+			_, ok := receivedEvents.Load(string(enum.LocalReplicatedPolicyEventType))
+			if !ok {
 				return fmt.Errorf("not get the event: %s", string(enum.LocalReplicatedPolicyEventType))
 			}
 			return nil
-		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 })

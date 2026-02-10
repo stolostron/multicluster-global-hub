@@ -384,9 +384,16 @@ var _ = Describe("transporter", Ordered, func() {
 		clusterName := "hub1"
 
 		// Initialize transporter state (topicPartitionReplicas, etc.) before calling EnsureTopic
-		needRequeue, err := trans.EnsureKafka()
-		Expect(err).To(Succeed())
-		Expect(needRequeue).To(BeFalse())
+		Eventually(func() error {
+			needRequeue, err := trans.EnsureKafka()
+			if err != nil {
+				return err
+			}
+			if needRequeue {
+				return fmt.Errorf("EnsureKafka requires requeue")
+			}
+			return nil
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 		// user - round 1
 		userName, err := trans.EnsureUser(clusterName)

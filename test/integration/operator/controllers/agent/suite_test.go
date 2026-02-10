@@ -71,13 +71,21 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.TODO())
 
 	By("bootstrapping test environment")
+	crdBase := filepath.Join("..", "..", "..", "..", "manifest", "crd")
 	testEnv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
-				filepath.Join("..", "..", "..", "..", "..", "operator", "config", "crd", "bases"),
-				filepath.Join("..", "..", "..", "..", "manifest", "crd"),
+				filepath.Join("..", "..", "..", "..", "..", "operator", "config", "crd", "bases",
+					"operator.open-cluster-management.io_multiclusterglobalhubs.yaml"),
+				filepath.Join(crdBase, "0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml"),
+				filepath.Join(crdBase, "0000_00_addon.open-cluster-management.io_clustermanagementaddons.crd.yaml"),
+				filepath.Join(crdBase, "0000_01_addon.open-cluster-management.io_managedclusteraddons.crd.yaml"),
+				filepath.Join(crdBase, "0000_02_addon.open-cluster-management.io_addondeploymentconfigs.crd.yaml"),
+				filepath.Join(crdBase, "0000_02_clusters.open-cluster-management.io_clusterclaims.crd.yaml"),
+				filepath.Join(crdBase, "0000_00_work.open-cluster-management.io_manifestworks.crd.yaml"),
+				filepath.Join(crdBase, "0000_00_cluster.open-cluster-management.io_placements.crd.yaml"),
+				filepath.Join(crdBase, "0000_03_clusters.open-cluster-management.io_placementdecisions.crd.yaml"),
 			},
-			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -151,16 +159,19 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
-	// Set 4 with random
-	if err != nil {
-		time.Sleep(4 * time.Second)
+	if cancel != nil {
+		cancel()
 	}
-	err = testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	By("tearing down the test environment")
+	if testEnv != nil {
+		err := testEnv.Stop()
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		// Set 4 with random
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testEnv.Stop()
+		}
+	}
 })
 
 const (

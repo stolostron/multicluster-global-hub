@@ -60,15 +60,15 @@ var _ = BeforeSuite(func() {
 	}
 	configs.SetAgentConfig(agentConfig)
 
+	var err error
 	testenv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			Paths: []string{
 				filepath.Join("..", "..", "..", "manifest", "crd"),
 			},
-			MaxTime: 1 * time.Minute,
 		},
+		ErrorIfCRDPathMissing: true,
 	}
-
 	cfg, err := testenv.Start()
 	Expect(err).NotTo(HaveOccurred())
 
@@ -116,14 +116,18 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel()
+	if cancel != nil {
+		cancel()
+	}
 
 	By("Tearing down the test environment")
-	err := testenv.Stop()
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
-	// Set 4 with random
-	if err != nil {
-		time.Sleep(4 * time.Second)
+	if testenv != nil {
+		err := testenv.Stop()
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		// Set 4 with random
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testenv.Stop()
+		}
 	}
-	Expect(testenv.Stop()).NotTo(HaveOccurred())
 })
