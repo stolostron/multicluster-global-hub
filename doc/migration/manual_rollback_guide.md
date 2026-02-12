@@ -1,4 +1,4 @@
-# Manual Migration Rollback Guide
+# Manual Migration Rollback and Cleanup Guide
 
 ## Overview
 
@@ -29,16 +29,30 @@ kubectl delete managedserviceaccount <migration-name> -n <target-hub-name>
 
 #### 1.2 Source Hub
 
-**Step 1: Remove migration annotations** from each affected ManagedCluster
+**Step 1: Delete the bootstrap secret** used for cluster registration
+
+```bash
+kubectl delete secret bootstrap-<target-hub-name> -n multicluster-engine
+```
+
+**Step 2: Delete the KlusterletConfig** created for migration
+
+```bash
+kubectl delete klusterletconfig migration-<target-hub-name>
+```
+
+**Step 3: Remove migration annotations** from each affected ManagedCluster
 
 Annotations to remove:
 - `global-hub.open-cluster-management.io/migrating`
 - `agent.open-cluster-management.io/klusterlet-config`
+- `import.open-cluster-management.io/disable-auto-import`
 
 ```bash
 kubectl annotate managedcluster <cluster-name> \
   global-hub.open-cluster-management.io/migrating- \
-  agent.open-cluster-management.io/klusterlet-config-
+  agent.open-cluster-management.io/klusterlet-config- \
+  import.open-cluster-management.io/disable-auto-import-
 ```
 
 <details>
@@ -48,33 +62,39 @@ kubectl annotate managedcluster <cluster-name> \
 for CLUSTER in cluster1 cluster2 cluster3; do
   kubectl annotate managedcluster ${CLUSTER} \
     global-hub.open-cluster-management.io/migrating- \
-    agent.open-cluster-management.io/klusterlet-config-
+    agent.open-cluster-management.io/klusterlet-config- \
+    import.open-cluster-management.io/disable-auto-import-
 done
 ```
 </details>
 
-**Step 2: Delete the bootstrap secret** used for cluster registration
+**Step 4: Remove pause annotations from ZTP resources** (if applicable)
 
-- Name format: `bootstrap-<target-hub-name>`
-- Namespace: `multicluster-engine`
+For clusters using ZTP (Zero Touch Provisioning), remove pause annotations that were added during migration:
 
-```bash
-kubectl delete secret bootstrap-<target-hub-name> -n multicluster-engine
-```
-
-**Step 3: Delete the KlusterletConfig** created for migration
-
-- Name format: `migration-<target-hub-name>`
+| Resource Type | Pause Annotation |
+|---------------|------------------|
+| ClusterDeployment | `hive.openshift.io/reconcile-pause` |
+| BareMetalHost | `baremetalhost.metal3.io/paused` |
+| DataImage | `baremetalhost.metal3.io/paused` |
 
 ```bash
-kubectl delete klusterletconfig migration-<target-hub-name>
+# Remove pause annotation from ClusterDeployment
+kubectl annotate clusterdeployment <cluster-name> -n <cluster-name> \
+  hive.openshift.io/reconcile-pause-
+
+# Remove pause annotation from BareMetalHost
+kubectl annotate baremetalhost <cluster-name> -n <cluster-name> \
+  baremetalhost.metal3.io/paused-
+
+# Remove pause annotation from DataImage (if exists)
+kubectl annotate dataimage <cluster-name> -n <cluster-name> \
+  baremetalhost.metal3.io/paused-
 ```
 
 #### 1.3 Target Hub
 
 **Step 1: Remove the auto-approve user** from ClusterManager's AutoApproveUsers list
-
-- User format: `system:serviceaccount:<target-hub-name>:<migration-name>`
 
 ```bash
 kubectl edit clustermanager cluster-manager
@@ -103,31 +123,96 @@ kubectl delete clusterrolebinding global-hub-migration-<migration-name>-registra
 
 #### 2.1 Multicluster Global Hub Environment
 
-Same as [Initializing Phase - Global Hub](#11-global-hub)
+Same as [Initializing Phase - Global Hub](#11-multicluster-global-hub-environment)
 
 #### 2.2 Source Hub
 
 Perform all steps from [Initializing Phase - Source Hub](#12-source-hub):
 
-- Step 1: Remove migration annotations from ManagedClusters
-- Step 2: Delete bootstrap secret
-- Step 3: Delete KlusterletConfig
+- Step 1: Delete bootstrap secret
+- Step 2: Delete KlusterletConfig
+- Step 3: Remove migration annotations from ManagedClusters
+- Step 4: Remove pause annotations from ZTP resources
 
 #### 2.3 Target Hub
 
-**Step 1: Delete deployed ManagedClusters** that were created during migration
+**Step 1: Delete deployed ManagedClusters and related resources**
+
+The following resources are created during migration and need to be deleted:
+
+| Category | Resource Type | Name/Pattern |
+|----------|---------------|--------------|
+| ACM Resources | ManagedCluster | `<cluster-name>` |
+| | KlusterletAddonConfig | `<cluster-name>` |
+| Secrets | Admin password | `<cluster-name>-admin-password` |
+| | Admin kubeconfig | `<cluster-name>-admin-kubeconfig` |
+| | Metadata JSON | `<cluster-name>-metadata-json` |
+| | Seed reconfiguration | `<cluster-name>-seed-reconfiguration` |
+| | Network secrets | Secrets with annotation `siteconfig.open-cluster-management.io/sync-wave` |
+| | Preserve secrets | Secrets with label `siteconfig.open-cluster-management.io/preserve` |
+| | BMC credentials | Referenced by BareMetalHost `spec.bmc.credentialsName` |
+| | Pull secret | Referenced by ClusterDeployment `spec.pullSecretRef.name` |
+| ConfigMaps | Preserve configmaps | ConfigMaps with label `siteconfig.open-cluster-management.io/preserve` |
+| | Extra manifests | Referenced by ImageClusterInstall `spec.extraManifestsRefs` |
+| Hive Resources | ClusterDeployment | `<cluster-name>` |
+| | ImageClusterInstall | `<cluster-name>` |
+| Metal3 Resources | BareMetalHost | In namespace `<cluster-name>` |
+| | HostFirmwareSettings | In namespace `<cluster-name>` |
+| | FirmwareSchema | In namespace `<cluster-name>` |
+| | HostFirmwareComponents | In namespace `<cluster-name>` |
+| | DataImage | In namespace `<cluster-name>` |
+
+For each cluster, delete resources in the following order:
 
 ```bash
+# Step 1: Add pause annotations to ZTP resources before deletion (to prevent deprovision)
+kubectl annotate clusterdeployment <cluster-name> -n <cluster-name> \
+  hive.openshift.io/reconcile-pause=true --overwrite 2>/dev/null || true
+kubectl annotate baremetalhost <cluster-name> -n <cluster-name> \
+  baremetalhost.metal3.io/paused=true --overwrite 2>/dev/null || true
+kubectl annotate dataimage <cluster-name> -n <cluster-name> \
+  baremetalhost.metal3.io/paused=true --overwrite 2>/dev/null || true
+
+# Step 2: Remove finalizers from ZTP resources
+kubectl patch clusterdeployment <cluster-name> -n <cluster-name> --type=json \
+  -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+kubectl patch baremetalhost <cluster-name> -n <cluster-name> --type=json \
+  -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+kubectl patch dataimage <cluster-name> -n <cluster-name> --type=json \
+  -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+
+# Step 3: Delete Hive resources
+kubectl delete clusterdeployment <cluster-name> -n <cluster-name> 2>/dev/null || true
+kubectl delete imageclusterinstall <cluster-name> -n <cluster-name> 2>/dev/null || true
+
+# Step 4: Delete Metal3 resources
+kubectl delete baremetalhost <cluster-name> -n <cluster-name> 2>/dev/null || true
+kubectl delete hostfirmwaresettings -n <cluster-name> --all 2>/dev/null || true
+kubectl delete firmwareschema -n <cluster-name> --all 2>/dev/null || true
+kubectl delete hostfirmwarecomponents -n <cluster-name> --all 2>/dev/null || true
+kubectl delete dataimage -n <cluster-name> --all 2>/dev/null || true
+
+# Step 5: Delete secrets
+kubectl delete secret <cluster-name>-admin-password -n <cluster-name> 2>/dev/null || true
+kubectl delete secret <cluster-name>-admin-kubeconfig -n <cluster-name> 2>/dev/null || true
+kubectl delete secret <cluster-name>-metadata-json -n <cluster-name> 2>/dev/null || true
+kubectl delete secret <cluster-name>-seed-reconfiguration -n <cluster-name> 2>/dev/null || true
+# Delete BMC credentials secret (get name from BareMetalHost spec.bmc.credentialsName)
+kubectl delete secret <bmc-secret-name> -n <cluster-name> 2>/dev/null || true
+# Delete pull secret (get name from ClusterDeployment spec.pullSecretRef.name)
+kubectl delete secret <pull-secret-name> -n <cluster-name> 2>/dev/null || true
+# Delete siteconfig secrets
+kubectl delete secret -n <cluster-name> -l siteconfig.open-cluster-management.io/preserve 2>/dev/null || true
+
+# Step 6: Delete configmaps
+kubectl delete configmap -n <cluster-name> -l siteconfig.open-cluster-management.io/preserve 2>/dev/null || true
+
+# Step 7: Delete ACM resources
+kubectl delete klusterletaddonconfig <cluster-name> -n <cluster-name> 2>/dev/null || true
 kubectl delete managedcluster <cluster-name>
-```
 
-**Step 2: Delete KlusterletAddonConfigs**
-
-- Name: `<cluster-name>`
-- Namespace: `<cluster-name>`
-
-```bash
-kubectl delete klusterletaddonconfig <cluster-name> -n <cluster-name>
+# Step 8: Delete cluster namespace (if not deleted automatically)
+kubectl delete namespace <cluster-name> 2>/dev/null || true
 ```
 
 <details>
@@ -137,13 +222,55 @@ kubectl delete klusterletaddonconfig <cluster-name> -n <cluster-name>
 CLUSTERS=("cluster1" "cluster2" "cluster3")
 
 for CLUSTER in "${CLUSTERS[@]}"; do
+  echo "Cleaning up cluster: $CLUSTER"
+
+  # Add pause annotations to ZTP resources
+  kubectl annotate clusterdeployment ${CLUSTER} -n ${CLUSTER} \
+    hive.openshift.io/reconcile-pause=true --overwrite 2>/dev/null || true
+  kubectl annotate baremetalhost ${CLUSTER} -n ${CLUSTER} \
+    baremetalhost.metal3.io/paused=true --overwrite 2>/dev/null || true
+  kubectl annotate dataimage ${CLUSTER} -n ${CLUSTER} \
+    baremetalhost.metal3.io/paused=true --overwrite 2>/dev/null || true
+
+  # Remove finalizers from ZTP resources
+  kubectl patch clusterdeployment ${CLUSTER} -n ${CLUSTER} --type=json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+  kubectl patch baremetalhost ${CLUSTER} -n ${CLUSTER} --type=json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+  kubectl patch dataimage ${CLUSTER} -n ${CLUSTER} --type=json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+
+  # Delete Hive resources
+  kubectl delete clusterdeployment ${CLUSTER} -n ${CLUSTER} 2>/dev/null || true
+  kubectl delete imageclusterinstall ${CLUSTER} -n ${CLUSTER} 2>/dev/null || true
+
+  # Delete Metal3 resources
+  kubectl delete baremetalhost ${CLUSTER} -n ${CLUSTER} 2>/dev/null || true
+  kubectl delete hostfirmwaresettings -n ${CLUSTER} --all 2>/dev/null || true
+  kubectl delete firmwareschema -n ${CLUSTER} --all 2>/dev/null || true
+  kubectl delete hostfirmwarecomponents -n ${CLUSTER} --all 2>/dev/null || true
+  kubectl delete dataimage -n ${CLUSTER} --all 2>/dev/null || true
+
+  # Delete secrets
+  kubectl delete secret ${CLUSTER}-admin-password -n ${CLUSTER} 2>/dev/null || true
+  kubectl delete secret ${CLUSTER}-admin-kubeconfig -n ${CLUSTER} 2>/dev/null || true
+  kubectl delete secret ${CLUSTER}-metadata-json -n ${CLUSTER} 2>/dev/null || true
+  kubectl delete secret -n ${CLUSTER} -l siteconfig.open-cluster-management.io/preserve 2>/dev/null || true
+
+  # Delete configmaps
+  kubectl delete configmap -n ${CLUSTER} -l siteconfig.open-cluster-management.io/preserve 2>/dev/null || true
+
+  # Delete ACM resources
+  kubectl delete klusterletaddonconfig ${CLUSTER} -n ${CLUSTER} 2>/dev/null || true
   kubectl delete managedcluster ${CLUSTER}
-  kubectl delete klusterletaddonconfig ${CLUSTER} -n ${CLUSTER}
+
+  # Delete namespace
+  kubectl delete namespace ${CLUSTER} 2>/dev/null || true
 done
 ```
 </details>
 
-**Step 3: Delete RBAC resources** same as [Initializing Phase - Target Hub](#13-target-hub)
+**Step 2: Delete RBAC resources** same as [Initializing Phase - Target Hub](#13-target-hub)
 
 ---
 
@@ -162,11 +289,17 @@ done
 
 #### 3.1 Multicluster Global Hub Environment
 
-Same as [Initializing Phase - Global Hub](#11-global-hub)
+Same as [Initializing Phase - Global Hub](#11-multicluster-global-hub-environment)
 
 #### 3.2 Source Hub
 
-**Step 1: Set HubAcceptsClient to true** for each failed cluster to restore connectivity to source hub
+**Step 1: Delete managed-cluster-lease** for each failed cluster (to avoid connectivity issues)
+
+```bash
+kubectl delete lease managed-cluster-lease -n <cluster-name>
+```
+
+**Step 2: Set HubAcceptsClient to true** for each failed cluster to restore connectivity to source hub
 
 Single cluster:
 ```bash
@@ -186,9 +319,13 @@ FAILED_CLUSTERS=$(kubectl get configmap <migration-name> -n multicluster-global-
 # Convert comma-separated list to array
 IFS=',' read -ra CLUSTERS <<< "$FAILED_CLUSTERS"
 
-# Restore HubAcceptsClient for each failed cluster
 for CLUSTER in "${CLUSTERS[@]}"; do
   echo "Restoring connectivity for cluster: $CLUSTER"
+
+  # Delete managed-cluster-lease
+  kubectl delete lease managed-cluster-lease -n ${CLUSTER} --kubeconfig=<source-hub-kubeconfig> 2>/dev/null || true
+
+  # Restore HubAcceptsClient
   kubectl patch managedcluster ${CLUSTER} --type=json \
     -p='[{"op": "replace", "path": "/spec/hubAcceptsClient", "value": true}]' \
     --kubeconfig=<source-hub-kubeconfig>
@@ -196,21 +333,21 @@ done
 ```
 </details>
 
-**Step 2: Perform all Initializing rollback steps**
+**Step 3: Perform all Initializing rollback steps** (for failed clusters only)
 
 Refer to [Initializing Phase - Source Hub](#12-source-hub):
 
-- Step 1: Remove migration annotations (for failed clusters only)
-- Step 2: Delete bootstrap secret
-- Step 3: Delete KlusterletConfig
+- Step 1: Delete bootstrap secret
+- Step 2: Delete KlusterletConfig
+- Step 3: Remove migration annotations
+- Step 4: Remove pause annotations from ZTP resources
 
 #### 3.3 Target Hub
 
-Same as [Deploying Phase - Target Hub](#23-target-hub):
+Same as [Deploying Phase - Target Hub](#23-target-hub) (for failed clusters only):
 
-- Step 1: Delete ManagedClusters
-- Step 2: Delete KlusterletAddonConfigs
-- Step 3: Delete RBAC resources
+- Step 1: Delete ManagedClusters and related resources
+- Step 2: Delete RBAC resources
 
 ---
 
@@ -244,7 +381,25 @@ kubectl delete secret bootstrap-<target-hub-name> -n multicluster-engine
 kubectl delete klusterletconfig migration-<target-hub-name>
 ```
 
-**Step 2: Delete migrated ManagedClusters** where `spec.hubAcceptsClient=false`
+**Step 2: Remove all finalizers from ZTP resources** (if applicable)
+
+For ZTP clusters, remove finalizers to allow cleanup:
+
+```bash
+# Remove finalizers from ClusterDeployment
+kubectl patch clusterdeployment <cluster-name> -n <cluster-name> --type=json \
+  -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+
+# Remove finalizers from BareMetalHost
+kubectl patch baremetalhost <cluster-name> -n <cluster-name> --type=json \
+  -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+
+# Remove finalizers from BMC credentials secret
+kubectl patch secret <bmc-secret-name> -n <cluster-name> --type=json \
+  -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+```
+
+**Step 3: Delete migrated ManagedClusters**
 
 Single cluster:
 ```bash
@@ -265,7 +420,15 @@ IFS=',' read -ra CLUSTERS <<< "$SUCCESS_CLUSTERS"
 
 # Delete each successfully migrated cluster from source hub
 for CLUSTER in "${CLUSTERS[@]}"; do
-  echo "Deleting migrated cluster: $CLUSTER"
+  echo "Cleaning up migrated cluster: $CLUSTER"
+
+  # Remove finalizers from ZTP resources
+  kubectl patch clusterdeployment ${CLUSTER} -n ${CLUSTER} --type=json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+  kubectl patch baremetalhost ${CLUSTER} -n ${CLUSTER} --type=json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]' 2>/dev/null || true
+
+  # Delete ManagedCluster
   kubectl delete managedcluster ${CLUSTER} --kubeconfig=<source-hub-kubeconfig>
 done
 ```
@@ -275,4 +438,18 @@ done
 
 #### 4.3 Target Hub
 
-Delete migration RBAC resources same as [Initializing Phase - Target Hub](#13-target-hub)
+**Step 1: Remove auto-import disable annotation** from migrated clusters
+
+```bash
+kubectl annotate managedcluster <cluster-name> \
+  import.open-cluster-management.io/disable-auto-import-
+```
+
+**Step 2: Remove velero restore label from ImageClusterInstall** (if applicable)
+
+```bash
+kubectl label imageclusterinstall <cluster-name> -n <cluster-name> \
+  velero.io/restore-name-
+```
+
+**Step 3: Delete migration RBAC resources** same as [Initializing Phase - Target Hub](#13-target-hub)
