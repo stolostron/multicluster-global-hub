@@ -4,7 +4,7 @@ metadata:
   name: restore-acm-passive-sync
   namespace: open-cluster-management-backup
 spec:
-  syncRestoreWithNewBackups: true # restore again when new backups are available
+  syncRestoreWithNewBackups: false # restore again when new backups are available
   restoreSyncInterval: 10m # check for new backups every 10 minutes
   cleanupBeforeRestore: CleanupRestored 
   veleroManagedClustersBackupName: latest
