@@ -117,16 +117,37 @@ The global hub counters track managed clusters, compliance records, and policy e
 
 ### 3,000 Clusters (10 hubs, 300 clusters each, 50 policies/hub)
 
-- Maximum CPU and memory usage per component
+- Overall namespace memory
 
-  | Type               | Manager | Agent  | Operator | Grafana | PostgreSQL | Kafka Broker |
-  |:---                |:---     |:---    |:---      |:---     |:---        |:---          |
-  | Maximum CPU (m)    | 105     | 63     | 27       | 31      | 9,068      | 211          |
-  | Maximum Memory (Mi)| 237     | 315    | 91       | 548     | 275        | 4,264 (×3)   |
+  | Metric | Value |
+  |:-------|:------|
+  | Total Pods in Namespace | 12 pods (including 3 Kafka broker replicas) |
+  | Total Memory — Average | 5.41 GB |
+  | Total Memory — Peak | 5.88 GB |
+  | Total Memory — Baseline (before test) | 4.91 GB |
 
-  > **PostgreSQL CPU spike**: Up to 9 cores during peak data ingestion (initial sync of 135,000
+- Memory usage per component
+
+  | Component | Pods | Current Memory | Avg Memory (during test) | Peak Memory (during test) |
+  |:----------|:----:|:--------------:|:------------------------:|:-------------------------:|
+  | Manager | 2 | 159 Mi (22 + 137) | 187.5 Mi | 236.2 Mi |
+  | Grafana | 2 | 316 Mi (169 + 147) | 285.2 Mi | 547.8 Mi |
+  | Operator | 1 | 93 Mi | 82.6 Mi | 90.8 Mi |
+  | PostgreSQL | 1 | 311 Mi | 212.8 Mi | 275.0 Mi |
+  | Kafka Broker | 3 | 4,290 Mi (1400 + 1433 + 1457) | 4,100 Mi | 4,264 Mi |
+  | Kafka Entity Operator | 1 | 618 Mi | — | — |
+  | Strimzi Cluster Operator | 1 | 757 Mi | — | — |
+  | Kafka Operator (total) | 2 | 1,375 Mi | 1,204 Mi | 1,382 Mi |
+  | Agent (hub1, separate ns) | 1 | 219 Mi | 213 Mi | 314.5 Mi |
+
+- Maximum CPU usage per component
+
+  | Type | Manager | Agent | Operator | Grafana | PostgreSQL | Kafka Broker |
+  |:-----|:-------:|:-----:|:--------:|:-------:|:----------:|:------------:|
+  | Maximum CPU (m) | 105 | 63 | 27 | 31 | 9,068 * | 211 |
+
+  > \* **PostgreSQL CPU spike**: Up to 9 cores during peak data ingestion (initial sync of 135,000
   > compliance records and ~270,000 events). Typical steady-state CPU is < 20 m.
-  > **Kafka Operator Memory**: ~1.38 GB total (entity operator + Strimzi cluster operator).
 
 - Recommended CPU and memory resource settings
 
