@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 import pytz
 from colorama import Back, Style
 import sys

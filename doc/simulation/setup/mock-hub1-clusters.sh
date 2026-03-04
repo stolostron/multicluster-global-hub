@@ -24,6 +24,16 @@ IFS=':' read -r cluster_start cluster_end <<< "$1"
 HUB_KUBECONFIG="${2:-/tmp/myan-hub1}"
 hub_index="${3:-1}"
 
+# Input validation
+if ! [[ "$cluster_start" =~ ^[0-9]+$ ]] || ! [[ "$cluster_end" =~ ^[0-9]+$ ]]; then
+    echo "Error: cluster range must be integers (got: ${cluster_start}:${cluster_end})" >&2
+    exit 1
+fi
+if (( cluster_start > cluster_end )); then
+    echo "Error: cluster_start (${cluster_start}) must be <= cluster_end (${cluster_end})" >&2
+    exit 1
+fi
+
 echo ">> Creating mock managed clusters ${cluster_start}~${cluster_end} on hub${hub_index}"
 echo ">> Hub kubeconfig: ${HUB_KUBECONFIG}"
 
@@ -37,7 +47,7 @@ function create_managed_cluster() {
     local kubeconfig=$3
 
     # Create ManagedCluster resource
-    kubectl --kubeconfig "$kubeconfig" apply -f - 2>/dev/null <<EOF
+    kubectl --kubeconfig "$kubeconfig" --request-timeout=30s apply -f - 2>/dev/null <<EOF
 apiVersion: cluster.open-cluster-management.io/v1
 kind: ManagedCluster
 metadata:
@@ -47,12 +57,12 @@ spec:
 EOF
 
     # Patch status: clusterClaims (unique UUID for cluster ID)
-    kubectl --kubeconfig "$kubeconfig" patch ManagedCluster "$cluster_name" \
+    kubectl --kubeconfig "$kubeconfig" --request-timeout=30s patch ManagedCluster "$cluster_name" \
         --type=merge --subresource status \
         --patch "status: {clusterClaims: [{name: id.k8s.io, value: ${cluster_id}}]}" 2>/dev/null
 
     # Patch status: conditions (hub accepted, joined, available)
-    kubectl --kubeconfig "$kubeconfig" patch ManagedCluster "$cluster_name" \
+    kubectl --kubeconfig "$kubeconfig" --request-timeout=30s patch ManagedCluster "$cluster_name" \
         --type=merge --subresource status \
         --patch 'status: {conditions: [
           {lastTransitionTime: "2024-01-01T00:00:00Z", message: "Accepted by hub cluster admin", reason: "HubClusterAdminAccepted", status: "True", type: "HubAcceptedManagedCluster"},

@@ -14,6 +14,20 @@ hub_index="${3:-1}"
 INTERVAL="${4:-60}"
 MAX_CONCURRENT=50
 
+# Input validation
+if ! [[ "$cluster_start" =~ ^[0-9]+$ ]] || ! [[ "$cluster_end" =~ ^[0-9]+$ ]]; then
+    echo "Error: cluster range must be integers (got: ${cluster_start}:${cluster_end})" >&2
+    exit 1
+fi
+if (( cluster_start > cluster_end )); then
+    echo "Error: cluster_start (${cluster_start}) must be <= cluster_end (${cluster_end})" >&2
+    exit 1
+fi
+if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]] || (( INTERVAL < 1 )); then
+    echo "Error: interval must be a positive integer (got: ${INTERVAL})" >&2
+    exit 1
+fi
+
 echo ">> Lease keep-alive: hub${hub_index} clusters ${cluster_start}-${cluster_end}, every ${INTERVAL}s"
 echo ">> Kubeconfig: ${HUB_KUBECONFIG}"
 
@@ -24,7 +38,7 @@ renew_lease() {
     now=$(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")
 
     # Update the lease renewTime to simulate klusterlet heartbeat
-    kubectl --kubeconfig "$kubeconfig" patch lease managed-cluster-lease \
+    kubectl --kubeconfig "$kubeconfig" --request-timeout=10s patch lease managed-cluster-lease \
         -n "$cluster_name" \
         --type=merge \
         --patch "{\"spec\":{\"renewTime\":\"${now}\"}}" 2>/dev/null && echo -n "." || echo -n "x"
