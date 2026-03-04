@@ -1,5 +1,5 @@
 from kubernetes import client, config
-from prometheus_api_client import *
+from prometheus_api_client import PrometheusConnect, MetricSnapshotDataFrame, MetricRangeDataFrame, MetricValueConversionError, PrometheusApiClientException
 import sys
 import os
 import warnings
