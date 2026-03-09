@@ -143,7 +143,27 @@ oc get mgh -n multicluster-global-hub
 oc get pods -n multicluster-global-hub
 ```
 
-#### 4.2 Import Source Hub to Global Hub
+#### 4.2 Enable ManagedServiceAccount in MultiClusterEngine
+
+The `managedserviceaccount` component must be enabled in the Global Hub's MultiClusterEngine. This is required for Global Hub to authenticate and manage clusters during migration.
+
+```bash
+cat <<EOF | oc apply -f -
+apiVersion: multicluster.openshift.io/v1
+kind: MultiClusterEngine
+metadata:
+  name: multiclusterengine
+spec:
+  overrides:
+    components:
+      # Enable managedserviceaccount for Global Hub migration
+      - name: managedserviceaccount
+        enabled: true
+        configOverrides: {}
+EOF
+```
+
+#### 4.3 Import Source Hub to Global Hub
 
 Import the source hub as a managed hub
 
@@ -715,7 +735,7 @@ oc get managedcluster sno1,sno2,sno3
 **Symptoms**:
 After migration completes, you may observe:
 - Cannot login to the SNO managed cluster using kubeadmin password
-- `ImageClusterInstall` resource shows `REQUIREMENTSMET: HostConfigurationSucceeded` instead of `HostValidationSucceeded`
+- `ImageClusterInstall` resource `REQUIREMENTSMET` status is not `HostConfigurationSucceeded`, which causes `ClusterInstance` to not reach `Completed` state
 
 **Root Cause**:
 This is a known issue in the image-based-install-operator component. The ImageClusterInstall status is not correctly restored after migration on older ACM versions.
