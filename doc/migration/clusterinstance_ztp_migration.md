@@ -374,7 +374,7 @@ EOF
 
 Use this approach to select clusters dynamically based on labels:
 
-**Step 1**: Create a Placement resource
+**Step 1**: Create a Placement resource in the target hub
 
 ```bash
 cat <<EOF | oc apply -f -
@@ -399,8 +399,6 @@ spec:
             operator: NotIn
             values:
               - "true"
-          - key: global-hub.open-cluster-management.io/deploy-mode
-            operator: DoesNotExist
 EOF
 ```
 
@@ -414,8 +412,8 @@ metadata:
   name: ztp-sno-migration
   namespace: multicluster-global-hub
 spec:
-  from: local-cluster
-  to: hub2
+  to: local-cluster
+  from: hub2
   # Use Placement for dynamic cluster selection
   includedManagedClustersPlacementRef: migration-50
   supportedConfigs:
