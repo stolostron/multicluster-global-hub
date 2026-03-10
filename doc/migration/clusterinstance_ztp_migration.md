@@ -374,7 +374,23 @@ EOF
 
 Use this approach to select clusters dynamically based on labels:
 
-**Step 1**: Create a Placement resource in the target hub
+**Step 1**: Create a ManagedClusterSetBinding resource on the source hub in the global hub agent namespace
+
+This binding is required to allow the Placement to select clusters from the `global` cluster set.
+
+```bash
+cat <<EOF | oc apply -f -
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: global
+  namespace: multicluster-global-hub-agent  # Global Hub agent namespace on source hub
+spec:
+  clusterSet: global
+EOF
+```
+
+**Step 2**: Create a Placement resource on the source hub in the global hub agent namespace
 
 ```bash
 cat <<EOF | oc apply -f -
@@ -382,6 +398,7 @@ apiVersion: cluster.open-cluster-management.io/v1beta1
 kind: Placement
 metadata:
   name: migration-50
+  namespace: multicluster-global-hub-agent  # Global Hub agent namespace on source hub
 spec:
   numberOfClusters: 50
   clusterSets:
@@ -402,7 +419,7 @@ spec:
 EOF
 ```
 
-**Step 2**: Reference Placement in Migration
+**Step 3**: Reference Placement in Migration
 
 ```bash
 cat <<EOF | oc apply -f -
