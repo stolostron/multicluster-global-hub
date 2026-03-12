@@ -660,7 +660,124 @@ fi
     fi
   fi
 
-# Step 8: Create cleanup PR to remove GitHub Actions from old release
+# Step 8: Update main branch with new bundle content and renamed tekton pipelines
+echo ""
+echo "📍 Step 8: Updating main branch with new bundle and tekton pipelines..."
+
+MAIN_PR_CREATED=false
+MAIN_PR_URL=""
+
+# Reset to main branch
+git reset --hard HEAD 2>/dev/null || true
+git clean -fd 2>/dev/null || true
+git fetch origin main 2>/dev/null || true
+git checkout -B main "origin/main"
+
+# Copy latest bundle content from multicluster-global-hub main
+echo "   Copying bundle content from $BUNDLE_SOURCE_DESCRIPTION to main..."
+rm -rf bundle/manifests bundle/metadata bundle/tests 2>/dev/null || true
+mkdir -p bundle
+[[ -d "$SOURCE_BUNDLE_DIR/manifests" ]] && cp -r "$SOURCE_BUNDLE_DIR/manifests" bundle/ && echo "   ✅ Copied manifests/"
+[[ -d "$SOURCE_BUNDLE_DIR/metadata" ]] && cp -r "$SOURCE_BUNDLE_DIR/metadata" bundle/ && echo "   ✅ Copied metadata/"
+[[ -d "$SOURCE_BUNDLE_DIR/tests" ]] && cp -r "$SOURCE_BUNDLE_DIR/tests" bundle/ && echo "   ✅ Copied tests/"
+git add bundle/ 2>/dev/null || true
+
+# Update imageDigestMirrorSet on main
+if [[ -f "$IDMS_FILE" && -n "$PREV_BUNDLE_TAG" ]]; then
+  sed "${SED_INPLACE[@]}" "s/multicluster-global-hub-\([a-z-]*\)-${PREV_BUNDLE_TAG}/multicluster-global-hub-\1-${BUNDLE_TAG}/g" "$IDMS_FILE"
+  echo "   ✅ Updated $IDMS_FILE on main"
+fi
+
+# Rename tekton pipelines on main: globalhub-1-7 → globalhub-1-8 (target_branch=main)
+if [[ -n "$PREV_BUNDLE_TAG" ]]; then
+  for pipeline_type in pull-request push; do
+    OLD_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${PREV_BUNDLE_TAG}-${pipeline_type}.yaml"
+    NEW_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${BUNDLE_TAG}-${pipeline_type}.yaml"
+    if [[ -f "$OLD_PIPELINE" && ! -f "$NEW_PIPELINE" ]]; then
+      git mv "$OLD_PIPELINE" "$NEW_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PIPELINE"
+      # On main, pull-request pipeline target_branch stays main; push pipeline also targets main
+      sed "${SED_INPLACE[@]}" "s/target_branch == \"${BUNDLE_BRANCH}\"/target_branch == \"main\"/g" "$NEW_PIPELINE"
+      echo "   ✅ Renamed and updated $NEW_PIPELINE (target_branch=main)"
+    elif [[ -f "$NEW_PIPELINE" ]]; then
+      echo "   ℹ️  Pipeline already exists: $NEW_PIPELINE"
+    fi
+  done
+fi
+
+# Update konflux-patch.sh on main
+if [[ -f "$KONFLUX_SCRIPT" && -n "$PREV_BUNDLE_TAG" ]]; then
+  sed "${SED_INPLACE[@]}" "s/\([a-z-]*\)-${PREV_BUNDLE_TAG}/\1-${BUNDLE_TAG}/g" "$KONFLUX_SCRIPT"
+  echo "   ✅ Updated $KONFLUX_SCRIPT on main"
+fi
+
+git add -A
+
+# Check for actual changes vs origin/main
+MAIN_DIFF=$(git diff --cached "origin/main" 2>/dev/null || echo "")
+NON_CREATEDAT=$(echo "$MAIN_DIFF" | grep -E '^[-+]' | grep -v 'createdAt:' | grep -v '^---' | grep -v '^\+\+\+' || echo "")
+
+if [[ -z "$NON_CREATEDAT" ]]; then
+  echo "   ℹ️  No substantive changes on main (only timestamps or already up-to-date)"
+  git reset --hard "origin/main" 2>/dev/null || true
+else
+  git commit --signoff -m "Update bundle main branch for ${BUNDLE_TAG} (Global Hub ${GH_VERSION})
+
+- Copy latest operator bundle from multicluster-global-hub main (manifests, metadata, tests)
+- Update imageDigestMirrorSet to use ${BUNDLE_TAG}
+- Rename tekton pipelines: ${PREV_BUNDLE_TAG} → ${BUNDLE_TAG} (target_branch=main)
+- Update konflux-patch.sh image references to ${BUNDLE_TAG}
+
+Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}"
+
+  echo "   ✅ Changes committed on main"
+
+  # Push to fork and create PR to main
+  MAIN_PR_BRANCH="update-bundle-main-${BUNDLE_TAG}"
+  git checkout -b "$MAIN_PR_BRANCH"
+
+  if [[ "$FORK_EXISTS" = true ]]; then
+    if git push -f fork "$MAIN_PR_BRANCH" 2>&1; then
+      MAIN_PR_OUTPUT=$(gh pr create --base main --head "${GITHUB_USER}:${MAIN_PR_BRANCH}" \
+        --title "Update bundle main branch for ${BUNDLE_TAG}" \
+        --body "## Summary
+
+Update bundle \`main\` branch to align with multicluster-global-hub main branch changes.
+
+## Changes
+
+- Copy latest operator bundle from multicluster-global-hub main (manifests, metadata, tests)
+- Update imageDigestMirrorSet to use \`${BUNDLE_TAG}\`
+- Rename tekton pipelines: \`${PREV_BUNDLE_TAG}\` → \`${BUNDLE_TAG}\` (target_branch=main)
+- Update konflux-patch.sh image references to \`${BUNDLE_TAG}\`
+
+## Version Mapping
+
+- **ACM**: ${RELEASE_BRANCH}
+- **Global Hub**: ${GH_VERSION}
+- **Bundle tag**: ${BUNDLE_TAG}" \
+        --repo "$BUNDLE_REPO" 2>&1) || true
+
+      if [[ "$MAIN_PR_OUTPUT" =~ ^https:// ]]; then
+        MAIN_PR_URL="$MAIN_PR_OUTPUT"
+        echo "   ✅ PR created to main: $MAIN_PR_URL"
+        MAIN_PR_CREATED=true
+      elif [[ "$MAIN_PR_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
+        MAIN_PR_URL="${BASH_REMATCH[1]}"
+        echo "   ✅ PR created to main: $MAIN_PR_URL"
+        MAIN_PR_CREATED=true
+      else
+        echo "   ⚠️  Failed to create PR to main: $MAIN_PR_OUTPUT" >&2
+      fi
+    else
+      echo "   ⚠️  Failed to push main PR branch to fork" >&2
+    fi
+  else
+    echo "   ⚠️  Fork not found, cannot create PR to main" >&2
+  fi
+fi
+
+# Step 9: Create cleanup PR to remove GitHub Actions from old release
 echo ""
 echo "📍 Step 8: Creating cleanup PR for old release..."
 
