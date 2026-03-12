@@ -109,17 +109,18 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 **Repository**: [stolostron/multicluster-global-hub-operator-bundle](https://github.com/stolostron/multicluster-global-hub-operator-bundle)
 
 **What it does**:
+- Detects open MGH release PR (e.g., PR to main with `release-2.17` in title) and copies bundle content (`manifests/`, `metadata/`, `tests/`) from that PR's branch; falls back to `upstream/main` if no open PR found
 - Checks out release branch (e.g., release-1.8)
 - Updates `images_digest_mirror_set.yaml` with new image tags
 - Renames tekton pipelines: globalhub-1-7 → globalhub-1-8 (pull-request and push)
-- Updates bundle image labels and `konflux-patch.sh` image references
+- Updates `konflux-patch.sh` image references and version replacement
 - Creates PR to the release branch
 
 **Expected PRs**: 1
 
 | PR | Target Branch | Content | Verification |
 |----|--------------|---------|--------------|
-| PR to release branch | `release-1.8` | tekton pipelines renamed globalhub-1-7 → globalhub-1-8; image tags updated to globalhub-1-8 | Check `.tekton/` has `*globalhub-1-8*.yaml` files |
+| PR to release branch | `release-1.8` | Bundle content synced from MGH release PR branch; tekton pipelines renamed globalhub-1-7 → globalhub-1-8; image tags updated; konflux-patch.sh updated | Check `bundle/manifests/*.clusterserviceversion.yaml` has version `1.8.0-dev`, skipRange `>=1.7.0 <1.8.0`; `.tekton/` has `*globalhub-1-8*.yaml` |
 
 ---
 
