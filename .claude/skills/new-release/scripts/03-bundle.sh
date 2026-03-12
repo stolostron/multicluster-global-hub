@@ -117,9 +117,14 @@ cd "$MGH_REPO_PATH"
 
 # Check for PR to main branch (created by script 01)
 echo "   Checking for multicluster-global-hub PR to main branch..."
-# Use exact title match to avoid false positives from --search
-# Since release PR is likely already merged to main, just use main branch directly
-MGH_MAIN_PR=""
+MGH_MAIN_PR=$(gh pr list \
+  --repo "stolostron/multicluster-global-hub" \
+  --base main \
+  --state open \
+  --author "$GITHUB_USER" \
+  --search "\"$RELEASE_BRANCH\" in:title" \
+  --json number,url,headRefName \
+  --jq '.[0] | select(. != null) | "\(.number)|\(.url)|\(.headRefName)"' 2>/dev/null || echo "")
 
 if [[ -n "$MGH_MAIN_PR" && "$MGH_MAIN_PR" != "null|null|" ]]; then
   # PR exists - use bundle from PR branch (latest updates before merge)
