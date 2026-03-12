@@ -104,6 +104,8 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	if err := json.Unmarshal(evt.Data(), migrationEvent); err != nil {
 		return fmt.Errorf("failed to unmarshal migration event: %w", err)
 	}
+	// Populate MigrationId and Stage from CloudEvents extensions
+	migrationEvent.MigrationId, migrationEvent.Stage = extractMigrationExtensions(evt)
 	log.Debugf("received migration event: migrationId=%s, stage=%s", migrationEvent.MigrationId, migrationEvent.Stage)
 	defer func() {
 		s.reportStatus(ctx, migrationEvent, err)
@@ -282,7 +284,7 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 	toHub := source.ToHub
 	totalClusters := len(source.ManagedClusters)
 
-	migrationBundle := migration.NewMigrationResourceBundle(source.MigrationId)
+	migrationBundle := migration.NewMigrationResourceBundle(totalClusters)
 
 	// collect clusters and klusterletAddonConfig for migration
 	for _, managedCluster := range source.ManagedClusters {
@@ -363,13 +365,13 @@ func (s *MigrationSourceSyncer) sendMigrationBundle(
 		return fmt.Errorf("failed to marshal MigrationResourceBundle (%v) - %w", bundle, err)
 	}
 
-	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
-	// Add total clusters count to CloudEvent extension for batch tracking
-	e.SetExtension(migration.ExtTotalClusters, totalClusters)
+	eventType := string(enum.ManagedClusterMigrationType)
+	e := utils.ToMigrationEvent(eventType, fromHub, toHub,
+		s.processingMigrationId, migrationv1alpha1.PhaseDeploying, 10*time.Minute, payloadBytes)
 
 	if err := s.transportClient.GetProducer().SendEvent(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
-		return fmt.Errorf(errFailedToSendEvent, constants.MigrationTargetMsgKey, fromHub, toHub, err)
+		return fmt.Errorf(errFailedToSendEvent, eventType, fromHub, toHub, err)
 	}
 
 	log.Infof("deploying: sent migration bundle from %s to %s: clusters=%d, totalClusters=%d, size=%d bytes",
@@ -604,7 +606,8 @@ func ReportMigrationStatus(
 
 	version.Incr()
 	eventType := string(enum.ManagedClusterMigrationType)
-	e := utils.ToCloudEvent(eventType, source, clusterName, payloadBytes)
+	e := utils.ToMigrationEvent(eventType, source, clusterName,
+		migrationBundle.MigrationId, migrationBundle.Stage, 10*time.Minute, payloadBytes)
 	e.SetExtension(eventversion.ExtVersion, version.String())
 	if transportClient != nil {
 		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {

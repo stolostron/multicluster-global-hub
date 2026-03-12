@@ -136,8 +136,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating migration event for validating stage with non-existent cluster")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub, []string{"non-existent-cluster"})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseValidating,
 				ToHub:           testToHub,
 				ManagedClusters: []string{"non-existent-cluster"},
 			})
@@ -151,8 +149,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating migration event for initializing stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseInitializing,
 				ToHub:           testToHub,
 				ManagedClusters: []string{testClusterName},
 				BootstrapSecret: &corev1.Secret{
@@ -216,8 +212,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating migration event for deploying stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseDeploying, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseDeploying,
 				ToHub:           testToHub,
 				ManagedClusters: []string{testClusterName},
 			})
@@ -236,8 +230,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating migration event for registering stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseRegistering, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseRegistering,
 				ToHub:           testToHub,
 				ManagedClusters: []string{testClusterName},
 			})
@@ -261,8 +253,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating migration event for cleaning stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseCleaning, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseCleaning,
 				ToHub:           testToHub,
 				ManagedClusters: []string{testClusterName},
 				BootstrapSecret: &corev1.Secret{
@@ -390,8 +380,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating rollback event for initializing stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:   migrationv1alpha1.PhaseInitializing,
 				ToHub:           testToHub,
 				ManagedClusters: []string{testClusterName},
@@ -438,8 +426,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating rollback event for deploying stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:   migrationv1alpha1.PhaseDeploying,
 				ToHub:           testToHub,
 				ManagedClusters: []string{testClusterName},
@@ -483,8 +469,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating rollback event for registering stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:   migrationv1alpha1.PhaseRegistering,
 				ToHub:           testToHub,
 				ManagedClusters: []string{testClusterName},
@@ -523,9 +507,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating migration event with missing bootstrap secret")
 			event := createMigrationFromEvent("error-test-1", migrationv1alpha1.PhaseValidating, testFromHub, testToHub, []string{"non-existent-cluster"})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId: "error-test-1",
-				Stage:       migrationv1alpha1.PhaseValidating,
-				ToHub:       testToHub,
+				ToHub: testToHub,
 			})
 
 			err := migrationSyncer.Sync(testCtx, event)
@@ -533,8 +515,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 
 			event = createMigrationFromEvent("error-test-1", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     "error-test-1",
-				Stage:           migrationv1alpha1.PhaseInitializing,
 				ToHub:           testToHub,
 				ManagedClusters: []string{testClusterName},
 				BootstrapSecret: nil, // Missing bootstrap secret
@@ -563,9 +543,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub, []string{"non-existent-cluster"})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId: "error-test-2",
-				Stage:       migrationv1alpha1.PhaseValidating,
-				ToHub:       testToHub,
+				ToHub: testToHub,
 			})
 
 			err := migrationSyncer.Sync(testCtx, event)
@@ -577,8 +555,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating migration event for non-existent cluster")
 			initEvent := createMigrationFromEvent("error-test-2", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{"non-existent-cluster"})
 			initEvent.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     "error-test-2",
-				Stage:           migrationv1alpha1.PhaseInitializing,
 				ToHub:           testToHub,
 				ManagedClusters: []string{"non-existent-cluster"},
 				BootstrapSecret: cleanBootstrapSecret,
@@ -617,10 +593,10 @@ func createMigrationFromEvent(migrationID, stage, fromHub, toHub string, cluster
 	event.SetSource(fromHub)
 	event.SetSubject(constants.CloudEventGlobalHubClusterName)
 	event.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationID)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationStage, stage)
 
 	payload := &migration.MigrationSourceBundle{
-		MigrationId:     migrationID,
-		Stage:           stage,
 		ToHub:           toHub,
 		ManagedClusters: clusters,
 	}

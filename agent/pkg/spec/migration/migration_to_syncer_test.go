@@ -31,6 +31,7 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -999,8 +1000,10 @@ func TestMigrationToSyncer(t *testing.T) {
 			toEvent := c.migrationEvent
 			payload, err := json.Marshal(toEvent)
 			assert.Nil(t, err)
-			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+			evt := utils.ToCloudEvent(string(enum.ManagedClusterMigrationType), constants.CloudEventGlobalHubClusterName,
 				"hub2", payload)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, c.migrationEvent.MigrationId)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, c.migrationEvent.Stage)
 			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			assert.Nil(t, err)
@@ -1248,7 +1251,9 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			}
 
 			// sync managed cluster migration
-			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, eventSource, "hub2", payload)
+			evt := utils.ToCloudEvent(string(enum.ManagedClusterMigrationType), eventSource, "hub2", payload)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, c.receivedMigrationEventBundle.MigrationId)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, c.receivedMigrationEventBundle.Stage)
 			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if c.expectedError == nil {
@@ -1312,8 +1317,8 @@ func TestDeploying(t *testing.T) {
 	addonObj.SetKind("KlusterletAddonConfig")
 	addonObj.SetAPIVersion("agent.open-cluster-management.io/v1")
 
-	evt := utils.ToCloudEvent("test", "hub1", "hub2", migration.MigrationResourceBundle{
-		MigrationId: migrationId,
+	evt := utils.ToCloudEvent(string(enum.ManagedClusterMigrationType), "hub1", "hub2", migration.MigrationResourceBundle{
+		TotalClusters: 1,
 		MigrationClusterResources: []migration.MigrationClusterResource{
 			{
 				ClusterName: "cluster1",
@@ -1324,8 +1329,9 @@ func TestDeploying(t *testing.T) {
 			},
 		},
 	})
-	evt.SetExtension(migration.ExtTotalClusters, 1) // Set totalclusters for batch tracking
-	evt.SetTime(time.Now())                         // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
+	evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 
 	scheme := configs.GetRuntimeScheme()
 	ctx := context.Background()
@@ -1612,12 +1618,13 @@ func TestDeployingBatchReceiving(t *testing.T) {
 
 				// Create and send bundle event
 				bundle := migration.MigrationResourceBundle{
-					MigrationId:               migrationId,
+					TotalClusters:             c.expectedTotalClusters,
 					MigrationClusterResources: clusterResources,
 				}
 
-				evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, "hub1", "hub2", bundle)
-				evt.SetExtension(migration.ExtTotalClusters, c.expectedTotalClusters)
+				evt := utils.ToCloudEvent(string(enum.ManagedClusterMigrationType), "hub1", "hub2", bundle)
+				evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
+				evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
 				evt.SetTime(time.Now())
 
 				err := syncer.Sync(ctx, &evt)
@@ -2669,11 +2676,12 @@ func TestDeployingBatchReceivingError(t *testing.T) {
 
 		// Send bundle with different migration ID
 		bundle := migration.MigrationResourceBundle{
-			MigrationId:               "different-migration-id",
 			MigrationClusterResources: []migration.MigrationClusterResource{},
 		}
 
-		evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, "hub1", "hub2", bundle)
+		evt := utils.ToCloudEvent(string(enum.ManagedClusterMigrationType), "hub1", "hub2", bundle)
+		evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, "different-migration-id")
+		evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
 		evt.SetTime(time.Now())
 
 		// Should return error due to migration ID mismatch
@@ -3479,8 +3487,10 @@ func TestInitializingWithOCMClusterRole(t *testing.T) {
 
 	payload, err := json.Marshal(migrationEvent)
 	assert.Nil(t, err)
-	evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+	evt := utils.ToCloudEvent(string(enum.ManagedClusterMigrationType), constants.CloudEventGlobalHubClusterName,
 		"hub2", payload)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationEvent.MigrationId)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationEvent.Stage)
 	evt.SetTime(time.Now())
 	err = syncer.Sync(ctx, &evt)
 	assert.Nil(t, err)
@@ -3541,8 +3551,10 @@ func TestInitializingWithNoClusterRole(t *testing.T) {
 
 	payload, err := json.Marshal(migrationEvent)
 	assert.Nil(t, err)
-	evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+	evt := utils.ToCloudEvent(string(enum.ManagedClusterMigrationType), constants.CloudEventGlobalHubClusterName,
 		"hub2", payload)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationEvent.MigrationId)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationEvent.Stage)
 	evt.SetTime(time.Now())
 	err = syncer.Sync(ctx, &evt)
 

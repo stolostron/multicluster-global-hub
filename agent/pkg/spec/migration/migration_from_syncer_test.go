@@ -625,8 +625,10 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			}
 
 			// sync managed cluster migration
-			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+			evt := utils.ToCloudEvent(string(enum.ManagedClusterMigrationType), constants.CloudEventGlobalHubClusterName,
 				"hub2", payload)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, c.receivedMigrationEventBundle.MigrationId)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, c.receivedMigrationEventBundle.Stage)
 			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if err != nil {
