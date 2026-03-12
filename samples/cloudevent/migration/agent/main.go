@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -71,8 +72,8 @@ func main() {
 	}
 
 	bundle := &migration.MigrationStatusBundle{
-		MigrationId: migrationId,
-		Stage:       stage,
+		MigrationId: migrationId, // will be set in extensions, not serialized
+		Stage:       stage,       // will be set in extensions, not serialized
 		ErrMessage:  "mock the error message in hub",
 	}
 	payloadBytes, err := json.Marshal(bundle)
@@ -85,7 +86,8 @@ func main() {
 	version.Incr()
 
 	clusterName := constants.CloudEventGlobalHubClusterName
-	e := utils.ToCloudEvent(string(enum.ManagedClusterMigrationType), hubName, clusterName, payloadBytes)
+	e := utils.ToMigrationEvent(string(enum.ManagedClusterMigrationType), hubName, clusterName,
+		migrationId, stage, 10*time.Minute, payloadBytes)
 	e.SetExtension(eventversion.ExtVersion, version.String())
 
 	if result := c.Send(

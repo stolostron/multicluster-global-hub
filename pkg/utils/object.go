@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -101,6 +102,24 @@ func ToCloudEvent(evtType, source, clusterName string, data interface{}) cloudev
 	e.SetType(evtType)
 	e.SetSource(source)
 	e.SetExtension(constants.CloudEventExtensionKeyClusterName, clusterName)
+	_ = e.SetData(cloudevents.ApplicationJSON, data)
+	return e
+}
+
+// ToMigrationEvent constructs a CloudEvent for migration with unified extensions.
+func ToMigrationEvent(
+	evtType, source, clusterName string,
+	migrationId, stage string,
+	expireAfter time.Duration,
+	data interface{},
+) cloudevents.Event {
+	e := cloudevents.NewEvent()
+	e.SetType(evtType)
+	e.SetSource(source)
+	e.SetExtension(constants.CloudEventExtensionKeyClusterName, clusterName)
+	e.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
+	e.SetExtension(constants.CloudEventExtensionKeyMigrationStage, stage)
+	e.SetExtension(constants.CloudEventExtensionKeyExpireTime, time.Now().Add(expireAfter).Format(time.RFC3339))
 	_ = e.SetData(cloudevents.ApplicationJSON, data)
 	return e
 }

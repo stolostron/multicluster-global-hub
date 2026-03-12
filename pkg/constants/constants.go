@@ -181,7 +181,7 @@ const (
 	// ManagedClustersLabelsMsgKey - managed clusters labels message key.
 	ManagedClustersLabelsMsgKey = "ManagedClustersLabels"
 
-	// migration source and target hub clusters, which is used as the type of the cloudevents
+	// Deprecated: use enum.ManagedClusterMigrationType for all migration events
 	MigrationSourceMsgKey = "MigrationSourceHubCluster"
 	MigrationTargetMsgKey = "MigrationTargetHubCluster"
 
@@ -219,6 +219,11 @@ const (
 	CloudEventGlobalHubClusterName = "global-hub"
 	// cloudevent extension keys
 	CloudEventExtensionKeyClusterName = "clustername"
+
+	// Migration CloudEvents extension keys
+	CloudEventExtensionKeyMigrationId    = "migrationid"
+	CloudEventExtensionKeyMigrationStage = "migrationstage"
+	CloudEventExtensionKeyExpireTime     = "expiretime"
 	// LabelKeyIsManagedServiceAccount is from     managed-serviceaccount/pkg/common/constants.go
 	LabelKeyIsManagedServiceAccount = "authentication.open-cluster-management.io/is-managed-serviceaccount"
 )

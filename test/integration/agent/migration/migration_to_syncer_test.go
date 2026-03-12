@@ -160,8 +160,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating migration event for validating stage with no existing clusters")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseValidating,
 				ManagedClusters: []string{"non-existing-cluster"},
 			})
 
@@ -178,8 +176,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Testing validation failure when cluster already exists")
 			event = createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseValidating,
 				ManagedClusters: []string{testClusterName},
 			})
 
@@ -192,8 +188,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating migration event for initializing stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:                           testMigrationID,
-				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
 			})
@@ -301,7 +295,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating migration event for deploying stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseDeploying, testFromHub, testToHub)
 			event.SetSource(testFromHub)
-			event.SetExtension(migration.ExtTotalClusters, 1)
 
 			// Create source cluster migration resources
 			managedCluster := &clusterv1.ManagedCluster{
@@ -341,7 +334,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			addonObj.SetAPIVersion("agent.open-cluster-management.io/v1")
 
 			migrationResources := &migration.MigrationResourceBundle{
-				MigrationId: testMigrationID,
+				TotalClusters: 1,
 				MigrationClusterResources: []migration.MigrationClusterResource{
 					{
 						ClusterName: testClusterName,
@@ -424,8 +417,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			// Create migration event for registering stage
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRegistering, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseRegistering,
 				ManagedClusters: []string{testClusterName},
 			})
 
@@ -440,12 +431,10 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 						event.Type() == string(enum.ManagedClusterMigrationType) &&
 						event.Extensions()[constants.CloudEventExtensionKeyClusterName] == constants.CloudEventGlobalHubClusterName {
 
-						migrationBundle := &migration.MigrationStatusBundle{}
-						if err := json.Unmarshal(event.Data(), migrationBundle); err != nil {
-							return err
-						}
+						migrationID, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationId].(string)
+						stage, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationStage].(string)
 
-						if migrationBundle.MigrationId == testMigrationID && migrationBundle.Stage != migrationv1alpha1.PhaseRegistering {
+						if migrationID == testMigrationID && stage != migrationv1alpha1.PhaseRegistering {
 							return nil
 						}
 					}
@@ -460,8 +449,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating migration event for cleaning stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseCleaning, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:               testMigrationID,
-				Stage:                     migrationv1alpha1.PhaseCleaning,
 				ManagedServiceAccountName: testMSAName,
 			})
 
@@ -565,8 +552,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating rollback event for initializing stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:                           testMigrationID,
-				Stage:                                 migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:                         migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
@@ -618,8 +603,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating rollback event for deploying stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:                           testMigrationID,
-				Stage:                                 migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:                         migrationv1alpha1.PhaseDeploying,
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
@@ -689,8 +672,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating rollback event for registering stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:                           testMigrationID,
-				Stage:                                 migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:                         migrationv1alpha1.PhaseRegistering,
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
@@ -736,11 +717,10 @@ func createMigrationToEvent(migrationID, stage, fromHub, toHub string) *cloudeve
 	event.SetSource(constants.CloudEventGlobalHubClusterName)
 	event.SetSubject(toHub)
 	event.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationID)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationStage, stage)
 
-	payload := &migration.MigrationTargetBundle{
-		MigrationId: migrationID,
-		Stage:       stage,
-	}
+	payload := &migration.MigrationTargetBundle{}
 
 	data, _ := json.Marshal(payload)
 	if err := event.SetData("application/json", data); err != nil {
