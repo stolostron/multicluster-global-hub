@@ -64,26 +64,24 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 
 **Repository**: [stolostron/multicluster-global-hub](https://github.com/stolostron/multicluster-global-hub)
 
-**What it does** (4-part workflow):
+**What it does** (3-part workflow):
 1. **Update main branch**: Creates new `.tekton/` configuration files for new version (e.g., globalhub-1-8) with `target_branch="main"`, updates `Containerfile.*` version labels
-2. **Create release branch**: Creates ACM release branch (e.g., release-2.17) from updated main
-3. **Create PR to main**: Creates PR to upstream main with new release configurations
-4. **Update previous release**: Updates previous release branch's `.tekton/` files to set `target_branch` to the previous release branch (e.g., globalhub-1-7 files updated to `target_branch="release-2.16"`)
-5. **Update current release**: Adds new `.tekton/` files (globalhub-1-8) to the current release branch (release-2.17)
+2. **Create PR to main**: Creates PR to upstream main with new release configurations
+3. **Update previous release**: Updates previous release branch's `.tekton/` files to set `target_branch` to the previous release branch (e.g., globalhub-1-7 files updated to `target_branch="release-2.16"`)
 
 **Key behavior**:
 - New `.tekton/` files (e.g., globalhub-1-8) created by **copying** old files (globalhub-1-7), not renaming
 - Old `.tekton/` files (globalhub-1-7) remain on main with `target_branch="main"`
 - Previous release branch gets updated so its files point to itself (not main)
 - Ensures continuous file naming progression: globalhub-1-6 → globalhub-1-7 → globalhub-1-8
+- The new tekton files on `main` will be automatically synced to the current release branch (`release-2.17`) after the PR is merged — **no separate PR needed for the current release branch**
 
-**Expected PRs**: 3
+**Expected PRs**: 2
 
 | PR | Target Branch | Content | Verification |
 |----|--------------|---------|--------------|
 | PR to main | `main` | New `.tekton/globalhub-1-8-*.yaml` files; old globalhub-1-7 files removed; Containerfile version updated; Makefile VERSION/CHANNELS updated | Check `.tekton/` has globalhub-1-8 files with `target_branch=main` (pull-request) and `target_branch=release-2.17` (push) |
 | PR to prev release | `release-2.16` | globalhub-1-7 `pull-request.yaml` target_branch changed from `main` → `release-2.16` | Verify `*pull-request.yaml` has `target_branch=release-2.16` |
-| PR to current release | `release-2.17` | New globalhub-1-8 `.tekton/` files added to release branch | Verify `*push.yaml` has `target_branch=release-2.17` |
 
 ---
 
@@ -195,13 +193,13 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 
 | Repo | PRs | Branches |
 |------|-----|---------|
-| multicluster-global-hub | 3 (main, prev-release, curr-release) | release-2.17 |
+| multicluster-global-hub | 2 (main, prev-release) | release-2.17 |
 | openshift/release | 1 (main) | — |
 | operator-bundle | 2 (release-1.8, cleanup release-1.7) | release-1.8 |
 | operator-catalog | 3 (main, release-1.8, cleanup release-1.7) | release-1.8 |
 | glo-grafana | 1 (release-1.8) | release-1.8 |
 | postgres_exporter | 1 (release-2.17) | release-2.17 |
-| **Total** | **11 PRs** | **5 branches** |
+| **Total** | **10 PRs** | **5 branches** |
 
 ## Script Organization
 
@@ -344,7 +342,7 @@ When running the complete workflow (`cut-release.sh all`):
 
 After running all 6 scripts:
 
-**Pull Requests Expected**: up to 11 PRs
+**Pull Requests Expected**: up to 10 PRs
 
 > Each PR is only created if changes are needed. If the target branch is already up-to-date or an open PR already exists, the script will skip or reuse it.
 
@@ -352,15 +350,14 @@ After running all 6 scripts:
 |---|------|--------------|---------|
 | 1 | multicluster-global-hub | `main` | New globalhub-1-8 tekton configs, Containerfile/Makefile version bump |
 | 2 | multicluster-global-hub | `release-2.16` | Update globalhub-1-7 pull-request pipeline target_branch → release-2.16 |
-| 3 | multicluster-global-hub | `release-2.17` | Add globalhub-1-8 tekton files to current release branch |
-| 4 | openshift/release | `main` | CI config for release-2.17, presubmit/postsubmit jobs |
-| 5 | operator-bundle | `release-1.8` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8, update image tags |
-| 6 | operator-bundle | `release-1.7` | Cleanup old GitHub Actions workflows |
-| 7 | operator-catalog | `main` | New release-1.8 catalog config, OCP 4.18-4.22 lifecycle |
-| 8 | operator-catalog | `release-1.8` | Update pipeline and image mirror set |
-| 9 | operator-catalog | `release-1.7` | Cleanup old GitHub Actions workflows |
-| 10 | glo-grafana | `release-1.8` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
-| 11 | postgres_exporter | `release-2.17` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
+| 3 | openshift/release | `main` | CI config for release-2.17, presubmit/postsubmit jobs |
+| 4 | operator-bundle | `release-1.8` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8, update image tags |
+| 5 | operator-bundle | `release-1.7` | Cleanup old GitHub Actions workflows |
+| 6 | operator-catalog | `main` | New release-1.8 catalog config, OCP 4.18-4.22 lifecycle |
+| 7 | operator-catalog | `release-1.8` | Update pipeline and image mirror set |
+| 8 | operator-catalog | `release-1.7` | Cleanup old GitHub Actions workflows |
+| 9 | glo-grafana | `release-1.8` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
+| 10 | postgres_exporter | `release-2.17` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
 
 **Branches Created**: 5 branches
 1. `multicluster-global-hub`: `release-2.17`
