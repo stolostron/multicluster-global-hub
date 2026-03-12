@@ -31,6 +31,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   SED_INPLACE=(-i "")
 else
   SED_INPLACE=(-i)
+fi
 
 # Constants for repeated patterns
 readonly NULL_PR_VALUE='null|null'
@@ -43,7 +44,6 @@ readonly PR_STATUS_CREATED='created'
 readonly PR_STATUS_UPDATED='updated'
 readonly PR_STATUS_EXISTS='exists'
 readonly PR_STATUS_FAILED='failed'
-fi
 
 echo "🚀 Glo-Grafana Release Branch Creation"
 echo "$SEPARATOR_LINE"
@@ -96,59 +96,13 @@ else
   echo "   ⚠️  Fork not found: ${GITHUB_USER}/glo-grafana" >&2
 fi
 
-# Fetch all release branches
-echo "🔄 Fetching release branches..."
-git fetch origin 'refs/heads/release-*:refs/remotes/origin/release-*' --progress 2>&1 | grep -E "Receiving|Resolving|new branch" || true
-echo "   ✅ Release branches fetched"
-
-# Find latest grafana release branch
-LATEST_GRAFANA_RELEASE=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
-  sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -1)
-
-# Check if target branch is the same as latest
-if [[ "$LATEST_GRAFANA_RELEASE" = "$GRAFANA_BRANCH" ]]; then
-  echo "ℹ️  Target grafana branch is the latest: $GRAFANA_BRANCH"
-  echo ""
-  echo "   https://github.com/$GRAFANA_REPO/tree/$GRAFANA_BRANCH"
-  echo ""
-  echo "   Will verify and update if needed..."
-  echo ""
-fi
-
-if [[ -z "$LATEST_GRAFANA_RELEASE" ]]; then
-  echo "⚠️  No previous grafana release branch found, using main as base" >&2
-  BASE_BRANCH="main"
-else
-  echo "Latest grafana release detected: $LATEST_GRAFANA_RELEASE"
-
-  # If target branch is the latest, use second-to-latest as base
-  # If target branch is not the latest, use latest as base
-  if [[ "$LATEST_GRAFANA_RELEASE" = "$GRAFANA_BRANCH" ]]; then
-    # Target is latest - get second-to-latest for base
-    SECOND_TO_LATEST=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
-      sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
-    if [[ -n "$SECOND_TO_LATEST" && "$SECOND_TO_LATEST" != "$GRAFANA_BRANCH" ]]; then
-      BASE_BRANCH="$SECOND_TO_LATEST"
-      echo "Target is latest release, using previous release as base: $BASE_BRANCH"
-    else
-      BASE_BRANCH="main"
-      echo "No previous release found, using main as base"
-    fi
-  else
-    # Target is not latest - use latest as base
-    BASE_BRANCH="$LATEST_GRAFANA_RELEASE"
-    echo "Target is older than latest, using latest as base: $BASE_BRANCH"
-  fi
-fi
-
-# Extract previous Grafana tag info
-if [[ "$BASE_BRANCH" != "main" ]]; then
-  PREV_GRAFANA_VERSION="${BASE_BRANCH#release-}"
-  PREV_GRAFANA_TAG="globalhub-${PREV_GRAFANA_VERSION//./-}"
-  echo "Previous Grafana tag: $PREV_GRAFANA_TAG"
-else
-  PREV_GRAFANA_TAG=""
-fi
+# Calculate previous grafana tag directly from version formula
+# GH_VERSION_SHORT e.g. "1.8" -> prev minor = 7 -> globalhub-1-7 / release-1.7
+GH_MINOR="${GH_VERSION_SHORT#*.}"
+PREV_GH_MINOR=$((GH_MINOR - 1))
+PREV_GRAFANA_TAG="globalhub-1-${PREV_GH_MINOR}"
+BASE_BRANCH="release-1.${PREV_GH_MINOR}"
+echo "Previous Grafana tag: $PREV_GRAFANA_TAG (base: $BASE_BRANCH)"
 
 echo ""
 

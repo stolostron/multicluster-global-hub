@@ -54,7 +54,11 @@ The skill uses ACM release branch names as the primary input and automatically c
 
 ## Repository Workflow
 
-The skill manages releases across 6 repositories, each with its own dedicated script:
+The skill manages releases across 6 repositories, each with its own dedicated script.
+
+> **Version example below uses release-2.17 / Global Hub v1.8.0 (globalhub-1-8)**
+
+---
 
 ### Repository 1: multicluster-global-hub (Script 01)
 
@@ -65,6 +69,7 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 2. **Create release branch**: Creates ACM release branch (e.g., release-2.17) from updated main
 3. **Create PR to main**: Creates PR to upstream main with new release configurations
 4. **Update previous release**: Updates previous release branch's `.tekton/` files to set `target_branch` to the previous release branch (e.g., globalhub-1-7 files updated to `target_branch="release-2.16"`)
+5. **Update current release**: Adds new `.tekton/` files (globalhub-1-8) to the current release branch (release-2.17)
 
 **Key behavior**:
 - New `.tekton/` files (e.g., globalhub-1-8) created by **copying** old files (globalhub-1-7), not renaming
@@ -72,7 +77,15 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 - Previous release branch gets updated so its files point to itself (not main)
 - Ensures continuous file naming progression: globalhub-1-6 → globalhub-1-7 → globalhub-1-8
 
-**Outputs**: 1 PR (new release configurations to main), direct pushes to release branches
+**Expected PRs**: 3
+
+| PR | Target Branch | Content | Verification |
+|----|--------------|---------|--------------|
+| PR to main | `main` | New `.tekton/globalhub-1-8-*.yaml` files; old globalhub-1-7 files removed; Containerfile version updated; Makefile VERSION/CHANNELS updated | Check `.tekton/` has globalhub-1-8 files with `target_branch=main` (pull-request) and `target_branch=release-2.17` (push) |
+| PR to prev release | `release-2.16` | globalhub-1-7 `pull-request.yaml` target_branch changed from `main` → `release-2.16` | Verify `*pull-request.yaml` has `target_branch=release-2.16` |
+| PR to current release | `release-2.17` | New globalhub-1-8 `.tekton/` files added to release branch | Verify `*push.yaml` has `target_branch=release-2.17` |
+
+---
 
 ### Repository 2: openshift/release (Script 02)
 
@@ -80,68 +93,115 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 
 **What it does**:
 - Updates main branch CI configuration (promotion, fast-forward)
-- Creates new release pipeline configuration
-- Auto-generates presubmit/postsubmit jobs using `make update`
-- Validates container engine availability (Docker or Podman)
+- Creates new release pipeline configuration by copying from previous release
+- Replaces version strings: ACM branch, version number, image prefix, GH version tag
+- Auto-generates presubmit/postsubmit jobs using `make update` + `make jobs`
 - Creates PR with all CI changes
 
-**Outputs**: 1 PR (CI configuration)
+**Expected PRs**: 1
+
+| PR | Target Branch | Content | Verification |
+|----|--------------|---------|--------------|
+| PR to main | `main` | `ci-operator/config/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-release-2.17.yaml` created; main config updated with new release references | Check config file exists and contains `branch: release-2.17`, `name: "2.17"`, `release-218` prefix |
+
+---
 
 ### Repository 3: operator-bundle (Script 03)
 
 **Repository**: [stolostron/multicluster-global-hub-operator-bundle](https://github.com/stolostron/multicluster-global-hub-operator-bundle)
 
 **What it does**:
-- Creates bundle branch using Global Hub version (e.g., release-1.8 from v1.8.0)
+- Checks out release branch (e.g., release-1.8)
 - Updates `images_digest_mirror_set.yaml` with new image tags
-- Renames and updates tekton pipelines (pull-request and push)
-- Updates bundle image labels to new version
-- Updates `konflux-patch.sh` image references
-- Creates PR with all bundle changes
+- Renames tekton pipelines: globalhub-1-7 → globalhub-1-8 (pull-request and push)
+- Updates bundle image labels and `konflux-patch.sh` image references
+- Creates PR to the release branch
+- Creates cleanup PR to remove old GitHub Actions from previous release branch
 
-**Outputs**: 1 PR (bundle updates to main)
+**Expected PRs**: 2
+
+| PR | Target Branch | Content | Verification |
+|----|--------------|---------|--------------|
+| PR to release branch | `release-1.8` | tekton pipelines renamed globalhub-1-7 → globalhub-1-8; image tags updated to globalhub-1-8 | Check `.tekton/` has `*globalhub-1-8*.yaml` files |
+| Cleanup PR | `release-1.7` | Remove `.github/workflows/` GitHub Actions from old release branch | Check old branch no longer has Actions workflows |
+
+---
 
 ### Repository 4: operator-catalog (Script 04)
 
 **Repository**: [stolostron/multicluster-global-hub-operator-catalog](https://github.com/stolostron/multicluster-global-hub-operator-catalog)
 
 **What it does**:
-- Creates catalog branch using Global Hub version (e.g., release-1.8)
+- Creates/updates catalog branch (e.g., release-1.8)
 - Updates `images-mirror-set.yaml` with new image tags
-- **Adds** new OCP version pipelines (e.g., OCP 4.21 for release-1.8)
-- **Removes** old OCP version pipelines (e.g., OCP 4.16)
-- Updates existing OCP version pipelines (4.17-4.20)
+- **Adds** new OCP version pipeline (e.g., OCP 4.22 for release-1.8)
+- **Removes** oldest OCP version pipeline (e.g., OCP 4.17)
+- Updates existing OCP version pipelines (4.18-4.21)
 - Updates `README.md` with new version information
 - Updates GitHub Actions workflow for new release branch
-- Creates **2 PRs**:
-  - Main PR: New release configuration to main branch
-  - Cleanup PR: Remove GitHub Actions from old release branch
+- Creates PR to main with new release configuration
+- Creates PR to catalog release branch with pipeline updates
+- Creates cleanup PR to remove GitHub Actions from old release branch
 
 **OCP Version Formula**: OCP_MIN = 4.(10 + GH_MINOR), OCP_MAX = OCP_MIN + 4
 
-**Outputs**: 2 PRs (main release + cleanup)
+**Expected PRs**: 3
+
+| PR | Target Branch | Content | Verification |
+|----|--------------|---------|--------------|
+| PR to main | `main` | New release-1.8 catalog config; OCP version lifecycle managed | Check README lists OCP 4.18-4.22; new OCP pipeline added |
+| PR to catalog branch | `release-1.8` | pipeline updates, image mirror set updated | Check `images-mirror-set.yaml` has globalhub-1-8 tags |
+| Cleanup PR | `release-1.7` | Remove `.github/workflows/` from old release branch | Check old branch no longer has Actions workflows |
+
+---
 
 ### Repository 5: glo-grafana (Script 05)
 
 **Repository**: [stolostron/glo-grafana](https://github.com/stolostron/glo-grafana)
 
 **What it does**:
-- Creates grafana branch using Global Hub version (e.g., release-1.8)
-- Renames and updates tekton pipelines (pull-request and push)
+- Checks out grafana release branch (e.g., release-1.8)
+- Renames tekton pipelines: globalhub-1-7 → globalhub-1-8 (pull-request and push)
 - Updates branch references in pipeline files
+- Creates PR to the release branch
 
-**Outputs**: Branch creation only (no PR)
+**Expected PRs**: 1
+
+| PR | Target Branch | Content | Verification |
+|----|--------------|---------|--------------|
+| PR to grafana branch | `release-1.8` | tekton pipelines renamed globalhub-1-7 → globalhub-1-8; branch references updated | Check `.tekton/` has `glo-grafana-globalhub-1-8-pull-request.yaml` and `glo-grafana-globalhub-1-8-push.yaml` |
+
+---
 
 ### Repository 6: postgres_exporter (Script 06)
 
 **Repository**: [stolostron/postgres_exporter](https://github.com/stolostron/postgres_exporter)
 
 **What it does**:
-- Creates postgres_exporter branch using ACM version (e.g., release-2.17)
-- Renames and updates tekton pipelines (pull-request and push)
+- Checks out postgres_exporter release branch (e.g., release-2.17)
+- Renames tekton pipelines: globalhub-1-7 → globalhub-1-8 (pull-request and push)
 - Updates branch references in pipeline files
+- Creates PR to the release branch
 
-**Outputs**: Branch creation only (no PR)
+**Expected PRs**: 1
+
+| PR | Target Branch | Content | Verification |
+|----|--------------|---------|--------------|
+| PR to release branch | `release-2.17` | tekton pipelines renamed globalhub-1-7 → globalhub-1-8; branch references updated | Check `.tekton/` has `postgres-exporter-globalhub-1-8-pull-request.yaml` and `postgres-exporter-globalhub-1-8-push.yaml` |
+
+---
+
+## Total Expected Output Summary
+
+| Repo | PRs | Branches |
+|------|-----|---------|
+| multicluster-global-hub | 3 (main, prev-release, curr-release) | release-2.17 |
+| openshift/release | 1 (main) | — |
+| operator-bundle | 2 (release-1.8, cleanup release-1.7) | release-1.8 |
+| operator-catalog | 3 (main, release-1.8, cleanup release-1.7) | release-1.8 |
+| glo-grafana | 1 (release-1.8) | release-1.8 |
+| postgres_exporter | 1 (release-2.17) | release-2.17 |
+| **Total** | **11 PRs** | **5 branches** |
 
 ## Script Organization
 
@@ -222,8 +282,8 @@ The main orchestration script calculates and exports these variables for child s
 | `GRAFANA_BRANCH` | Grafana release branch | `release-1.8` | Auto-calculated |
 | `GRAFANA_TAG` | Grafana tag | `globalhub-1-8` | Auto-calculated |
 | `POSTGRES_TAG` | Postgres image tag | `globalhub-1-8` | Auto-calculated |
-| `OCP_MIN` | Minimum OCP version number | `417` | Auto-calculated |
-| `OCP_MAX` | Maximum OCP version number | `421` | Auto-calculated |
+| `OCP_MIN` | Minimum OCP version number | `418` | Auto-calculated |
+| `OCP_MAX` | Maximum OCP version number | `422` | Auto-calculated |
 | `OPENSHIFT_RELEASE_PATH` | Path to openshift/release clone | `/tmp/openshift-release` | Optional |
 | `WORK_DIR` | Working directory for repos | `/tmp/globalhub-release-repos` | Optional |
 
@@ -284,12 +344,21 @@ When running the complete workflow (`cut-release.sh all`):
 
 After running all 6 scripts:
 
-**Pull Requests Created**: 5 PRs
-1. Main repo: Version bump PR
-2. OpenShift CI: CI configuration PR
-3. Bundle: Bundle update PR
-4. Catalog: New release configuration PR
-5. Catalog: Cleanup PR for old branch
+**Pull Requests Created**: 11 PRs
+
+| # | Repo | Target Branch | Content |
+|---|------|--------------|---------|
+| 1 | multicluster-global-hub | `main` | New globalhub-1-8 tekton configs, Containerfile/Makefile version bump |
+| 2 | multicluster-global-hub | `release-2.16` | Update globalhub-1-7 pull-request pipeline target_branch → release-2.16 |
+| 3 | multicluster-global-hub | `release-2.17` | Add globalhub-1-8 tekton files to current release branch |
+| 4 | openshift/release | `main` | CI config for release-2.17, presubmit/postsubmit jobs |
+| 5 | operator-bundle | `release-1.8` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8, update image tags |
+| 6 | operator-bundle | `release-1.7` | Cleanup old GitHub Actions workflows |
+| 7 | operator-catalog | `main` | New release-1.8 catalog config, OCP 4.18-4.22 lifecycle |
+| 8 | operator-catalog | `release-1.8` | Update pipeline and image mirror set |
+| 9 | operator-catalog | `release-1.7` | Cleanup old GitHub Actions workflows |
+| 10 | glo-grafana | `release-1.8` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
+| 11 | postgres_exporter | `release-2.17` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
 
 **Branches Created**: 5 branches
 1. `multicluster-global-hub`: `release-2.17`
@@ -310,23 +379,23 @@ The orchestration script includes error handling:
 
 ### Update all repositories (UPDATE mode - creates PRs):
 ```bash
-RELEASE_BRANCH=release-2.17 ./.claude/skills/cut-release/scripts/cut-release.sh all
+RELEASE_BRANCH=release-2.17 ./.claude/skills/new-release/scripts/cut-release.sh all
 ```
 
 ### Create new release branches (CREATE_BRANCHES mode - pushes directly):
 ```bash
-CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./.claude/skills/cut-release/scripts/cut-release.sh all
+CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./.claude/skills/new-release/scripts/cut-release.sh all
 ```
 
 ### Interactive selection:
 ```bash
-RELEASE_BRANCH=release-2.17 ./.claude/skills/cut-release/scripts/cut-release.sh
+RELEASE_BRANCH=release-2.17 ./.claude/skills/new-release/scripts/cut-release.sh
 # Then select: 3,4 (to update only bundle and catalog)
 ```
 
 ### Update specific repositories:
 ```bash
-RELEASE_BRANCH=release-2.17 ./.claude/skills/cut-release/scripts/cut-release.sh 1,2,3
+RELEASE_BRANCH=release-2.17 ./.claude/skills/new-release/scripts/cut-release.sh 1,2,3
 ```
 
 ### Standalone script execution:
@@ -349,7 +418,7 @@ The skill provides clear progress indicators:
    Global Hub Version:   v1.8.0
    Bundle Branch:        release-1.8
    Catalog Branch:       release-1.8
-   Supported OCP:        4.17 - 4.21
+   Supported OCP:        4.18 - 4.22
 ================================================
 
 Mode: Update all repositories
