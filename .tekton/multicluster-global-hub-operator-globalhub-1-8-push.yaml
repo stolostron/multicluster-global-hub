@@ -8,13 +8,13 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "release-2.16" && (".tekton/multicluster-global-hub-operator-[!b]*.yaml".pathChanged() || "go.{mod,sum}".pathChanged() || "{pkg,operator}/***".pathChanged())
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "release-2.17" && (".tekton/multicluster-global-hub-operator-[!b]*.yaml".pathChanged() || "go.{mod,sum}".pathChanged() || "{pkg,operator}/***".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: release-globalhub-1-7
-    appstudio.openshift.io/component: multicluster-global-hub-operator-globalhub-1-7
+    appstudio.openshift.io/application: release-globalhub-1-8
+    appstudio.openshift.io/component: multicluster-global-hub-operator-globalhub-1-8
     pipelines.appstudio.openshift.io/type: build
-  name: multicluster-global-hub-operator-globalhub-1-7-on-push
+  name: multicluster-global-hub-operator-globalhub-1-8-on-push
   namespace: acm-multicluster-glo-tenant
 spec:
   params:
@@ -23,7 +23,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/multicluster-global-hub-operator-globalhub-1-7:{{revision}}
+    value: quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/multicluster-global-hub-operator-globalhub-1-8:{{revision}}
   - name: build-platforms
     value:
     - linux/x86_64
@@ -45,7 +45,7 @@ spec:
   - name: send-slack-notification
     value: "true"
   - name: konflux-application-name
-    value: "release-globalhub-1-7"
+    value: "release-globalhub-1-8"
   - name: slack-webhook-url-secret-name
     # See details: https://konflux.pages.redhat.com/docs/users/patterns/slack-notifications.html
     value: "slack-notify-webhook"
@@ -65,7 +65,7 @@ spec:
       - name: pathInRepo
         value: pipelines/common-base.yaml
   taskRunTemplate:
-    serviceAccountName: build-pipeline-multicluster-global-hub-operator-globalhub-1-7
+    serviceAccountName: build-pipeline-multicluster-global-hub-operator-globalhub-1-8
   workspaces:
   - name: git-auth
     secret:
