@@ -10,6 +10,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/migration"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -31,14 +32,13 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 		return fmt.Errorf("failed to add bundle dispatcher to runtime manager: %w", err)
 	}
 
-	// register syncer to the dispatcher
-	dispatcher.RegisterSyncer(constants.MigrationSourceMsgKey,
-		migration.NewMigrationSourceSyncer(mgr.GetClient(),
-			mgr.GetConfig(), transportClient, agentConfig))
-
-	dispatcher.RegisterSyncer(constants.MigrationTargetMsgKey,
-		migration.NewMigrationTargetSyncer(mgr.GetClient(),
-			transportClient, agentConfig))
+	// register single migration syncer that routes internally by payload
+	sourceSyncer := migration.NewMigrationSourceSyncer(mgr.GetClient(),
+		mgr.GetConfig(), transportClient, agentConfig)
+	targetSyncer := migration.NewMigrationTargetSyncer(mgr.GetClient(),
+		transportClient, agentConfig)
+	dispatcher.RegisterSyncer(string(enum.ManagedClusterMigrationType),
+		migration.NewMigrationSyncer(sourceSyncer, targetSyncer))
 	if err := migration.ResyncMigrationEvent(context, transportClient, agentConfig.TransportConfig); err != nil {
 		return fmt.Errorf("failed to resync migration event: %w", err)
 	}

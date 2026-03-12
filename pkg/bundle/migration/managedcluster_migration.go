@@ -9,19 +9,23 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
-// Since Kafka persists messages in a topic, multiple migration processes running in the system might all use the
-// same topic to send messages. This can lead to an issue where a downstream service (or "hub") receives events
-// from a previous migration process.
-// To address this, we’ve introduced the following mechanisms:
-// 1. Message expiration: Ensure that migration messages on the topic expire after 10 minutes, which aligns with the
-// typical timeout of a migration process.
-// 2. Migration ID tagging: Include a unique migration ID with each event. This allows receivers to process only the
-// events relevant to their migration and ignore others.
+// Migration CloudEvents use a single event type (enum.ManagedClusterMigrationType) with common metadata
+// carried in CloudEvents extensions:
+//   - migrationid:    unique migration identifier (CR UID), for filtering unrelated migrations
+//   - migrationstage: current stage (validating/initializing/deploying/registering/cleaning/rollbacking)
+//   - expiretime:     RFC3339 timestamp after which receivers should discard the event
+//   - clustername:    message target (the hub that should process this event)
+//   - source:         message sender (built-in CloudEvents field)
+//
+// The payload (data) varies by direction and is differentiated by the receiver using
+// evt.Source() and payload structure.
 
-// MigrationSourceBundle defines the resources from migration controller to the source cluster
+// MigrationSourceBundle defines the spec payload from manager to the source cluster.
+// The "toHub" field distinguishes this from MigrationTargetBundle at the receiver side.
+// MigrationId and Stage are carried in CloudEvents extensions (not serialized in JSON).
 type MigrationSourceBundle struct {
-	MigrationId     string         `json:"migrationId"`
-	Stage           string         `json:"stage"`
+	MigrationId     string         `json:"-"` // populated from extension at receiver side
+	Stage           string         `json:"-"` // populated from extension at receiver side
 	ToHub           string         `json:"toHub"`
 	PlacementName   string         `json:"placementName"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
@@ -31,10 +35,11 @@ type MigrationSourceBundle struct {
 	RollbackingTimeoutMinutes int    `json:"rollbackingTimeoutMinutes,omitempty"`
 }
 
-// MigrationTargetBundle defines the resources from migration controllers to the target cluster
+// MigrationTargetBundle defines the spec payload from manager to the target cluster.
+// MigrationId and Stage are carried in CloudEvents extensions (not serialized in JSON).
 type MigrationTargetBundle struct {
-	MigrationId                           string   `json:"migrationId"`
-	Stage                                 string   `json:"stage"`
+	MigrationId                           string   `json:"-"` // populated from extension at receiver side
+	Stage                                 string   `json:"-"` // populated from extension at receiver side
 	ManagedServiceAccountName             string   `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
@@ -42,10 +47,11 @@ type MigrationTargetBundle struct {
 	RegisteringTimeoutMinutes             int      `json:"registeringTimeoutMinutes,omitempty"`
 }
 
-// The bundle sent from the managed hubs to the global hub
+// MigrationStatusBundle is the status payload sent from managed hubs to the global hub.
+// MigrationId and Stage are carried in CloudEvents extensions (not serialized in JSON).
 type MigrationStatusBundle struct {
-	MigrationId     string            `json:"migrationId"`
-	Stage           string            `json:"stage"`
+	MigrationId     string            `json:"-"` // populated from extension at receiver side
+	Stage           string            `json:"-"` // populated from extension at receiver side
 	ErrMessage      string            `json:"errMessage,omitempty"`
 	Resync          bool              `json:"resync,omitempty"`
 	ManagedClusters []string          `json:"managedClusters,omitempty"`
@@ -61,8 +67,11 @@ type MigrationStatusBundle struct {
 	FailedClustersReported bool `json:"failedClustersReported,omitempty"`
 }
 
+// MigrationResourceBundle is the resource payload sent from source agent to target agent during deploying.
+// MigrationId is carried in CloudEvents extensions (not serialized in JSON).
 type MigrationResourceBundle struct {
-	MigrationId               string                     `json:"migrationId"`
+	MigrationId               string                     `json:"-"` // populated from extension at receiver side
+	TotalClusters             int                        `json:"totalClusters"`
 	MigrationClusterResources []MigrationClusterResource `json:"migrationClusterResources"`
 }
 
@@ -75,17 +84,12 @@ type MigrationClusterResource struct {
 // This limit prevents exceeding Kafka broker message size limits during migration operations.
 const MaxMigrationBundleBytes = 800 * 1024 // 800 KiB
 
-// CloudEvents extension keys for migration batch tracking
-const (
-	ExtTotalClusters = "totalclusters" // Total number of clusters to be migrated
-)
-
 var log = logger.DefaultZapLogger()
 
 // NewMigrationResourceBundle creates a new MigrationResourceBundle
-func NewMigrationResourceBundle(migrationId string) *MigrationResourceBundle {
+func NewMigrationResourceBundle(totalClusters int) *MigrationResourceBundle {
 	return &MigrationResourceBundle{
-		MigrationId:               migrationId,
+		TotalClusters:             totalClusters,
 		MigrationClusterResources: []MigrationClusterResource{},
 	}
 }
