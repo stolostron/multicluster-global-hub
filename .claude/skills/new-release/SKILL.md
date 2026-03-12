@@ -114,16 +114,12 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 - Renames tekton pipelines: globalhub-1-7 → globalhub-1-8 (pull-request and push)
 - Updates bundle image labels and `konflux-patch.sh` image references
 - Creates PR to the release branch
-- Updates `main` branch with latest bundle content from multicluster-global-hub main (manifests, metadata, tests) and renamed tekton pipelines
-- Creates cleanup PR to remove old GitHub Actions from previous release branch
 
-**Expected PRs**: 3
+**Expected PRs**: 1
 
 | PR | Target Branch | Content | Verification |
 |----|--------------|---------|--------------|
 | PR to release branch | `release-1.8` | tekton pipelines renamed globalhub-1-7 → globalhub-1-8; image tags updated to globalhub-1-8 | Check `.tekton/` has `*globalhub-1-8*.yaml` files |
-| PR to main | `main` | Bundle content synced from MGH main (manifests, metadata, tests); tekton pipelines renamed globalhub-1-7 → globalhub-1-8 (target_branch=main) | Check `.tekton/` has `*globalhub-1-8*.yaml` with `target_branch=main`; bundle/ matches MGH |
-| Cleanup PR | `release-1.7` | Remove `.github/workflows/` GitHub Actions from old release branch | Check old branch no longer has Actions workflows |
 
 ---
 
@@ -141,17 +137,15 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 - Updates GitHub Actions workflow for new release branch
 - Creates PR to main with new release configuration
 - Creates PR to catalog release branch with pipeline updates
-- Creates cleanup PR to remove GitHub Actions from old release branch
 
 **OCP Version Formula**: OCP_MIN = 4.(10 + GH_MINOR), OCP_MAX = OCP_MIN + 4
 
-**Expected PRs**: 3
+**Expected PRs**: 2
 
 | PR | Target Branch | Content | Verification |
 |----|--------------|---------|--------------|
 | PR to main | `main` | New release-1.8 catalog config; OCP version lifecycle managed | Check README lists OCP 4.18-4.22; new OCP pipeline added |
 | PR to catalog branch | `release-1.8` | pipeline updates, image mirror set updated | Check `images-mirror-set.yaml` has globalhub-1-8 tags |
-| Cleanup PR | `release-1.7` | Remove `.github/workflows/` from old release branch | Check old branch no longer has Actions workflows |
 
 ---
 
@@ -197,11 +191,11 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 |------|-----|---------|
 | multicluster-global-hub | 2 (main, prev-release) | release-2.17 |
 | openshift/release | 1 (main) | — |
-| operator-bundle | 3 (release-1.8, main, cleanup release-1.7) | release-1.8 |
-| operator-catalog | 3 (main, release-1.8, cleanup release-1.7) | release-1.8 |
+| operator-bundle | 1 (release-1.8) | release-1.8 |
+| operator-catalog | 2 (main, release-1.8) | release-1.8 |
 | glo-grafana | 1 (release-1.8) | release-1.8 |
 | postgres_exporter | 1 (release-2.17) | release-2.17 |
-| **Total** | **11 PRs** | **5 branches** |
+| **Total** | **8 PRs** | **5 branches** |
 
 ## Script Organization
 
@@ -344,7 +338,7 @@ When running the complete workflow (`cut-release.sh all`):
 
 After running all 6 scripts:
 
-**Pull Requests Expected**: up to 11 PRs
+**Pull Requests Expected**: up to 8 PRs
 
 > Each PR is only created if changes are needed. If the target branch is already up-to-date or an open PR already exists, the script will skip or reuse it.
 
@@ -354,13 +348,10 @@ After running all 6 scripts:
 | 2 | multicluster-global-hub | `release-2.16` | Update globalhub-1-7 pull-request pipeline target_branch → release-2.16 |
 | 3 | openshift/release | `main` | CI config for release-2.17, presubmit/postsubmit jobs |
 | 4 | operator-bundle | `release-1.8` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8, update image tags |
-| 5 | operator-bundle | `main` | Sync bundle content from MGH main; rename tekton pipelines globalhub-1-7 → globalhub-1-8 (target_branch=main) |
-| 6 | operator-bundle | `release-1.7` | Cleanup old GitHub Actions workflows |
-| 7 | operator-catalog | `main` | New release-1.8 catalog config, OCP 4.18-4.22 lifecycle |
-| 8 | operator-catalog | `release-1.8` | Update pipeline and image mirror set |
-| 9 | operator-catalog | `release-1.7` | Cleanup old GitHub Actions workflows |
-| 10 | glo-grafana | `release-1.8` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
-| 11 | postgres_exporter | `release-2.17` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
+| 5 | operator-catalog | `main` | New release-1.8 catalog config, OCP 4.18-4.22 lifecycle |
+| 6 | operator-catalog | `release-1.8` | Update pipeline and image mirror set |
+| 7 | glo-grafana | `release-1.8` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
+| 8 | postgres_exporter | `release-2.17` | Rename tekton pipelines globalhub-1-7 → globalhub-1-8 |
 
 **Branches Created**: 5 branches
 1. `multicluster-global-hub`: `release-2.17`

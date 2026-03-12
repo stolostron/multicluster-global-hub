@@ -91,7 +91,6 @@ if git ls-remote "$FORK_REPO" HEAD >/dev/null 2>&1; then
   echo "   ✅ Fork detected: ${GITHUB_USER}/multicluster-global-hub-operator-bundle"
 else
   echo "   ⚠️  Fork not found: ${GITHUB_USER}/multicluster-global-hub-operator-bundle" >&2
-  echo "   Note: Cleanup PR will require manual creation if fork doesn't exist"
 fi
 
 # Fetch all release branches
@@ -212,21 +211,6 @@ if [[ "$BASE_BRANCH" != "main" ]]; then
   echo "Previous bundle tag: $PREV_BUNDLE_TAG"
 else
   PREV_BUNDLE_TAG=""
-fi
-
-# For cleanup PR, we need to find the previous release
-# If BUNDLE_BRANCH is the latest, find second-to-latest for cleanup
-if [[ "$LATEST_BUNDLE_RELEASE" = "$BUNDLE_BRANCH" ]]; then
-  CLEANUP_TARGET_BRANCH=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
-    sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
-  if [[ -n "$CLEANUP_TARGET_BRANCH" && "$CLEANUP_TARGET_BRANCH" != "$BUNDLE_BRANCH" ]]; then
-    echo "Cleanup target: $CLEANUP_TARGET_BRANCH (previous release)"
-  else
-    CLEANUP_TARGET_BRANCH=""
-  fi
-else
-  # When creating new bundle, BASE_BRANCH is the cleanup target
-  CLEANUP_TARGET_BRANCH="$BASE_BRANCH"
 fi
 
 # Initialize tracking variables
@@ -660,228 +644,6 @@ fi
     fi
   fi
 
-# Step 8: Update main branch with new bundle content and renamed tekton pipelines
-echo ""
-echo "📍 Step 8: Updating main branch with new bundle and tekton pipelines..."
-
-MAIN_PR_CREATED=false
-MAIN_PR_URL=""
-
-# Reset to main branch
-git reset --hard HEAD 2>/dev/null || true
-git clean -fd 2>/dev/null || true
-git fetch origin main 2>/dev/null || true
-git checkout -B main "origin/main"
-
-# Copy latest bundle content from multicluster-global-hub main
-echo "   Copying bundle content from $BUNDLE_SOURCE_DESCRIPTION to main..."
-rm -rf bundle/manifests bundle/metadata bundle/tests 2>/dev/null || true
-mkdir -p bundle
-[[ -d "$SOURCE_BUNDLE_DIR/manifests" ]] && cp -r "$SOURCE_BUNDLE_DIR/manifests" bundle/ && echo "   ✅ Copied manifests/"
-[[ -d "$SOURCE_BUNDLE_DIR/metadata" ]] && cp -r "$SOURCE_BUNDLE_DIR/metadata" bundle/ && echo "   ✅ Copied metadata/"
-[[ -d "$SOURCE_BUNDLE_DIR/tests" ]] && cp -r "$SOURCE_BUNDLE_DIR/tests" bundle/ && echo "   ✅ Copied tests/"
-git add bundle/ 2>/dev/null || true
-
-# Update imageDigestMirrorSet on main
-if [[ -f "$IDMS_FILE" && -n "$PREV_BUNDLE_TAG" ]]; then
-  sed "${SED_INPLACE[@]}" "s/multicluster-global-hub-\([a-z-]*\)-${PREV_BUNDLE_TAG}/multicluster-global-hub-\1-${BUNDLE_TAG}/g" "$IDMS_FILE"
-  echo "   ✅ Updated $IDMS_FILE on main"
-fi
-
-# Rename tekton pipelines on main: globalhub-1-7 → globalhub-1-8 (target_branch=main)
-if [[ -n "$PREV_BUNDLE_TAG" ]]; then
-  for pipeline_type in pull-request push; do
-    OLD_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${PREV_BUNDLE_TAG}-${pipeline_type}.yaml"
-    NEW_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${BUNDLE_TAG}-${pipeline_type}.yaml"
-    if [[ -f "$OLD_PIPELINE" && ! -f "$NEW_PIPELINE" ]]; then
-      git mv "$OLD_PIPELINE" "$NEW_PIPELINE"
-      sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PIPELINE"
-      # On main, pull-request pipeline target_branch stays main; push pipeline also targets main
-      sed "${SED_INPLACE[@]}" "s/target_branch == \"${BUNDLE_BRANCH}\"/target_branch == \"main\"/g" "$NEW_PIPELINE"
-      echo "   ✅ Renamed and updated $NEW_PIPELINE (target_branch=main)"
-    elif [[ -f "$NEW_PIPELINE" ]]; then
-      echo "   ℹ️  Pipeline already exists: $NEW_PIPELINE"
-    fi
-  done
-fi
-
-# Update konflux-patch.sh on main
-if [[ -f "$KONFLUX_SCRIPT" && -n "$PREV_BUNDLE_TAG" ]]; then
-  sed "${SED_INPLACE[@]}" "s/\([a-z-]*\)-${PREV_BUNDLE_TAG}/\1-${BUNDLE_TAG}/g" "$KONFLUX_SCRIPT"
-  echo "   ✅ Updated $KONFLUX_SCRIPT on main"
-fi
-
-git add -A
-
-# Check for actual changes vs origin/main
-MAIN_DIFF=$(git diff --cached "origin/main" 2>/dev/null || echo "")
-NON_CREATEDAT=$(echo "$MAIN_DIFF" | grep -E '^[-+]' | grep -v 'createdAt:' | grep -v '^---' | grep -v '^\+\+\+' || echo "")
-
-if [[ -z "$NON_CREATEDAT" ]]; then
-  echo "   ℹ️  No substantive changes on main (only timestamps or already up-to-date)"
-  git reset --hard "origin/main" 2>/dev/null || true
-else
-  git commit --signoff -m "Update bundle main branch for ${BUNDLE_TAG} (Global Hub ${GH_VERSION})
-
-- Copy latest operator bundle from multicluster-global-hub main (manifests, metadata, tests)
-- Update imageDigestMirrorSet to use ${BUNDLE_TAG}
-- Rename tekton pipelines: ${PREV_BUNDLE_TAG} → ${BUNDLE_TAG} (target_branch=main)
-- Update konflux-patch.sh image references to ${BUNDLE_TAG}
-
-Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}"
-
-  echo "   ✅ Changes committed on main"
-
-  # Push to fork and create PR to main
-  MAIN_PR_BRANCH="update-bundle-main-${BUNDLE_TAG}"
-  git checkout -b "$MAIN_PR_BRANCH"
-
-  if [[ "$FORK_EXISTS" = true ]]; then
-    if git push -f fork "$MAIN_PR_BRANCH" 2>&1; then
-      MAIN_PR_OUTPUT=$(gh pr create --base main --head "${GITHUB_USER}:${MAIN_PR_BRANCH}" \
-        --title "Update bundle main branch for ${BUNDLE_TAG}" \
-        --body "## Summary
-
-Update bundle \`main\` branch to align with multicluster-global-hub main branch changes.
-
-## Changes
-
-- Copy latest operator bundle from multicluster-global-hub main (manifests, metadata, tests)
-- Update imageDigestMirrorSet to use \`${BUNDLE_TAG}\`
-- Rename tekton pipelines: \`${PREV_BUNDLE_TAG}\` → \`${BUNDLE_TAG}\` (target_branch=main)
-- Update konflux-patch.sh image references to \`${BUNDLE_TAG}\`
-
-## Version Mapping
-
-- **ACM**: ${RELEASE_BRANCH}
-- **Global Hub**: ${GH_VERSION}
-- **Bundle tag**: ${BUNDLE_TAG}" \
-        --repo "$BUNDLE_REPO" 2>&1) || true
-
-      if [[ "$MAIN_PR_OUTPUT" =~ ^https:// ]]; then
-        MAIN_PR_URL="$MAIN_PR_OUTPUT"
-        echo "   ✅ PR created to main: $MAIN_PR_URL"
-        MAIN_PR_CREATED=true
-      elif [[ "$MAIN_PR_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
-        MAIN_PR_URL="${BASH_REMATCH[1]}"
-        echo "   ✅ PR created to main: $MAIN_PR_URL"
-        MAIN_PR_CREATED=true
-      else
-        echo "   ⚠️  Failed to create PR to main: $MAIN_PR_OUTPUT" >&2
-      fi
-    else
-      echo "   ⚠️  Failed to push main PR branch to fork" >&2
-    fi
-  else
-    echo "   ⚠️  Fork not found, cannot create PR to main" >&2
-  fi
-fi
-
-# Step 9: Create cleanup PR to remove GitHub Actions from old release
-echo ""
-echo "📍 Step 8: Creating cleanup PR for old release..."
-
-CLEANUP_PR_CREATED=false
-CLEANUP_PR_URL=""
-
-# Only create cleanup PR if there's a cleanup target (not main)
-if [[ "$CLEANUP_TARGET_BRANCH" != "main" && -n "$CLEANUP_TARGET_BRANCH" ]]; then
-  echo "   Checking out previous release: $CLEANUP_TARGET_BRANCH..."
-
-  # Clean any uncommitted changes
-  git reset --hard HEAD 2>/dev/null || true
-  git clean -fd 2>/dev/null || true
-
-  # Checkout old release branch
-  git fetch origin "$CLEANUP_TARGET_BRANCH" 2>/dev/null || true
-  git checkout -B "$CLEANUP_TARGET_BRANCH" "origin/$CLEANUP_TARGET_BRANCH"
-
-  # Check if GitHub Actions workflow exists
-  LABELS_WORKFLOW=".github/workflows/labels.yml"
-
-  if [[ -f "$LABELS_WORKFLOW" ]]; then
-    echo "   Found GitHub Actions workflow in $CLEANUP_TARGET_BRANCH"
-
-    # Create cleanup branch
-    CLEANUP_BRANCH="cleanup-actions-${CLEANUP_TARGET_BRANCH}-$(date +%s)"
-    git checkout -b "$CLEANUP_BRANCH"
-
-    # Remove the workflow file
-    git rm "$LABELS_WORKFLOW"
-
-    # Commit the removal
-    CLEANUP_COMMIT_MSG="Remove GitHub Actions workflow from ${CLEANUP_TARGET_BRANCH}
-
-Workflow has been moved to ${BUNDLE_BRANCH}.
-This prevents duplicate automation on old release branch."
-
-    git commit --signoff -m "$CLEANUP_COMMIT_MSG"
-    echo "   ✅ Committed workflow removal"
-
-    # Check if cleanup PR already exists
-    echo "   Checking for existing cleanup PR..."
-    EXISTING_CLEANUP_PR=$(gh pr list \
-      --repo "${BUNDLE_REPO}" \
-      --base "$CLEANUP_TARGET_BRANCH" \
-      --state all \
-      --search "Remove GitHub Actions from ${CLEANUP_TARGET_BRANCH}" \
-      --json number,url,state \
-      --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
-
-    if [[ -n "$EXISTING_CLEANUP_PR" && "$EXISTING_CLEANUP_PR" != "$NULL_PR_VALUE" ]]; then
-      CLEANUP_PR_STATE=$(echo "$EXISTING_CLEANUP_PR" | cut -d'|' -f1)
-      CLEANUP_PR_URL=$(echo "$EXISTING_CLEANUP_PR" | cut -d'|' -f2)
-      echo "   ℹ️  Cleanup PR already exists (state: $CLEANUP_PR_STATE): $CLEANUP_PR_URL"
-      CLEANUP_PR_CREATED=true
-    else
-      # Push cleanup branch to fork
-      if [[ "$FORK_EXISTS" = false ]]; then
-        echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
-        echo "   Please fork ${BUNDLE_REPO} and run again, or create cleanup PR manually"
-        CLEANUP_PR_CREATED=false
-      elif git push -f fork "$CLEANUP_BRANCH" 2>&1; then
-        echo "   ✅ Cleanup branch pushed to fork"
-
-        # Create cleanup PR to old release branch
-        CLEANUP_PR_BODY="Remove GitHub Actions workflow from ${CLEANUP_TARGET_BRANCH}
-
-The workflow has been moved to the new release branch \`${BUNDLE_BRANCH}\`.
-
-This PR removes the workflow from ${CLEANUP_TARGET_BRANCH} to prevent duplicate automation."
-
-        CLEANUP_PR_OUTPUT=$(gh pr create --base "$CLEANUP_TARGET_BRANCH" --head "${GITHUB_USER}:$CLEANUP_BRANCH" \
-          --title "Remove GitHub Actions from ${CLEANUP_TARGET_BRANCH}" \
-          --body "$CLEANUP_PR_BODY" \
-          --repo "$BUNDLE_REPO" 2>&1) || true
-
-        # Check if cleanup PR was successfully created
-        if [[ "$CLEANUP_PR_OUTPUT" =~ ^https:// ]]; then
-          CLEANUP_PR_URL="$CLEANUP_PR_OUTPUT"
-          echo "   ✅ Cleanup PR created: $CLEANUP_PR_URL"
-          CLEANUP_PR_CREATED=true
-        elif [[ "$CLEANUP_PR_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
-          CLEANUP_PR_URL="${BASH_REMATCH[1]}"
-          echo "   ✅ Cleanup PR created: $CLEANUP_PR_URL"
-          CLEANUP_PR_CREATED=true
-        else
-          echo "   ⚠️  Failed to create cleanup PR" >&2
-          echo "   Reason: $CLEANUP_PR_OUTPUT"
-          CLEANUP_PR_CREATED=false
-        fi
-      else
-        echo "   ⚠️  Failed to push cleanup branch" >&2
-        CLEANUP_PR_CREATED=false
-      fi
-    fi
-  else
-    echo "   ℹ️  No GitHub Actions workflow found in $CLEANUP_TARGET_BRANCH"
-    CLEANUP_PR_CREATED=false
-  fi
-else
-  echo "   ℹ️  No previous release to clean up (cleanup target is $CLEANUP_TARGET_BRANCH)"
-  CLEANUP_PR_CREATED=false
-fi
-
 # Summary
 echo ""
 echo "$SEPARATOR_LINE"
@@ -907,9 +669,6 @@ fi
 if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
   echo "  ✓ PR to $BUNDLE_BRANCH: ${PR_URL}"
 fi
-if [[ "$CLEANUP_PR_CREATED" = true && -n "$CLEANUP_PR_URL" ]]; then
-  echo "  ✓ Cleanup PR to $CLEANUP_TARGET_BRANCH: ${CLEANUP_PR_URL}"
-fi
 echo ""
 echo "$SEPARATOR_LINE"
 echo "📝 NEXT STEPS"
@@ -920,17 +679,10 @@ if [[ "$PUSHED_TO_ORIGIN" = true ]]; then
   echo "Branch: https://github.com/$BUNDLE_REPO/tree/$BUNDLE_BRANCH"
   echo ""
   echo "Verify: Bundle images and tekton pipelines"
-elif [[ "$PR_CREATED" = true || "$CLEANUP_PR_CREATED" = true ]]; then
-  PR_COUNT=0
-  if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
-    PR_COUNT=$((PR_COUNT + 1))
-    echo "${PR_COUNT}. Review and merge PR to $BUNDLE_BRANCH:"
+elif [[ "$PR_CREATED" = true ]]; then
+  if [[ -n "$PR_URL" ]]; then
+    echo "1. Review and merge PR to $BUNDLE_BRANCH:"
     echo "   ${PR_URL}"
-  fi
-  if [[ "$CLEANUP_PR_CREATED" = true && -n "$CLEANUP_PR_URL" ]]; then
-    PR_COUNT=$((PR_COUNT + 1))
-    echo "${PR_COUNT}. Review and merge cleanup PR to $CLEANUP_TARGET_BRANCH:"
-    echo "   ${CLEANUP_PR_URL}"
   fi
   echo ""
   echo "After merge: Verify bundle images and tekton pipelines"
