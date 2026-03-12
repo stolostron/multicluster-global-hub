@@ -344,7 +344,9 @@ When running the complete workflow (`cut-release.sh all`):
 
 After running all 6 scripts:
 
-**Pull Requests Created**: 11 PRs
+**Pull Requests Expected**: up to 11 PRs
+
+> Each PR is only created if changes are needed. If the target branch is already up-to-date or an open PR already exists, the script will skip or reuse it.
 
 | # | Repo | Target Branch | Content |
 |---|------|--------------|---------|
