@@ -91,7 +91,6 @@ if git ls-remote "$FORK_REPO" HEAD >/dev/null 2>&1; then
   echo "   ✅ Fork detected: ${GITHUB_USER}/multicluster-global-hub-operator-bundle"
 else
   echo "   ⚠️  Fork not found: ${GITHUB_USER}/multicluster-global-hub-operator-bundle" >&2
-  echo "   Note: Cleanup PR will require manual creation if fork doesn't exist"
 fi
 
 # Fetch all release branches
@@ -118,9 +117,14 @@ cd "$MGH_REPO_PATH"
 
 # Check for PR to main branch (created by script 01)
 echo "   Checking for multicluster-global-hub PR to main branch..."
-# Use exact title match to avoid false positives from --search
-# Since release PR is likely already merged to main, just use main branch directly
-MGH_MAIN_PR=""
+MGH_MAIN_PR=$(gh pr list \
+  --repo "stolostron/multicluster-global-hub" \
+  --base main \
+  --state open \
+  --author "$GITHUB_USER" \
+  --search "\"$RELEASE_BRANCH\" in:title" \
+  --json number,url,headRefName \
+  --jq '.[0] | select(. != null) | "\(.number)|\(.url)|\(.headRefName)"' 2>/dev/null || echo "")
 
 if [[ -n "$MGH_MAIN_PR" && "$MGH_MAIN_PR" != "null|null|" ]]; then
   # PR exists - use bundle from PR branch (latest updates before merge)
@@ -212,21 +216,6 @@ if [[ "$BASE_BRANCH" != "main" ]]; then
   echo "Previous bundle tag: $PREV_BUNDLE_TAG"
 else
   PREV_BUNDLE_TAG=""
-fi
-
-# For cleanup PR, we need to find the previous release
-# If BUNDLE_BRANCH is the latest, find second-to-latest for cleanup
-if [[ "$LATEST_BUNDLE_RELEASE" = "$BUNDLE_BRANCH" ]]; then
-  CLEANUP_TARGET_BRANCH=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
-    sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
-  if [[ -n "$CLEANUP_TARGET_BRANCH" && "$CLEANUP_TARGET_BRANCH" != "$BUNDLE_BRANCH" ]]; then
-    echo "Cleanup target: $CLEANUP_TARGET_BRANCH (previous release)"
-  else
-    CLEANUP_TARGET_BRANCH=""
-  fi
-else
-  # When creating new bundle, BASE_BRANCH is the cleanup target
-  CLEANUP_TARGET_BRANCH="$BASE_BRANCH"
 fi
 
 # Initialize tracking variables
@@ -660,111 +649,6 @@ fi
     fi
   fi
 
-# Step 8: Create cleanup PR to remove GitHub Actions from old release
-echo ""
-echo "📍 Step 8: Creating cleanup PR for old release..."
-
-CLEANUP_PR_CREATED=false
-CLEANUP_PR_URL=""
-
-# Only create cleanup PR if there's a cleanup target (not main)
-if [[ "$CLEANUP_TARGET_BRANCH" != "main" && -n "$CLEANUP_TARGET_BRANCH" ]]; then
-  echo "   Checking out previous release: $CLEANUP_TARGET_BRANCH..."
-
-  # Clean any uncommitted changes
-  git reset --hard HEAD 2>/dev/null || true
-  git clean -fd 2>/dev/null || true
-
-  # Checkout old release branch
-  git fetch origin "$CLEANUP_TARGET_BRANCH" 2>/dev/null || true
-  git checkout -B "$CLEANUP_TARGET_BRANCH" "origin/$CLEANUP_TARGET_BRANCH"
-
-  # Check if GitHub Actions workflow exists
-  LABELS_WORKFLOW=".github/workflows/labels.yml"
-
-  if [[ -f "$LABELS_WORKFLOW" ]]; then
-    echo "   Found GitHub Actions workflow in $CLEANUP_TARGET_BRANCH"
-
-    # Create cleanup branch
-    CLEANUP_BRANCH="cleanup-actions-${CLEANUP_TARGET_BRANCH}-$(date +%s)"
-    git checkout -b "$CLEANUP_BRANCH"
-
-    # Remove the workflow file
-    git rm "$LABELS_WORKFLOW"
-
-    # Commit the removal
-    CLEANUP_COMMIT_MSG="Remove GitHub Actions workflow from ${CLEANUP_TARGET_BRANCH}
-
-Workflow has been moved to ${BUNDLE_BRANCH}.
-This prevents duplicate automation on old release branch."
-
-    git commit --signoff -m "$CLEANUP_COMMIT_MSG"
-    echo "   ✅ Committed workflow removal"
-
-    # Check if cleanup PR already exists
-    echo "   Checking for existing cleanup PR..."
-    EXISTING_CLEANUP_PR=$(gh pr list \
-      --repo "${BUNDLE_REPO}" \
-      --base "$CLEANUP_TARGET_BRANCH" \
-      --state all \
-      --search "Remove GitHub Actions from ${CLEANUP_TARGET_BRANCH}" \
-      --json number,url,state \
-      --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
-
-    if [[ -n "$EXISTING_CLEANUP_PR" && "$EXISTING_CLEANUP_PR" != "$NULL_PR_VALUE" ]]; then
-      CLEANUP_PR_STATE=$(echo "$EXISTING_CLEANUP_PR" | cut -d'|' -f1)
-      CLEANUP_PR_URL=$(echo "$EXISTING_CLEANUP_PR" | cut -d'|' -f2)
-      echo "   ℹ️  Cleanup PR already exists (state: $CLEANUP_PR_STATE): $CLEANUP_PR_URL"
-      CLEANUP_PR_CREATED=true
-    else
-      # Push cleanup branch to fork
-      if [[ "$FORK_EXISTS" = false ]]; then
-        echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
-        echo "   Please fork ${BUNDLE_REPO} and run again, or create cleanup PR manually"
-        CLEANUP_PR_CREATED=false
-      elif git push -f fork "$CLEANUP_BRANCH" 2>&1; then
-        echo "   ✅ Cleanup branch pushed to fork"
-
-        # Create cleanup PR to old release branch
-        CLEANUP_PR_BODY="Remove GitHub Actions workflow from ${CLEANUP_TARGET_BRANCH}
-
-The workflow has been moved to the new release branch \`${BUNDLE_BRANCH}\`.
-
-This PR removes the workflow from ${CLEANUP_TARGET_BRANCH} to prevent duplicate automation."
-
-        CLEANUP_PR_OUTPUT=$(gh pr create --base "$CLEANUP_TARGET_BRANCH" --head "${GITHUB_USER}:$CLEANUP_BRANCH" \
-          --title "Remove GitHub Actions from ${CLEANUP_TARGET_BRANCH}" \
-          --body "$CLEANUP_PR_BODY" \
-          --repo "$BUNDLE_REPO" 2>&1) || true
-
-        # Check if cleanup PR was successfully created
-        if [[ "$CLEANUP_PR_OUTPUT" =~ ^https:// ]]; then
-          CLEANUP_PR_URL="$CLEANUP_PR_OUTPUT"
-          echo "   ✅ Cleanup PR created: $CLEANUP_PR_URL"
-          CLEANUP_PR_CREATED=true
-        elif [[ "$CLEANUP_PR_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
-          CLEANUP_PR_URL="${BASH_REMATCH[1]}"
-          echo "   ✅ Cleanup PR created: $CLEANUP_PR_URL"
-          CLEANUP_PR_CREATED=true
-        else
-          echo "   ⚠️  Failed to create cleanup PR" >&2
-          echo "   Reason: $CLEANUP_PR_OUTPUT"
-          CLEANUP_PR_CREATED=false
-        fi
-      else
-        echo "   ⚠️  Failed to push cleanup branch" >&2
-        CLEANUP_PR_CREATED=false
-      fi
-    fi
-  else
-    echo "   ℹ️  No GitHub Actions workflow found in $CLEANUP_TARGET_BRANCH"
-    CLEANUP_PR_CREATED=false
-  fi
-else
-  echo "   ℹ️  No previous release to clean up (cleanup target is $CLEANUP_TARGET_BRANCH)"
-  CLEANUP_PR_CREATED=false
-fi
-
 # Summary
 echo ""
 echo "$SEPARATOR_LINE"
@@ -790,9 +674,6 @@ fi
 if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
   echo "  ✓ PR to $BUNDLE_BRANCH: ${PR_URL}"
 fi
-if [[ "$CLEANUP_PR_CREATED" = true && -n "$CLEANUP_PR_URL" ]]; then
-  echo "  ✓ Cleanup PR to $CLEANUP_TARGET_BRANCH: ${CLEANUP_PR_URL}"
-fi
 echo ""
 echo "$SEPARATOR_LINE"
 echo "📝 NEXT STEPS"
@@ -803,17 +684,10 @@ if [[ "$PUSHED_TO_ORIGIN" = true ]]; then
   echo "Branch: https://github.com/$BUNDLE_REPO/tree/$BUNDLE_BRANCH"
   echo ""
   echo "Verify: Bundle images and tekton pipelines"
-elif [[ "$PR_CREATED" = true || "$CLEANUP_PR_CREATED" = true ]]; then
-  PR_COUNT=0
-  if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
-    PR_COUNT=$((PR_COUNT + 1))
-    echo "${PR_COUNT}. Review and merge PR to $BUNDLE_BRANCH:"
+elif [[ "$PR_CREATED" = true ]]; then
+  if [[ -n "$PR_URL" ]]; then
+    echo "1. Review and merge PR to $BUNDLE_BRANCH:"
     echo "   ${PR_URL}"
-  fi
-  if [[ "$CLEANUP_PR_CREATED" = true && -n "$CLEANUP_PR_URL" ]]; then
-    PR_COUNT=$((PR_COUNT + 1))
-    echo "${PR_COUNT}. Review and merge cleanup PR to $CLEANUP_TARGET_BRANCH:"
-    echo "   ${CLEANUP_PR_URL}"
   fi
   echo ""
   echo "After merge: Verify bundle images and tekton pipelines"

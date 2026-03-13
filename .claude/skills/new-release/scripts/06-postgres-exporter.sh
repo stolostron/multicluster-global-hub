@@ -96,61 +96,16 @@ else
   echo "   ⚠️  Fork not found: ${GITHUB_USER}/postgres_exporter" >&2
 fi
 
-# Fetch all release branches
-echo "🔄 Fetching release branches..."
-git fetch origin 'refs/heads/release-*:refs/remotes/origin/release-*' --progress 2>&1 | grep -E "Receiving|Resolving|new branch" || true
-echo "   ✅ Release branches fetched"
-
-# Find latest postgres release branch
-LATEST_POSTGRES_RELEASE=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
-  sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -1)
-
-# Check if target branch is the same as latest
-if [[ "$LATEST_POSTGRES_RELEASE" = "$RELEASE_BRANCH" ]]; then
-  echo "ℹ️  Target postgres branch is the latest: $RELEASE_BRANCH"
-  echo ""
-  echo "   https://github.com/$POSTGRES_REPO/tree/$RELEASE_BRANCH"
-  echo ""
-  echo "   Will verify and update if needed..."
-  echo ""
-fi
-
-if [[ -z "$LATEST_POSTGRES_RELEASE" ]]; then
-  echo "⚠️  No previous postgres release branch found, using main as base" >&2
-  BASE_BRANCH="main"
-else
-  echo "Latest postgres release detected: $LATEST_POSTGRES_RELEASE"
-
-  # If target branch is the latest, use second-to-latest as base
-  # If target branch is not the latest, use latest as base
-  if [[ "$LATEST_POSTGRES_RELEASE" = "$RELEASE_BRANCH" ]]; then
-    # Target is latest - get second-to-latest for base
-    SECOND_TO_LATEST=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
-      sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
-    if [[ -n "$SECOND_TO_LATEST" && "$SECOND_TO_LATEST" != "$RELEASE_BRANCH" ]]; then
-      BASE_BRANCH="$SECOND_TO_LATEST"
-      echo "Target is latest release, using previous release as base: $BASE_BRANCH"
-    else
-      BASE_BRANCH="main"
-      echo "No previous release found, using main as base"
-    fi
-  else
-    # Target is not latest - use latest as base
-    BASE_BRANCH="$LATEST_POSTGRES_RELEASE"
-    echo "Target is older than latest, using latest as base: $BASE_BRANCH"
-  fi
-fi
-
-# Extract previous Postgres tag info
-if [[ "$BASE_BRANCH" != "main" ]]; then
-  PREV_VERSION="${BASE_BRANCH#release-}"
-  PREV_MINOR=$(echo "$PREV_VERSION" | cut -d. -f2)
-  PREV_GH_MINOR=$((PREV_MINOR - 9))
-  PREV_POSTGRES_TAG="globalhub-1-${PREV_GH_MINOR}"
-  echo "Previous Postgres tag: $PREV_POSTGRES_TAG"
-else
-  PREV_POSTGRES_TAG=""
-fi
+# Calculate previous postgres tag directly from version formula
+# RELEASE_BRANCH e.g. "release-2.17" -> prev ACM minor = 16 -> base = release-2.16
+# GH_VERSION_SHORT e.g. "1.8" -> prev GH minor = 7 -> globalhub-1-7
+ACM_MINOR="${RELEASE_BRANCH##*.}"
+PREV_ACM_MINOR=$((ACM_MINOR - 1))
+BASE_BRANCH="release-2.${PREV_ACM_MINOR}"
+GH_MINOR="${GH_VERSION_SHORT#*.}"
+PREV_GH_MINOR=$((GH_MINOR - 1))
+PREV_POSTGRES_TAG="globalhub-1-${PREV_GH_MINOR}"
+echo "Previous Postgres tag: $PREV_POSTGRES_TAG (base: $BASE_BRANCH)"
 
 echo ""
 
