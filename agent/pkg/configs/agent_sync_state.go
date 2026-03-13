@@ -31,7 +31,13 @@ func GetSyncStateConfigMap(ctx context.Context, c client.Client) (*corev1.Config
 	err := c.Get(ctx, client.ObjectKeyFromObject(agentStateConfigMap), agentStateConfigMap)
 	if err != nil && errors.IsNotFound(err) {
 		if e := c.Create(ctx, agentStateConfigMap); e != nil {
-			return nil, e
+			if !errors.IsAlreadyExists(e) {
+				return nil, e
+			}
+			// Another goroutine created it between Get and Create, fetch the existing one
+			if e := c.Get(ctx, client.ObjectKeyFromObject(agentStateConfigMap), agentStateConfigMap); e != nil {
+				return nil, e
+			}
 		}
 	} else if err != nil {
 		return nil, err
