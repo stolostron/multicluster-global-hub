@@ -29,13 +29,13 @@ func (s *stackRoxController) Reconcile(ctx context.Context, request cr.Request) 
 	if apierrors.IsNotFound(err) {
 		err = s.syncer.Unregister(ctx, request.NamespacedName)
 		if err != nil {
-			return
+			return result, err
 		}
 	}
 	if !centralObject.GetDeletionTimestamp().IsZero() {
 		err = s.syncer.Unregister(ctx, request.NamespacedName)
 		if err != nil {
-			return
+			return result, err
 		}
 	}
 
@@ -45,11 +45,11 @@ func (s *stackRoxController) Reconcile(ctx context.Context, request cr.Request) 
 	if ok {
 		err = s.syncer.Register(ctx, request.NamespacedName)
 		if err != nil {
-			return
+			return result, err
 		}
 	}
 
-	return
+	return result, err
 }
 
 func AddStacRoxController(manager cr.Manager, syncer *StackRoxSyncer) error {

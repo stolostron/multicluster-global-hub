@@ -72,15 +72,15 @@ func (b *StackRoxClientBuilder) Build() (result *StackRoxClient, err error) {
 	// Check parameters:
 	if b.logger == nil {
 		err = errors.New("logger is mandatory")
-		return
+		return result, err
 	}
 	if b.url == "" {
 		err = errors.New("URL is mandatory")
-		return
+		return result, err
 	}
 	if b.token == "" {
 		err = errors.New("token is mandatory")
-		return
+		return result, err
 	}
 
 	// Create the HTTP client:
@@ -104,7 +104,7 @@ func (b *StackRoxClientBuilder) Build() (result *StackRoxClient, err error) {
 		token:  b.token,
 		client: client,
 	}
-	return
+	return result, err
 }
 
 // DoRequests send an HTTP request with the given method, path and request body. It returns the response body and a
