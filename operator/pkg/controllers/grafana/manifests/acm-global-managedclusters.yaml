@@ -1213,7 +1213,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT emc.created_at,mc.leaf_hub_name,mc.cluster_name,event_type,reason,message,\n  console_url as \"hub_console_url\",\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || mc.cluster_name\n  END AS hub_obs_url\nFROM status.managed_clusters mc JOIN event.managed_clusters emc\nON mc.cluster_id = emc.cluster_id\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nWHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND mc.cluster_name ${cluster_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n  OR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0')\nORDER BY emc.created_at DESC\nLIMIT 50",
+              "rawSql": "SELECT emc.created_at,mc.leaf_hub_name,mc.cluster_name,event_type,reason,message,\n  console_url as \"hub_console_url\",\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || mc.cluster_name\n  END AS hub_obs_url\nFROM status.managed_clusters mc JOIN event.managed_clusters emc\nON mc.cluster_id = emc.cluster_id\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nWHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND mc.cluster_name ${cluster_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND (\n    string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n    OR \n    (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0')\n    )\nORDER BY emc.created_at DESC\nLIMIT 100",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -1298,7 +1298,7 @@ data:
           },
           {
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "cloud",
               "value": "cloud"
             },
@@ -1434,7 +1434,7 @@ data:
           },
           {
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "0.0.0",
               "value": "0.0.0"
             },
@@ -1516,7 +1516,7 @@ data:
       "timezone": "",
       "title": "Global Hub - Cluster Overview",
       "uid": "fbf66c88-ba14-4553-90b7-55ea5870fa00",
-      "version": 6,
+      "version": 7,
       "weekStart": ""
     }
 kind: ConfigMap
