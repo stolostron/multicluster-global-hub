@@ -719,7 +719,7 @@ data:
               "type": "postgres",
               "uid": "${datasource}"
             },
-            "definition": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
+            "definition": "SELECT DISTINCT leaf_hub_name\nFROM\nhistory.local_compliance ch\nWHERE\n$__timeFilter(ch.compliance_date)\nUNION\nSELECT leaf_hub_name \nFROM status.leaf_hubs\nWHERE deleted_at is NULL\n",
             "description": "Managed hub cluster name",
             "hide": 0,
             "includeAll": false,
@@ -727,7 +727,7 @@ data:
             "multi": false,
             "name": "hub",
             "options": [],
-            "query": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
+            "query": "SELECT DISTINCT leaf_hub_name\nFROM\nhistory.local_compliance ch\nWHERE\n$__timeFilter(ch.compliance_date)\nUNION\nSELECT leaf_hub_name \nFROM status.leaf_hubs\nWHERE deleted_at is NULL\n",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
@@ -955,6 +955,29 @@ data:
           },
           {
             "current": {
+              "selected": false,
+              "text": " is null ",
+              "value": " is null "
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${namespace}$$)>0 then $$ in ($namespace) $$ else ' IS NOT NULL ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "namespace_query",
+            "options": [],
+            "query": "select case when length($$${namespace}$$)>0 then $$ in ($namespace) $$ else ' IS NOT NULL ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
               "selected": true,
               "text": [
                 "All"
@@ -967,14 +990,14 @@ data:
               "type": "postgres",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' in ($namespace)",
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' ${namespace_query:raw}",
             "hide": 0,
             "includeAll": true,
             "label": "Policy",
             "multi": true,
             "name": "policy",
             "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' in ($namespace)",
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance lc\n  WHERE\n  $__timeFilter(lc.compliance_date)\n  AND\n  leaf_hub_name IN ( $all_hubs )\n)\nSELECT\n  policy_name\nFROM\n  local_spec.policies p\nINNER JOIN\n  compcluster ch ON p.policy_id = ch.policy_id\nWHERE\n  p.payload -> 'metadata' ->> 'namespace' ${namespace_query:raw}",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
@@ -991,36 +1014,13 @@ data:
               "type": "postgres",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "select case when length($$${policy}$$)>0 then $$ in ($policy) $$ else ' is null ' end",
+            "definition": "select case when length($$${policy}$$)>0 then $$ in ($policy) $$ else ' IS NOT NULL ' end",
             "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "policy_query",
             "options": [],
-            "query": "select case when length($$${policy}$$)>0 then $$ in ($policy) $$ else ' is null ' end",
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 0,
-            "type": "query"
-          },
-          {
-            "current": {
-              "selected": false,
-              "text": " is null ",
-              "value": " is null "
-            },
-            "datasource": {
-              "type": "postgres",
-              "uid": "P244538DD76A4C61D"
-            },
-            "definition": "select case when length($$${namespace}$$)>0 then $$ in ($namespace) $$ else ' is null ' end",
-            "hide": 2,
-            "includeAll": false,
-            "multi": false,
-            "name": "namespace_query",
-            "options": [],
-            "query": "select case when length($$${namespace}$$)>0 then $$ in ($namespace) $$ else ' is null ' end",
+            "query": "select case when length($$${policy}$$)>0 then $$ in ($policy) $$ else ' IS NOT NULL ' end",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,

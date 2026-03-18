@@ -717,7 +717,7 @@ data:
               "type": "postgres",
               "uid": "${datasource}"
             },
-            "definition": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
+            "definition": "SELECT DISTINCT leaf_hub_name\nFROM\nhistory.local_compliance ch\nWHERE\n$__timeFilter(ch.compliance_date)\nUNION\nSELECT leaf_hub_name \nFROM status.leaf_hubs\nWHERE deleted_at is NULL\n",
             "description": "Managed hub cluster name",
             "hide": 0,
             "includeAll": false,
@@ -725,7 +725,7 @@ data:
             "multi": false,
             "name": "hub",
             "options": [],
-            "query": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n",
+            "query": "SELECT DISTINCT leaf_hub_name\nFROM\nhistory.local_compliance ch\nWHERE\n$__timeFilter(ch.compliance_date)\nUNION\nSELECT leaf_hub_name \nFROM status.leaf_hubs\nWHERE deleted_at is NULL\n",
             "refresh": 2,
             "regex": "",
             "skipUrlSync": false,
