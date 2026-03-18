@@ -40,8 +40,6 @@ spec:
     value: "true"
   - name: prefetch-input
     value: '[ {"type": "gomod", "path": "."}, {"type": "rpm", "path": "."} ]'
-  - name: use-dev-package-managers
-    value: "true"
   - name: build-args
     value: ["GIT_COMMIT={{revision}}"]
   - name: send-slack-notification
