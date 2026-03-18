@@ -552,7 +552,7 @@ data:
                   "type": "value"
                 }
               ],
-              "noValue": "-",
+              "noValue": "No data",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -901,7 +901,7 @@ data:
                 }
               },
               "mappings": [],
-              "noValue": "-"
+              "noValue": "No data"
             },
             "overrides": []
           },
@@ -1484,8 +1484,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " in ('local-cluster') ",
-              "value": " in ('local-cluster') "
+              "text": " is null ",
+              "value": " is null "
             },
             "datasource": {
               "type": "grafana-postgresql-datasource",
@@ -1516,7 +1516,7 @@ data:
       "timezone": "",
       "title": "Global Hub - Cluster Overview",
       "uid": "fbf66c88-ba14-4553-90b7-55ea5870fa00",
-      "version": 7,
+      "version": 8,
       "weekStart": ""
     }
 kind: ConfigMap
