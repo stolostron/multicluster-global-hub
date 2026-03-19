@@ -35,6 +35,7 @@ type HubHASyncerStartFunc func(context.Context, ctrl.Manager, transport.Producer
 
 // HubHASyncerManager manages the Hub HA active syncer lifecycle
 type HubHASyncerManager struct {
+	ctx       context.Context // Long-lived manager context for syncer goroutines
 	mgr       ctrl.Manager
 	producer  transport.Producer
 	startFunc HubHASyncerStartFunc
@@ -48,9 +49,11 @@ type hubOfHubsConfigController struct {
 }
 
 // SetHubHASyncerManager initializes the Hub HA syncer manager for dynamic syncer lifecycle management
-func SetHubHASyncerManager(mgr ctrl.Manager, producer transport.Producer, startFunc HubHASyncerStartFunc) {
+// The ctx parameter should be a long-lived manager-level context, not a request-scoped reconcile context
+func SetHubHASyncerManager(ctx context.Context, mgr ctrl.Manager, producer transport.Producer, startFunc HubHASyncerStartFunc) {
 	hubHASyncerOnce.Do(func() {
 		hubHASyncerManager = &HubHASyncerManager{
+			ctx:       ctx,
 			mgr:       mgr,
 			producer:  producer,
 			startFunc: startFunc,
@@ -120,28 +123,34 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 	// Update AgentConfig with hubRole and standbyHub
 	agentConfig := configs.GetAgentConfig()
 	if agentConfig != nil {
-		previousHubRole := agentConfig.HubRole
-
+		// Determine new values from configmap
+		var newHubRole, newStandbyHub string
 		if hubRole, found := agentConfigMap.Data[AgentHubRoleKey]; found && hubRole != "" {
-			agentConfig.HubRole = hubRole
+			newHubRole = hubRole
 			reqLogger.Infof("Updated agent hub role to: %s", hubRole)
-		} else {
-			agentConfig.HubRole = ""
 		}
-
 		if standbyHub, found := agentConfigMap.Data["standbyHub"]; found && standbyHub != "" {
-			agentConfig.StandbyHub = standbyHub
+			newStandbyHub = standbyHub
 			reqLogger.Infof("Updated agent standby hub to: %s", standbyHub)
-		} else {
-			agentConfig.StandbyHub = ""
 		}
 
-		// Dynamic Hub HA syncer management: restart syncer when role changes to/from active
-		if previousHubRole != agentConfig.HubRole {
-			reqLogger.Infow("Hub role changed, restarting Hub HA syncer",
+		// Atomically update both fields and get previous values
+		previousHubRole, previousStandbyHub := agentConfig.UpdateHubRoleAndStandbyHub(newHubRole, newStandbyHub)
+
+		// Dynamic Hub HA syncer management: restart syncer when:
+		// 1. Hub role changes to/from active
+		// 2. Hub is active and standby hub target changes
+		roleChanged := previousHubRole != newHubRole
+		standbyChanged := previousStandbyHub != newStandbyHub
+		isActiveRole := newHubRole == constants.GHHubRoleActive || previousHubRole == constants.GHHubRoleActive
+
+		if (roleChanged || standbyChanged) && isActiveRole {
+			reqLogger.Infow("Hub HA configuration changed, restarting syncer",
 				"previousRole", previousHubRole,
-				"newRole", agentConfig.HubRole)
-			c.restartHubHASyncer(ctx, reqLogger)
+				"newRole", newHubRole,
+				"previousStandbyHub", previousStandbyHub,
+				"newStandbyHub", newStandbyHub)
+			c.restartHubHASyncer(reqLogger)
 		}
 	}
 
@@ -150,7 +159,7 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 }
 
 // restartHubHASyncer stops any existing Hub HA syncer and starts a new one if role is active
-func (c *hubOfHubsConfigController) restartHubHASyncer(ctx context.Context, log *zap.SugaredLogger) {
+func (c *hubOfHubsConfigController) restartHubHASyncer(log *zap.SugaredLogger) {
 	if hubHASyncerManager == nil {
 		log.Warn("Hub HA syncer manager not initialized, cannot restart syncer")
 		return
@@ -168,21 +177,26 @@ func (c *hubOfHubsConfigController) restartHubHASyncer(ctx context.Context, log 
 
 	// Start new syncer if role is active
 	agentConfig := configs.GetAgentConfig()
-	if agentConfig != nil && agentConfig.HubRole == constants.GHHubRoleActive {
-		log.Infow("Starting Hub HA active syncer",
-			"hubRole", agentConfig.HubRole,
-			"standbyHub", agentConfig.StandbyHub)
+	if agentConfig != nil {
+		hubRole, standbyHub := agentConfig.GetHubRoleAndStandbyHub()
+		if hubRole == constants.GHHubRoleActive {
+			log.Infow("Starting Hub HA active syncer",
+				"hubRole", hubRole,
+				"standbyHub", standbyHub)
 
-		// Create cancellable context for the syncer
-		syncerCtx, cancel := context.WithCancel(ctx)
-		hubHASyncerManager.cancel = cancel
+			// Create cancellable context for the syncer from the manager-level context
+			// Do NOT use the reconcile ctx parameter as it is request-scoped and will be
+			// cancelled when reconciliation completes, terminating the long-lived syncer
+			syncerCtx, cancel := context.WithCancel(hubHASyncerManager.ctx)
+			hubHASyncerManager.cancel = cancel
 
-		// Start the syncer using the provided start function
-		go func() {
-			if err := hubHASyncerManager.startFunc(syncerCtx, hubHASyncerManager.mgr, hubHASyncerManager.producer); err != nil {
-				log.Errorw("Failed to start Hub HA active syncer", "error", err)
-			}
-		}()
+			// Start the syncer using the provided start function
+			go func() {
+				if err := hubHASyncerManager.startFunc(syncerCtx, hubHASyncerManager.mgr, hubHASyncerManager.producer); err != nil {
+					log.Errorw("Failed to start Hub HA active syncer", "error", err)
+				}
+			}()
+		}
 	}
 }
 

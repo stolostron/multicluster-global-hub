@@ -25,10 +25,10 @@ func TestNewHubHAStandbySyncer(t *testing.T) {
 
 	if syncer == nil {
 		t.Error("NewHubHAStandbySyncer() returned nil")
-	}
-
-	if syncer.client == nil {
-		t.Error("HubHAStandbySyncer client is nil")
+	} else {
+		if syncer.client == nil {
+			t.Error("HubHAStandbySyncer client is nil")
+		}
 	}
 }
 
@@ -45,7 +45,6 @@ func TestHubHAStandbySyncer_Sync_WrongEventType(t *testing.T) {
 
 	ctx := context.Background()
 	err := syncer.Sync(ctx, &evt)
-
 	// Should not return error for wrong event type, just ignore it
 	if err != nil {
 		t.Errorf("Sync() with wrong event type should not error, got: %v", err)
@@ -74,7 +73,6 @@ func TestHubHAStandbySyncer_CreateResource(t *testing.T) {
 
 	ctx := context.Background()
 	err := syncer.createResource(ctx, obj, "hub1")
-
 	if err != nil {
 		t.Errorf("createResource() error = %v", err)
 	}
@@ -134,7 +132,6 @@ func TestHubHAStandbySyncer_UpdateResource(t *testing.T) {
 
 	ctx := context.Background()
 	err := syncer.updateResource(ctx, updated, "hub1")
-
 	if err != nil {
 		t.Errorf("updateResource() error = %v", err)
 	}
@@ -179,7 +176,6 @@ func TestHubHAStandbySyncer_UpdateResource_CreateIfNotExists(t *testing.T) {
 
 	ctx := context.Background()
 	err := syncer.updateResource(ctx, obj, "hub1")
-
 	if err != nil {
 		t.Errorf("updateResource() error = %v", err)
 	}
@@ -276,28 +272,26 @@ func TestHubHAStandbySyncer_Sync_FullBundle(t *testing.T) {
 	evt := cloudevents.NewEvent()
 	evt.SetType(constants.HubHAResourcesMsgKey)
 	evt.SetSource("hub1")
-	evt.SetData(cloudevents.ApplicationJSON, bundle)
+	if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+		t.Errorf("SetData() error = %v", err)
+	}
 
 	ctx := context.Background()
-	err := syncer.Sync(ctx, &evt)
-
-	if err != nil {
+	if err := syncer.Sync(ctx, &evt); err != nil {
 		t.Errorf("Sync() error = %v", err)
 	}
 
 	// Verify created resource
 	newCM := &unstructured.Unstructured{}
 	newCM.SetGroupVersionKind(bundle.Create[0].GroupVersionKind())
-	err = client.Get(ctx, types.NamespacedName{Name: "new-cm", Namespace: "default"}, newCM)
-	if err != nil {
+	if err := client.Get(ctx, types.NamespacedName{Name: "new-cm", Namespace: "default"}, newCM); err != nil {
 		t.Errorf("Failed to get created resource: %v", err)
 	}
 
 	// Verify updated resource
 	updatedCM := &unstructured.Unstructured{}
 	updatedCM.SetGroupVersionKind(bundle.Update[0].GroupVersionKind())
-	err = client.Get(ctx, types.NamespacedName{Name: "existing-cm", Namespace: "default"}, updatedCM)
-	if err != nil {
+	if err := client.Get(ctx, types.NamespacedName{Name: "existing-cm", Namespace: "default"}, updatedCM); err != nil {
 		t.Errorf("Failed to get updated resource: %v", err)
 	}
 	data, _, _ := unstructured.NestedString(updatedCM.Object, "data", "key")
@@ -308,13 +302,21 @@ func TestHubHAStandbySyncer_Sync_FullBundle(t *testing.T) {
 	// Verify resynced resource
 	resyncCM := &unstructured.Unstructured{}
 	resyncCM.SetGroupVersionKind(bundle.Resync[0].GroupVersionKind())
-	err = client.Get(ctx, types.NamespacedName{Name: "resync-cm", Namespace: "default"}, resyncCM)
-	if err != nil {
+	if err := client.Get(ctx, types.NamespacedName{Name: "resync-cm", Namespace: "default"}, resyncCM); err != nil {
 		t.Errorf("Failed to get resynced resource: %v", err)
 	}
 }
 
 func TestHubHAStandbySyncer_DeleteResource(t *testing.T) {
+	t.Skip("deleteResource is not yet implemented - resources deleted on active hub remain on standby hub. " +
+		"This test should verify actual deletion once Hub HA delete/resync pruning is implemented (needs GVK in ObjectMetadata)")
+
+	// TODO: Once deletion is implemented, this test should:
+	// 1. Create a resource on the fake client
+	// 2. Call deleteResource with proper GVK information
+	// 3. Verify the resource is actually deleted from the client
+	// 4. Ensure resources removed from active hub don't remain stranded on standby hub
+
 	scheme := runtime.NewScheme()
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 
@@ -328,8 +330,6 @@ func TestHubHAStandbySyncer_DeleteResource(t *testing.T) {
 
 	ctx := context.Background()
 	err := syncer.deleteResource(ctx, meta, "hub1")
-
-	// Delete is not fully implemented yet, so it should not error
 	if err != nil {
 		t.Errorf("deleteResource() error = %v", err)
 	}

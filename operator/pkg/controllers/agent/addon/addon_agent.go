@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	addonoperatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -242,7 +243,12 @@ func (a *GlobalHubAddonAgent) findStandbyHub() (string, error) {
 		return constants.LocalClusterName, nil
 	}
 
-	// More than one standby hub found - this shouldn't happen
-	log.Warnw("multiple standby hubs found, using first one", "count", len(managedClusterList.Items))
-	return managedClusterList.Items[0].Name, nil
+	// More than one standby hub found - this is a configuration error
+	// Return error instead of picking arbitrary first item since LIST order is unstable
+	hubNames := make([]string, len(managedClusterList.Items))
+	for i, hub := range managedClusterList.Items {
+		hubNames[i] = hub.Name
+	}
+	return "", fmt.Errorf("multiple standby hubs found (%d): %v - only one standby hub is allowed in Hub HA configuration",
+		len(managedClusterList.Items), hubNames)
 }

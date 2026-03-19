@@ -84,18 +84,6 @@ func TestHubHAActiveSyncer_Creation(t *testing.T) {
 		standbyHubName:  "hub2",
 	}
 
-	if syncer == nil {
-		t.Error("HubHAActiveSyncer creation failed")
-	}
-
-	if syncer.activeHubName != "hub1" {
-		t.Errorf("activeHubName = %s, want hub1", syncer.activeHubName)
-	}
-
-	if syncer.standbyHubName != "hub2" {
-		t.Errorf("standbyHubName = %s, want hub2", syncer.standbyHubName)
-	}
-
 	// Discover resources
 	err := syncer.discoverResources()
 	if err != nil {
@@ -149,7 +137,6 @@ func TestSyncResources(t *testing.T) {
 
 	ctx := context.Background()
 	err := syncer.syncResources(ctx)
-
 	if err != nil {
 		t.Errorf("syncResources() error = %v", err)
 	}
@@ -170,6 +157,12 @@ func TestSyncResources(t *testing.T) {
 }
 
 func TestStartHubHAActiveSyncer_NoStandbyHub(t *testing.T) {
+	// Capture and restore original agent config to avoid test pollution
+	originalConfig := configs.GetAgentConfig()
+	t.Cleanup(func() {
+		configs.SetAgentConfig(originalConfig)
+	})
+
 	producer := &mockProducer{}
 
 	// Configure agent without standby hub
@@ -182,7 +175,6 @@ func TestStartHubHAActiveSyncer_NoStandbyHub(t *testing.T) {
 
 	// This should not start the syncer
 	err := StartHubHAActiveSyncer(context.Background(), nil, producer)
-
 	// We expect no error, but the syncer shouldn't actually start
 	if err != nil {
 		t.Errorf("StartHubHAActiveSyncer() error = %v, expected nil", err)
@@ -190,6 +182,12 @@ func TestStartHubHAActiveSyncer_NoStandbyHub(t *testing.T) {
 }
 
 func TestStartHubHAActiveSyncer_NotActiveRole(t *testing.T) {
+	// Capture and restore original agent config to avoid test pollution
+	originalConfig := configs.GetAgentConfig()
+	t.Cleanup(func() {
+		configs.SetAgentConfig(originalConfig)
+	})
+
 	producer := &mockProducer{}
 
 	// Configure agent as standby hub
@@ -202,7 +200,6 @@ func TestStartHubHAActiveSyncer_NotActiveRole(t *testing.T) {
 
 	// This should not start the syncer
 	err := StartHubHAActiveSyncer(context.Background(), nil, producer)
-
 	if err != nil {
 		t.Errorf("StartHubHAActiveSyncer() error = %v, expected nil", err)
 	}

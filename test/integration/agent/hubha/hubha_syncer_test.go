@@ -5,6 +5,7 @@ package hubha
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -25,6 +26,7 @@ import (
 // mockProducer captures events sent by active syncer
 type mockProducer struct {
 	events chan cloudevents.Event
+	closed atomic.Bool
 }
 
 func newMockProducer() *mockProducer {
@@ -34,15 +36,22 @@ func newMockProducer() *mockProducer {
 }
 
 func (m *mockProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	if m.closed.Load() {
+		return nil // or return an error
+	}
+
 	select {
 	case m.events <- evt:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	default:
+		return nil // Channel full, ignore
 	}
 }
 
 func (m *mockProducer) Stop() {
+	m.closed.Store(true)
 	close(m.events)
 }
 
@@ -54,10 +63,13 @@ var _ = Describe("Hub HA Active Syncer Integration", func() {
 	var (
 		testNamespace = "default"
 		producer      *mockProducer
+		ctx           context.Context
+		cancel        context.CancelFunc
 	)
 
 	BeforeEach(func() {
 		producer = newMockProducer()
+		ctx, cancel = context.WithCancel(context.Background())
 
 		// Configure agent as active hub
 		agentConfig := &agentconfigs.AgentConfig{
@@ -70,14 +82,16 @@ var _ = Describe("Hub HA Active Syncer Integration", func() {
 	})
 
 	AfterEach(func() {
+		if cancel != nil {
+			cancel()
+		}
+
 		if producer != nil {
 			producer.Stop()
 		}
 	})
 
 	It("should collect and send ConfigMaps to standby hub", func() {
-		ctx := context.Background()
-
 		// Create test ConfigMap with required label
 		cm := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -213,6 +227,20 @@ var _ = Describe("Hub HA Active Syncer Integration", func() {
 				"spec": map[string]interface{}{
 					"remediationAction": "inform",
 					"disabled":          false,
+					"policy-templates": []interface{}{
+						map[string]interface{}{
+							"objectDefinition": map[string]interface{}{
+								"apiVersion": "policy.open-cluster-management.io/v1",
+								"kind":       "ConfigurationPolicy",
+								"metadata": map[string]interface{}{
+									"name": "active-config-policy",
+								},
+								"spec": map[string]interface{}{
+									"severity": "low",
+								},
+							},
+						},
+					},
 				},
 			},
 		}
@@ -306,6 +334,20 @@ var _ = Describe("Hub HA Active Syncer Integration", func() {
 				"spec": map[string]interface{}{
 					"remediationAction": "enforce",
 					"disabled":          false,
+					"policy-templates": []interface{}{
+						map[string]interface{}{
+							"objectDefinition": map[string]interface{}{
+								"apiVersion": "policy.open-cluster-management.io/v1",
+								"kind":       "ConfigurationPolicy",
+								"metadata": map[string]interface{}{
+									"name": "bundle-config-policy",
+								},
+								"spec": map[string]interface{}{
+									"severity": "low",
+								},
+							},
+						},
+					},
 				},
 			},
 		}
@@ -426,10 +468,11 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 		evt := cloudevents.NewEvent()
 		evt.SetType(constants.HubHAResourcesMsgKey)
 		evt.SetSource("hub1")
-		evt.SetData(cloudevents.ApplicationJSON, bundle)
+		err := evt.SetData(cloudevents.ApplicationJSON, bundle)
+		Expect(err).NotTo(HaveOccurred())
 
 		// Process event
-		err := syncer.Sync(ctx, &evt)
+		err = syncer.Sync(ctx, &evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify ConfigMap was created
@@ -487,10 +530,11 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 		evt := cloudevents.NewEvent()
 		evt.SetType(constants.HubHAResourcesMsgKey)
 		evt.SetSource("hub1")
-		evt.SetData(cloudevents.ApplicationJSON, bundle)
+		err := evt.SetData(cloudevents.ApplicationJSON, bundle)
+		Expect(err).NotTo(HaveOccurred())
 
 		// Process event
-		err := syncer.Sync(ctx, &evt)
+		err = syncer.Sync(ctx, &evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify Policy was created
@@ -548,10 +592,11 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 		evt := cloudevents.NewEvent()
 		evt.SetType(constants.HubHAResourcesMsgKey)
 		evt.SetSource("hub1")
-		evt.SetData(cloudevents.ApplicationJSON, bundle)
+		err := evt.SetData(cloudevents.ApplicationJSON, bundle)
+		Expect(err).NotTo(HaveOccurred())
 
 		// Process event
-		err := syncer.Sync(ctx, &evt)
+		err = syncer.Sync(ctx, &evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify Placement was created
@@ -607,10 +652,11 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 		evt := cloudevents.NewEvent()
 		evt.SetType(constants.HubHAResourcesMsgKey)
 		evt.SetSource("hub1")
-		evt.SetData(cloudevents.ApplicationJSON, bundle)
+		err := evt.SetData(cloudevents.ApplicationJSON, bundle)
+		Expect(err).NotTo(HaveOccurred())
 
 		// Process event
-		err := syncer.Sync(ctx, &evt)
+		err = syncer.Sync(ctx, &evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify PlacementBinding was created
@@ -662,6 +708,20 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 					"spec": map[string]interface{}{
 						"remediationAction": "enforce",
 						"disabled":          false,
+						"policy-templates": []interface{}{
+							map[string]interface{}{
+								"objectDefinition": map[string]interface{}{
+									"apiVersion": "policy.open-cluster-management.io/v1",
+									"kind":       "ConfigurationPolicy",
+									"metadata": map[string]interface{}{
+										"name": "multi-config-policy",
+									},
+									"spec": map[string]interface{}{
+										"severity": "low",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -684,10 +744,11 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 		evt := cloudevents.NewEvent()
 		evt.SetType(constants.HubHAResourcesMsgKey)
 		evt.SetSource("hub1")
-		evt.SetData(cloudevents.ApplicationJSON, bundle)
+		err := evt.SetData(cloudevents.ApplicationJSON, bundle)
+		Expect(err).NotTo(HaveOccurred())
 
 		// Process event
-		err := syncer.Sync(ctx, &evt)
+		err = syncer.Sync(ctx, &evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify all resources were created
@@ -762,10 +823,11 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 		evt := cloudevents.NewEvent()
 		evt.SetType(constants.HubHAResourcesMsgKey)
 		evt.SetSource("hub1")
-		evt.SetData(cloudevents.ApplicationJSON, bundle)
+		err := evt.SetData(cloudevents.ApplicationJSON, bundle)
+		Expect(err).NotTo(HaveOccurred())
 
 		// Process event
-		err := syncer.Sync(ctx, &evt)
+		err = syncer.Sync(ctx, &evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify ConfigMap was updated

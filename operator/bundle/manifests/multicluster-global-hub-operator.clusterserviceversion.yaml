@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2026-03-23T14:41:21Z"
+    createdAt: "2026-03-24T12:04:38Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -353,6 +353,84 @@ spec:
           verbs:
           - get
           - list
+          - watch
+        - apiGroups:
+          - cluster.open-cluster-management.io
+          resources:
+          - managedclusters
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - addon.open-cluster-management.io
+          - apps.open-cluster-management.io
+          - authentication.open-cluster-management.io
+          - cluster.open-cluster-management.io
+          - config.open-cluster-management.io
+          - console.open-cluster-management.io
+          - discovery.open-cluster-management.io
+          - global-hub.open-cluster-management.io
+          - imageregistry.open-cluster-management.io
+          - inventory.open-cluster-management.io
+          - multicluster.openshift.io
+          - observability.open-cluster-management.io
+          - policy.open-cluster-management.io
+          - rbac.open-cluster-management.io
+          - register.open-cluster-management.io
+          - siteconfig.open-cluster-management.io
+          - submarineraddon.open-cluster-management.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - hive.openshift.io
+          - extensions.hive.openshift.io
+          - hiveinternal.openshift.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - argoproj.io
+          - app.k8s.io
+          - core.observatorium.io
+          - agent-install.openshift.io
+          - capi-provider.agent-install.openshift.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - metal3.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - ""

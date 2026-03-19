@@ -20,13 +20,13 @@ var addToMgr = false
 type genericDispatcher struct {
 	log         *zap.SugaredLogger
 	consumer    transport.Consumer
-	agentConfig configs.AgentConfig
+	agentConfig *configs.AgentConfig
 	syncers     map[string]Syncer
 	mu          sync.RWMutex
 	wg          sync.WaitGroup // Track in-flight syncer goroutines for graceful shutdown
 }
 
-func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config configs.AgentConfig,
+func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config *configs.AgentConfig,
 ) (Dispatcher, error) {
 	if addToMgr {
 		return nil, nil

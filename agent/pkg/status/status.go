@@ -46,7 +46,9 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 ) error {
 	// Initialize Hub HA syncer manager for dynamic syncer lifecycle management
 	// This allows the configmap controller to start/stop the Hub HA syncer when hubRole changes
-	configmap.SetHubHASyncerManager(mgr, producer, hubha.StartHubHAActiveSyncer)
+	// The configmap controller will start the syncer on initial reconciliation if hub is active
+	// Pass the manager-level context for long-lived syncer goroutines
+	configmap.SetHubHASyncerManager(ctx, mgr, producer, hubha.StartHubHAActiveSyncer)
 
 	// start periodic syncer
 	periodicSyncer, err := generic.AddPeriodicSyncer(mgr)
@@ -58,11 +60,9 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 		return fmt.Errorf("failed to launch managedcluster syncer: %w", err)
 	}
 
-	// Hub HA active syncer (only for active hubs - sends to standby via spec topic)
-	// This initial call starts the syncer if hubRole is already set to "active" at startup
-	if err := hubha.StartHubHAActiveSyncer(ctx, mgr, producer); err != nil {
-		return fmt.Errorf("failed to start Hub HA active syncer: %w", err)
-	}
+	// Hub HA active syncer lifecycle is now fully managed by the configmap controller
+	// It will start/stop the syncer based on hub role changes in the configmap
+	// No boot-time direct call to avoid creating untracked syncer instances
 
 	// event syncer
 	err = events.AddEventSyncer(ctx, mgr, producer, periodicSyncer)

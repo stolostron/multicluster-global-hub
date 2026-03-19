@@ -12,48 +12,29 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	agentconfigs "github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var _ = Describe("Hub HA Dynamic Syncer Lifecycle", func() {
 	var (
 		agentNamespace = constants.GHAgentNamespace
 		configMapName  = constants.GHAgentConfigCMName
-		producer       *mockProducer
 	)
 
 	BeforeEach(func() {
-		producer = newMockProducer()
-
-		// Initialize agent config
+		// Initialize agent config for each test
 		agentConfig := &agentconfigs.AgentConfig{
 			LeafHubName:     "hub1",
 			PodNamespace:    agentNamespace,
 			TransportConfig: transportConfig,
 		}
 		agentconfigs.SetAgentConfig(agentConfig)
-
-		// Set up syncer manager
-		configmap.SetHubHASyncerManager(mgr, producer, func(ctx context.Context, m ctrl.Manager, prod transport.Producer) error {
-			// Mock start function for testing
-			return nil
-		})
-
-		// Create controller
-		err := configmap.AddConfigMapController(mgr, agentConfig)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		if producer != nil {
-			producer.Stop()
-		}
-
 		// Clean up configmap
 		cm := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -86,12 +67,12 @@ var _ = Describe("Hub HA Dynamic Syncer Lifecycle", func() {
 			if config == nil {
 				return ""
 			}
-			return config.HubRole
+			return config.GetHubRole()
 		}, 10*time.Second, 500*time.Millisecond).Should(Equal(constants.GHHubRoleActive))
 
 		// Verify standby hub is also set
 		config := agentconfigs.GetAgentConfig()
-		Expect(config.StandbyHub).To(Equal("hub2"))
+		Expect(config.GetStandbyHub()).To(Equal("hub2"))
 
 		// Update configmap to standby role
 		Eventually(func() error {
@@ -114,7 +95,7 @@ var _ = Describe("Hub HA Dynamic Syncer Lifecycle", func() {
 			if config == nil {
 				return ""
 			}
-			return config.HubRole
+			return config.GetHubRole()
 		}, 10*time.Second, 500*time.Millisecond).Should(Equal(constants.GHHubRoleStandby))
 	})
 
@@ -140,7 +121,7 @@ var _ = Describe("Hub HA Dynamic Syncer Lifecycle", func() {
 			if config == nil {
 				return ""
 			}
-			return config.HubRole
+			return config.GetHubRole()
 		}, 10*time.Second, 500*time.Millisecond).Should(Equal(constants.GHHubRoleActive))
 
 		// Remove hub role from configmap
@@ -165,7 +146,7 @@ var _ = Describe("Hub HA Dynamic Syncer Lifecycle", func() {
 			if config == nil {
 				return ""
 			}
-			return config.HubRole
+			return config.GetHubRole()
 		}, 10*time.Second, 500*time.Millisecond).Should(Equal(""))
 	})
 
@@ -196,6 +177,59 @@ var _ = Describe("Hub HA Dynamic Syncer Lifecycle", func() {
 			Namespace: agentNamespace,
 		}, currentCM)
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should restart syncer when standby hub changes for active hub", func() {
+		ctx := context.Background()
+
+		// Create configmap with active hub role and initial standby hub
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      configMapName,
+				Namespace: agentNamespace,
+			},
+			Data: map[string]string{
+				configmap.AgentHubRoleKey: constants.GHHubRoleActive,
+				"standbyHub":              "hub2",
+			},
+		}
+		Expect(k8sClient.Create(ctx, cm)).To(Succeed())
+
+		// Wait for agent config to be updated with initial standby hub
+		Eventually(func() string {
+			config := agentconfigs.GetAgentConfig()
+			if config == nil {
+				return ""
+			}
+			return config.GetStandbyHub()
+		}, 10*time.Second, 500*time.Millisecond).Should(Equal("hub2"))
+
+		// Change the standby hub to hub3
+		Eventually(func() error {
+			currentCM := &corev1.ConfigMap{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      configMapName,
+				Namespace: agentNamespace,
+			}, currentCM)
+			if err != nil {
+				return err
+			}
+
+			currentCM.Data["standbyHub"] = "hub3"
+			return k8sClient.Update(ctx, currentCM)
+		}, 5*time.Second, 500*time.Millisecond).Should(Succeed())
+
+		// Wait for agent config to reflect the change
+		Eventually(func() string {
+			config := agentconfigs.GetAgentConfig()
+			if config == nil {
+				return ""
+			}
+			return config.GetStandbyHub()
+		}, 10*time.Second, 500*time.Millisecond).Should(Equal("hub3"))
+
+		// Cleanup
+		Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
 	})
 })
 

@@ -6,10 +6,10 @@ package hubha
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,12 +47,19 @@ type HubHAActiveSyncer struct {
 func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Producer) error {
 	// Only start if this is an active hub with a configured standby
 	agentConfig := configs.GetAgentConfig()
-	if agentConfig == nil || agentConfig.HubRole != constants.GHHubRoleActive {
+	if agentConfig == nil {
+		log.Info("Hub HA active syncer not started - agent config is nil")
+		return nil
+	}
+
+	// Get hub role and standby hub atomically
+	hubRole, standbyHub := agentConfig.GetHubRoleAndStandbyHub()
+	if hubRole != constants.GHHubRoleActive {
 		log.Info("Hub HA active syncer not started - this is not an active hub")
 		return nil
 	}
 
-	if agentConfig.StandbyHub == "" {
+	if standbyHub == "" {
 		log.Warn("Hub HA active syncer not started - no standby hub configured")
 		return nil
 	}
@@ -62,7 +69,7 @@ func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer tran
 		producer:        producer,
 		transportConfig: agentConfig.TransportConfig,
 		activeHubName:   agentConfig.LeafHubName,
-		standbyHubName:  agentConfig.StandbyHub,
+		standbyHubName:  standbyHub,
 	}
 
 	log.Infof("starting Hub HA active syncer: %s (active) -> %s (standby)",
@@ -261,6 +268,7 @@ func (s *HubHAActiveSyncer) periodicSync(ctx context.Context) {
 func (s *HubHAActiveSyncer) syncResources(ctx context.Context) error {
 	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
 	resourceCount := 0
+	var firstListErr error
 
 	for _, gvk := range s.resourcesToSync {
 		list := &unstructured.UnstructuredList{}
@@ -272,14 +280,14 @@ func (s *HubHAActiveSyncer) syncResources(ctx context.Context) error {
 
 		if err := s.client.List(ctx, list); err != nil {
 			// If CRD doesn't exist (expected for some resources), log at debug level
-			errMsg := err.Error()
-			if strings.Contains(errMsg, "no matches for kind") ||
-				strings.Contains(errMsg, "could not find the requested resource") ||
-				strings.Contains(errMsg, "the server doesn't have a resource type") {
+			if meta.IsNoMatchError(err) {
 				log.Debugf("CRD not installed for %s, skipping", gvk.String())
 			} else {
 				// Real error (permissions, API server issue, etc.)
 				log.Warnf("failed to list resources for %s: %v", gvk.String(), err)
+				if firstListErr == nil {
+					firstListErr = fmt.Errorf("failed to list %s: %w", gvk.String(), err)
+				}
 			}
 			continue
 		}
@@ -302,6 +310,10 @@ func (s *HubHAActiveSyncer) syncResources(ctx context.Context) error {
 			bundle.Resync = append(bundle.Resync, obj)
 			resourceCount++
 		}
+	}
+
+	if firstListErr != nil {
+		return firstListErr
 	}
 
 	if resourceCount == 0 {
