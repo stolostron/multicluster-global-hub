@@ -159,6 +159,27 @@ func (a *GlobalHubAddonAgent) GetValues(cluster *clusterv1.ManagedCluster,
 	manifestsConfig.Tolerations = mgh.Spec.Tolerations
 	manifestsConfig.NodeSelector = mgh.Spec.NodeSelector
 
+	// Set HubRole based on ManagedCluster label
+	hubRole := ""
+	if role, ok := cluster.Labels[constants.GHHubRoleLabelKey]; ok {
+		hubRole = role
+		manifestsConfig.HubRole = role
+	} else {
+		manifestsConfig.HubRole = "" // empty means no HA role
+	}
+
+	// If this is an active hub, find the standby hub
+	manifestsConfig.StandbyHub = ""
+	if hubRole == constants.GHHubRoleActive {
+		standbyHub, err := a.findStandbyHub()
+		if err != nil {
+			log.Warnw("failed to find standby hub for active hub", "cluster", cluster.Name, "error", err)
+			// Don't fail the reconciliation, just log warning
+		} else {
+			manifestsConfig.StandbyHub = standbyHub
+		}
+	}
+
 	if err := setACMPackageConfigs(a.ctx, &manifestsConfig, cluster, a.dynamicClient); err != nil {
 		log.Errorw("failed to set ACM package configs", "error", err)
 		return nil, err
@@ -197,4 +218,31 @@ func (a *GlobalHubAddonAgent) setImagePullSecret(mgh *globalhubv1alpha4.Multiclu
 			imagePullSecret.Data[corev1.DockerConfigJsonKey])
 	}
 	return nil
+}
+
+// findStandbyHub returns the standby hub name
+// If a ManagedCluster has the standby label, return that cluster name
+// If no ManagedCluster has the standby label, return "local-cluster" (local agent is standby)
+func (a *GlobalHubAddonAgent) findStandbyHub() (string, error) {
+	managedClusterList := &clusterv1.ManagedClusterList{}
+	err := a.client.List(a.ctx, managedClusterList, client.MatchingLabels{
+		constants.GHHubRoleLabelKey: constants.GHHubRoleStandby,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	// If exactly one standby hub found, return it
+	if len(managedClusterList.Items) == 1 {
+		return managedClusterList.Items[0].Name, nil
+	}
+
+	// If no standby hub found, local-cluster is the standby
+	if len(managedClusterList.Items) == 0 {
+		return constants.LocalClusterName, nil
+	}
+
+	// More than one standby hub found - this shouldn't happen
+	log.Warnw("multiple standby hubs found, using first one", "count", len(managedClusterList.Items))
+	return managedClusterList.Items[0].Name, nil
 }

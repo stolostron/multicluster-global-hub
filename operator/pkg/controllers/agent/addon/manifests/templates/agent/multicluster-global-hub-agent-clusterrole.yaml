@@ -298,3 +298,78 @@ rules:
   - get
   - watch
   - list
+# Hub HA - Permissions for syncing all Hub HA resources
+# Active hub needs: list/watch to read resources
+# Standby hub needs: create/update/delete/patch to apply resources from active hub
+- apiGroups:
+  - addon.open-cluster-management.io
+  - apps.open-cluster-management.io
+  - authentication.open-cluster-management.io
+  - cluster.open-cluster-management.io
+  - config.open-cluster-management.io
+  - console.open-cluster-management.io
+  - discovery.open-cluster-management.io
+  - global-hub.open-cluster-management.io
+  - imageregistry.open-cluster-management.io
+  - inventory.open-cluster-management.io
+  - multicluster.openshift.io
+  - observability.open-cluster-management.io
+  - policy.open-cluster-management.io
+  - rbac.open-cluster-management.io
+  - register.open-cluster-management.io
+  - siteconfig.open-cluster-management.io
+  - submarineraddon.open-cluster-management.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# Hub HA - Hive resources (core, extensions, and internal)
+- apiGroups:
+  - hive.openshift.io
+  - extensions.hive.openshift.io
+  - hiveinternal.openshift.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# Hub HA - ArgoCD resources
+- apiGroups:
+  - argoproj.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+# Hub HA - Other included resources
+- apiGroups:
+  - app.k8s.io
+  - core.observatorium.io
+  - agent-install.openshift.io
+  - capi-provider.agent-install.openshift.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

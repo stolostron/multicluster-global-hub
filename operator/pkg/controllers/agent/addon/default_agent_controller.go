@@ -409,6 +409,12 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	if val, ok := cluster.Annotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation]; ok {
 		expectedAddonAnnotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation] = val
 	}
+
+	// Hub HA: store hub role in addon annotations to trigger re-rendering when role changes
+	if hubRole, ok := cluster.Labels[constants.GHHubRoleLabelKey]; ok {
+		expectedAddonAnnotations[constants.GHHubRoleLabelKey] = hubRole
+	}
+
 	if len(expectedAddonAnnotations) > 0 {
 		expectedAddon.SetAnnotations(expectedAddonAnnotations)
 	}

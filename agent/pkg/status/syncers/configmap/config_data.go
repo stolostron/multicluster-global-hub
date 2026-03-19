@@ -43,6 +43,7 @@ const (
 	AgentAggregationKey  = "aggregationLevel"
 	EnableLocalPolicyKey = "enableLocalPolicies"
 	AgentLogLevelKey     = "logLevel"
+	AgentHubRoleKey      = "hubRole"
 )
 
 type AgentConfigValue string
@@ -96,6 +97,10 @@ func GetAggregationLevel() AgentConfigValue {
 
 func GetEnableLocalPolicy() AgentConfigValue {
 	return agentConfigs[EnableLocalPolicyKey]
+}
+
+func GetHubRole() AgentConfigValue {
+	return agentConfigs[AgentHubRoleKey]
 }
 
 func GetResyncInterval(eventType enum.EventType) time.Duration {

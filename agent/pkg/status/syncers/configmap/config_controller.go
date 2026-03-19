@@ -3,6 +3,7 @@ package configmap
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -16,15 +17,45 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
 	RequeuePeriod = 5 * time.Second
 )
 
+var (
+	// Hub HA syncer management
+	hubHASyncerManager *HubHASyncerManager
+	hubHASyncerOnce    sync.Once
+)
+
+// HubHASyncerStartFunc is a function type to start the Hub HA active syncer
+type HubHASyncerStartFunc func(context.Context, ctrl.Manager, transport.Producer) error
+
+// HubHASyncerManager manages the Hub HA active syncer lifecycle
+type HubHASyncerManager struct {
+	mgr       ctrl.Manager
+	producer  transport.Producer
+	startFunc HubHASyncerStartFunc
+	cancel    context.CancelFunc
+	mu        sync.Mutex
+}
+
 type hubOfHubsConfigController struct {
 	client client.Client
 	log    *zap.SugaredLogger
+}
+
+// SetHubHASyncerManager initializes the Hub HA syncer manager for dynamic syncer lifecycle management
+func SetHubHASyncerManager(mgr ctrl.Manager, producer transport.Producer, startFunc HubHASyncerStartFunc) {
+	hubHASyncerOnce.Do(func() {
+		hubHASyncerManager = &HubHASyncerManager{
+			mgr:       mgr,
+			producer:  producer,
+			startFunc: startFunc,
+		}
+	})
 }
 
 // AddConfigMapController creates a new instance of config controller and adds it to the manager.
@@ -79,14 +110,80 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 	// Set the agent configs
 	c.setAgentConfig(agentConfigMap, AgentAggregationKey)
 	c.setAgentConfig(agentConfigMap, EnableLocalPolicyKey)
+	c.setAgentConfig(agentConfigMap, AgentHubRoleKey)
 
 	logLevel := agentConfigMap.Data[string(AgentLogLevelKey)]
 	if logLevel != "" {
 		logger.SetLogLevel(logger.LogLevel(logLevel))
 	}
 
+	// Update AgentConfig with hubRole and standbyHub
+	agentConfig := configs.GetAgentConfig()
+	if agentConfig != nil {
+		previousHubRole := agentConfig.HubRole
+
+		if hubRole, found := agentConfigMap.Data[AgentHubRoleKey]; found && hubRole != "" {
+			agentConfig.HubRole = hubRole
+			reqLogger.Infof("Updated agent hub role to: %s", hubRole)
+		} else {
+			agentConfig.HubRole = ""
+		}
+
+		if standbyHub, found := agentConfigMap.Data["standbyHub"]; found && standbyHub != "" {
+			agentConfig.StandbyHub = standbyHub
+			reqLogger.Infof("Updated agent standby hub to: %s", standbyHub)
+		} else {
+			agentConfig.StandbyHub = ""
+		}
+
+		// Dynamic Hub HA syncer management: restart syncer when role changes to/from active
+		if previousHubRole != agentConfig.HubRole {
+			reqLogger.Infow("Hub role changed, restarting Hub HA syncer",
+				"previousRole", previousHubRole,
+				"newRole", agentConfig.HubRole)
+			c.restartHubHASyncer(ctx, reqLogger)
+		}
+	}
+
 	reqLogger.Debug("Reconciliation complete.")
 	return ctrl.Result{}, nil
+}
+
+// restartHubHASyncer stops any existing Hub HA syncer and starts a new one if role is active
+func (c *hubOfHubsConfigController) restartHubHASyncer(ctx context.Context, log *zap.SugaredLogger) {
+	if hubHASyncerManager == nil {
+		log.Warn("Hub HA syncer manager not initialized, cannot restart syncer")
+		return
+	}
+
+	hubHASyncerManager.mu.Lock()
+	defer hubHASyncerManager.mu.Unlock()
+
+	// Stop existing syncer if running
+	if hubHASyncerManager.cancel != nil {
+		log.Info("Stopping existing Hub HA syncer")
+		hubHASyncerManager.cancel()
+		hubHASyncerManager.cancel = nil
+	}
+
+	// Start new syncer if role is active
+	agentConfig := configs.GetAgentConfig()
+	if agentConfig != nil && agentConfig.HubRole == constants.GHHubRoleActive {
+		log.Infow("Starting Hub HA active syncer",
+			"hubRole", agentConfig.HubRole,
+			"standbyHub", agentConfig.StandbyHub)
+
+		// Create cancellable context for the syncer
+		syncerCtx, cancel := context.WithCancel(ctx)
+		hubHASyncerManager.cancel = cancel
+
+		// Start the syncer using the provided start function
+		go func() {
+			if err := hubHASyncerManager.startFunc(syncerCtx, hubHASyncerManager.mgr, hubHASyncerManager.producer); err != nil {
+				log.Errorw("Failed to start Hub HA active syncer", "error", err)
+			}
+		}()
+	}
 }
 
 func (c *hubOfHubsConfigController) setSyncInterval(configMap *corev1.ConfigMap, key string) {

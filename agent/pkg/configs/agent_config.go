@@ -26,6 +26,10 @@ type AgentConfig struct {
 	EnableStackroxIntegration    bool
 	StackroxPollInterval         time.Duration
 	EventMode                    string
+	// HubRole indicates the role of this hub in Hub HA setup: "active", "standby", or empty
+	HubRole string
+	// StandbyHub is the standby hub name (only populated for active hubs)
+	StandbyHub string
 }
 
 func SetAgentConfig(agentConfig *AgentConfig) {

@@ -126,6 +126,10 @@ type ManifestsConfig struct {
 	AggregationLevel        string
 	EnableLocalPolicies     string
 	EventSendMode           string
+	// HubRole indicates the role of this hub in Hub HA setup: "active", "standby", or empty
+	HubRole string
+	// StandbyHub is the standby hub name (only populated for active hubs)
+	StandbyHub string
 }
 
 type Resources struct {

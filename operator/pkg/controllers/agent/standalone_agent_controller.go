@@ -265,6 +265,8 @@ func renderAgentManifests(
 			StackroxPollInterval      time.Duration
 			DeployMode                string
 			EventSendMode             string
+			HubRole                   string
+			StandbyHub                string
 		}{
 			Image:                     config.GetImage(config.GlobalHubAgentImageKey),
 			ImagePullSecret:           imagePullSecret,
@@ -285,6 +287,8 @@ func renderAgentManifests(
 			StackroxPollInterval:      stackroxPollInterval,
 			DeployMode:                deployMode,
 			EventSendMode:             eventSendMode,
+			HubRole:                   constants.GHHubRoleStandby, // Local agent is always standby
+			StandbyHub:                clusterName,                // Standby hub is itself
 		}, nil
 	})
 	if err != nil {

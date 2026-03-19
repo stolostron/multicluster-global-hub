@@ -13,3 +13,5 @@ data:
   aggregationLevel: full
   enableLocalPolicies: "true"
   logLevel: {{.LogLevel}}
+  hubRole: {{.HubRole}}
+  standbyHub: {{.StandbyHub}}
