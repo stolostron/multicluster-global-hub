@@ -118,16 +118,10 @@ func (p *infoRouteHandler) Update(obj client.Object) bool {
 	var newURL string
 	updated := false
 
-	// If no ClusterId, do not send the bundle
-	// Fix bug: https://issues.redhat.com/browse/ACM-25312
-	if p.evtData.ClusterId == "" {
-		log.Infof("no clusterid found, ignore the bundle: %v", obj.GetName())
-		return false
-	}
-
 	if len(route.Spec.Host) != 0 {
 		newURL = "https://" + route.Spec.Host
 	}
+	// Always update the URL values first, then check if we should trigger a send
 	if route.GetName() == constants.OpenShiftConsoleRouteName && p.evtData.ConsoleURL != newURL {
 		p.evtData.ConsoleURL = newURL
 		updated = true
@@ -139,6 +133,13 @@ func (p *infoRouteHandler) Update(obj client.Object) bool {
 	if configs.GetMCHVersion() != p.evtData.MchVersion {
 		p.evtData.MchVersion = configs.GetMCHVersion()
 		updated = true
+	}
+
+	// If no ClusterId, do not trigger send yet (ClusterVersion handler will trigger it)
+	// Fix bug: https://issues.redhat.com/browse/ACM-25312
+	if p.evtData.ClusterId == "" {
+		log.Infof("no clusterid found, skip sending bundle: %v", obj.GetName())
+		return false
 	}
 	return updated
 }
