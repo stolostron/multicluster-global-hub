@@ -307,8 +307,7 @@ rules:
   - get
   - watch
   - list
-# Hub HA - Permissions for syncing all Hub HA resources
-# Active hub needs: list/watch to read resources
+# Hub HA - Permissions for syncing all Hub HA resources to standby hub 
 # Standby hub needs: create/update/delete/patch to apply resources from active hub
 - apiGroups:
   - addon.open-cluster-management.io
@@ -332,10 +331,8 @@ rules:
   - create
   - delete
   - get
-  - list
   - patch
   - update
-  - watch
 # Hub HA - Hive resources (core, extensions, and internal)
 - apiGroups:
   - hive.openshift.io
@@ -347,10 +344,8 @@ rules:
   - create
   - delete
   - get
-  - list
   - patch
   - update
-  - watch
 # Hub HA - ArgoCD resources
 - apiGroups:
   - argoproj.io
@@ -360,10 +355,8 @@ rules:
   - create
   - delete
   - get
-  - list
   - patch
   - update
-  - watch
 # Hub HA - Other included resources
 - apiGroups:
   - app.k8s.io
@@ -376,7 +369,5 @@ rules:
   - create
   - delete
   - get
-  - list
   - patch
   - update
-  - watch

@@ -570,6 +570,7 @@ rules:
   - create
   - delete
   - deletecollection
+  - escalate
   - get
   - list
   - patch
