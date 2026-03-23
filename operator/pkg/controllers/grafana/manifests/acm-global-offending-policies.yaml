@@ -1549,64 +1549,6 @@ data:
           },
           {
             "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "datasource": {
-              "type": "postgres",
-              "uid": "${datasource}"
-            },
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard) \nAND\n  policy_category IS NOT NULL",
-            "description": "Managed cluster policy categories",
-            "hide": 0,
-            "includeAll": true,
-            "label": "Category",
-            "multi": true,
-            "name": "category",
-            "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard) \nAND\n  policy_category IS NOT NULL",
-            "refresh": 2,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 5,
-            "type": "query"
-          },
-          {
-            "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "datasource": {
-              "type": "postgres",
-              "uid": "${datasource}"
-            },
-            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IS NOT NULL",
-            "description": "Managed cluster labels policy controls",
-            "hide": 0,
-            "includeAll": true,
-            "label": "Control",
-            "multi": true,
-            "name": "control",
-            "options": [],
-            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IS NOT NULL",
-            "refresh": 2,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 5,
-            "type": "query"
-          },
-          {
-            "current": {
               "selected": false,
               "text": " in ('NIST SP 800-53') ",
               "value": " in ('NIST SP 800-53') "
@@ -1615,17 +1557,46 @@ data:
               "type": "grafana-postgresql-datasource",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' is null ' end",
+            "definition": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' IS NOT NULL ' end",
             "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "standard_query",
             "options": [],
-            "query": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' is null ' end",
+            "query": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' IS NOT NULL ' end",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
             "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "${datasource}"
+            },
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard ${standard_query:raw}\nAND\n  policy_category IS NOT NULL",
+            "description": "Managed cluster policy categories",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Category",
+            "multi": true,
+            "name": "category",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard ${standard_query:raw}\nAND\n  policy_category IS NOT NULL",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
             "type": "query"
           },
           {
@@ -1638,17 +1609,46 @@ data:
               "type": "grafana-postgresql-datasource",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' is null ' end",
+            "definition": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' IS NOT NULL ' end",
             "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "category_query",
             "options": [],
-            "query": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' is null ' end",
+            "query": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' IS NOT NULL ' end",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
             "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "postgres",
+              "uid": "${datasource}"
+            },
+            "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard ${standard_query:raw}\nAND\n  policy_category ${category_query:raw}\nAND\n  policy_control IS NOT NULL",
+            "description": "Managed cluster labels policy controls",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Control",
+            "multi": true,
+            "name": "control",
+            "options": [],
+            "query": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard ${standard_query:raw}\nAND\n  policy_category ${category_query:raw}\nAND\n  policy_control IS NOT NULL",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 5,
             "type": "query"
           },
           {
@@ -1661,13 +1661,13 @@ data:
               "type": "grafana-postgresql-datasource",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
+            "definition": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' IS NOT NULL ' end",
             "hide": 2,
             "includeAll": false,
             "multi": false,
             "name": "control_query",
             "options": [],
-            "query": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
+            "query": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' IS NOT NULL ' end",
             "refresh": 1,
             "regex": "",
             "skipUrlSync": false,
