@@ -12,7 +12,7 @@ import (
 )
 
 // default: https://github.com/open-cluster-management-io/addon-framework/blob/main/pkg/agent/inteface.go#L213
-func SignerAndCsrConfigurations(cluster *clusterv1.ManagedCluster) []addonapiv1alpha1.RegistrationConfig {
+func SignerAndCsrConfigurations(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn) ([]addonapiv1alpha1.RegistrationConfig, error) {
 	userName := config.GetTransportConfigClientName(cluster.Name)
 	log.Infof("specify the clientName(CN: %s) for managed hub cluster(%s)", userName, cluster.Name)
 	globalHubRegistrationConfig := addonapiv1alpha1.RegistrationConfig{
@@ -23,5 +23,5 @@ func SignerAndCsrConfigurations(cluster *clusterv1.ManagedCluster) []addonapiv1a
 		},
 	}
 	registrationConfigs := []addonapiv1alpha1.RegistrationConfig{globalHubRegistrationConfig}
-	return registrationConfigs
+	return registrationConfigs, nil
 }
