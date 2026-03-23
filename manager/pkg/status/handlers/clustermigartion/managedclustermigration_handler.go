@@ -96,11 +96,13 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		log.Infof("status: set cluster list, id: %s, clusters: %v", migrationId, bundle.ManagedClusters)
 	}
 
-	// Store failed clusters list if this is a failed clusters report (for rollback parallel execution)
+	// Cache the failed clusters so the rollback stage knows which clusters to act on.
+	// This must happen before rollback begins, since rollback runs in parallel.
 	if bundle.FailedClustersReported {
 		migration.SetFailedClusters(migrationId, hubClusterName, stage, bundle.FailedClusters)
 		log.Infof("status: received failed clusters report, id: %s, hub: %s, clusters: %v",
 			migrationId, hubClusterName, bundle.FailedClusters)
+		return nil
 	}
 
 	if bundle.ErrMessage != "" {

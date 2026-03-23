@@ -151,6 +151,17 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	// Read migrationId and stage from CloudEvents extensions
 	receivedMigrationId, receivedStage := extractMigrationExtensions(evt)
+	if receivedMigrationId == "" {
+		return fmt.Errorf("migrationId is required but not provided in event extensions")
+	}
+	if receivedStage == "" {
+		return fmt.Errorf("migrationstage is required but not provided in event extensions")
+	}
+	if evt.Source() != constants.CloudEventGlobalHubClusterName && receivedStage != migrationv1alpha1.PhaseDeploying {
+		err = fmt.Errorf("source-hub migration event must use stage %q, got %q",
+			migrationv1alpha1.PhaseDeploying, receivedStage)
+		return err
+	}
 
 	clusterErrors := map[string]string{}
 	defer func() {
@@ -197,13 +208,6 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			log.Errorf("failed to update latest migration time: %w", err)
 		}
 	}()
-
-	if receivedMigrationId == "" {
-		return fmt.Errorf("migrationId is required but not provided in event extensions")
-	}
-	if receivedStage == "" {
-		return fmt.Errorf("migrationstage is required but not provided in event extensions")
-	}
 
 	// Handle direct deploying events from source hub (not from global hub)
 	if evt.Source() != constants.CloudEventGlobalHubClusterName {
