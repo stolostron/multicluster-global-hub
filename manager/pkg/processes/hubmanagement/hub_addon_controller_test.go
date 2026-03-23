@@ -30,7 +30,7 @@ func (m *mockHubManagement) reactive(ctx context.Context, hubs []models.LeafHubH
 
 func TestManagerClusterAddonReconcile(t *testing.T) {
 	scheme := runtime.NewScheme()
-	err := addonv1alpha1.AddToScheme(scheme)
+	err := addonv1alpha1.Install(scheme)
 	assert.NoError(t, err)
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()

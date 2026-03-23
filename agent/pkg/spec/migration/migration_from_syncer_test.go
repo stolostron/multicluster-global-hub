@@ -52,13 +52,13 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
 	}
-	if err := clusterv1.AddToScheme(scheme); err != nil {
+	if err := clusterv1.Install(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
 	}
-	if err := clusterv1beta1.AddToScheme(scheme); err != nil {
+	if err := clusterv1beta1.Install(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1beta1 to scheme: %v", err)
 	}
-	if err := operatorv1.AddToScheme(scheme); err != nil {
+	if err := operatorv1.Install(scheme); err != nil {
 		t.Fatalf("Failed to add operatorv1 to scheme: %v", err)
 	}
 	if err := klusterletv1alpha1.AddToScheme(scheme); err != nil {
