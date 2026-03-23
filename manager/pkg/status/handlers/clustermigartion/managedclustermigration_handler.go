@@ -54,15 +54,15 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return err
 	}
 
-	clusterName, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyClusterName])
-	if err != nil {
-		log.Error("failed to parse migrationBundle clusterName", "error", err)
-		return err
+	subject := evt.Subject()
+	if subject == "" {
+		log.Error("failed to parse migrationBundle subject")
+		return fmt.Errorf("migration event missing subject")
 	}
 
-	if clusterName != constants.CloudEventGlobalHubClusterName {
-		return fmt.Errorf("expected to get the the clusterName %s, but got %s",
-			constants.CloudEventGlobalHubClusterName, clusterName)
+	if subject != constants.CloudEventGlobalHubClusterName {
+		return fmt.Errorf("expected to get the subject %s, but got %s",
+			constants.CloudEventGlobalHubClusterName, subject)
 	}
 
 	hubClusterName := evt.Source()

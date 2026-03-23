@@ -97,18 +97,18 @@ func GetObjectKey(obj client.Object) string {
 	return obj.GetObjectKind().GroupVersionKind().String()
 }
 
-func ToCloudEvent(evtType, source, clusterName string, data interface{}) cloudevents.Event {
+func ToCloudEvent(evtType, source, subject string, data interface{}) cloudevents.Event {
 	e := cloudevents.NewEvent()
 	e.SetType(evtType)
 	e.SetSource(source)
-	e.SetExtension(constants.CloudEventExtensionKeyClusterName, clusterName)
+	e.SetSubject(subject)
 	_ = e.SetData(cloudevents.ApplicationJSON, data)
 	return e
 }
 
 // ToMigrationEvent constructs a CloudEvent for migration with unified extensions.
 func ToMigrationEvent(
-	evtType, source, clusterName string,
+	evtType, source, subject string,
 	migrationId, stage string,
 	expireAfter time.Duration,
 	data interface{},
@@ -116,7 +116,7 @@ func ToMigrationEvent(
 	e := cloudevents.NewEvent()
 	e.SetType(evtType)
 	e.SetSource(source)
-	e.SetExtension(constants.CloudEventExtensionKeyClusterName, clusterName)
+	e.SetSubject(subject)
 	e.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
 	e.SetExtension(constants.CloudEventExtensionKeyMigrationStage, stage)
 	e.SetExtension(constants.CloudEventExtensionKeyExpireTime, time.Now().Add(expireAfter).Format(time.RFC3339))

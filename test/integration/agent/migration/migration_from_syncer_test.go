@@ -553,7 +553,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			time.Sleep(10 * time.Millisecond)
 
 			By("Creating migration event for non-existent cluster")
-			initEvent := createMigrationFromEvent("error-test-2", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{"non-existent-cluster"})
+			initEvent := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{"non-existent-cluster"})
 			initEvent.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				ToHub:           testToHub,
 				ManagedClusters: []string{"non-existent-cluster"},

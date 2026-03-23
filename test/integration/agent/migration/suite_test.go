@@ -151,7 +151,7 @@ func verifyMigrationEvent(expectedSource, expectedType, expectedCluster, expecte
 	for _, event := range receivedEvents {
 		if event.Source() == expectedSource &&
 			event.Type() == expectedType &&
-			event.Extensions()[constants.CloudEventExtensionKeyClusterName] == expectedCluster {
+			event.Subject() == expectedCluster {
 
 			migrationID, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationId].(string)
 			stage, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationStage].(string)

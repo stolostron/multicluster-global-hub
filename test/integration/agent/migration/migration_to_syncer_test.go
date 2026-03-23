@@ -429,7 +429,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				for _, event := range receivedEvents {
 					if event.Source() == testToHub &&
 						event.Type() == string(enum.ManagedClusterMigrationType) &&
-						event.Extensions()[constants.CloudEventExtensionKeyClusterName] == constants.CloudEventGlobalHubClusterName {
+						event.Subject() == constants.CloudEventGlobalHubClusterName {
 
 						migrationID, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationId].(string)
 						stage, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationStage].(string)

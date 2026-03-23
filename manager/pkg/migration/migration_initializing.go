@@ -206,7 +206,7 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 	migrationId := string(migration.GetUID())
 	eventType := string(enum.ManagedClusterMigrationType)
 	evt := utils.ToMigrationEvent(eventType, constants.CloudEventGlobalHubClusterName, fromHub,
-		migrationId, stage, migratingTimeout, payloadBytes)
+		migrationId, stage, getTimeout(stage), payloadBytes)
 	if err := m.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventGlobalHubClusterName, fromHub, err)

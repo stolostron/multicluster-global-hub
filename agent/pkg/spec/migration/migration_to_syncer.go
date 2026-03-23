@@ -76,15 +76,24 @@ func extractMigrationExtensions(evt *cloudevents.Event) (migrationId, stage stri
 	return migrationId, stage
 }
 
-// shouldSkipMigrationEvent checks if a migration event should be skipped based on cached migration time
-// or expiretime extension.
+// shouldSkipMigrationEvent checks if a migration event should be skipped based on expirytime extension
+// or cached migration time.
 // Returns true if the event should be skipped, false otherwise
 //
 // Skip conditions:
-//  1. If cached: skip if latestMigrationTime is after event time
-//  2. If expiretime extension is set: skip if the event has expired
-//  3. If not cached and no expiretime: skip if event is older than 10 minutes
+//  1. If expirytime extension is set: skip if the event has expired
+//  2. If cached: skip if latestMigrationTime is after event time
+//  3. If not cached and no expirytime: skip if event is older than 10 minutes
 func shouldSkipMigrationEvent(ctx context.Context, client client.Client, evt *cloudevents.Event) (bool, error) {
+	if expireStr, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyExpireTime]); err == nil {
+		if expireTime, err := time.Parse(time.RFC3339, expireStr); err == nil {
+			if time.Now().After(expireTime) {
+				log.Infof("migration event has expired (expirytime=%s), skip processing", expireStr)
+				return true, nil
+			}
+		}
+	}
+
 	cached, latestMigrationTime, err := configs.GetSyncTimeState(ctx, client, migrationStateKey(evt))
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest migration time from configmap: %w", err)
@@ -95,16 +104,6 @@ func shouldSkipMigrationEvent(ctx context.Context, client client.Client, evt *cl
 			return true, nil
 		}
 	} else {
-		// Check expiretime extension first, fallback to hardcoded 10 minutes
-		if expireStr, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyExpireTime]); err == nil {
-			if expireTime, err := time.Parse(time.RFC3339, expireStr); err == nil {
-				if time.Now().After(expireTime) {
-					log.Infof("migration event has expired (expiretime=%s), skip processing", expireStr)
-					return true, nil
-				}
-				return false, nil
-			}
-		}
 		if time.Since(evt.Time()) > 10*time.Minute {
 			log.Infof("latest migration time is not cached, and the event time is 10 minutes ago, skip processing")
 			return true, nil
