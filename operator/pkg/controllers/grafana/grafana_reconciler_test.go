@@ -316,7 +316,7 @@ policies:
 			}
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
-			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
+			kubeClient := fakekube.NewClientset(tt.initObjects...)
 			r := &GrafanaReconciler{
 				client:     fakeClient,
 				kubeClient: kubeClient,
@@ -578,7 +578,7 @@ email = example@redhat.com
 			objs := append(tt.initRoute, tt.initObjects...)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(objs...).Build()
 
-			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
+			kubeClient := fakekube.NewClientset(tt.initObjects...)
 			r := &GrafanaReconciler{
 				client:     fakeClient,
 				kubeClient: kubeClient,

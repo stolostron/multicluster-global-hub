@@ -27,7 +27,7 @@ func TestRollbacking(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = migrationv1alpha1.AddToScheme(scheme)
-	_ = clusterv1.AddToScheme(scheme)
+	_ = clusterv1.Install(scheme)
 	_ = addonv1alpha1.Install(scheme)
 	_ = v1beta1.AddToScheme(scheme)
 

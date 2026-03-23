@@ -58,7 +58,7 @@ func TestIsValidResource(t *testing.T) {
 func TestValidating(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = migrationv1alpha1.AddToScheme(scheme)
-	_ = clusterv1.AddToScheme(scheme)
+	_ = clusterv1.Install(scheme)
 	_ = corev1.AddToScheme(scheme)
 
 	tests := []struct {
@@ -444,7 +444,7 @@ func TestValidatingEdgeCases(t *testing.T) {
 func TestGetAndValidateHubCluster(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, appsv1.AddToScheme(scheme))
-	require.NoError(t, clusterv1.AddToScheme(scheme))
+	require.NoError(t, clusterv1.Install(scheme))
 	require.NoError(t, corev1.AddToScheme(scheme))
 
 	type fields struct {

@@ -299,7 +299,7 @@ func ensureManagedServiceAccount(migrationName, toHub string) error {
 	}
 
 	// the addOn.Status.Namespace can not be updated in to the addon
-	addOn.Spec.InstallNamespace = "open-cluster-management-agent-addon"
+	addOn.Spec.InstallNamespace = "open-cluster-management-agent-addon" //nolint:staticcheck
 	if err := mgr.GetClient().Update(ctx, addOn); err != nil {
 		return fmt.Errorf("failed to update addon status with namespace: %w", err)
 	}

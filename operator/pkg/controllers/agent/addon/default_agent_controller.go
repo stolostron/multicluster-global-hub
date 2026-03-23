@@ -324,9 +324,9 @@ func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context,
 
 		// update
 		if !reflect.DeepEqual(expectedAddon.Annotations, existingAddon.Annotations) ||
-			existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
+			existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace { //nolint:staticcheck
 			existingAddon.SetAnnotations(expectedAddon.Annotations)
-			existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
+			existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace //nolint:staticcheck
 			log.Infow("updating addon", "cluster", cluster.Name, "addon", expectedAddon.Name)
 			if e := r.Update(ctx, existingAddon); e != nil {
 				return e

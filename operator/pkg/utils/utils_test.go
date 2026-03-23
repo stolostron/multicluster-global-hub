@@ -407,7 +407,7 @@ func Test_GetResources(t *testing.T) {
 func TestAnnotateManagedHubCluster(t *testing.T) {
 	s := runtime.NewScheme()
 	_ = corev1.AddToScheme(s)
-	_ = clusterv1.AddToScheme(s)
+	_ = clusterv1.Install(s)
 
 	ctx := context.TODO()
 	initRuntimeObjs := []runtime.Object{}
@@ -416,7 +416,7 @@ func TestAnnotateManagedHubCluster(t *testing.T) {
 		t.Error("should throw the error that no kind is registered for the type v1alpha1.ManagedClusterAddOnList")
 	}
 
-	_ = addonapiv1alpha1.AddToScheme(s)
+	_ = addonapiv1alpha1.Install(s)
 
 	mh_name := "test-mc-annotation"
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{

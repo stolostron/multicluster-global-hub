@@ -79,8 +79,8 @@ func TestManagedHubController_Reconcile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_ = v1alpha4.AddToScheme(scheme.Scheme)
-			_ = clusterv1.AddToScheme(scheme.Scheme)
-			_ = addonapiv1alpha1.AddToScheme(scheme.Scheme)
+			_ = clusterv1.Install(scheme.Scheme)
+			_ = addonapiv1alpha1.Install(scheme.Scheme)
 			var fakeClient client.WithWatch
 			if tt.mghObj == nil {
 				fakeClient = fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects().Build()
@@ -153,8 +153,8 @@ func TestManagedHubController_pruneManagedHubs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_ = clusterv1.AddToScheme(scheme.Scheme)
-			_ = addonapiv1alpha1.AddToScheme(scheme.Scheme)
+			_ = clusterv1.Install(scheme.Scheme)
+			_ = addonapiv1alpha1.Install(scheme.Scheme)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 
 			r := &ManagedHubController{

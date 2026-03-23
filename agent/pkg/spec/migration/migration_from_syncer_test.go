@@ -785,10 +785,10 @@ func (m *ProducerMock) Reconnect(config *transport.TransportInternalConfig, topi
 func TestValidating(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
-	if err := clusterv1beta1.AddToScheme(scheme); err != nil {
+	if err := clusterv1beta1.Install(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1beta1 to scheme: %v", err)
 	}
-	if err := clusterv1.AddToScheme(scheme); err != nil {
+	if err := clusterv1.Install(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
 	}
 
@@ -1003,7 +1003,7 @@ func TestGetClustersFromPlacementDecisions(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 
-	if err := clusterv1beta1.AddToScheme(scheme); err != nil {
+	if err := clusterv1beta1.Install(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1beta1 to scheme: %v", err)
 	}
 
@@ -1109,7 +1109,7 @@ func TestGetClustersFromPlacementDecisions(t *testing.T) {
 func TestValidateSingleCluster(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
-	if err := clusterv1.AddToScheme(scheme); err != nil {
+	if err := clusterv1.Install(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
 	}
 
@@ -1351,7 +1351,7 @@ func TestPrepareUnstructuredResourceForMigration(t *testing.T) {
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add corev1 to scheme: %v", err)
 	}
-	if err := clusterv1.AddToScheme(scheme); err != nil {
+	if err := clusterv1.Install(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
 	}
 
@@ -2925,7 +2925,7 @@ func TestDeleteObservabilityAddon_CleaningPhaseIntegration(t *testing.T) {
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add corev1 to scheme: %v", err)
 	}
-	if err := clusterv1.AddToScheme(scheme); err != nil {
+	if err := clusterv1.Install(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
 	}
 	if err := mchv1.AddToScheme(scheme); err != nil {

@@ -133,9 +133,9 @@ func TestAddonInstaller(t *testing.T) {
 				if err != nil {
 					t.Errorf("failed to reconcile .%v", err)
 				}
-				if addon.Spec.InstallNamespace != constants.GHAgentNamespace {
+				if addon.Spec.InstallNamespace != constants.GHAgentNamespace { //nolint:staticcheck
 					t.Errorf("expected install name %s, but got %s",
-						operatorconstants.GHAgentInstallNamespace, addon.Spec.InstallNamespace)
+						operatorconstants.GHAgentInstallNamespace, addon.Spec.InstallNamespace) //nolint:staticcheck
 				}
 			},
 		},

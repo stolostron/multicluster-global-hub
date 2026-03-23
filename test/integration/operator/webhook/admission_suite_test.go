@@ -89,11 +89,11 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	// add scheme
-	err = clusterv1beta1.AddToScheme(scheme.Scheme)
+	err = clusterv1beta1.Install(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = addonapi.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = clusterv1.AddToScheme(scheme.Scheme)
+	err = clusterv1.Install(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	m, err := manager.New(testEnv.Config, manager.Options{

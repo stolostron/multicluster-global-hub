@@ -38,7 +38,7 @@ import (
 func TestInitializing(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = migrationv1alpha1.AddToScheme(scheme)
-	_ = clusterv1.AddToScheme(scheme)
+	_ = clusterv1.Install(scheme)
 	_ = corev1.AddToScheme(scheme)
 	_ = v1beta1.AddToScheme(scheme)
 
