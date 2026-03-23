@@ -65,10 +65,10 @@ if [[ -d "$OPENSHIFT_RELEASE_PATH" ]]; then
   git remote add upstream https://github.com/openshift/release.git 2>/dev/null || true
 
   # Fetch and update to latest
-  echo "   Updating to latest upstream/master..."
-  if git fetch upstream master; then
-    git checkout master 2>/dev/null || git checkout main 2>/dev/null || true
-    git pull upstream master 2>/dev/null || git pull upstream main 2>/dev/null || true
+  echo "   Updating to latest upstream/main..."
+  if git fetch upstream main; then
+    git checkout main 2>/dev/null || true
+    git pull upstream main 2>/dev/null || true
     echo "   ✅ Updated to latest commit"
   else
     echo "   ⚠️  Failed to update, continuing with existing state" >&2
@@ -78,12 +78,12 @@ else
   PARENT_DIR=$(dirname "$OPENSHIFT_RELEASE_PATH")
   REPO_NAME=$(basename "$OPENSHIFT_RELEASE_PATH")
   cd "$PARENT_DIR"
-  git clone --depth=1 --single-branch --branch master --progress "https://github.com/$GITHUB_USER/release.git" "$REPO_NAME" 2>&1 | grep -E "Receiving|Resolving" || true
+  git clone --depth=1 --single-branch --branch main --progress "https://github.com/$GITHUB_USER/release.git" "$REPO_NAME" 2>&1 | grep -E "Receiving|Resolving" || true
   cd "$REPO_NAME"
   echo "   Adding upstream remote..."
   git remote add upstream https://github.com/openshift/release.git
-  echo "   Fetching upstream master..."
-  git fetch --depth=1 upstream master --progress 2>&1 | grep -E "Receiving|Resolving" || true
+  echo "   Fetching upstream main..."
+  git fetch --depth=1 upstream main --progress 2>&1 | grep -E "Receiving|Resolving" || true
 fi
 
 # Calculate previous release version (ACM_VERSION - 0.01)
@@ -120,7 +120,7 @@ if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
   git checkout "$BRANCH_NAME"
   echo "   ✅ Switched to existing branch $BRANCH_NAME"
 else
-  git checkout -b "$BRANCH_NAME" upstream/master
+  git checkout -b "$BRANCH_NAME" upstream/main
   echo "   ✅ Created branch $BRANCH_NAME"
 fi
 
@@ -364,7 +364,7 @@ PR_HEAD="${GITHUB_USER}:${BRANCH_NAME}"
 EXISTING_PR=$(gh pr list \
   --repo "openshift/release" \
   --head "${PR_HEAD}" \
-  --base master \
+  --base main \
   --state all \
   --json number,url,state \
   --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
@@ -466,7 +466,7 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
         PR_CREATED=true
       else
         # Create new PR
-        echo "   Creating PR to openshift/release:master..."
+        echo "   Creating PR to openshift/release:main..."
 
         # Build PR body based on make jobs success
         if [[ "$MAKE_JOBS_SUCCESS" = true ]]; then
@@ -475,7 +475,7 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
           JOBS_NOTE="4. **Auto-generate job configurations**: Using \`make update\` (⚠️ \`make jobs\` failed - may need manual formatting)"
         fi
 
-        PR_CREATE_OUTPUT=$(gh pr create --base master --head "$PR_HEAD" \
+        PR_CREATE_OUTPUT=$(gh pr create --base main --head "$PR_HEAD" \
           --title "Add ${RELEASE_BRANCH} configuration for multicluster-global-hub" \
           --body "This PR adds ${RELEASE_BRANCH} configuration for the multicluster-global-hub project.
 

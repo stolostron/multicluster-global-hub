@@ -351,20 +351,6 @@ else
   PREV_CATALOG_TAG=""
 fi
 
-# For cleanup PR, we need to find the previous release
-# If CATALOG_BRANCH is the latest, find second-to-latest for cleanup
-if [[ "$LATEST_CATALOG_RELEASE" = "$CATALOG_BRANCH" ]]; then
-  CLEANUP_TARGET_BRANCH=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
-    sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
-  if [[ -n "$CLEANUP_TARGET_BRANCH" && "$CLEANUP_TARGET_BRANCH" != "$CATALOG_BRANCH" ]]; then
-    echo "Cleanup target: $CLEANUP_TARGET_BRANCH (previous release)"
-  else
-    CLEANUP_TARGET_BRANCH=""
-  fi
-else
-  # When creating new catalog, BASE_BRANCH is the cleanup target
-  CLEANUP_TARGET_BRANCH="$BASE_BRANCH"
-fi
 
 echo ""
 
@@ -374,7 +360,6 @@ CHANGES_COMMITTED=false
 PUSHED_TO_ORIGIN=false
 CATALOG_PR_STATUS="$PR_STATUS_NONE"  # none, created, updated, exists, skipped, pushed
 CATALOG_PR_URL=""
-CLEANUP_PR_STATUS="$PR_STATUS_NONE"  # none, created, updated, exists, skipped
 CLEANUP_PR_URL=""
 
 # Check if new release branch already exists on origin (upstream)
@@ -828,131 +813,6 @@ fi
     fi
   fi
 
-# Step 5: Create cleanup PR to remove GitHub Actions from old release
-echo ""
-echo "📍 Step 5: Creating cleanup PR for old release..."
-
-# Only create cleanup PR if there's a cleanup target (not main)
-if [[ "$CLEANUP_TARGET_BRANCH" != "main" && -n "$CLEANUP_TARGET_BRANCH" ]]; then
-  echo "   Checking out previous release: $CLEANUP_TARGET_BRANCH..."
-
-  # Clean any uncommitted changes
-  git reset --hard HEAD 2>/dev/null || true
-  git clean -fd 2>/dev/null || true
-
-  # Checkout old release branch
-  git fetch origin "$CLEANUP_TARGET_BRANCH" 2>/dev/null || true
-  git checkout -B "$CLEANUP_TARGET_BRANCH" "origin/$CLEANUP_TARGET_BRANCH"
-
-  # Check if GitHub Actions workflow exists
-  LABELS_WORKFLOW=".github/workflows/labels.yml"
-
-  if [[ -f "$LABELS_WORKFLOW" ]]; then
-    echo "   Found GitHub Actions workflow in $CLEANUP_TARGET_BRANCH"
-
-    # Use fixed branch name for PR deduplication
-    CLEANUP_BRANCH="cleanup-actions-${CLEANUP_TARGET_BRANCH}"
-
-    # Check if branch already exists locally and delete it
-    if git show-ref --verify --quiet "refs/heads/$CLEANUP_BRANCH"; then
-      git branch -D "$CLEANUP_BRANCH" 2>/dev/null || true
-    fi
-
-    git checkout -b "$CLEANUP_BRANCH"
-
-    # Remove the workflow file
-    git rm "$LABELS_WORKFLOW"
-
-    # Commit the removal
-    CLEANUP_COMMIT_MSG="Remove GitHub Actions workflow from ${CLEANUP_TARGET_BRANCH}
-
-Workflow has been moved to ${CATALOG_BRANCH}.
-This prevents duplicate automation on old release branch."
-
-    git commit --signoff -m "$CLEANUP_COMMIT_MSG"
-    echo "   ✅ Committed workflow removal"
-
-    # Check if cleanup PR already exists (search by title)
-    echo "   Checking for existing cleanup PR..."
-    CLEANUP_PR_TITLE="Remove GitHub Actions from ${CLEANUP_TARGET_BRANCH}"
-
-    EXISTING_CLEANUP_PR=$(gh pr list \
-      --repo "${CATALOG_REPO}" \
-      --base "$CLEANUP_TARGET_BRANCH" \
-      --state open \
-      --search "\"${CLEANUP_PR_TITLE}\" in:title author:${GITHUB_USER}" \
-      --json number,url,headRefName \
-      --jq '.[0] | select(. != null) | "\(.url)|\(.headRefName)"' 2>/dev/null || echo "")
-
-    if [[ -n "$EXISTING_CLEANUP_PR" ]]; then
-      CLEANUP_PR_URL=$(echo "$EXISTING_CLEANUP_PR" | cut -d'|' -f1)
-      EXISTING_BRANCH=$(echo "$EXISTING_CLEANUP_PR" | cut -d'|' -f2)
-
-      echo "   ℹ️  Cleanup PR already exists: $CLEANUP_PR_URL"
-      echo "   Existing branch: ${GITHUB_USER}:${EXISTING_BRANCH}"
-
-      # Always push updates to the existing PR's branch (even if branch name is different)
-      echo "   Pushing updates to existing cleanup PR branch: $EXISTING_BRANCH..."
-      if [[ "$FORK_EXISTS" = false ]]; then
-        echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
-        echo "   Please fork ${CATALOG_REPO} to enable PR creation"
-        CLEANUP_PR_STATUS="$PR_STATUS_EXISTS"
-      elif git push -f fork "$CLEANUP_BRANCH:$EXISTING_BRANCH" 2>&1; then
-        echo "   ✅ Cleanup PR updated with latest changes: $CLEANUP_PR_URL"
-        CLEANUP_PR_STATUS="$PR_STATUS_UPDATED"
-      else
-        echo "   ⚠️  Failed to push updates to fork" >&2
-        CLEANUP_PR_STATUS="$PR_STATUS_EXISTS"
-      fi
-    else
-      # No existing PR, create a new one
-      if [[ "$FORK_EXISTS" = false ]]; then
-        echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
-        echo "   Please fork ${CATALOG_REPO} and run again, or create cleanup PR manually"
-        CLEANUP_PR_STATUS="$PR_STATUS_FAILED"
-      elif git push -f fork "$CLEANUP_BRANCH" 2>&1; then
-        echo "   ✅ Cleanup branch pushed to fork"
-
-        # Create cleanup PR to old release branch
-        CLEANUP_PR_BODY="Remove GitHub Actions workflow from ${CLEANUP_TARGET_BRANCH}
-
-The workflow has been moved to the new release branch \`${CATALOG_BRANCH}\`.
-
-This PR removes the workflow from ${CLEANUP_TARGET_BRANCH} to prevent duplicate automation."
-
-        CLEANUP_PR_OUTPUT=$(gh pr create --base "$CLEANUP_TARGET_BRANCH" --head "${GITHUB_USER}:$CLEANUP_BRANCH" \
-          --title "Remove GitHub Actions from ${CLEANUP_TARGET_BRANCH}" \
-          --body "$CLEANUP_PR_BODY" \
-          --repo "$CATALOG_REPO" 2>&1) || true
-
-        # Check if cleanup PR was successfully created
-        if [[ "$CLEANUP_PR_OUTPUT" =~ ^https:// ]]; then
-          CLEANUP_PR_URL="$CLEANUP_PR_OUTPUT"
-          echo "   ✅ Cleanup PR created: $CLEANUP_PR_URL"
-          CLEANUP_PR_STATUS="$PR_STATUS_CREATED"
-        elif [[ "$CLEANUP_PR_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
-          CLEANUP_PR_URL="${BASH_REMATCH[1]}"
-          echo "   ✅ Cleanup PR created: $CLEANUP_PR_URL"
-          CLEANUP_PR_STATUS="$PR_STATUS_CREATED"
-        else
-          echo "   ⚠️  Failed to create cleanup PR" >&2
-          echo "   Reason: $CLEANUP_PR_OUTPUT"
-          CLEANUP_PR_STATUS="$PR_STATUS_FAILED"
-        fi
-      else
-        echo "   ⚠️  Failed to push cleanup branch" >&2
-        CLEANUP_PR_STATUS="$PR_STATUS_FAILED"
-      fi
-    fi
-  else
-    echo "   ℹ️  No GitHub Actions workflow found in $CLEANUP_TARGET_BRANCH"
-    CLEANUP_PR_STATUS="$PR_STATUS_SKIPPED"
-  fi
-else
-  echo "   ℹ️  No previous release to clean up (cleanup target is $CLEANUP_TARGET_BRANCH)"
-  CLEANUP_PR_STATUS="$PR_STATUS_SKIPPED"
-fi
-
 # Summary
 echo ""
 echo "$SEPARATOR_LINE"
@@ -1024,24 +884,6 @@ case "$CATALOG_PR_STATUS" in
     ;;
 esac
 
-# Cleanup PR status
-case "$CLEANUP_PR_STATUS" in
-  "$PR_STATUS_CREATED")
-    echo "  ✓ Cleanup PR to $CLEANUP_TARGET_BRANCH: Created - ${CLEANUP_PR_URL}"
-    ;;
-  "$PR_STATUS_UPDATED")
-    echo "  ✓ Cleanup PR to $CLEANUP_TARGET_BRANCH: Updated - ${CLEANUP_PR_URL}"
-    ;;
-  "$PR_STATUS_EXISTS")
-    echo "  ✓ Cleanup PR to $CLEANUP_TARGET_BRANCH: Exists (no changes) - ${CLEANUP_PR_URL}"
-    ;;
-  "$PR_STATUS_SKIPPED")
-    echo "  ✓ Cleanup: No GitHub Actions workflow to remove"
-    ;;
-  *)
-    echo "  ⚠️  Cleanup: Unknown status ($CLEANUP_PR_STATUS)" >&2
-    ;;
-esac
 echo ""
 echo "$SEPARATOR_LINE"
 echo "📝 NEXT STEPS"
@@ -1101,26 +943,6 @@ elif [[ "$CATALOG_PR_STATUS" = "$PR_STATUS_CREATED" || "$CATALOG_PR_STATUS" = "$
   echo "   ${CATALOG_PR_URL}"
 fi
 
-# Cleanup PR
-if [[ "$CLEANUP_PR_STATUS" = "$PR_STATUS_CREATED" || "$CLEANUP_PR_STATUS" = "$PR_STATUS_UPDATED" || "$CLEANUP_PR_STATUS" = "$PR_STATUS_EXISTS" ]]; then
-  PR_COUNT=$((PR_COUNT + 1))
-  case "$CLEANUP_PR_STATUS" in
-    "$PR_STATUS_CREATED")
-      echo "${PR_COUNT}. Review and merge cleanup PR to $CLEANUP_TARGET_BRANCH:"
-      ;;
-    "$PR_STATUS_UPDATED")
-      echo "${PR_COUNT}. Review updated cleanup PR to $CLEANUP_TARGET_BRANCH:"
-      ;;
-    "$PR_STATUS_EXISTS")
-      echo "${PR_COUNT}. Review existing cleanup PR to $CLEANUP_TARGET_BRANCH:"
-      ;;
-    *)
-      echo "${PR_COUNT}. Review cleanup PR to $CLEANUP_TARGET_BRANCH (status: $CLEANUP_PR_STATUS):"
-      ;;
-  esac
-  echo "   ${CLEANUP_PR_URL}"
-fi
-
 if [[ $PR_COUNT -gt 0 ]]; then
   echo ""
   echo "After merge: Verify OCP pipelines and catalog images"
@@ -1129,7 +951,7 @@ elif [[ "$CATALOG_PR_STATUS" != "$PR_STATUS_PUSHED" ]]; then
 fi
 echo ""
 echo "$SEPARATOR_LINE"
-if [[ "$CATALOG_PR_STATUS" = "$PR_STATUS_PUSHED" || "$CATALOG_PR_STATUS" = "$PR_STATUS_CREATED" || "$CATALOG_PR_STATUS" = "$PR_STATUS_UPDATED" ]]; then
+if [[ "$CATALOG_PR_STATUS" = "$PR_STATUS_PUSHED" || "$CATALOG_PR_STATUS" = "$PR_STATUS_CREATED" || "$CATALOG_PR_STATUS" = "$PR_STATUS_UPDATED" || "$MAIN_PR_STATUS" = "$PR_STATUS_CREATED" || "$MAIN_PR_STATUS" = "$PR_STATUS_UPDATED" ]]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH ISSUES" >&2
