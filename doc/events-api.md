@@ -367,8 +367,22 @@ The events are Kubernetes events. We collect the cluster life cycle events, incl
 
 #### Send Modes
 The events support two send modes which are indicated by the `sendmode` extension in CloudEvents:
-- **batch**: Multiple related events are grouped into an array in the `data` field. This is useful for sending several events that occur in quick succession together.
+- **batch** (default): Multiple related events are grouped into an array in the `data` field. This is useful for sending several events that occur in quick succession together.
 - **single**: Each event is sent individually with the `data` field containing a single event object instead of an array.
+
+To configure the send mode, add the `global-hub.open-cluster-management.io/event-send-mode` annotation to the `MulticlusterGlobalHub` CR:
+
+```yaml
+apiVersion: operator.open-cluster-management.io/v1alpha4
+kind: MulticlusterGlobalHub
+metadata:
+  name: multiclusterglobalhub
+  namespace: multicluster-global-hub
+  annotations:
+    global-hub.open-cluster-management.io/event-send-mode: "single"
+```
+
+If the annotation is not set, the default mode is `batch`.
 #### Provision
 The events are related to cluster provisioning. These events track the lifecycle of cluster creation jobs. The cluster provisioning lifecycle includes the following stages:
 1. **SuccessfulCreate**: The provisioning job has been created and started
