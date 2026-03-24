@@ -22,6 +22,7 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -186,8 +187,6 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 	bootstrapSecret *corev1.Secret, rollbackStage string,
 ) error {
 	managedClusterMigrationFromEvent := &migrationbundle.MigrationSourceBundle{
-		MigrationId:     string(migration.GetUID()),
-		Stage:           stage,
 		ToHub:           migration.Spec.To,
 		PlacementName:   migration.Spec.IncludedManagedClustersPlacementRef,
 		ManagedClusters: managedClusters,
@@ -204,8 +203,10 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 			managedClusterMigrationFromEvent, err)
 	}
 
-	eventType := constants.MigrationSourceMsgKey
-	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, fromHub, payloadBytes)
+	migrationId := string(migration.GetUID())
+	eventType := string(enum.ManagedClusterMigrationType)
+	evt := utils.ToMigrationEvent(eventType, constants.CloudEventGlobalHubClusterName, fromHub,
+		migrationId, stage, getTimeout(stage), payloadBytes)
 	if err := m.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventGlobalHubClusterName, fromHub, err)

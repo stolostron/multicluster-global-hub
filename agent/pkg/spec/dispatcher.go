@@ -73,18 +73,13 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 		case evt := <-d.consumer.EventChan():
 			d.log.Debugf("get event: %v", evt.Type())
 			// if destination is explicitly specified and does not match, drop bundle
-			clusterNameVal, err := evt.Context.GetExtension(constants.CloudEventExtensionKeyClusterName)
-			if err != nil {
-				d.log.Infow("event dropped due to cluster name retrieval error", "error", err)
+			subject := evt.Subject()
+			if subject == "" {
+				d.log.Infow("event dropped due to missing subject", "type", evt.Type())
 				continue
 			}
-			clusterName, ok := clusterNameVal.(string)
-			if !ok {
-				d.log.Infow("event dropped due to invalid cluster name", "clusterName", clusterNameVal)
-				continue
-			}
-			if clusterName != transport.Broadcast && clusterName != d.agentConfig.LeafHubName {
-				// d.log.Infow("event dropped due to cluster name mismatch", "clusterName", clusterName)
+			if subject != transport.Broadcast && subject != d.agentConfig.LeafHubName {
+				d.log.Infow("event dropped due to subject mismatch", "type", evt.Type(), "subject", subject)
 				continue
 			}
 			d.mu.RLock()

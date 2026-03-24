@@ -65,13 +65,35 @@ func formatErrorMessages(errors map[string]string) string {
 	return fmt.Sprintf("%d error(s), get more details in events", len(errors))
 }
 
-// shouldSkipMigrationEvent checks if a migration event should be skipped based on cached migration time
+// extractMigrationExtensions reads migrationId and stage from CloudEvents extensions.
+func extractMigrationExtensions(evt *cloudevents.Event) (migrationId, stage string) {
+	if val, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyMigrationId]); err == nil {
+		migrationId = val
+	}
+	if val, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyMigrationStage]); err == nil {
+		stage = val
+	}
+	return migrationId, stage
+}
+
+// shouldSkipMigrationEvent checks if a migration event should be skipped based on expirytime extension
+// or cached migration time.
 // Returns true if the event should be skipped, false otherwise
 //
 // Skip conditions:
-//  1. If cached: skip if latestMigrationTime is after event time
-//  2. If not cached: skip if event is older than 10 minutes
+//  1. If expirytime extension is set: skip if the event has expired
+//  2. If cached: skip if latestMigrationTime is after event time
+//  3. If not cached and no expirytime: skip if event is older than 10 minutes
 func shouldSkipMigrationEvent(ctx context.Context, client client.Client, evt *cloudevents.Event) (bool, error) {
+	if expireStr, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyExpireTime]); err == nil {
+		if expireTime, err := time.Parse(time.RFC3339, expireStr); err == nil {
+			if time.Now().After(expireTime) {
+				log.Infof("migration event has expired (expirytime=%s), skip processing", expireStr)
+				return true, nil
+			}
+		}
+	}
+
 	cached, latestMigrationTime, err := configs.GetSyncTimeState(ctx, client, migrationStateKey(evt))
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest migration time from configmap: %w", err)
@@ -127,10 +149,19 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return nil
 	}
 
-	// Use local variables instead of instance fields to avoid race conditions
-	// when processing concurrent events (dispatcher uses async goroutines)
-	var receivedMigrationId string
-	var receivedStage string
+	// Read migrationId and stage from CloudEvents extensions
+	receivedMigrationId, receivedStage := extractMigrationExtensions(evt)
+	if receivedMigrationId == "" {
+		return fmt.Errorf("migrationId is required but not provided in event extensions")
+	}
+	if receivedStage == "" {
+		return fmt.Errorf("migrationstage is required but not provided in event extensions")
+	}
+	if evt.Source() != constants.CloudEventGlobalHubClusterName && receivedStage != migrationv1alpha1.PhaseDeploying {
+		err = fmt.Errorf("source-hub migration event must use stage %q, got %q",
+			migrationv1alpha1.PhaseDeploying, receivedStage)
+		return err
+	}
 
 	clusterErrors := map[string]string{}
 	defer func() {
@@ -180,12 +211,6 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	// Handle direct deploying events from source hub (not from global hub)
 	if evt.Source() != constants.CloudEventGlobalHubClusterName {
-		receivedStage = migrationv1alpha1.PhaseDeploying
-		// Extract migrationId from deploying event for status reporting
-		resourceEvent := &migration.MigrationResourceBundle{}
-		if unmarshalErr := json.Unmarshal(evt.Data(), resourceEvent); unmarshalErr == nil {
-			receivedMigrationId = resourceEvent.MigrationId
-		}
 		err = s.deploying(ctx, evt)
 		if err != nil {
 			return fmt.Errorf("failed to handle deploying event: %w", err)
@@ -198,13 +223,11 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	if err := json.Unmarshal(evt.Data(), event); err != nil {
 		return fmt.Errorf("failed to unmarshal migration event: %w", err)
 	}
+	// Populate MigrationId and Stage from CloudEvents extensions
+	event.MigrationId = receivedMigrationId
+	event.Stage = receivedStage
 
 	log.Debugf("received migration event: migrationId=%s, stage=%s", event.MigrationId, event.Stage)
-	if event.MigrationId == "" {
-		return fmt.Errorf("migrationId is required but not provided in event")
-	}
-	receivedMigrationId = event.MigrationId
-	receivedStage = event.Stage
 
 	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
 	if s.processingMigrationId == "" ||
@@ -455,11 +478,12 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
 	log.Infof("deploying: received migration event from sourceHub=%s", evt.Source())
 
-	// Extract migrationId from deploying event payload
 	resourceEvent := &migration.MigrationResourceBundle{}
 	if unmarshalErr := json.Unmarshal(evt.Data(), resourceEvent); unmarshalErr != nil {
 		return fmt.Errorf("failed to unmarshal deploying event: %w", unmarshalErr)
 	}
+	// Populate MigrationId from CloudEvents extension
+	resourceEvent.MigrationId, _ = extractMigrationExtensions(evt)
 
 	log.Debugf("deploying: received migrationId=%s with %d cluster resources",
 		resourceEvent.MigrationId, len(resourceEvent.MigrationClusterResources))
@@ -477,18 +501,12 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 			resourceEvent.MigrationId)
 	}
 
-	// Initialize batch tracking
+	// Initialize batch tracking - read TotalClusters from payload
 	if s.deployingProcessedClusters == nil {
-		totalClusters := 0
-		if val, err := cetypes.ToInteger(evt.Extensions()[migration.ExtTotalClusters]); err == nil {
-			totalClusters = int(val)
-		} else {
-			log.Errorf("deploying: failed to convert totalclusters extension to integer: %v", err)
-			return fmt.Errorf("failed to convert totalclusters extension to integer: %v", err)
-		}
+		totalClusters := resourceEvent.TotalClusters
 		if totalClusters == 0 {
-			log.Error("deploying: totalclusters extension is 0, expecting at least 1 cluster")
-			return fmt.Errorf("totalclusters extension is 0, expecting at least 1 cluster")
+			log.Error("deploying: totalClusters in payload is 0, expecting at least 1 cluster")
+			return fmt.Errorf("totalClusters in payload is 0, expecting at least 1 cluster")
 		}
 		s.deployingTotalClusters = totalClusters
 		s.deployingProcessedClusters = make(map[string]bool)

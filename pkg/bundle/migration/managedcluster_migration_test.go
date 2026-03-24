@@ -67,7 +67,7 @@ func TestMigrationResourceBundleOperations(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			bundle := NewMigrationResourceBundle("test-migration-123")
+			bundle := NewMigrationResourceBundle(len(c.resources))
 
 			// Test initial state
 			assert.True(t, bundle.IsEmpty())
@@ -109,7 +109,7 @@ func TestMigrationResourceBundleOperations(t *testing.T) {
 // TestAddClusterResourceBoundary tests the boundary conditions of AddClusterResource
 func TestAddClusterResourceBoundary(t *testing.T) {
 	t.Run("Adding resource that exceeds size limit when bundle is empty should fail", func(t *testing.T) {
-		bundle := NewMigrationResourceBundle("test-migration")
+		bundle := NewMigrationResourceBundle(0)
 
 		// Create a very large resource with many resources
 		largeResourceList := make([]unstructured.Unstructured, 0)
@@ -135,7 +135,7 @@ func TestAddClusterResourceBoundary(t *testing.T) {
 	})
 
 	t.Run("Adding resource that would exceed size limit when bundle is not empty", func(t *testing.T) {
-		bundle := NewMigrationResourceBundle("test-migration")
+		bundle := NewMigrationResourceBundle(0)
 
 		// First add a normal-sized resource
 		smallResource := MigrationClusterResource{
@@ -173,10 +173,9 @@ func TestAddClusterResourceBoundary(t *testing.T) {
 
 // TestMigrationBundleBatchScenario tests a realistic batch scenario
 func TestMigrationBundleBatchScenario(t *testing.T) {
-	migrationID := "test-migration-456"
 	totalClusters := 10
 
-	bundle := NewMigrationResourceBundle(migrationID)
+	bundle := NewMigrationResourceBundle(totalClusters)
 	bundleCount := 0
 	addedClusters := 0
 
@@ -199,7 +198,7 @@ func TestMigrationBundleBatchScenario(t *testing.T) {
 			// Bundle is full, "send" it and create a new one
 			assert.False(t, bundle.IsEmpty())
 			bundleCount++
-			bundle = NewMigrationResourceBundle(migrationID)
+			bundle = NewMigrationResourceBundle(totalClusters)
 
 			// Re-add the resource to the new bundle
 			added, err = bundle.AddClusterResource(resource)

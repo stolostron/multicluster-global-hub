@@ -2,7 +2,6 @@ package migration_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -19,8 +18,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
@@ -152,15 +151,13 @@ func verifyMigrationEvent(expectedSource, expectedType, expectedCluster, expecte
 	for _, event := range receivedEvents {
 		if event.Source() == expectedSource &&
 			event.Type() == expectedType &&
-			event.Extensions()[constants.CloudEventExtensionKeyClusterName] == expectedCluster {
+			event.Subject() == expectedCluster {
 
-			var migrationBundle migration.MigrationStatusBundle
-			if err := json.Unmarshal(event.Data(), &migrationBundle); err != nil {
-				return err
-			}
+			migrationID, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationId].(string)
+			stage, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationStage].(string)
 
-			if migrationBundle.MigrationId == expectedMigrationID &&
-				migrationBundle.Stage == expectedStage {
+			if migrationID == expectedMigrationID &&
+				stage == expectedStage {
 				return nil
 			}
 		}
@@ -172,14 +169,10 @@ func verifyMigrationEvent(expectedSource, expectedType, expectedCluster, expecte
 func verifyDeployingEvent(expectedSource, expectedMigrationID string) error {
 	for _, event := range receivedEvents {
 		if event.Source() == expectedSource &&
-			event.Type() == constants.MigrationTargetMsgKey {
+			event.Type() == string(enum.ManagedClusterMigrationType) {
 
-			var migrationBundle migration.MigrationResourceBundle
-			if err := json.Unmarshal(event.Data(), &migrationBundle); err != nil {
-				return err
-			}
-
-			if migrationBundle.MigrationId == expectedMigrationID {
+			migrationID, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationId].(string)
+			if migrationID == expectedMigrationID {
 				return nil
 			}
 		}
