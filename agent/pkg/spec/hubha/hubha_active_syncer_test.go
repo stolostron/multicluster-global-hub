@@ -168,9 +168,9 @@ func TestStartHubHAActiveSyncer_NoStandbyHub(t *testing.T) {
 	// Configure agent without standby hub
 	agentConfig := &configs.AgentConfig{
 		LeafHubName: "hub1",
-		HubRole:     constants.GHHubRoleActive,
-		StandbyHub:  "", // No standby hub
 	}
+	agentConfig.SetHubRole(constants.GHHubRoleActive)
+	agentConfig.SetStandbyHub("") // No standby hub
 	configs.SetAgentConfig(agentConfig)
 
 	// This should not start the syncer
@@ -193,9 +193,9 @@ func TestStartHubHAActiveSyncer_NotActiveRole(t *testing.T) {
 	// Configure agent as standby hub
 	agentConfig := &configs.AgentConfig{
 		LeafHubName: "hub1",
-		HubRole:     constants.GHHubRoleStandby,
-		StandbyHub:  "hub2",
 	}
+	agentConfig.SetHubRole(constants.GHHubRoleStandby)
+	agentConfig.SetStandbyHub("hub2")
 	configs.SetAgentConfig(agentConfig)
 
 	// This should not start the syncer

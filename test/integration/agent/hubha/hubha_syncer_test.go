@@ -74,10 +74,10 @@ var _ = Describe("Hub HA Active Syncer Integration", func() {
 		// Configure agent as active hub
 		agentConfig := &agentconfigs.AgentConfig{
 			LeafHubName:     "hub1",
-			HubRole:         constants.GHHubRoleActive,
-			StandbyHub:      "hub2",
 			TransportConfig: transportConfig,
 		}
+		agentConfig.SetHubRole(constants.GHHubRoleActive)
+		agentConfig.SetStandbyHub("hub2")
 		agentconfigs.SetAgentConfig(agentConfig)
 	})
 
@@ -437,9 +437,9 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 		// Configure agent as standby hub
 		agentConfig := &agentconfigs.AgentConfig{
 			LeafHubName:     "hub2",
-			HubRole:         constants.GHHubRoleStandby,
 			TransportConfig: transportConfig,
 		}
+		agentConfig.SetHubRole(constants.GHHubRoleStandby)
 		agentconfigs.SetAgentConfig(agentConfig)
 	})
 

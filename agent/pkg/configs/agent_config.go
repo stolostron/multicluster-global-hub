@@ -27,12 +27,12 @@ type AgentConfig struct {
 	EnableStackroxIntegration    bool
 	StackroxPollInterval         time.Duration
 	EventMode                    string
-	// HubRole indicates the role of this hub in Hub HA setup: "active", "standby", or empty
+	// hubRole indicates the role of this hub in Hub HA setup: "active", "standby", or empty
 	// Access must be synchronized using hubRoleMu
-	HubRole string
-	// StandbyHub is the standby hub name (only populated for active hubs)
+	hubRole string
+	// standbyHub is the standby hub name (only populated for active hubs)
 	// Access must be synchronized using hubRoleMu
-	StandbyHub string
+	standbyHub string
 	// hubRoleMu protects concurrent access to HubRole and StandbyHub fields
 	hubRoleMu sync.RWMutex
 }
@@ -56,7 +56,7 @@ func (c *AgentConfig) GetHubRole() string {
 	}
 	c.hubRoleMu.RLock()
 	defer c.hubRoleMu.RUnlock()
-	return c.HubRole
+	return c.hubRole
 }
 
 // GetStandbyHub safely retrieves the standby hub name with proper locking
@@ -66,7 +66,7 @@ func (c *AgentConfig) GetStandbyHub() string {
 	}
 	c.hubRoleMu.RLock()
 	defer c.hubRoleMu.RUnlock()
-	return c.StandbyHub
+	return c.standbyHub
 }
 
 // SetHubRole safely sets the hub role with proper locking
@@ -76,7 +76,7 @@ func (c *AgentConfig) SetHubRole(role string) {
 	}
 	c.hubRoleMu.Lock()
 	defer c.hubRoleMu.Unlock()
-	c.HubRole = role
+	c.hubRole = role
 }
 
 // SetStandbyHub safely sets the standby hub name with proper locking
@@ -86,7 +86,7 @@ func (c *AgentConfig) SetStandbyHub(hub string) {
 	}
 	c.hubRoleMu.Lock()
 	defer c.hubRoleMu.Unlock()
-	c.StandbyHub = hub
+	c.standbyHub = hub
 }
 
 // GetHubRoleAndStandbyHub safely retrieves both values with a single lock to ensure consistency
@@ -96,7 +96,7 @@ func (c *AgentConfig) GetHubRoleAndStandbyHub() (role, standbyHub string) {
 	}
 	c.hubRoleMu.RLock()
 	defer c.hubRoleMu.RUnlock()
-	return c.HubRole, c.StandbyHub
+	return c.hubRole, c.standbyHub
 }
 
 // UpdateHubRoleAndStandbyHub safely updates both values with a single lock and returns previous values
@@ -106,10 +106,10 @@ func (c *AgentConfig) UpdateHubRoleAndStandbyHub(role, standbyHub string) (previ
 	}
 	c.hubRoleMu.Lock()
 	defer c.hubRoleMu.Unlock()
-	previousRole = c.HubRole
-	previousStandbyHub = c.StandbyHub
-	c.HubRole = role
-	c.StandbyHub = standbyHub
+	previousRole = c.hubRole
+	previousStandbyHub = c.standbyHub
+	c.hubRole = role
+	c.standbyHub = standbyHub
 	return previousRole, previousStandbyHub
 }
 

@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2026-03-24T12:06:59Z"
+    createdAt: "2026-03-24T13:21:36Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -354,6 +354,297 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - addon.open-cluster-management.io
+          resources:
+          - addondeploymentconfigs
+          - addontemplates
+          - clustermanagementaddons
+          - managedclusteraddons
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - apps.open-cluster-management.io
+          resources:
+          - channels
+          - deployables
+          - gitopsclusters
+          - helmreleases
+          - multiclusterapplicationsetreports
+          - placementrules
+          - subscriptionreports
+          - subscriptions
+          - subscriptionstatuses
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - authentication.open-cluster-management.io
+          resources:
+          - managedserviceaccounts
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - cluster.open-cluster-management.io
+          resources:
+          - addonplacementscores
+          - backupschedules
+          - clusterclaims
+          - clustercurators
+          - managedclusters
+          - managedclustersetbindings
+          - managedclustersets
+          - placementdecisions
+          - placements
+          - restores
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - config.open-cluster-management.io
+          resources:
+          - klusterletconfigs
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - console.open-cluster-management.io
+          resources:
+          - userpreferences
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - discovery.open-cluster-management.io
+          resources:
+          - discoveredclusters
+          - discoveryconfigs
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - global-hub.open-cluster-management.io
+          resources:
+          - managedclustermigrations
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - imageregistry.open-cluster-management.io
+          resources:
+          - managedclusterimageregistries
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - observability.open-cluster-management.io
+          resources:
+          - multiclusterobservabilities
+          - observabilityaddons
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - policy.open-cluster-management.io
+          resources:
+          - certificatepolicies
+          - configurationpolicies
+          - operatorpolicies
+          - placementbindings
+          - policies
+          - policyautomations
+          - policysets
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rbac.open-cluster-management.io
+          resources:
+          - clusterpermissions
+          - multiclusterroleassignments
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - siteconfig.open-cluster-management.io
+          resources:
+          - clusterinstances
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - submarineraddon.open-cluster-management.io
+          resources:
+          - submarinerconfigs
+          - submarinerdiagnoseconfigs
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - hive.openshift.io
+          resources:
+          - checkpoints
+          - clusterclaims
+          - clusterdeploymentcustomizations
+          - clusterdeployments
+          - clusterdeprovisions
+          - clusterimagesets
+          - clusterpools
+          - clusterprovisions
+          - clusterrelocates
+          - clusterstates
+          - dnszones
+          - hiveconfigs
+          - machinepoolnameleases
+          - machinepools
+          - selectorsyncidentityproviders
+          - selectorsyncsets
+          - syncidentityproviders
+          - syncsets
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - extensions.hive.openshift.io
+          resources:
+          - agentclusterinstalls
+          - imageclusterinstalls
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - hiveinternal.openshift.io
+          resources:
+          - clustersyncleases
+          - clustersyncs
+          - fakeclusterinstalls
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - argoproj.io
+          resources:
+          - applications
+          - applicationsets
+          - appprojects
+          - argocds
+          - workflows
+          - workflowtemplates
+          - clusterworkflowtemplates
+          - cronworkflows
+          - eventsources
+          - sensors
+          - eventbuses
+          - rollouts
+          - experiments
+          - analysistemplates
+          - clusteranalysistemplates
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - app.k8s.io
+          resources:
+          - applications
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - core.observatorium.io
+          resources:
+          - observatoriums
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - agent-install.openshift.io
+          resources:
+          - agentclassifications
+          - agents
+          - agentserviceconfigs
+          - hypershiftagentserviceconfigs
+          - infraenvs
+          - nmstateconfigs
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - capi-provider.agent-install.openshift.io
+          resources:
+          - agentclusters
+          - agentmachines
+          - agentmachinetemplates
+          verbs:
+          - create
+          - delete
+          - get
+          - patch
+          - update
         - apiGroups:
           - ""
           resources:
@@ -920,7 +1211,6 @@ spec:
           - create
           - delete
           - deletecollection
-          - escalate
           - get
           - list
           - patch

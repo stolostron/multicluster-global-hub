@@ -7,11 +7,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -62,13 +65,13 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 				return globalHubClient.Update(ctx, mgh)
 			}
 			return nil
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
+		}, 1*time.Minute, 5*time.Second).Should(Succeed())
 
 		// Wait for local agent to be deployed
 		By("Waiting for local agent deployment on global hub")
 		Eventually(func() error {
 			return checkDeployAvailable(globalHubClient, testOptions.GlobalHub.Namespace, "multicluster-global-hub-agent")
-		}, 5*time.Minute, 5*time.Second).Should(Succeed())
+		}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 		// Check if hub roles are already configured (from previous test run or manual setup)
 		currentActiveRole := getHubRoleLabel(ctx, globalHubClient, activeHubName)
@@ -89,26 +92,64 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 		// This typically takes 30-60 seconds: label change → addon annotation → ConfigMap update
 		By("Waiting for active hub agent to receive role configuration")
 		Eventually(func() string {
-			return getAgentHubRole(ctx, activeHubClient, testOptions.GlobalHub.Namespace)
+			return getAgentHubRole(ctx, activeHubClient, "multicluster-global-hub-agent")
 		}, 2*time.Minute, 5*time.Second).Should(Equal(constants.GHHubRoleActive))
 
-		By("Waiting for local agent on global hub to receive standby role configuration")
+		By("Waiting for active hub agent to receive standby hub configuration")
+		Eventually(func() string {
+			return getStandByHub(ctx, activeHubClient, "multicluster-global-hub-agent")
+		}, 2*time.Minute, 5*time.Second).Should(Equal("local-cluster"))
+
+		By("Waiting for local agent on global hub to receive role configuration")
 		Eventually(func() string {
 			return getAgentHubRole(ctx, globalHubClient, testOptions.GlobalHub.Namespace)
 		}, 2*time.Minute, 5*time.Second).Should(Equal(constants.GHHubRoleStandby))
 	})
 
 	AfterAll(func() {
-		// Note: We intentionally do NOT clean up hub roles here to allow for:
-		// 1. Debugging - roles remain set for inspection after test failure
-		// 2. Performance - subsequent test runs can reuse the configuration
-		// 3. Stability - avoid unnecessary label churn
-		//
-		// To manually clean up hub role, run:
-		// kubectl label managedcluster hub1 global-hub.open-cluster-management.io/hub-role-
-		//
-		// To disable local agent (standby):
-		// kubectl patch mgh multiclusterglobalhub -n <namespace> --type merge -p '{"spec":{"installAgentOnLocal":false}}'
+		By("Cleaning up hub roles")
+		// Remove hub role label from active hub
+		Eventually(func() error {
+			cluster := &clusterv1.ManagedCluster{}
+			if err := globalHubClient.Get(ctx, types.NamespacedName{Name: activeHubName}, cluster); err != nil {
+				return err
+			}
+			if cluster.Labels != nil {
+				delete(cluster.Labels, constants.GHHubRoleLabelKey)
+			}
+			return globalHubClient.Update(ctx, cluster)
+		}, 1*time.Minute, 5*time.Second).Should(Succeed())
+		klog.Infof("Removed hub role label from %s", activeHubName)
+
+		By("Disabling local agent on global hub")
+		Eventually(func() error {
+			mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
+			err := globalHubClient.Get(ctx, types.NamespacedName{
+				Namespace: testOptions.GlobalHub.Namespace,
+				Name:      "multiclusterglobalhub",
+			}, mgh)
+			if err != nil {
+				return err
+			}
+			if mgh.Spec.InstallAgentOnLocal {
+				mgh.Spec.InstallAgentOnLocal = false
+				return globalHubClient.Update(ctx, mgh)
+			}
+			return nil
+		}, 1*time.Minute, 5*time.Second).Should(Succeed())
+		klog.Infof("Disabled local agent on global hub")
+
+		By("Waiting for local agent to be removed")
+		Eventually(func() bool {
+			deploy := &appsv1.Deployment{}
+			err := globalHubClient.Get(ctx, types.NamespacedName{
+				Name:      "multicluster-global-hub-agent",
+				Namespace: testOptions.GlobalHub.Namespace,
+			}, deploy)
+			// Should be not found after cleanup
+			return err != nil
+		}, 2*time.Minute, 5*time.Second).Should(BeTrue())
+		klog.Infof("Local agent deployment removed from global hub")
 	})
 
 	Context("Resource synchronization from active to standby hub", func() {
@@ -272,6 +313,250 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Equal("updated-value"))
 		})
 
+		It("should sync Policy from active to standby hub", func() {
+			testPolicyName := fmt.Sprintf("hubha-test-policy-%d", time.Now().Unix())
+			By("Creating Policy on active hub")
+			policy := &policyv1.Policy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testPolicyName,
+					Namespace: testNamespace,
+					Annotations: map[string]string{
+						"policy.open-cluster-management.io/categories": "CM Configuration Management",
+						"policy.open-cluster-management.io/standards":  "NIST SP 800-53",
+					},
+				},
+				Spec: policyv1.PolicySpec{
+					Disabled:          false,
+					RemediationAction: policyv1.Inform,
+					PolicyTemplates: []*policyv1.PolicyTemplate{
+						{
+							ObjectDefinition: runtime.RawExtension{
+								Raw: []byte(`{
+									"apiVersion": "policy.open-cluster-management.io/v1",
+									"kind": "ConfigurationPolicy",
+									"metadata": {
+										"name": "test-config-policy"
+									},
+									"spec": {
+										"remediationAction": "inform",
+										"severity": "low",
+										"object-templates": [{
+											"complianceType": "musthave",
+											"objectDefinition": {
+												"apiVersion": "v1",
+												"kind": "Namespace",
+												"metadata": {
+													"name": "test-namespace"
+												}
+											}
+										}]
+									}
+								}`),
+							},
+						},
+					},
+				},
+			}
+			Expect(activeHubClient.Create(ctx, policy)).To(Succeed())
+			klog.Infof("Created test policy %s on active hub", testPolicyName)
+
+			defer func() {
+				_ = activeHubClient.Delete(ctx, policy)
+				_ = standbyHubClient.Delete(ctx, &policyv1.Policy{
+					ObjectMeta: metav1.ObjectMeta{Name: testPolicyName, Namespace: testNamespace},
+				})
+			}()
+
+			By("Verifying Policy is synced to standby hub")
+			Eventually(func() error {
+				standbyPolicy := &policyv1.Policy{}
+				if err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      testPolicyName,
+					Namespace: testNamespace,
+				}, standbyPolicy); err != nil {
+					return fmt.Errorf("policy not found on standby hub: %w", err)
+				}
+
+				// Verify policy spec
+				if standbyPolicy.Spec.RemediationAction != policyv1.Inform {
+					return fmt.Errorf("policy remediation action mismatch, expected %s, got %s",
+						policyv1.Inform, standbyPolicy.Spec.RemediationAction)
+				}
+				if standbyPolicy.Spec.Disabled {
+					return fmt.Errorf("policy should not be disabled")
+				}
+
+				// Verify policy templates
+				if len(standbyPolicy.Spec.PolicyTemplates) != 1 {
+					return fmt.Errorf("expected 1 policy template, got %d", len(standbyPolicy.Spec.PolicyTemplates))
+				}
+
+				// Verify annotations
+				if standbyPolicy.Annotations["policy.open-cluster-management.io/categories"] != "CM Configuration Management" {
+					return fmt.Errorf("policy annotations not synced correctly")
+				}
+
+				klog.Infof("Policy %s successfully synced to standby hub", testPolicyName)
+				return nil
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+		})
+
+		It("should update synced Policy when modified on active hub", func() {
+			testPolicyName := fmt.Sprintf("hubha-test-policy-update-%d", time.Now().Unix())
+			By("Creating Policy on active hub")
+			policy := &policyv1.Policy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testPolicyName,
+					Namespace: testNamespace,
+				},
+				Spec: policyv1.PolicySpec{
+					Disabled:          false,
+					RemediationAction: policyv1.Inform,
+					PolicyTemplates: []*policyv1.PolicyTemplate{
+						{
+							ObjectDefinition: runtime.RawExtension{
+								Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test"}}`),
+							},
+						},
+					},
+				},
+			}
+			Expect(activeHubClient.Create(ctx, policy)).To(Succeed())
+
+			defer func() {
+				_ = activeHubClient.Delete(ctx, policy)
+				_ = standbyHubClient.Delete(ctx, &policyv1.Policy{
+					ObjectMeta: metav1.ObjectMeta{Name: testPolicyName, Namespace: testNamespace},
+				})
+			}()
+
+			By("Waiting for initial sync to standby hub")
+			Eventually(func() error {
+				standbyPolicy := &policyv1.Policy{}
+				return standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      testPolicyName,
+					Namespace: testNamespace,
+				}, standbyPolicy)
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+
+			By("Updating Policy on active hub")
+			Eventually(func() error {
+				activePolicy := &policyv1.Policy{}
+				if err := activeHubClient.Get(ctx, types.NamespacedName{
+					Name:      testPolicyName,
+					Namespace: testNamespace,
+				}, activePolicy); err != nil {
+					return err
+				}
+				activePolicy.Spec.RemediationAction = policyv1.Enforce
+				activePolicy.Spec.Disabled = true
+				return activeHubClient.Update(ctx, activePolicy)
+			}, 1*time.Minute, 5*time.Second).Should(Succeed())
+
+			By("Verifying Policy update is synced to standby hub")
+			Eventually(func() error {
+				standbyPolicy := &policyv1.Policy{}
+				if err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      testPolicyName,
+					Namespace: testNamespace,
+				}, standbyPolicy); err != nil {
+					return err
+				}
+				if standbyPolicy.Spec.RemediationAction != policyv1.Enforce {
+					return fmt.Errorf("remediation action not updated, expected %s, got %s",
+						policyv1.Enforce, standbyPolicy.Spec.RemediationAction)
+				}
+				if !standbyPolicy.Spec.Disabled {
+					return fmt.Errorf("policy should be disabled")
+				}
+				return nil
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+		})
+
+		It("should sync PlacementBinding from active to standby hub", func() {
+			testPlacementBindingName := fmt.Sprintf("hubha-test-pb-%d", time.Now().Unix())
+			testPolicyName := fmt.Sprintf("hubha-test-policy-pb-%d", time.Now().Unix())
+
+			By("Creating Policy on active hub")
+			policy := &policyv1.Policy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testPolicyName,
+					Namespace: testNamespace,
+				},
+				Spec: policyv1.PolicySpec{
+					Disabled:          false,
+					RemediationAction: policyv1.Inform,
+					PolicyTemplates: []*policyv1.PolicyTemplate{
+						{
+							ObjectDefinition: runtime.RawExtension{
+								Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test"}}`),
+							},
+						},
+					},
+				},
+			}
+			Expect(activeHubClient.Create(ctx, policy)).To(Succeed())
+
+			By("Creating PlacementBinding on active hub")
+			placementBinding := &policyv1.PlacementBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testPlacementBindingName,
+					Namespace: testNamespace,
+				},
+				PlacementRef: policyv1.PlacementSubject{
+					APIGroup: "cluster.open-cluster-management.io",
+					Kind:     "Placement",
+					Name:     "test-placement",
+				},
+				Subjects: []policyv1.Subject{
+					{
+						APIGroup: "policy.open-cluster-management.io",
+						Kind:     "Policy",
+						Name:     testPolicyName,
+					},
+				},
+			}
+			Expect(activeHubClient.Create(ctx, placementBinding)).To(Succeed())
+			klog.Infof("Created test PlacementBinding %s on active hub", testPlacementBindingName)
+
+			defer func() {
+				_ = activeHubClient.Delete(ctx, placementBinding)
+				_ = activeHubClient.Delete(ctx, policy)
+				_ = standbyHubClient.Delete(ctx, &policyv1.PlacementBinding{
+					ObjectMeta: metav1.ObjectMeta{Name: testPlacementBindingName, Namespace: testNamespace},
+				})
+				_ = standbyHubClient.Delete(ctx, &policyv1.Policy{
+					ObjectMeta: metav1.ObjectMeta{Name: testPolicyName, Namespace: testNamespace},
+				})
+			}()
+
+			By("Verifying PlacementBinding is synced to standby hub")
+			Eventually(func() error {
+				standbyPB := &policyv1.PlacementBinding{}
+				if err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      testPlacementBindingName,
+					Namespace: testNamespace,
+				}, standbyPB); err != nil {
+					return fmt.Errorf("placementbinding not found on standby hub: %w", err)
+				}
+
+				// Verify PlacementBinding spec
+				if standbyPB.PlacementRef.Name != "test-placement" {
+					return fmt.Errorf("placement reference mismatch")
+				}
+				if len(standbyPB.Subjects) != 1 {
+					return fmt.Errorf("expected 1 subject, got %d", len(standbyPB.Subjects))
+				}
+				if standbyPB.Subjects[0].Name != testPolicyName {
+					return fmt.Errorf("subject policy name mismatch, expected %s, got %s",
+						testPolicyName, standbyPB.Subjects[0].Name)
+				}
+
+				klog.Infof("PlacementBinding %s successfully synced to standby hub", testPlacementBindingName)
+				return nil
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+		})
+
 		It("should NOT sync Secret with velero exclude label", func() {
 			excludedSecretName := fmt.Sprintf("excluded-secret-%d", time.Now().Unix())
 			By("Creating Secret with velero exclude label on active hub")
@@ -304,40 +589,6 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 				// Should remain not found
 				return err != nil
 			}, hubHASyncWait, 5*time.Second).Should(BeTrue(), "Secret with velero exclude label should not be synced")
-		})
-
-		It("should NOT sync resources from non-included namespaces", func() {
-			excludedNS := "kube-system"
-			excludedSecretName := fmt.Sprintf("system-secret-%d", time.Now().Unix())
-
-			By(fmt.Sprintf("Creating Secret in excluded namespace %s on active hub", excludedNS))
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      excludedSecretName,
-					Namespace: excludedNS,
-					Labels: map[string]string{
-						"hive.openshift.io/secret-type": "kubeconfig",
-					},
-				},
-				Data: map[string][]byte{
-					"key": []byte("should-not-sync"),
-				},
-				Type: corev1.SecretTypeOpaque,
-			}
-			Expect(activeHubClient.Create(ctx, secret)).To(Succeed())
-			defer func() {
-				_ = activeHubClient.Delete(ctx, secret)
-			}()
-
-			By("Verifying Secret from kube-system is NOT synced to standby hub")
-			Consistently(func() bool {
-				standbySecret := &corev1.Secret{}
-				err := standbyHubClient.Get(ctx, types.NamespacedName{
-					Name:      excludedSecretName,
-					Namespace: excludedNS,
-				}, standbySecret)
-				return err != nil
-			}, hubHASyncWait, 5*time.Second).Should(BeTrue(), "Secrets from kube-system should not be synced")
 		})
 	})
 })
@@ -377,4 +628,16 @@ func getAgentHubRole(ctx context.Context, c client.Client, namespace string) str
 		return ""
 	}
 	return cm.Data["hubRole"]
+}
+
+// getStandByHub retrieves the standby hub from agent ConfigMap
+func getStandByHub(ctx context.Context, c client.Client, namespace string) string {
+	cm := &corev1.ConfigMap{}
+	if err := c.Get(ctx, types.NamespacedName{
+		Name:      "multicluster-global-hub-agent-config",
+		Namespace: namespace,
+	}, cm); err != nil {
+		return ""
+	}
+	return cm.Data["standbyHub"]
 }

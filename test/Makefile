@@ -24,7 +24,7 @@ e2e-test-all: tidy vendor
 	sh ./test/script/e2e_run.sh -f "e2e-test-migration" -v $(VERBOSE)
 	sh ./test/script/e2e_run.sh -f "e2e-test-hubha" -v $(VERBOSE)
 
-e2e-test-cluster e2e-test-local-agent e2e-test-localpolicy e2e-test-grafana e2e-test-migration: tidy vendor
+e2e-test-cluster e2e-test-local-agent e2e-test-localpolicy e2e-test-grafana e2e-test-migration e2e-test-hubha: tidy vendor
 	./test/script/e2e_run.sh -f $@ -v $(VERBOSE)
 
 e2e-prow-tests: 
