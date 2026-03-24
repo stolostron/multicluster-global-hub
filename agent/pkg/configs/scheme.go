@@ -28,11 +28,11 @@ import (
 func GetRuntimeScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1beta1.AddToScheme(scheme))
-	utilruntime.Must(clusterv1beta2.AddToScheme(scheme))
-	utilruntime.Must(operatorv1.AddToScheme(scheme))
+	utilruntime.Must(clusterv1.Install(scheme))
+	utilruntime.Must(clusterv1alpha1.Install(scheme))
+	utilruntime.Must(clusterv1beta1.Install(scheme))
+	utilruntime.Must(clusterv1beta2.Install(scheme))
+	utilruntime.Must(operatorv1.Install(scheme))
 	utilruntime.Must(apiregistrationv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
@@ -43,6 +43,6 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(clusterinfov1beta1.AddToScheme(scheme))
 	utilruntime.Must(klusterletv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(addonv1.SchemeBuilder.AddToScheme(scheme))
-	utilruntime.Must(workv1.AddToScheme(scheme))
+	utilruntime.Must(workv1.Install(scheme))
 	return scheme
 }

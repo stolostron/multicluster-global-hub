@@ -48,7 +48,7 @@ func newDeployment(name string) *appv1.Deployment {
 
 func TestOnAdd(t *testing.T) {
 	c := fake.NewClientBuilder().Build()
-	kubeClient := fakekube.NewSimpleClientset(newDeployment(constants.InventoryDeploymentName))
+	kubeClient := fakekube.NewClientset(newDeployment(constants.InventoryDeploymentName))
 	caSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              InventoryClientCASecretName,
@@ -93,7 +93,7 @@ func TestOnUpdate(t *testing.T) {
 	certSecret := getExpiredCertSecret()
 	oldCertLength := len(certSecret.Data["tls.crt"])
 	c := fake.NewClientBuilder().WithRuntimeObjects(certSecret).Build()
-	kubeClient := fakekube.NewSimpleClientset()
+	kubeClient := fakekube.NewClientset()
 	onUpdate(context.TODO(), c, kubeClient)(certSecret, certSecret)
 	certSecret.Name = InventoryClientCASecretName
 	onUpdate(context.TODO(), c, kubeClient)(certSecret, certSecret)

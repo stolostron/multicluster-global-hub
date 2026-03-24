@@ -142,9 +142,9 @@ func newRegistrationOption() *addonframeworkagent.RegistrationOption {
 		PermissionConfig: func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn) error {
 			return nil
 		},
-		CSRSign: func(csr *certificatesv1.CertificateSigningRequest) []byte {
+		CSRSign: func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn, csr *certificatesv1.CertificateSigningRequest) ([]byte, error) {
 			key, cert := config.GetKafkaClientCA()
-			return agentcert.Sign(csr, key, cert)
+			return agentcert.Sign(csr, key, cert), nil
 		},
 	}
 }

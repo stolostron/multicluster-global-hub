@@ -93,11 +93,11 @@ var _ = BeforeSuite(func() {
 
 	// add scheme
 	Expect(routev1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(clusterv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(clusterv1beta1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(clusterv1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(workv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
-	Expect(addonv1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(clusterv1.Install(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(clusterv1beta1.Install(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(clusterv1beta2.Install(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(workv1.Install(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(addonv1alpha1.Install(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(globalhubv1alpha4.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(policyv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(mchv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
