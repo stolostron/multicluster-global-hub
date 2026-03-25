@@ -265,9 +265,6 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 		ManagedClusters:           managedClusters,
 		RollbackStage:             rollbackStage,
 		ManagedServiceAccountName: migration.Name,
-		// the timeout in agent part should less than manager part,
-		// the event in agent need time to send event to manager
-		RegisteringTimeoutMinutes: int((registeringTimeout - 2*time.Minute).Minutes()),
 	}
 
 	// namespace

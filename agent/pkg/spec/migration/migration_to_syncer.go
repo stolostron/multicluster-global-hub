@@ -50,10 +50,7 @@ const (
 	DefaultOCMBootstrapClusterRole = "open-cluster-management:bootstrap"
 )
 
-var (
-	log                = logger.DefaultZapLogger()
-	registeringTimeout = 10 * time.Minute // the registering stage timeout should less than migration timeout
-)
+var log = logger.DefaultZapLogger()
 
 // formatErrorMessages returns a formatted string showing the count of errors.
 // Users can get more details from events.
@@ -83,7 +80,6 @@ func extractMigrationExtensions(evt *cloudevents.Event) (migrationId, stage stri
 // Skip conditions:
 //  1. If expirytime extension is set: skip if the event has expired
 //  2. If cached: skip if latestMigrationTime is after event time
-//  3. If not cached and no expirytime: skip if event is older than 10 minutes
 func shouldSkipMigrationEvent(ctx context.Context, client client.Client, evt *cloudevents.Event) (bool, error) {
 	if expireStr, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyExpireTime]); err == nil {
 		if expireTime, err := time.Parse(time.RFC3339, expireStr); err == nil {
@@ -98,16 +94,9 @@ func shouldSkipMigrationEvent(ctx context.Context, client client.Client, evt *cl
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest migration time from configmap: %w", err)
 	}
-	if cached {
-		if latestMigrationTime.After(evt.Time()) {
-			log.Infof("latest migration time %s is after event time %s, skip processing", latestMigrationTime, evt.Time())
-			return true, nil
-		}
-	} else {
-		if time.Since(evt.Time()) > 10*time.Minute {
-			log.Infof("latest migration time is not cached, and the event time is 10 minutes ago, skip processing")
-			return true, nil
-		}
+	if cached && latestMigrationTime.After(evt.Time()) {
+		log.Infof("latest migration time %s is after event time %s, skip processing", latestMigrationTime, evt.Time())
+		return true, nil
 	}
 	return false, nil
 }
@@ -163,6 +152,8 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return err
 	}
 
+	ctx = withExpireTime(ctx, parseExpireTime(evt))
+
 	clusterErrors := map[string]string{}
 	defer func() {
 		if receivedStage == "" || receivedMigrationId == "" {
@@ -197,7 +188,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 		if reportStatus {
 			err = ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-				s.transportClient, migrationStatus, s.bundleVersion)
+				s.transportClient, migrationStatus, s.bundleVersion, expireTimeFromContext(ctx))
 			if err != nil {
 				log.Errorf("failed to report migration status: %v", err)
 			}
@@ -412,11 +403,7 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 		return fmt.Errorf("no managed clusters found in migration event: %s", event.MigrationId)
 	}
 
-	// Use the timeout from the manager if provided, otherwise fall back to the default
-	timeout := registeringTimeout
-	if event.RegisteringTimeoutMinutes > 0 {
-		timeout = time.Duration(event.RegisteringTimeoutMinutes) * time.Minute
-	}
+	timeout := remainingExpireTime(expireTimeFromContext(ctx))
 
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
 		func(context.Context) (done bool, err error) {
@@ -1099,7 +1086,7 @@ func (s *MigrationTargetSyncer) reportFailedClusters(ctx context.Context,
 
 	return ReportMigrationStatus(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-		s.transportClient, migrationStatus, s.bundleVersion)
+		s.transportClient, migrationStatus, s.bundleVersion, expireTimeFromContext(ctx))
 }
 
 // queryFailedClusters checks which clusters failed to migrate.

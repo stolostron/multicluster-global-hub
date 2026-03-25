@@ -13,6 +13,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
+	cetypes "github.com/cloudevents/sdk-go/v2/types"
 	apiconstants "github.com/stolostron/cluster-lifecycle-api/constants"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -62,8 +63,6 @@ const (
 	GlobalHubRestoreName = "globalhub"
 )
 
-var rollbackingTimeout = 10 * time.Minute // the rollbacking stage timeout should less than migration timeout
-
 type MigrationSourceSyncer struct {
 	client                client.Client
 	restConfig            *rest.Config // for init no-cached client of the runtime manager
@@ -98,6 +97,8 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	if skip {
 		return nil
 	}
+
+	ctx = withExpireTime(ctx, parseExpireTime(evt))
 
 	// Parse migration event
 	migrationEvent := &migration.MigrationSourceBundle{}
@@ -366,8 +367,9 @@ func (s *MigrationSourceSyncer) sendMigrationBundle(
 	}
 
 	eventType := string(enum.ManagedClusterMigrationType)
+	expireAfter := remainingExpireTime(expireTimeFromContext(ctx))
 	e := utils.ToMigrationEvent(eventType, fromHub, toHub,
-		s.processingMigrationId, migrationv1alpha1.PhaseDeploying, 10*time.Minute, payloadBytes)
+		s.processingMigrationId, migrationv1alpha1.PhaseDeploying, expireAfter, payloadBytes)
 
 	if err := s.transportClient.GetProducer().SendEvent(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
@@ -591,11 +593,53 @@ func (m *MigrationSourceSyncer) registering(
 	return nil
 }
 
+// parseExpireTime parses the expirytime extension from a CloudEvent into time.Time.
+func parseExpireTime(evt *cloudevents.Event) time.Time {
+	if evt == nil {
+		return time.Time{}
+	}
+	if val, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyExpireTime]); err == nil {
+		if t, err := time.Parse(time.RFC3339, val); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+// Context key for passing parsed expirytime through the call chain,
+// avoiding race conditions when multiple events are processed concurrently.
+type expireTimeKeyType struct{}
+
+var expireTimeKey = expireTimeKeyType{}
+
+func withExpireTime(ctx context.Context, expireTime time.Time) context.Context {
+	return context.WithValue(ctx, expireTimeKey, expireTime)
+}
+
+func expireTimeFromContext(ctx context.Context) time.Time {
+	if v, ok := ctx.Value(expireTimeKey).(time.Time); ok {
+		return v
+	}
+	return time.Time{}
+}
+
+// remainingExpireTime returns the duration until expireTime, falling back to 10 minutes
+// if expireTime is zero or already past.
+func remainingExpireTime(expireTime time.Time) time.Duration {
+	if !expireTime.IsZero() {
+		if remaining := time.Until(expireTime); remaining > 0 {
+			return remaining
+		}
+	}
+	return 10 * time.Minute
+}
+
 func ReportMigrationStatus(
 	ctx context.Context,
 	transportClient transport.TransportClient,
 	migrationBundle *migration.MigrationStatusBundle,
 	version *eventversion.Version,
+	expireTime time.Time,
 ) error {
 	source := configs.GetLeafHubName()
 	clusterName := constants.CloudEventGlobalHubClusterName
@@ -604,10 +648,12 @@ func ReportMigrationStatus(
 		return fmt.Errorf("failed to marshal ManagedClusterMigrationBundle %w", err)
 	}
 
+	expireAfter := remainingExpireTime(expireTime)
+
 	version.Incr()
 	eventType := string(enum.ManagedClusterMigrationType)
 	e := utils.ToMigrationEvent(eventType, source, clusterName,
-		migrationBundle.MigrationId, migrationBundle.Stage, 10*time.Minute, payloadBytes)
+		migrationBundle.MigrationId, migrationBundle.Stage, expireAfter, payloadBytes)
 	e.SetExtension(eventversion.ExtVersion, version.String())
 	if transportClient != nil {
 		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
@@ -806,10 +852,7 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 		}
 	}
 
-	timeout := rollbackingTimeout
-	if spec.RollbackingTimeoutMinutes > 0 {
-		timeout = time.Duration(spec.RollbackingTimeoutMinutes) * time.Minute
-	}
+	timeout := remainingExpireTime(expireTimeFromContext(ctx))
 
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
 		func(context.Context) (done bool, err error) {
@@ -871,7 +914,8 @@ func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migratio
 			ManagedClusters: allManagedClusterList,
 			ClusterErrors:   s.clusterErrors,
 		},
-		s.bundleVersion)
+		s.bundleVersion,
+		expireTimeFromContext(ctx))
 
 	if reportErr != nil {
 		log.Errorf("failed to report migration status for stage %s: %v", spec.Stage, reportErr)
@@ -926,6 +970,7 @@ func ResyncMigrationEvent(ctx context.Context, transportClient transport.Transpo
 		&migration.MigrationStatusBundle{
 			Resync: true,
 		}, eventversion.NewVersion(),
+		time.Time{},
 	)
 }
 

@@ -6,6 +6,7 @@ package clustermigration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
@@ -47,6 +48,16 @@ func RegisterManagedClusterMigrationHandler(mgr ctrl.Manager, conflationManager 
 
 func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloudevents.Event) error {
 	log.Debugf("handle migration status event:\n %s", evt)
+
+	// Check if the migration event has expired
+	if expireStr, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyExpireTime]); err == nil {
+		if expireTime, err := time.Parse(time.RFC3339, expireStr); err == nil {
+			if time.Now().After(expireTime) {
+				log.Infof("migration status event has expired (expirytime=%s), skip processing", expireStr)
+				return nil
+			}
+		}
+	}
 
 	bundle := &migrationbundle.MigrationStatusBundle{}
 	if err := evt.DataAs(bundle); err != nil {
