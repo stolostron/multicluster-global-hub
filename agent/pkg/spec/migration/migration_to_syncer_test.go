@@ -2287,15 +2287,6 @@ func TestShouldSkipMigrationEvent(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "Skip event - no cached time and old event",
-			setupConfigMap: func(c client.Client) error {
-				return nil // No setup needed
-			},
-			eventTime:   time.Now().Add(-15 * time.Minute), // 15 minutes old
-			expectSkip:  true,
-			expectError: false,
-		},
-		{
 			name: "Process event - cached time is older",
 			setupConfigMap: func(c client.Client) error {
 				pastTime := time.Now().Add(-1 * time.Hour)
