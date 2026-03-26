@@ -44,6 +44,7 @@ const (
 	KlusterletManifestWorkSuffix = "-klusterlet"
 	ClusterManagerName           = "cluster-manager"
 	errMsgFailedToGet            = "failed to get %s from source resource: %w"
+	logMsgClusterError           = "cluster %s: %s"
 
 	// Bootstrap ClusterRole names for different environments
 	DefaultACMBootstrapClusterRole = "open-cluster-management:managedcluster:bootstrap:agent-registration"
@@ -317,7 +318,7 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 		})
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to remove auto-import disable annotation: %v", err)
-			log.Errorf("cluster %s: %s", clusterName, errMsg)
+			log.Errorf(logMsgClusterError, clusterName, errMsg)
 			clusterErrors[clusterName] = errMsg
 			// Continue to next cluster instead of returning
 		}
@@ -1107,7 +1108,9 @@ func (s *MigrationTargetSyncer) queryFailedClusters(ctx context.Context,
 }
 
 // rollbackInitializing handles rollback of initializing phase on target hub
-func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *migration.MigrationTargetBundle, clusterErrors map[string]string) error {
+func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *migration.MigrationTargetBundle,
+	clusterErrors map[string]string,
+) error {
 	// For initializing rollback on target hub, we need to:
 	// 1. Remove the managed service account user from ClusterManager AutoApproveUsers list
 	// 2. Clean up RBAC resources created for the managed service account
@@ -1136,23 +1139,27 @@ func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *
 	// Return aggregated errors if any occurred
 	if len(clusterErrors) > 0 {
 		log.Warnf("initializing rollback completed with %d error(s)", len(clusterErrors))
-		return fmt.Errorf("rollback initializing failed with %d error(s): %s", len(clusterErrors), formatErrorMessages(clusterErrors))
+		return fmt.Errorf("rollback initializing failed with %d error(s): %s", len(clusterErrors),
+			formatErrorMessages(clusterErrors))
 	}
 
-	log.Infof("successfully completed initializing rollback for managed service account: %s", spec.ManagedServiceAccountName)
+	log.Infof("successfully completed initializing rollback for managed service account: %s",
+		spec.ManagedServiceAccountName)
 	return nil
 }
 
 // rollbackDeploying handles rollback of deploying phase on target hub
 // This is the main rollback operation that removes all migration resources and clusters
-func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *migration.MigrationTargetBundle, clusterErrors map[string]string) error {
+func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *migration.MigrationTargetBundle,
+	clusterErrors map[string]string,
+) error {
 	log.Infof("rollback deploying stage for clusters: %v", spec.ManagedClusters)
 
 	// 1. Remove all migration resources (including ManagedClusters and KlusterletAddonConfigs)
 	for _, clusterName := range spec.ManagedClusters {
 		if err := s.removeMigrationResources(ctx, clusterName); err != nil {
 			errMsg := fmt.Sprintf("failed to remove migration resources: %v", err)
-			log.Errorf("cluster %s: %s", clusterName, errMsg)
+			log.Errorf(logMsgClusterError, clusterName, errMsg)
 			clusterErrors[clusterName] = errMsg
 			// Continue to next cluster instead of returning
 		}
@@ -1167,7 +1174,7 @@ func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *mig
 		}
 		if err := deleteResourceIfExists(ctx, s.client, namespace, false); err != nil {
 			errMsg := fmt.Sprintf("failed to remove namespace: %v", err)
-			log.Warnf("cluster %s: %s", clusterName, errMsg)
+			log.Warnf(logMsgClusterError, clusterName, errMsg)
 			// Append to existing error or create new entry
 			if existing, ok := clusterErrors[clusterName]; ok {
 				clusterErrors[clusterName] = fmt.Sprintf("%s; %s", existing, errMsg)
@@ -1188,7 +1195,8 @@ func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *mig
 	if len(clusterErrors) > 0 {
 		log.Infof("Please follow Global Hub documentation to clean up garbage resources manually")
 		return fmt.Errorf("rollback completed with %d error(s): %s. "+
-			"Please follow Global Hub documentation to clean up garbage resources manually", len(clusterErrors), formatErrorMessages(clusterErrors))
+			"Please follow Global Hub documentation to clean up garbage resources manually",
+			len(clusterErrors), formatErrorMessages(clusterErrors))
 	}
 
 	log.Info("completed deploying stage rollback successfully")
@@ -1196,7 +1204,9 @@ func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *mig
 }
 
 // rollbackRegistering handles rollback of registering phase on target hub
-func (s *MigrationTargetSyncer) rollbackRegistering(ctx context.Context, spec *migration.MigrationTargetBundle, clusterErrors map[string]string) error {
+func (s *MigrationTargetSyncer) rollbackRegistering(ctx context.Context, spec *migration.MigrationTargetBundle,
+	clusterErrors map[string]string,
+) error {
 	log.Infof("rollback registering stage for clusters: %v", spec.ManagedClusters)
 	return s.rollbackDeploying(ctx, spec, clusterErrors)
 }
