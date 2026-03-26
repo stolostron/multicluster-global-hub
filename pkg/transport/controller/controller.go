@@ -244,11 +244,11 @@ func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *
 	}
 
 	if reflect.DeepEqual(c.transportConfig.RestfulCredential, restfulConn) {
-		return updated, err
+		return
 	}
 	updated = true
 	c.transportConfig.RestfulCredential = restfulConn
-	return updated, err
+	return
 }
 
 // SetupWithManager sets up the controller with the Manager.
