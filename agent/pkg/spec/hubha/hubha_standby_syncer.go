@@ -8,7 +8,9 @@ import (
 	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -131,16 +133,37 @@ func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructur
 }
 
 func (s *HubHAStandbySyncer) deleteResource(ctx context.Context, meta *generic.ObjectMetadata, sourceHub string) error {
-	log.Debugf("delete Hub HA resource from active hub %s: %s/%s (ID: %s)",
-		sourceHub, meta.Namespace, meta.Name, meta.ID)
+	log.Infof("deleting Hub HA resource from active hub %s: %s/%s (%s)",
+		sourceHub, meta.Namespace, meta.Name, meta.Kind)
 
-	// Note: Without GVK information in ObjectMetadata, we cannot properly delete the resource
-	// This is a known limitation. The ID field might contain resource type info,
-	// but for now we log a warning similar to the manager implementation.
-	// Resources will be cleaned up when the entire namespace is deleted or by manual cleanup.
-	log.Warnf("Hub HA resource deletion not fully implemented - need GVK info for %s/%s from %s",
-		meta.Namespace, meta.Name, sourceHub)
+	// Validate GVK information
+	if meta.Kind == "" {
+		log.Warnf("cannot delete resource %s/%s - missing Kind in metadata", meta.Namespace, meta.Name)
+		return fmt.Errorf("missing Kind in ObjectMetadata for %s/%s", meta.Namespace, meta.Name)
+	}
 
-	// TODO: Future enhancement - parse GVK from ID field or enhance ObjectMetadata structure
+	// Construct unstructured object for deletion
+	obj := &unstructured.Unstructured{}
+	obj.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   meta.Group,
+		Version: meta.Version,
+		Kind:    meta.Kind,
+	})
+	obj.SetNamespace(meta.Namespace)
+	obj.SetName(meta.Name)
+
+	// Delete the resource
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return s.client.Delete(ctx, obj)
+	})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			log.Debugf("resource %s/%s already deleted from standby hub", meta.Namespace, meta.Name)
+			return nil
+		}
+		return fmt.Errorf("failed to delete resource: %w", err)
+	}
+
+	log.Infof("successfully deleted resource %s/%s from standby hub", meta.Namespace, meta.Name)
 	return nil
 }

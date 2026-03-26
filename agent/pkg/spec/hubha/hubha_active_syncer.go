@@ -5,13 +5,18 @@ package hubha
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -31,16 +36,25 @@ var (
 const (
 	// Send Hub HA bundles every 30 seconds
 	hubhaSyncInterval = 30 * time.Second
+	// ConfigMap name for persisting synced resources state
+	hubHAStateConfigMapName = "hubha-synced-resources-state"
 )
 
 // HubHAActiveSyncer periodically collects Hub HA resources and sends them to standby hub via spec topic
+//
+// Deletion tracking is persisted to a ConfigMap to survive agent restarts. The ConfigMap stores
+// the state of all resources synced in the previous cycle, allowing detection of deletions even
+// after the agent restarts.
 type HubHAActiveSyncer struct {
-	client          client.Client
-	producer        transport.Producer
-	transportConfig *transport.TransportInternalConfig
-	resourcesToSync []schema.GroupVersionKind
-	activeHubName   string
-	standbyHubName  string
+	client            client.Client
+	producer          transport.Producer
+	transportConfig   *transport.TransportInternalConfig
+	resourcesToSync   []schema.GroupVersionKind
+	activeHubName     string
+	standbyHubName    string
+	namespace         string                            // namespace where the agent runs
+	previousResources map[string]generic.ObjectMetadata // persisted to ConfigMap
+	mu                sync.Mutex
 }
 
 // StartHubHAActiveSyncer starts the active hub syncer (only on active hubs)
@@ -65,11 +79,13 @@ func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer tran
 	}
 
 	syncer := &HubHAActiveSyncer{
-		client:          mgr.GetClient(),
-		producer:        producer,
-		transportConfig: agentConfig.TransportConfig,
-		activeHubName:   agentConfig.LeafHubName,
-		standbyHubName:  standbyHub,
+		client:            mgr.GetClient(),
+		producer:          producer,
+		transportConfig:   agentConfig.TransportConfig,
+		activeHubName:     agentConfig.LeafHubName,
+		standbyHubName:    standbyHub,
+		namespace:         agentConfig.PodNamespace,
+		previousResources: make(map[string]generic.ObjectMetadata),
 	}
 
 	log.Infof("starting Hub HA active syncer: %s (active) -> %s (standby)",
@@ -78,6 +94,12 @@ func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer tran
 	// Initialize resources to sync
 	if err := syncer.discoverResources(); err != nil {
 		return fmt.Errorf("failed to initialize Hub HA resources: %w", err)
+	}
+
+	// Load previous sync state from ConfigMap (if exists)
+	if err := syncer.loadPreviousResourcesFromConfigMap(ctx); err != nil {
+		log.Warnf("failed to load previous resources state from ConfigMap: %v", err)
+		// Continue with empty state - first sync will populate it
 	}
 
 	// Start periodic sync goroutine
@@ -269,6 +291,7 @@ func (s *HubHAActiveSyncer) syncResources(ctx context.Context) error {
 	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
 	resourceCount := 0
 	var firstListErr error
+	currentResources := make(map[string]generic.ObjectMetadata)
 
 	for _, gvk := range s.resourcesToSync {
 		list := &unstructured.UnstructuredList{}
@@ -300,6 +323,16 @@ func (s *HubHAActiveSyncer) syncResources(ctx context.Context) error {
 				continue
 			}
 
+			// Track current resource for deletion detection
+			resourceKey := s.getResourceKey(gvk, obj.GetNamespace(), obj.GetName())
+			currentResources[resourceKey] = generic.ObjectMetadata{
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+				Group:     gvk.Group,
+				Version:   gvk.Version,
+				Kind:      gvk.Kind,
+			}
+
 			// Clean metadata
 			obj.SetManagedFields(nil)
 			obj.SetResourceVersion("")
@@ -310,6 +343,26 @@ func (s *HubHAActiveSyncer) syncResources(ctx context.Context) error {
 			bundle.Resync = append(bundle.Resync, obj)
 			resourceCount++
 		}
+	}
+
+	// Detect deletions by comparing with previous sync
+	// previousResources is loaded from ConfigMap on startup, so deletions are detected even after agent restart
+	s.mu.Lock()
+	for key, meta := range s.previousResources {
+		if _, exists := currentResources[key]; !exists {
+			// Resource existed in previous sync but not in current - it was deleted
+			bundle.Delete = append(bundle.Delete, meta)
+			log.Debugf("detected deletion: %s/%s (%s)", meta.Namespace, meta.Name, meta.Kind)
+		}
+	}
+	// Update previous resources for next sync
+	s.previousResources = currentResources
+	s.mu.Unlock()
+
+	// Persist state to ConfigMap for restart resilience
+	if err := s.savePreviousResourcesToConfigMap(ctx); err != nil {
+		log.Warnf("failed to save Hub HA state to ConfigMap: %v", err)
+		// Continue with sync - state will be saved on next sync
 	}
 
 	if firstListErr != nil {
@@ -326,8 +379,13 @@ func (s *HubHAActiveSyncer) syncResources(ctx context.Context) error {
 		return fmt.Errorf("failed to send Hub HA bundle: %w", err)
 	}
 
-	log.Infof("synced %d Hub HA resources to standby hub %s", resourceCount, s.standbyHubName)
+	log.Infof("synced %d Hub HA resources to standby hub %s (deleted=%d)", resourceCount, s.standbyHubName, len(bundle.Delete))
 	return nil
+}
+
+// getResourceKey generates a unique key for a resource
+func (s *HubHAActiveSyncer) getResourceKey(gvk schema.GroupVersionKind, namespace, name string) string {
+	return fmt.Sprintf("%s/%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, namespace, name)
 }
 
 func (s *HubHAActiveSyncer) sendBundle(ctx context.Context, bundle *generic.GenericBundle[*unstructured.Unstructured]) error {
@@ -348,5 +406,83 @@ func (s *HubHAActiveSyncer) sendBundle(ctx context.Context, bundle *generic.Gene
 
 	log.Debugf("sent Hub HA bundle from %s to %s via spec topic",
 		s.activeHubName, s.standbyHubName)
+	return nil
+}
+
+// loadPreviousResourcesFromConfigMap loads the previous sync state from ConfigMap
+func (s *HubHAActiveSyncer) loadPreviousResourcesFromConfigMap(ctx context.Context) error {
+	cm := &corev1.ConfigMap{}
+	err := s.client.Get(ctx, types.NamespacedName{
+		Name:      hubHAStateConfigMapName,
+		Namespace: s.namespace,
+	}, cm)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("Hub HA state ConfigMap not found - starting with empty state")
+			return nil
+		}
+		return fmt.Errorf("failed to get Hub HA state ConfigMap: %w", err)
+	}
+
+	// Parse the state from ConfigMap data
+	stateJSON, exists := cm.Data["state"]
+	if !exists || stateJSON == "" {
+		log.Info("Hub HA state ConfigMap has no state data - starting with empty state")
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := json.Unmarshal([]byte(stateJSON), &s.previousResources); err != nil {
+		return fmt.Errorf("failed to unmarshal Hub HA state: %w", err)
+	}
+
+	log.Infof("loaded %d previously synced resources from ConfigMap", len(s.previousResources))
+	return nil
+}
+
+// savePreviousResourcesToConfigMap persists the current sync state to ConfigMap
+func (s *HubHAActiveSyncer) savePreviousResourcesToConfigMap(ctx context.Context) error {
+	s.mu.Lock()
+	stateJSON, err := json.Marshal(s.previousResources)
+	s.mu.Unlock()
+
+	if err != nil {
+		return fmt.Errorf("failed to marshal Hub HA state: %w", err)
+	}
+
+	cm := &corev1.ConfigMap{}
+	err = s.client.Get(ctx, types.NamespacedName{
+		Name:      hubHAStateConfigMapName,
+		Namespace: s.namespace,
+	}, cm)
+
+	if apierrors.IsNotFound(err) {
+		// Create new ConfigMap
+		cm = &corev1.ConfigMap{}
+		cm.Name = hubHAStateConfigMapName
+		cm.Namespace = s.namespace
+		cm.Data = map[string]string{
+			"state": string(stateJSON),
+		}
+		if err := s.client.Create(ctx, cm); err != nil {
+			return fmt.Errorf("failed to create Hub HA state ConfigMap: %w", err)
+		}
+		log.Debugf("created Hub HA state ConfigMap with %d resources", len(s.previousResources))
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get Hub HA state ConfigMap: %w", err)
+	}
+
+	// Update existing ConfigMap
+	cm.Data = map[string]string{
+		"state": string(stateJSON),
+	}
+	if err := s.client.Update(ctx, cm); err != nil {
+		return fmt.Errorf("failed to update Hub HA state ConfigMap: %w", err)
+	}
+
+	log.Debugf("updated Hub HA state ConfigMap with %d resources", len(s.previousResources))
 	return nil
 }

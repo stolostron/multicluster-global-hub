@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -308,29 +311,48 @@ func TestHubHAStandbySyncer_Sync_FullBundle(t *testing.T) {
 }
 
 func TestHubHAStandbySyncer_DeleteResource(t *testing.T) {
-	t.Skip("deleteResource is not yet implemented - resources deleted on active hub remain on standby hub. " +
-		"This test should verify actual deletion once Hub HA delete/resync pruning is implemented (needs GVK in ObjectMetadata)")
-
-	// TODO: Once deletion is implemented, this test should:
-	// 1. Create a resource on the fake client
-	// 2. Call deleteResource with proper GVK information
-	// 3. Verify the resource is actually deleted from the client
-	// 4. Ensure resources removed from active hub don't remain stranded on standby hub
-
+	// Test deletion of resources using GVK information in ObjectMetadata
 	scheme := runtime.NewScheme()
-	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
 
+	// Create a ConfigMap to be deleted
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cm",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"key": "value",
+		},
+	}
+
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm).Build()
 	syncer := NewHubHAStandbySyncer(client)
 
 	meta := &generic.ObjectMetadata{
 		Name:      "test-cm",
 		Namespace: "default",
 		ID:        "test-id",
+		Group:     "",
+		Version:   "v1",
+		Kind:      "ConfigMap",
 	}
 
 	ctx := context.Background()
 	err := syncer.deleteResource(ctx, meta, "hub1")
 	if err != nil {
 		t.Errorf("deleteResource() error = %v", err)
+	}
+
+	// Verify the resource was actually deleted
+	verifyDeleted := &corev1.ConfigMap{}
+	err = client.Get(ctx, types.NamespacedName{Name: "test-cm", Namespace: "default"}, verifyDeleted)
+	if err == nil {
+		t.Errorf("expected resource to be deleted, but it still exists")
+	}
+	if !errors.IsNotFound(err) {
+		t.Errorf("expected NotFound error, got %v", err)
 	}
 }

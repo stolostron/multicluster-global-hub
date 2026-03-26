@@ -557,6 +557,177 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
 		})
 
+		It("should delete Secret from standby when deleted on active hub", func() {
+			deleteTestSecretName := fmt.Sprintf("delete-test-secret-%d", time.Now().Unix())
+
+			By("Creating Secret on active hub")
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deleteTestSecretName,
+					Namespace: testNamespace,
+					Labels: map[string]string{
+						"hive.openshift.io/secret-type": "kubeconfig",
+					},
+				},
+				Data: map[string][]byte{
+					"kubeconfig": []byte("test-delete-data"),
+				},
+				Type: corev1.SecretTypeOpaque,
+			}
+			Expect(activeHubClient.Create(ctx, secret)).To(Succeed())
+			klog.Infof("Created test secret %s on active hub", deleteTestSecretName)
+
+			By("Verifying Secret is synced to standby hub")
+			Eventually(func() error {
+				standbySecret := &corev1.Secret{}
+				if err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      deleteTestSecretName,
+					Namespace: testNamespace,
+				}, standbySecret); err != nil {
+					return fmt.Errorf("secret not found on standby hub: %w", err)
+				}
+				klog.Infof("Secret %s successfully synced to standby hub", deleteTestSecretName)
+				return nil
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+
+			By("Deleting Secret from active hub")
+			Expect(activeHubClient.Delete(ctx, secret)).To(Succeed())
+			klog.Infof("Deleted secret %s from active hub", deleteTestSecretName)
+
+			By("Verifying Secret is deleted from standby hub")
+			Eventually(func() bool {
+				standbySecret := &corev1.Secret{}
+				err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      deleteTestSecretName,
+					Namespace: testNamespace,
+				}, standbySecret)
+				// Should be not found after deletion
+				if err != nil {
+					klog.Infof("Secret %s successfully deleted from standby hub", deleteTestSecretName)
+					return true
+				}
+				return false
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(BeTrue(), "Secret should be deleted from standby hub")
+		})
+
+		It("should delete ConfigMap from standby when deleted on active hub", func() {
+			deleteTestCMName := fmt.Sprintf("delete-test-cm-%d", time.Now().Unix())
+
+			By("Creating ConfigMap on active hub")
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deleteTestCMName,
+					Namespace: testNamespace,
+					Labels: map[string]string{
+						"hive.openshift.io/secret-type": "kubeconfig",
+					},
+				},
+				Data: map[string]string{
+					"config": "test-delete-data",
+				},
+			}
+			Expect(activeHubClient.Create(ctx, cm)).To(Succeed())
+			klog.Infof("Created test ConfigMap %s on active hub", deleteTestCMName)
+
+			By("Verifying ConfigMap is synced to standby hub")
+			Eventually(func() error {
+				standbyCM := &corev1.ConfigMap{}
+				if err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      deleteTestCMName,
+					Namespace: testNamespace,
+				}, standbyCM); err != nil {
+					return fmt.Errorf("configmap not found on standby hub: %w", err)
+				}
+				klog.Infof("ConfigMap %s successfully synced to standby hub", deleteTestCMName)
+				return nil
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+
+			By("Deleting ConfigMap from active hub")
+			Expect(activeHubClient.Delete(ctx, cm)).To(Succeed())
+			klog.Infof("Deleted ConfigMap %s from active hub", deleteTestCMName)
+
+			By("Verifying ConfigMap is deleted from standby hub")
+			Eventually(func() bool {
+				standbyCM := &corev1.ConfigMap{}
+				err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      deleteTestCMName,
+					Namespace: testNamespace,
+				}, standbyCM)
+				// Should be not found after deletion
+				if err != nil {
+					klog.Infof("ConfigMap %s successfully deleted from standby hub", deleteTestCMName)
+					return true
+				}
+				return false
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(BeTrue(), "ConfigMap should be deleted from standby hub")
+		})
+
+		It("should delete Policy from standby when deleted on active hub", func() {
+			deleteTestPolicyName := fmt.Sprintf("delete-test-policy-%d", time.Now().Unix())
+
+			By("Creating Policy on active hub")
+			policy := &policyv1.Policy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deleteTestPolicyName,
+					Namespace: testNamespace,
+				},
+				Spec: policyv1.PolicySpec{
+					RemediationAction: "inform",
+					Disabled:          false,
+					PolicyTemplates: []*policyv1.PolicyTemplate{
+						{
+							ObjectDefinition: runtime.RawExtension{
+								Raw: []byte(`{
+									"apiVersion": "policy.open-cluster-management.io/v1",
+									"kind": "ConfigurationPolicy",
+									"metadata": {
+										"name": "delete-test-config-policy"
+									},
+									"spec": {
+										"severity": "low"
+									}
+								}`),
+							},
+						},
+					},
+				},
+			}
+			Expect(activeHubClient.Create(ctx, policy)).To(Succeed())
+			klog.Infof("Created test Policy %s on active hub", deleteTestPolicyName)
+
+			By("Verifying Policy is synced to standby hub")
+			Eventually(func() error {
+				standbyPolicy := &policyv1.Policy{}
+				if err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      deleteTestPolicyName,
+					Namespace: testNamespace,
+				}, standbyPolicy); err != nil {
+					return fmt.Errorf("policy not found on standby hub: %w", err)
+				}
+				klog.Infof("Policy %s successfully synced to standby hub", deleteTestPolicyName)
+				return nil
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+
+			By("Deleting Policy from active hub")
+			Expect(activeHubClient.Delete(ctx, policy)).To(Succeed())
+			klog.Infof("Deleted Policy %s from active hub", deleteTestPolicyName)
+
+			By("Verifying Policy is deleted from standby hub")
+			Eventually(func() bool {
+				standbyPolicy := &policyv1.Policy{}
+				err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name:      deleteTestPolicyName,
+					Namespace: testNamespace,
+				}, standbyPolicy)
+				// Should be not found after deletion
+				if err != nil {
+					klog.Infof("Policy %s successfully deleted from standby hub", deleteTestPolicyName)
+					return true
+				}
+				return false
+			}, hubHASyncWait+30*time.Second, 5*time.Second).Should(BeTrue(), "Policy should be deleted from standby hub")
+		})
+
 		It("should NOT sync Secret with velero exclude label", func() {
 			excludedSecretName := fmt.Sprintf("excluded-secret-%d", time.Now().Unix())
 			By("Creating Secret with velero exclude label on active hub")

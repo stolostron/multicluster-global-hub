@@ -8,12 +8,15 @@ import (
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -202,5 +205,120 @@ func TestStartHubHAActiveSyncer_NotActiveRole(t *testing.T) {
 	err := StartHubHAActiveSyncer(context.Background(), nil, producer)
 	if err != nil {
 		t.Errorf("StartHubHAActiveSyncer() error = %v, expected nil", err)
+	}
+}
+
+func TestHubHAActiveSyncer_ConfigMapPersistence(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	syncer := &HubHAActiveSyncer{
+		client:    client,
+		namespace: "test-namespace",
+		previousResources: map[string]generic.ObjectMetadata{
+			"test-key-1": {
+				Namespace: "default",
+				Name:      "test-resource-1",
+				Group:     "",
+				Version:   "v1",
+				Kind:      "ConfigMap",
+			},
+			"test-key-2": {
+				Namespace: "default",
+				Name:      "test-resource-2",
+				Group:     "policy.open-cluster-management.io",
+				Version:   "v1",
+				Kind:      "Policy",
+			},
+		},
+	}
+
+	ctx := context.Background()
+
+	// Test saving to ConfigMap
+	err := syncer.savePreviousResourcesToConfigMap(ctx)
+	if err != nil {
+		t.Errorf("savePreviousResourcesToConfigMap() error = %v", err)
+	}
+
+	// Verify ConfigMap was created
+	cm := &corev1.ConfigMap{}
+	err = client.Get(ctx, types.NamespacedName{
+		Name:      hubHAStateConfigMapName,
+		Namespace: "test-namespace",
+	}, cm)
+	if err != nil {
+		t.Errorf("Failed to get ConfigMap: %v", err)
+	}
+
+	if cm.Data["state"] == "" {
+		t.Error("ConfigMap state data is empty")
+	}
+
+	// Test loading from ConfigMap
+	syncer2 := &HubHAActiveSyncer{
+		client:            client,
+		namespace:         "test-namespace",
+		previousResources: make(map[string]generic.ObjectMetadata),
+	}
+
+	err = syncer2.loadPreviousResourcesFromConfigMap(ctx)
+	if err != nil {
+		t.Errorf("loadPreviousResourcesFromConfigMap() error = %v", err)
+	}
+
+	// Verify loaded state matches saved state
+	if len(syncer2.previousResources) != 2 {
+		t.Errorf("Expected 2 resources, got %d", len(syncer2.previousResources))
+	}
+
+	res1, exists := syncer2.previousResources["test-key-1"]
+	if !exists {
+		t.Error("test-key-1 not found in loaded resources")
+	} else {
+		if res1.Name != "test-resource-1" || res1.Kind != "ConfigMap" {
+			t.Errorf("Loaded resource mismatch: %+v", res1)
+		}
+	}
+
+	res2, exists := syncer2.previousResources["test-key-2"]
+	if !exists {
+		t.Error("test-key-2 not found in loaded resources")
+	} else {
+		if res2.Name != "test-resource-2" || res2.Kind != "Policy" {
+			t.Errorf("Loaded resource mismatch: %+v", res2)
+		}
+	}
+}
+
+func TestHubHAActiveSyncer_LoadNonExistentConfigMap(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	syncer := &HubHAActiveSyncer{
+		client:            client,
+		namespace:         "test-namespace",
+		previousResources: make(map[string]generic.ObjectMetadata),
+	}
+
+	ctx := context.Background()
+
+	// Loading from non-existent ConfigMap should not error
+	err := syncer.loadPreviousResourcesFromConfigMap(ctx)
+	if err != nil {
+		t.Errorf("loadPreviousResourcesFromConfigMap() error = %v, expected nil for non-existent ConfigMap", err)
+	}
+
+	// previousResources should remain empty
+	if len(syncer.previousResources) != 0 {
+		t.Errorf("Expected 0 resources, got %d", len(syncer.previousResources))
 	}
 }
