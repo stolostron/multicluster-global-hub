@@ -7,6 +7,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/haconfig"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/hubha"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/migration"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
@@ -52,6 +53,9 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 	}
 
 	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncer())
+
+	dispatcher.RegisterSyncer(constants.HAConfigMsgKey,
+		haconfig.NewHAConfigSyncer(mgr.GetClient(), transportClient, agentConfig))
 
 	log.Info("added the spec controllers to manager")
 	return nil

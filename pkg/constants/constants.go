@@ -253,6 +253,11 @@ const (
 	MigrationRollbackAnnotationValue = "rollback"
 )
 
+// HA configuration constants
+const (
+	HAConfigMsgKey = "HAConfig"
+)
+
 // global hub agent constants
 const (
 	GHClusterManagementAddonName = "multicluster-global-hub-controller"
