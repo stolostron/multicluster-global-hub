@@ -8,7 +8,7 @@ export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
-export GO_VERSION=go1.23.6
+export GO_VERSION=go1.25.7
 export GINKGO_VERSION=v2.17.2
 
 # Environment Variables
