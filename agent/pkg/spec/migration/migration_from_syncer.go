@@ -628,6 +628,7 @@ func expireTimeFromContext(ctx context.Context) time.Time {
 // Returns 10 minutes if expireTime is zero (not set), or 0 if already past.
 func remainingExpireTime(expireTime time.Time) time.Duration {
 	if expireTime.IsZero() {
+		log.Warnf("expirytime not set, falling back to default 10 minutes")
 		return 10 * time.Minute
 	}
 	if remaining := time.Until(expireTime); remaining > 0 {
