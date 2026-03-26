@@ -46,6 +46,7 @@ type HubManagement struct {
 	producer      transport.Producer
 	probeDuration time.Duration
 	activeTimeout time.Duration
+	db            *gorm.DB // cached db connection for hub management operations
 }
 
 func NewHubManagement(c client.Client, producer transport.Producer, probeDuration,
@@ -105,9 +106,8 @@ func (h *HubManagement) Start(ctx context.Context) error {
 
 func (h *HubManagement) update(ctx context.Context) error {
 	thresholdTime := time.Now().Add(-h.activeTimeout)
-	db := database.GetGorm()
 	var expiredHubs []models.LeafHubHeartbeat
-	if err := db.Where("last_timestamp < ? AND status = ?", thresholdTime, constants.HubStatusActive).
+	if err := h.db.Where("last_timestamp < ? AND status = ?", thresholdTime, constants.HubStatusActive).
 		Find(&expiredHubs).Error; err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (h *HubManagement) update(ctx context.Context) error {
 	}
 
 	var reactiveHubs []models.LeafHubHeartbeat
-	if err := db.Where("last_timestamp > ? AND status = ?", thresholdTime, constants.HubStatusInactive).
+	if err := h.db.Where("last_timestamp > ? AND status = ?", thresholdTime, constants.HubStatusInactive).
 		Find(&reactiveHubs).Error; err != nil {
 		return err
 	}
