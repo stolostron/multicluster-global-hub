@@ -57,7 +57,8 @@ const (
 
 	// VeleroRestoreNameLabel is used to mark ImageClusterInstall resources as restored by velero.
 	// This label is required to prevent the image-based-install-operator from reconciling the resource.
-	// Reference: https://github.com/openshift/image-based-install-operator/blob/main/controllers/imageclusterinstall_controller.go#L118
+	// Reference: https://github.com/openshift/image-based-install-operator/blob/main/controllers/
+	// imageclusterinstall_controller.go#L118
 	VeleroRestoreNameLabel = "velero.io/restore-name"
 
 	GlobalHubRestoreName = "globalhub"
