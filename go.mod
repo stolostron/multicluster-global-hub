@@ -1,6 +1,6 @@
 module github.com/stolostron/multicluster-global-hub
 
-go 1.25.7
+go 1.24.6
 
 require (
 	github.com/IBM/sarama v1.45.2
