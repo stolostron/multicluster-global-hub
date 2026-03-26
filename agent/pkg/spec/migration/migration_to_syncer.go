@@ -95,8 +95,8 @@ func shouldSkipMigrationEvent(ctx context.Context, client client.Client, evt *cl
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest migration time from configmap: %w", err)
 	}
-	if cached && latestMigrationTime.After(evt.Time()) {
-		log.Infof("latest migration time %s is after event time %s, skip processing", latestMigrationTime, evt.Time())
+	if cached && !latestMigrationTime.Before(evt.Time()) {
+		log.Infof("latest migration time %s is on/after event time %s, skip processing", latestMigrationTime, evt.Time())
 		return true, nil
 	}
 	return false, nil

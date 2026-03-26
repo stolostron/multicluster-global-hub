@@ -624,15 +624,16 @@ func expireTimeFromContext(ctx context.Context) time.Time {
 	return time.Time{}
 }
 
-// remainingExpireTime returns the duration until expireTime, falling back to 10 minutes
-// if expireTime is zero or already past.
+// remainingExpireTime returns the duration until expireTime.
+// Returns 10 minutes if expireTime is zero (not set), or 0 if already past.
 func remainingExpireTime(expireTime time.Time) time.Duration {
-	if !expireTime.IsZero() {
-		if remaining := time.Until(expireTime); remaining > 0 {
-			return remaining
-		}
+	if expireTime.IsZero() {
+		return 10 * time.Minute
 	}
-	return 10 * time.Minute
+	if remaining := time.Until(expireTime); remaining > 0 {
+		return remaining
+	}
+	return 0
 }
 
 func ReportMigrationStatus(
