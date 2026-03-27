@@ -5,7 +5,9 @@ package hubha
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -14,27 +16,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
-
-type mockProducer struct {
-	events []cloudevents.Event
-}
-
-func (m *mockProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
-	m.events = append(m.events, evt)
-	return nil
-}
-
-func (m *mockProducer) Stop() {}
-
-func (m *mockProducer) Reconnect(config *transport.TransportInternalConfig, clusterName string) error {
-	return nil
-}
 
 func TestGetHubHAResourcesToSync(t *testing.T) {
 	resources := getHubHAResourcesToSync()
@@ -68,257 +54,324 @@ func TestGetHubHAResourcesToSync(t *testing.T) {
 	}
 }
 
-func TestHubHAActiveSyncer_Creation(t *testing.T) {
-	scheme := runtime.NewScheme()
-	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+func TestHubHAController_Reconcile_Update(t *testing.T) {
+	// Create fake client
+	scheme := newTestScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	producer := &mockProducer{}
-	transportConfig := &transport.TransportInternalConfig{
-		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic: "spec-topic",
-		},
-	}
-
-	syncer := &HubHAActiveSyncer{
-		client:          client,
-		producer:        producer,
-		transportConfig: transportConfig,
-		activeHubName:   "hub1",
-		standbyHubName:  "hub2",
-	}
-
-	// Discover resources
-	err := syncer.discoverResources()
-	if err != nil {
-		t.Errorf("discoverResources() error = %v", err)
-	}
-
-	if len(syncer.resourcesToSync) == 0 {
-		t.Error("resourcesToSync is empty")
-	}
-}
-
-func TestSyncResources(t *testing.T) {
-	scheme := runtime.NewScheme()
-
-	// Create test objects
-	policy := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "policy.open-cluster-management.io/v1",
-			"kind":       "Policy",
-			"metadata": map[string]interface{}{
-				"name":      "test-policy",
-				"namespace": "default",
-			},
-		},
-	}
-
-	client := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(policy).
-		Build()
-
+	// Create mock producer and emitter
 	producer := &mockProducer{events: []cloudevents.Event{}}
 	transportConfig := &transport.TransportInternalConfig{
 		KafkaCredential: &transport.KafkaConfig{
 			SpecTopic: "spec-topic",
 		},
 	}
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
 
-	syncer := &HubHAActiveSyncer{
-		client:          client,
-		producer:        producer,
-		transportConfig: transportConfig,
-		activeHubName:   "hub1",
-		standbyHubName:  "hub2",
+	// Create controller
+	controller := &hubHAController{
+		client:  fakeClient,
+		emitter: emitter,
+		gvk: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		},
 	}
 
-	// Override resourcesToSync to only test Policy to avoid CRD not found errors
-	syncer.resourcesToSync = []schema.GroupVersionKind{
-		{Group: "policy.open-cluster-management.io", Version: "v1", Kind: "Policy"},
-	}
-
-	ctx := context.Background()
-	err := syncer.syncResources(ctx)
-	if err != nil {
-		t.Errorf("syncResources() error = %v", err)
-	}
-
-	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event to be sent, got %d", len(producer.events))
-	}
-
-	if len(producer.events) > 0 {
-		evt := producer.events[0]
-		if evt.Type() != constants.HubHAResourcesMsgKey {
-			t.Errorf("Event type = %s, want %s", evt.Type(), constants.HubHAResourcesMsgKey)
-		}
-		if evt.Source() != "hub1" {
-			t.Errorf("Event source = %s, want hub1", evt.Source())
-		}
-	}
-}
-
-func TestStartHubHAActiveSyncer_NoStandbyHub(t *testing.T) {
-	// Capture and restore original agent config to avoid test pollution
-	originalConfig := configs.GetAgentConfig()
-	t.Cleanup(func() {
-		configs.SetAgentConfig(originalConfig)
-	})
-
-	producer := &mockProducer{}
-
-	// Configure agent without standby hub
-	agentConfig := &configs.AgentConfig{
-		LeafHubName: "hub1",
-	}
-	agentConfig.SetHubRole(constants.GHHubRoleActive)
-	agentConfig.SetStandbyHub("") // No standby hub
-	configs.SetAgentConfig(agentConfig)
-
-	// This should not start the syncer
-	err := StartHubHAActiveSyncer(context.Background(), nil, producer)
-	// We expect no error, but the syncer shouldn't actually start
-	if err != nil {
-		t.Errorf("StartHubHAActiveSyncer() error = %v, expected nil", err)
-	}
-}
-
-func TestStartHubHAActiveSyncer_NotActiveRole(t *testing.T) {
-	// Capture and restore original agent config to avoid test pollution
-	originalConfig := configs.GetAgentConfig()
-	t.Cleanup(func() {
-		configs.SetAgentConfig(originalConfig)
-	})
-
-	producer := &mockProducer{}
-
-	// Configure agent as standby hub
-	agentConfig := &configs.AgentConfig{
-		LeafHubName: "hub1",
-	}
-	agentConfig.SetHubRole(constants.GHHubRoleStandby)
-	agentConfig.SetStandbyHub("hub2")
-	configs.SetAgentConfig(agentConfig)
-
-	// This should not start the syncer
-	err := StartHubHAActiveSyncer(context.Background(), nil, producer)
-	if err != nil {
-		t.Errorf("StartHubHAActiveSyncer() error = %v, expected nil", err)
-	}
-}
-
-func TestHubHAActiveSyncer_ConfigMapPersistence(t *testing.T) {
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("failed to add corev1 to scheme: %v", err)
-	}
-
-	client := fake.NewClientBuilder().WithScheme(scheme).Build()
-
-	syncer := &HubHAActiveSyncer{
-		client:    client,
-		namespace: "test-namespace",
-		previousResources: map[string]generic.ObjectMetadata{
-			"test-key-1": {
-				Namespace: "default",
-				Name:      "test-resource-1",
-				Group:     "",
-				Version:   "v1",
-				Kind:      "ConfigMap",
+	// Create a Secret with required label
+	secret := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "test-secret",
+				"namespace": "default",
+				"labels": map[string]interface{}{
+					"hive.openshift.io/secret-type": "kubeconfig",
+				},
 			},
-			"test-key-2": {
-				Namespace: "default",
-				Name:      "test-resource-2",
-				Group:     "policy.open-cluster-management.io",
-				Version:   "v1",
-				Kind:      "Policy",
+			"data": map[string]interface{}{
+				"kubeconfig": "dGVzdA==", // base64 "test"
 			},
 		},
 	}
 
-	ctx := context.Background()
-
-	// Test saving to ConfigMap
-	err := syncer.savePreviousResourcesToConfigMap(ctx)
+	// Create the secret in fake client
+	err := fakeClient.Create(context.Background(), secret)
 	if err != nil {
-		t.Errorf("savePreviousResourcesToConfigMap() error = %v", err)
+		t.Fatalf("Failed to create secret: %v", err)
 	}
 
-	// Verify ConfigMap was created
-	cm := &corev1.ConfigMap{}
-	err = client.Get(ctx, types.NamespacedName{
-		Name:      hubHAStateConfigMapName,
-		Namespace: "test-namespace",
-	}, cm)
+	// Reconcile
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: "default",
+			Name:      "test-secret",
+		},
+	}
+
+	result, err := controller.Reconcile(context.Background(), req)
 	if err != nil {
-		t.Errorf("Failed to get ConfigMap: %v", err)
+		t.Errorf("Reconcile() error = %v", err)
 	}
 
-	if cm.Data["state"] == "" {
-		t.Error("ConfigMap state data is empty")
+	if result.Requeue {
+		t.Error("Expected no requeue")
 	}
 
-	// Test loading from ConfigMap
-	syncer2 := &HubHAActiveSyncer{
-		client:            client,
-		namespace:         "test-namespace",
-		previousResources: make(map[string]generic.ObjectMetadata),
-	}
-
-	err = syncer2.loadPreviousResourcesFromConfigMap(ctx)
-	if err != nil {
-		t.Errorf("loadPreviousResourcesFromConfigMap() error = %v", err)
-	}
-
-	// Verify loaded state matches saved state
-	if len(syncer2.previousResources) != 2 {
-		t.Errorf("Expected 2 resources, got %d", len(syncer2.previousResources))
-	}
-
-	res1, exists := syncer2.previousResources["test-key-1"]
-	if !exists {
-		t.Error("test-key-1 not found in loaded resources")
-	} else {
-		if res1.Name != "test-resource-1" || res1.Kind != "ConfigMap" {
-			t.Errorf("Loaded resource mismatch: %+v", res1)
-		}
-	}
-
-	res2, exists := syncer2.previousResources["test-key-2"]
-	if !exists {
-		t.Error("test-key-2 not found in loaded resources")
-	} else {
-		if res2.Name != "test-resource-2" || res2.Kind != "Policy" {
-			t.Errorf("Loaded resource mismatch: %+v", res2)
-		}
+	// Verify event was sent immediately
+	if len(producer.events) != 1 {
+		t.Errorf("Expected 1 event to be sent, got %d", len(producer.events))
 	}
 }
 
-func TestHubHAActiveSyncer_LoadNonExistentConfigMap(t *testing.T) {
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("failed to add corev1 to scheme: %v", err)
+func TestHubHAController_Reconcile_Delete(t *testing.T) {
+	// Create fake client
+	scheme := newTestScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	// Create mock producer and emitter
+	producer := &mockProducer{events: []cloudevents.Event{}}
+	transportConfig := &transport.TransportInternalConfig{
+		KafkaCredential: &transport.KafkaConfig{
+			SpecTopic: "spec-topic",
+		},
+	}
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+
+	// Create controller
+	controller := &hubHAController{
+		client:  fakeClient,
+		emitter: emitter,
+		gvk: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		},
 	}
 
-	client := fake.NewClientBuilder().WithScheme(scheme).Build()
-
-	syncer := &HubHAActiveSyncer{
-		client:            client,
-		namespace:         "test-namespace",
-		previousResources: make(map[string]generic.ObjectMetadata),
+	// Reconcile for non-existent object (deleted)
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: "default",
+			Name:      "deleted-secret",
+		},
 	}
 
-	ctx := context.Background()
-
-	// Loading from non-existent ConfigMap should not error
-	err := syncer.loadPreviousResourcesFromConfigMap(ctx)
+	result, err := controller.Reconcile(context.Background(), req)
 	if err != nil {
-		t.Errorf("loadPreviousResourcesFromConfigMap() error = %v, expected nil for non-existent ConfigMap", err)
+		t.Errorf("Reconcile() error = %v", err)
 	}
 
-	// previousResources should remain empty
-	if len(syncer.previousResources) != 0 {
-		t.Errorf("Expected 0 resources, got %d", len(syncer.previousResources))
+	if result.Requeue {
+		t.Error("Expected no requeue for deleted object")
 	}
+
+	// Note: Delete for non-existent object without required label won't send event
+	// because the filter will reject it
+}
+
+func TestHubHAController_Reconcile_FilteredResource(t *testing.T) {
+	// Create fake client
+	scheme := newTestScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	// Create mock producer and emitter
+	producer := &mockProducer{events: []cloudevents.Event{}}
+	transportConfig := &transport.TransportInternalConfig{
+		KafkaCredential: &transport.KafkaConfig{
+			SpecTopic: "spec-topic",
+		},
+	}
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+
+	// Create controller
+	controller := &hubHAController{
+		client:  fakeClient,
+		emitter: emitter,
+		gvk: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		},
+	}
+
+	// Create a Secret WITHOUT required label (should be filtered)
+	secret := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "filtered-secret",
+				"namespace": "default",
+				// No required labels
+			},
+		},
+	}
+
+	// Create the secret in fake client
+	err := fakeClient.Create(context.Background(), secret)
+	if err != nil {
+		t.Fatalf("Failed to create secret: %v", err)
+	}
+
+	// Reconcile
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: "default",
+			Name:      "filtered-secret",
+		},
+	}
+
+	result, err := controller.Reconcile(context.Background(), req)
+	if err != nil {
+		t.Errorf("Reconcile() error = %v", err)
+	}
+
+	if result.Requeue {
+		t.Error("Expected no requeue")
+	}
+
+	// Verify no event was sent (filtered)
+	if len(producer.events) != 0 {
+		t.Errorf("Expected 0 events for filtered resource, got %d", len(producer.events))
+	}
+}
+
+func TestPerformFullResync(t *testing.T) {
+	// Create fake client
+	scheme := newTestScheme()
+
+	// Create test secrets
+	secret1 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "secret1",
+				"namespace": "default",
+				"labels": map[string]interface{}{
+					"hive.openshift.io/secret-type": "kubeconfig",
+				},
+			},
+		},
+	}
+
+	secret2 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "secret2",
+				"namespace": "default",
+				"labels": map[string]interface{}{
+					"cluster.open-cluster-management.io/type": "managed",
+				},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(secret1, secret2).
+		Build()
+
+	// Create mock producer and emitter
+	producer := &mockProducer{events: []cloudevents.Event{}}
+	transportConfig := &transport.TransportInternalConfig{
+		KafkaCredential: &transport.KafkaConfig{
+			SpecTopic: "spec-topic",
+		},
+	}
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+
+	// Perform resync
+	resourcesToSync := []schema.GroupVersionKind{
+		{Group: "", Version: "v1", Kind: "Secret"},
+	}
+
+	err := performFullResync(context.Background(), fakeClient, emitter, resourcesToSync)
+	if err != nil {
+		t.Errorf("performFullResync() error = %v", err)
+	}
+
+	// Verify event was sent
+	if len(producer.events) != 1 {
+		t.Errorf("Expected 1 event to be sent after resync, got %d", len(producer.events))
+	}
+
+	// Parse bundle
+	var bundle generic.GenericBundle[*unstructured.Unstructured]
+	err = json.Unmarshal(producer.events[0].Data(), &bundle)
+	if err != nil {
+		t.Errorf("Failed to unmarshal bundle: %v", err)
+	}
+
+	// Should have 2 secrets in resync
+	if len(bundle.Resync) != 2 {
+		t.Errorf("Expected 2 secrets in resync bundle, got %d", len(bundle.Resync))
+	}
+}
+
+func TestPeriodicResync(t *testing.T) {
+	// Create fake client
+	scheme := newTestScheme()
+	secret := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]interface{}{
+				"name":      "test-secret",
+				"namespace": "default",
+				"labels": map[string]interface{}{
+					"hive.openshift.io/secret-type": "kubeconfig",
+				},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(secret).
+		Build()
+
+	// Create mock producer and emitter
+	producer := &mockProducer{events: []cloudevents.Event{}}
+	transportConfig := &transport.TransportInternalConfig{
+		KafkaCredential: &transport.KafkaConfig{
+			SpecTopic: "spec-topic",
+		},
+	}
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+
+	resourcesToSync := []schema.GroupVersionKind{
+		{Group: "", Version: "v1", Kind: "Secret"},
+	}
+
+	// Start periodic resync with very short interval for testing
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Use very short interval for testing
+	interval := 100 * time.Millisecond
+	go periodicResync(ctx, fakeClient, emitter, resourcesToSync, interval)
+
+	// Wait for at least one resync cycle
+	time.Sleep(200 * time.Millisecond)
+
+	// Cancel to stop goroutine
+	cancel()
+
+	// Verify at least one resync event was sent
+	if len(producer.events) < 1 {
+		t.Errorf("Expected at least 1 resync event, got %d", len(producer.events))
+	}
+}
+
+// Helper function to create a test scheme
+func newTestScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	return scheme
 }

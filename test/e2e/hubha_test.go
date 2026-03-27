@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	// Sync interval is 30s, so we need to wait a bit longer
-	hubHASyncWait = 45 * time.Second
+	// With list-watch pattern + immediate send, changes are detected and sent immediately
+	// Wait time accounts for: controller event processing + Kafka transport + standby agent apply
+	hubHASyncWait = 10 * time.Second
 )
 
 var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {

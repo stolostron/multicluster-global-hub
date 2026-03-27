@@ -70,16 +70,6 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		// Clean up Hub HA state ConfigMap
-		stateConfigMap := &corev1.ConfigMap{}
-		err := k8sClient.Get(context.Background(), types.NamespacedName{
-			Name:      "hubha-synced-resources-state",
-			Namespace: constants.GHAgentNamespace,
-		}, stateConfigMap)
-		if err == nil {
-			_ = k8sClient.Delete(context.Background(), stateConfigMap)
-		}
-
 		// Create one producer for all tests in this suite
 		producer = newMockProducer()
 
@@ -118,7 +108,7 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 		}
 	})
 
-	It("should collect and send ConfigMaps to standby hub", func() {
+	It("should immediately send ConfigMaps to standby hub", func() {
 		// Create test ConfigMap with required label
 		cm := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -134,7 +124,7 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, cm)).To(Succeed())
 
-		// Wait for event to be sent
+		// Wait for event to be sent immediately
 		Eventually(func() bool {
 			select {
 			case evt := <-producer.events:
@@ -147,17 +137,17 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 				err := evt.DataAs(bundle)
 				Expect(err).NotTo(HaveOccurred())
 
-				// Check if our ConfigMap is in the bundle
-				for _, obj := range bundle.Resync {
+				// Check if our ConfigMap is in the Update array (immediate send)
+				for _, obj := range bundle.Update {
 					if obj.GetKind() == "ConfigMap" && obj.GetName() == "test-cm" {
 						return true
 					}
 				}
 				return false
-			case <-time.After(35 * time.Second): // Wait longer than sync interval (30s)
+			case <-time.After(100 * time.Millisecond):
 				return false
 			}
-		}, 40*time.Second, 1*time.Second).Should(BeTrue())
+		}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		// Cleanup
 		Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
@@ -197,7 +187,7 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, cm2)).To(Succeed())
 
-		// Wait for event
+		// Wait for event (only included-cm should be sent)
 		Eventually(func() bool {
 			select {
 			case evt := <-producer.events:
@@ -208,7 +198,8 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 				hasExcluded := false
 				hasIncluded := false
 
-				for _, obj := range bundle.Resync {
+				// Check Update array (immediate send)
+				for _, obj := range bundle.Update {
 					if obj.GetKind() == "ConfigMap" {
 						if obj.GetName() == "excluded-cm" {
 							hasExcluded = true
@@ -220,18 +211,21 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 				}
 
 				// Should have included-cm but not excluded-cm
-				return !hasExcluded && hasIncluded
-			case <-time.After(35 * time.Second):
+				if hasIncluded && !hasExcluded {
+					return true
+				}
+				return false
+			case <-time.After(100 * time.Millisecond):
 				return false
 			}
-		}, 40*time.Second, 1*time.Second).Should(BeTrue())
+		}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		// Cleanup
 		Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, cm2)).To(Succeed())
 	})
 
-	It("should collect and send Policy resources", func() {
+	It("should immediately send Policy resources", func() {
 		ctx := context.Background()
 
 		// Create test Policy
@@ -265,7 +259,7 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, policy)).To(Succeed())
 
-		// Wait for event with Policy
+		// Wait for event with Policy (immediate send in Update array)
 		Eventually(func() bool {
 			select {
 			case evt := <-producer.events:
@@ -273,22 +267,22 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 				err := evt.DataAs(bundle)
 				Expect(err).NotTo(HaveOccurred())
 
-				for _, obj := range bundle.Resync {
+				for _, obj := range bundle.Update {
 					if obj.GetKind() == "Policy" && obj.GetName() == "active-test-policy" {
 						return true
 					}
 				}
 				return false
-			case <-time.After(35 * time.Second):
+			case <-time.After(100 * time.Millisecond):
 				return false
 			}
-		}, 40*time.Second, 1*time.Second).Should(BeTrue())
+		}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		// Cleanup
 		Expect(k8sClient.Delete(ctx, policy)).To(Succeed())
 	})
 
-	It("should collect and send Placement resources", func() {
+	It("should immediately send Placement resources", func() {
 		ctx := context.Background()
 
 		// Create test Placement
@@ -307,7 +301,7 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, placement)).To(Succeed())
 
-		// Wait for event with Placement
+		// Wait for event with Placement (immediate send in Update array)
 		Eventually(func() bool {
 			select {
 			case evt := <-producer.events:
@@ -315,23 +309,23 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 				err := evt.DataAs(bundle)
 				Expect(err).NotTo(HaveOccurred())
 
-				for _, obj := range bundle.Resync {
+				for _, obj := range bundle.Update {
 					if obj.GetKind() == "Placement" && obj.GetName() == "active-test-placement" {
 						return true
 					}
 				}
 				return false
-			case <-time.After(35 * time.Second):
+			case <-time.After(100 * time.Millisecond):
 				return false
 			}
-		}, 40*time.Second, 1*time.Second).Should(BeTrue())
+		}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		// Cleanup
 		Expect(k8sClient.Delete(ctx, placement)).To(Succeed())
 	})
 
-	It("should detect and sync deleted resources", func() {
-		Skip("Flaky test - deletion events are sent but not reliably captured in integration tests. Deletion functionality works (see e2e tests).")
+	It("should immediately detect and sync deleted resources", func() {
+		Skip("Deletion events are sent immediately but can be flaky in integration tests due to timing between controller detection and test event consumption. Deletion functionality is verified in e2e tests.")
 		ctx := context.Background()
 
 		// Create a ConfigMap with required label
@@ -349,8 +343,8 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, cm)).To(Succeed())
 
-		// Wait for first sync to include the ConfigMap in Resync
-		GinkgoWriter.Printf("Waiting for ConfigMap to appear in Resync array...\n")
+		// Wait for create event
+		GinkgoWriter.Printf("Waiting for ConfigMap creation event...\n")
 		Eventually(func() bool {
 			select {
 			case evt := <-producer.events:
@@ -359,9 +353,9 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 					return false
 				}
 
-				for _, obj := range bundle.Resync {
+				for _, obj := range bundle.Update {
 					if obj.GetKind() == "ConfigMap" && obj.GetName() == "delete-test-cm" {
-						GinkgoWriter.Printf("Found ConfigMap in Resync array\n")
+						GinkgoWriter.Printf("Found ConfigMap in Update array\n")
 						return true
 					}
 				}
@@ -369,27 +363,13 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 			case <-time.After(100 * time.Millisecond):
 				return false
 			}
-		}, 40*time.Second).Should(BeTrue())
-
-		// Drain any remaining events to start fresh
-		drainCount := 0
-	drainLoop:
-		for {
-			select {
-			case <-producer.events:
-				drainCount++
-			default:
-				break drainLoop
-			}
-		}
-		GinkgoWriter.Printf("Drained %d old events\n", drainCount)
+		}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		// Delete the ConfigMap
 		Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
-		GinkgoWriter.Printf("Deleted ConfigMap, waiting for deletion to be detected...\n")
+		GinkgoWriter.Printf("Deleted ConfigMap, waiting for deletion event...\n")
 
-		// Wait for next sync to detect deletion in Delete array
-		// The syncer runs every 30 seconds, so we need to wait for the next cycle
+		// Wait for immediate deletion event
 		Eventually(func() bool {
 			select {
 			case evt := <-producer.events:
@@ -398,7 +378,7 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 					return false
 				}
 
-				GinkgoWriter.Printf("Received event: Resync=%d, Delete=%d\n", len(bundle.Resync), len(bundle.Delete))
+				GinkgoWriter.Printf("Received event: Update=%d, Delete=%d\n", len(bundle.Update), len(bundle.Delete))
 
 				// Check Delete array for the deleted ConfigMap
 				for _, meta := range bundle.Delete {
@@ -417,10 +397,10 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 			case <-time.After(100 * time.Millisecond):
 				return false
 			}
-		}, 70*time.Second).Should(BeTrue())
+		}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 	})
 
-	It("should collect and send multiple resource types in bundle", func() {
+	It("should immediately send each resource as separate events", func() {
 		ctx := context.Background()
 
 		// Create Policy
@@ -485,7 +465,8 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, cm)).To(Succeed())
 
-		// Wait for event with all resources
+		// Collect all events (each resource sends immediately as separate event)
+		foundResources := make(map[string]bool)
 		Eventually(func() bool {
 			select {
 			case evt := <-producer.events:
@@ -493,27 +474,26 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 				err := evt.DataAs(bundle)
 				Expect(err).NotTo(HaveOccurred())
 
-				hasPolicy := false
-				hasPlacement := false
-				hasConfigMap := false
-
-				for _, obj := range bundle.Resync {
+				// Check Update array (immediate send)
+				for _, obj := range bundle.Update {
 					if obj.GetKind() == "Policy" && obj.GetName() == "bundle-policy" {
-						hasPolicy = true
+						foundResources["policy"] = true
 					}
 					if obj.GetKind() == "Placement" && obj.GetName() == "bundle-placement" {
-						hasPlacement = true
+						foundResources["placement"] = true
 					}
 					if obj.GetKind() == "ConfigMap" && obj.GetName() == "bundle-cm" {
-						hasConfigMap = true
+						foundResources["configmap"] = true
 					}
 				}
 
-				return hasPolicy && hasPlacement && hasConfigMap
-			case <-time.After(35 * time.Second):
-				return false
+				// All 3 resources found?
+				return len(foundResources) == 3
+			case <-time.After(100 * time.Millisecond):
+				// Keep checking
+				return len(foundResources) == 3
 			}
-		}, 40*time.Second, 1*time.Second).Should(BeTrue())
+		}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		// Cleanup
 		Expect(k8sClient.Delete(ctx, policy)).To(Succeed())

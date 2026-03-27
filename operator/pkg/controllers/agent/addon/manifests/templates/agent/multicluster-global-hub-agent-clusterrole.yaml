@@ -299,8 +299,7 @@ rules:
   - watch
   - list
 # Hub HA - Permissions for syncing all Hub HA resources
-# Active hub needs: list/watch to read resources
-# Standby hub needs: create/update/delete/patch to apply resources from active hub
+# Active hub needs: get/list/watch to read resources
 - apiGroups:
   - addon.open-cluster-management.io
   resources:
@@ -309,12 +308,8 @@ rules:
   - clustermanagementaddons
   - managedclusteraddons
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - apps.open-cluster-management.io
@@ -329,24 +324,16 @@ rules:
   - subscriptions
   - subscriptionstatuses
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - authentication.open-cluster-management.io
   resources:
   - managedserviceaccounts
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - cluster.open-cluster-management.io
@@ -362,36 +349,24 @@ rules:
   - placements
   - restores
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - config.open-cluster-management.io
   resources:
   - klusterletconfigs
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - console.open-cluster-management.io
   resources:
   - userpreferences
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - discovery.open-cluster-management.io
@@ -399,36 +374,24 @@ rules:
   - discoveredclusters
   - discoveryconfigs
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - global-hub.open-cluster-management.io
   resources:
   - managedclustermigrations
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - imageregistry.open-cluster-management.io
   resources:
   - managedclusterimageregistries
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - observability.open-cluster-management.io
@@ -436,12 +399,8 @@ rules:
   - multiclusterobservabilities
   - observabilityaddons
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - policy.open-cluster-management.io
@@ -454,12 +413,8 @@ rules:
   - policyautomations
   - policysets
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - rbac.open-cluster-management.io
@@ -467,24 +422,16 @@ rules:
   - clusterpermissions
   - multiclusterroleassignments
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - siteconfig.open-cluster-management.io
   resources:
   - clusterinstances
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - submarineraddon.open-cluster-management.io
@@ -492,12 +439,8 @@ rules:
   - submarinerconfigs
   - submarinerdiagnoseconfigs
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 # Hub HA - Hive resources
 - apiGroups:
@@ -522,12 +465,8 @@ rules:
   - syncidentityproviders
   - syncsets
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - extensions.hive.openshift.io
@@ -535,12 +474,8 @@ rules:
   - agentclusterinstalls
   - imageclusterinstalls
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - hiveinternal.openshift.io
@@ -549,12 +484,8 @@ rules:
   - clustersyncs
   - fakeclusterinstalls
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 # Hub HA - ArgoCD resources
 - apiGroups:
@@ -576,12 +507,8 @@ rules:
   - analysistemplates
   - clusteranalysistemplates
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 # Hub HA - Other included resources
 - apiGroups:
@@ -589,24 +516,16 @@ rules:
   resources:
   - applications
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - core.observatorium.io
   resources:
   - observatoriums
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - agent-install.openshift.io
@@ -618,12 +537,8 @@ rules:
   - infraenvs
   - nmstateconfigs
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - capi-provider.agent-install.openshift.io
@@ -632,10 +547,6 @@ rules:
   - agentmachines
   - agentmachinetemplates
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch

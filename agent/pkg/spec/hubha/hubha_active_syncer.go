@@ -5,59 +5,37 @@ package hubha
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
-	cecontext "github.com/cloudevents/sdk-go/v2/context"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var (
-	log            = logger.DefaultZapLogger()
-	resourceFilter = utils.NewHubHAResourceFilter()
-)
+var log = logger.DefaultZapLogger()
 
 const (
-	// Send Hub HA bundles every 30 seconds
-	hubhaSyncInterval = 30 * time.Second
-	// ConfigMap name for persisting synced resources state
-	hubHAStateConfigMapName = "hubha-synced-resources-state"
+	// Full resync every 30 minutes as a safety net for consistency
+	// This handles edge cases like missed events during network issues or agent restarts
+	hubhaResyncInterval = 30 * time.Minute
 )
 
-// HubHAActiveSyncer periodically collects Hub HA resources and sends them to standby hub via spec topic
-//
-// Deletion tracking is persisted to a ConfigMap to survive agent restarts. The ConfigMap stores
-// the state of all resources synced in the previous cycle, allowing detection of deletions even
-// after the agent restarts.
-type HubHAActiveSyncer struct {
-	client            client.Client
-	producer          transport.Producer
-	transportConfig   *transport.TransportInternalConfig
-	resourcesToSync   []schema.GroupVersionKind
-	activeHubName     string
-	standbyHubName    string
-	namespace         string                            // namespace where the agent runs
-	previousResources map[string]generic.ObjectMetadata // persisted to ConfigMap
-	mu                sync.Mutex
+// hubHAController implements reconciliation for Hub HA resources using list-watch pattern
+type hubHAController struct {
+	client  client.Client
+	emitter *HubHAEmitter
+	gvk     schema.GroupVersionKind
 }
 
-// StartHubHAActiveSyncer starts the active hub syncer (only on active hubs)
+// StartHubHAActiveSyncer starts the active hub syncer using controller-based list-watch pattern
 func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Producer) error {
 	// Only start if this is an active hub with a configured standby
 	agentConfig := configs.GetAgentConfig()
@@ -78,41 +56,157 @@ func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer tran
 		return nil
 	}
 
-	syncer := &HubHAActiveSyncer{
-		client:            mgr.GetClient(),
-		producer:          producer,
-		transportConfig:   agentConfig.TransportConfig,
-		activeHubName:     agentConfig.LeafHubName,
-		standbyHubName:    standbyHub,
-		namespace:         agentConfig.PodNamespace,
-		previousResources: make(map[string]generic.ObjectMetadata),
+	log.Infof("starting Hub HA active syncer with list-watch pattern: %s (active) -> %s (standby)",
+		agentConfig.LeafHubName, standbyHub)
+
+	// Create shared emitter for all Hub HA resources
+	emitter := NewHubHAEmitter(
+		producer,
+		agentConfig.TransportConfig,
+		agentConfig.LeafHubName,
+		standbyHub,
+	)
+
+	// Start controllers for each GVK
+	resourcesToSync := getHubHAResourcesToSync()
+	for _, gvk := range resourcesToSync {
+		if err := startHubHAController(mgr, gvk, emitter); err != nil {
+			// Log error but don't fail - some CRDs might not be installed
+			log.Debugf("skipped controller for %s: %v", gvk.String(), err)
+		}
 	}
 
-	log.Infof("starting Hub HA active syncer: %s (active) -> %s (standby)",
-		syncer.activeHubName, syncer.standbyHubName)
-
-	// Initialize resources to sync
-	if err := syncer.discoverResources(); err != nil {
-		return fmt.Errorf("failed to initialize Hub HA resources: %w", err)
-	}
-
-	// Load previous sync state from ConfigMap (if exists)
-	if err := syncer.loadPreviousResourcesFromConfigMap(ctx); err != nil {
-		log.Warnf("failed to load previous resources state from ConfigMap: %v", err)
-		// Continue with empty state - first sync will populate it
-	}
-
-	// Start periodic sync goroutine
-	go syncer.periodicSync(ctx)
+	// Start periodic resync as a safety net for consistency (handles edge cases like missed events)
+	go periodicResync(ctx, mgr.GetClient(), emitter, resourcesToSync, hubhaResyncInterval)
 
 	return nil
 }
 
-func (s *HubHAActiveSyncer) discoverResources() error {
-	// Use hardcoded list of resources to sync (not all hubs have all CRDs installed)
-	s.resourcesToSync = getHubHAResourcesToSync()
-	log.Infof("configured %d resource types to sync to standby hub", len(s.resourcesToSync))
+// startHubHAController starts a controller for a specific GVK
+func startHubHAController(mgr ctrl.Manager, gvk schema.GroupVersionKind, emitter *HubHAEmitter) error {
+	// Create unstructured object instance for this GVK
+	instance := &unstructured.Unstructured{}
+	instance.SetGroupVersionKind(gvk)
+
+	// Create controller
+	controller := &hubHAController{
+		client:  mgr.GetClient(),
+		emitter: emitter,
+		gvk:     gvk,
+	}
+
+	// Build controller with manager
+	if err := ctrl.NewControllerManagedBy(mgr).
+		For(instance).
+		WithEventFilter(emitter.Predicate()).
+		Named(fmt.Sprintf("hubha-%s", gvk.Kind)).
+		Complete(controller); err != nil {
+		return err
+	}
+
+	log.Debugf("started Hub HA controller for %s", gvk.String())
 	return nil
+}
+
+// Reconcile handles changes to Hub HA resources
+func (c *hubHAController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	obj := &unstructured.Unstructured{}
+	obj.SetGroupVersionKind(c.gvk)
+
+	err := c.client.Get(ctx, req.NamespacedName, obj)
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			// Object was deleted
+			obj.SetNamespace(req.Namespace)
+			obj.SetName(req.Name)
+			if err := c.emitter.Delete(obj); err != nil {
+				log.Errorf("failed to handle delete for %s/%s (%s): %v",
+					req.Namespace, req.Name, c.gvk.Kind, err)
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+			}
+			return ctrl.Result{}, nil
+		}
+		log.Errorf("failed to get object %s/%s (%s): %v", req.Namespace, req.Name, c.gvk.Kind, err)
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+	}
+
+	// Object exists - update or delete based on deletion timestamp
+	if !obj.GetDeletionTimestamp().IsZero() {
+		if err := c.emitter.Delete(obj); err != nil {
+			log.Errorf("failed to handle delete for %s/%s (%s): %v",
+				req.Namespace, req.Name, c.gvk.Kind, err)
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// Update
+	if err := c.emitter.Update(obj); err != nil {
+		log.Errorf("failed to handle update for %s/%s (%s): %v",
+			req.Namespace, req.Name, c.gvk.Kind, err)
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// periodicResync performs full resyncs at regular intervals for consistency
+func periodicResync(ctx context.Context, c client.Client, emitter *HubHAEmitter,
+	resourcesToSync []schema.GroupVersionKind, interval time.Duration,
+) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("Hub HA periodic resync stopped")
+			return
+		case <-ticker.C:
+			log.Info("starting Hub HA full resync")
+			if err := performFullResync(ctx, c, emitter, resourcesToSync); err != nil {
+				log.Errorf("failed to perform Hub HA full resync: %v", err)
+			}
+		}
+	}
+}
+
+// performFullResync lists all resources and triggers a resync
+func performFullResync(ctx context.Context, c client.Client, emitter *HubHAEmitter,
+	resourcesToSync []schema.GroupVersionKind,
+) error {
+	allObjects := []client.Object{}
+
+	for _, gvk := range resourcesToSync {
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   gvk.Group,
+			Version: gvk.Version,
+			Kind:    gvk.Kind + "List",
+		})
+
+		if err := c.List(ctx, list); err != nil {
+			// If CRD doesn't exist, skip it
+			if meta.IsNoMatchError(err) {
+				log.Debugf("CRD not installed for %s, skipping resync", gvk.String())
+				continue
+			}
+			log.Warnf("failed to list resources for %s during resync: %v", gvk.String(), err)
+			continue
+		}
+
+		for i := range list.Items {
+			obj := &list.Items[i]
+			allObjects = append(allObjects, obj)
+		}
+	}
+
+	log.Infof("performing Hub HA full resync with %d total objects", len(allObjects))
+	if err := emitter.Resync(allObjects); err != nil {
+		return err
+	}
+	// Send the resync bundle immediately
+	return emitter.Send()
 }
 
 // getHubHAResourcesToSync returns the list of resources to sync for Hub HA
@@ -268,221 +362,4 @@ func getHubHAResourcesToSync() []schema.GroupVersionKind {
 		{Group: "", Version: "v1", Kind: "Secret"},
 		{Group: "", Version: "v1", Kind: "ConfigMap"},
 	}
-}
-
-func (s *HubHAActiveSyncer) periodicSync(ctx context.Context) {
-	ticker := time.NewTicker(hubhaSyncInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Info("Hub HA active syncer stopped")
-			return
-		case <-ticker.C:
-			if err := s.syncResources(ctx); err != nil {
-				log.Errorf("failed to sync Hub HA resources to standby hub: %v", err)
-			}
-		}
-	}
-}
-
-func (s *HubHAActiveSyncer) syncResources(ctx context.Context) error {
-	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
-	resourceCount := 0
-	var firstListErr error
-	currentResources := make(map[string]generic.ObjectMetadata)
-
-	for _, gvk := range s.resourcesToSync {
-		list := &unstructured.UnstructuredList{}
-		list.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   gvk.Group,
-			Version: gvk.Version,
-			Kind:    gvk.Kind + "List",
-		})
-
-		if err := s.client.List(ctx, list); err != nil {
-			// If CRD doesn't exist (expected for some resources), log at debug level
-			if meta.IsNoMatchError(err) {
-				log.Debugf("CRD not installed for %s, skipping", gvk.String())
-			} else {
-				// Real error (permissions, API server issue, etc.)
-				log.Warnf("failed to list resources for %s: %v", gvk.String(), err)
-				if firstListErr == nil {
-					firstListErr = fmt.Errorf("failed to list %s: %w", gvk.String(), err)
-				}
-			}
-			continue
-		}
-
-		for i := range list.Items {
-			obj := &list.Items[i]
-
-			// Filter using resource filter
-			if !resourceFilter.ShouldSyncResource(obj, gvk) {
-				continue
-			}
-
-			// Track current resource for deletion detection
-			resourceKey := s.getResourceKey(gvk, obj.GetNamespace(), obj.GetName())
-			currentResources[resourceKey] = generic.ObjectMetadata{
-				Namespace: obj.GetNamespace(),
-				Name:      obj.GetName(),
-				Group:     gvk.Group,
-				Version:   gvk.Version,
-				Kind:      gvk.Kind,
-			}
-
-			// Clean metadata
-			obj.SetManagedFields(nil)
-			obj.SetResourceVersion("")
-			obj.SetGeneration(0)
-			obj.SetUID("")
-
-			// Add to bundle as "resync" (full state sync)
-			bundle.Resync = append(bundle.Resync, obj)
-			resourceCount++
-		}
-	}
-
-	// Detect deletions by comparing with previous sync
-	// previousResources is loaded from ConfigMap on startup, so deletions are detected even after agent restart
-	s.mu.Lock()
-	for key, meta := range s.previousResources {
-		if _, exists := currentResources[key]; !exists {
-			// Resource existed in previous sync but not in current - it was deleted
-			bundle.Delete = append(bundle.Delete, meta)
-			log.Debugf("detected deletion: %s/%s (%s)", meta.Namespace, meta.Name, meta.Kind)
-		}
-	}
-	// Update previous resources for next sync
-	s.previousResources = currentResources
-	s.mu.Unlock()
-
-	// Persist state to ConfigMap for restart resilience
-	if err := s.savePreviousResourcesToConfigMap(ctx); err != nil {
-		log.Warnf("failed to save Hub HA state to ConfigMap: %v", err)
-		// Continue with sync - state will be saved on next sync
-	}
-
-	if firstListErr != nil {
-		return firstListErr
-	}
-
-	if resourceCount == 0 {
-		log.Debug("no Hub HA resources to sync to standby hub")
-		return nil
-	}
-
-	// Send bundle to standby hub via spec topic
-	if err := s.sendBundle(ctx, bundle); err != nil {
-		return fmt.Errorf("failed to send Hub HA bundle: %w", err)
-	}
-
-	log.Infof("synced %d Hub HA resources to standby hub %s (deleted=%d)", resourceCount, s.standbyHubName, len(bundle.Delete))
-	return nil
-}
-
-// getResourceKey generates a unique key for a resource
-func (s *HubHAActiveSyncer) getResourceKey(gvk schema.GroupVersionKind, namespace, name string) string {
-	return fmt.Sprintf("%s/%s/%s/%s/%s", gvk.Group, gvk.Version, gvk.Kind, namespace, name)
-}
-
-func (s *HubHAActiveSyncer) sendBundle(ctx context.Context, bundle *generic.GenericBundle[*unstructured.Unstructured]) error {
-	// Create CloudEvent with proper routing
-	evt := utils.ToCloudEvent(
-		constants.HubHAResourcesMsgKey,
-		s.activeHubName,  // source = active hub
-		s.standbyHubName, // clustername extension = standby hub
-		bundle,
-	)
-
-	// Send to spec topic
-	topicCtx := cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic)
-	if err := s.producer.SendEvent(topicCtx, evt); err != nil {
-		return fmt.Errorf("failed to send Hub HA bundle from %s to %s: %w",
-			s.activeHubName, s.standbyHubName, err)
-	}
-
-	log.Debugf("sent Hub HA bundle from %s to %s via spec topic",
-		s.activeHubName, s.standbyHubName)
-	return nil
-}
-
-// loadPreviousResourcesFromConfigMap loads the previous sync state from ConfigMap
-func (s *HubHAActiveSyncer) loadPreviousResourcesFromConfigMap(ctx context.Context) error {
-	cm := &corev1.ConfigMap{}
-	err := s.client.Get(ctx, types.NamespacedName{
-		Name:      hubHAStateConfigMapName,
-		Namespace: s.namespace,
-	}, cm)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Info("Hub HA state ConfigMap not found - starting with empty state")
-			return nil
-		}
-		return fmt.Errorf("failed to get Hub HA state ConfigMap: %w", err)
-	}
-
-	// Parse the state from ConfigMap data
-	stateJSON, exists := cm.Data["state"]
-	if !exists || stateJSON == "" {
-		log.Info("Hub HA state ConfigMap has no state data - starting with empty state")
-		return nil
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := json.Unmarshal([]byte(stateJSON), &s.previousResources); err != nil {
-		return fmt.Errorf("failed to unmarshal Hub HA state: %w", err)
-	}
-
-	log.Infof("loaded %d previously synced resources from ConfigMap", len(s.previousResources))
-	return nil
-}
-
-// savePreviousResourcesToConfigMap persists the current sync state to ConfigMap
-func (s *HubHAActiveSyncer) savePreviousResourcesToConfigMap(ctx context.Context) error {
-	s.mu.Lock()
-	stateJSON, err := json.Marshal(s.previousResources)
-	s.mu.Unlock()
-
-	if err != nil {
-		return fmt.Errorf("failed to marshal Hub HA state: %w", err)
-	}
-
-	cm := &corev1.ConfigMap{}
-	err = s.client.Get(ctx, types.NamespacedName{
-		Name:      hubHAStateConfigMapName,
-		Namespace: s.namespace,
-	}, cm)
-
-	if apierrors.IsNotFound(err) {
-		// Create new ConfigMap
-		cm = &corev1.ConfigMap{}
-		cm.Name = hubHAStateConfigMapName
-		cm.Namespace = s.namespace
-		cm.Data = map[string]string{
-			"state": string(stateJSON),
-		}
-		if err := s.client.Create(ctx, cm); err != nil {
-			return fmt.Errorf("failed to create Hub HA state ConfigMap: %w", err)
-		}
-		log.Debugf("created Hub HA state ConfigMap with %d resources", len(s.previousResources))
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get Hub HA state ConfigMap: %w", err)
-	}
-
-	// Update existing ConfigMap
-	cm.Data = map[string]string{
-		"state": string(stateJSON),
-	}
-	if err := s.client.Update(ctx, cm); err != nil {
-		return fmt.Errorf("failed to update Hub HA state ConfigMap: %w", err)
-	}
-
-	log.Debugf("updated Hub HA state ConfigMap with %d resources", len(s.previousResources))
-	return nil
 }
