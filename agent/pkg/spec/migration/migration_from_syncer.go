@@ -158,9 +158,10 @@ func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migratio
 
 	// Skip stages that are already completed or in-progress (Rollbacking is excluded since it can repeat)
 	if event.Stage != migrationv1alpha1.PhaseRollbacking && s.completedStages[event.Stage] != "" {
+		stageState := s.completedStages[event.Stage]
 		s.mu.Unlock()
 		log.Infof("stage %s already %s for migration %s, skipping",
-			event.Stage, s.completedStages[event.Stage], event.MigrationId)
+			event.Stage, stageState, event.MigrationId)
 		return nil
 	}
 	if event.Stage != migrationv1alpha1.PhaseRollbacking {
