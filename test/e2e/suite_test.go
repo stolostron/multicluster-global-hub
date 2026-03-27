@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -133,12 +134,15 @@ var _ = BeforeSuite(func() {
 	clusters := &clusterv1.ManagedClusterList{}
 	Expect(globalHubClient.List(ctx, clusters)).To(Succeed())
 	for _, clusterItem := range clusters.Items {
-		cluster := &clusterv1.ManagedCluster{}
-		err = globalHubClient.Get(ctx, client.ObjectKeyFromObject(&clusterItem), cluster)
-		Expect(err).To(Succeed())
-		cluster.Labels[commonconstants.GHDeployModeLabelKey] = commonconstants.GHDeployModeDefault
-		err = globalHubClient.Update(ctx, cluster)
-		Expect(err).To(Succeed(), "Failed to update cluster %s with deploy mode %s", cluster.Name,
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			cluster := &clusterv1.ManagedCluster{}
+			if err := globalHubClient.Get(ctx, client.ObjectKeyFromObject(&clusterItem), cluster); err != nil {
+				return err
+			}
+			cluster.Labels[commonconstants.GHDeployModeLabelKey] = commonconstants.GHDeployModeDefault
+			return globalHubClient.Update(ctx, cluster)
+		})
+		Expect(err).To(Succeed(), "Failed to update cluster %s with deploy mode %s", clusterItem.Name,
 			commonconstants.GHDeployModeDefault)
 	}
 
