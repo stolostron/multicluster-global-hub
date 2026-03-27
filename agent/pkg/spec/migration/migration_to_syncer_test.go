@@ -1491,8 +1491,8 @@ func TestRegistering(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			// change the resitering timeout
-			registeringTimeout = 10 * time.Second
+			// Set a short expiry time (10 seconds) for test timeout
+			testCtx := withExpireTime(ctx, time.Now().Add(10*time.Second))
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
 
 			agentConfig := &configs.AgentConfig{
@@ -1501,7 +1501,7 @@ func TestRegistering(t *testing.T) {
 			}
 			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
 
-			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, map[string]string{})
+			err := managedClusterMigrationSyncer.registering(testCtx, c.migrationEvent, map[string]string{})
 			if c.expectedError == "" {
 				assert.Nil(t, err)
 			} else {
@@ -2284,15 +2284,6 @@ func TestShouldSkipMigrationEvent(t *testing.T) {
 			},
 			eventTime:   time.Now(),
 			expectSkip:  false,
-			expectError: false,
-		},
-		{
-			name: "Skip event - no cached time and old event",
-			setupConfigMap: func(c client.Client) error {
-				return nil // No setup needed
-			},
-			eventTime:   time.Now().Add(-15 * time.Minute), // 15 minutes old
-			expectSkip:  true,
 			expectError: false,
 		},
 		{

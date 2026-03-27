@@ -31,8 +31,7 @@ type MigrationSourceBundle struct {
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
 	// Indicates which stage is being rolled back
-	RollbackStage             string `json:"rollbackStage,omitempty"`
-	RollbackingTimeoutMinutes int    `json:"rollbackingTimeoutMinutes,omitempty"`
+	RollbackStage string `json:"rollbackStage,omitempty"`
 }
 
 // MigrationTargetBundle defines the spec payload from manager to the target cluster.
@@ -44,7 +43,6 @@ type MigrationTargetBundle struct {
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
 	RollbackStage                         string   `json:"rollbackStage,omitempty"`
-	RegisteringTimeoutMinutes             int      `json:"registeringTimeoutMinutes,omitempty"`
 }
 
 // MigrationStatusBundle is the status payload sent from managed hubs to the global hub.
