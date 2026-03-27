@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
@@ -112,6 +113,8 @@ type MigrationTargetSyncer struct {
 	// Batch tracking for deploying stage
 	deployingTotalClusters     int             // Total clusters expected in deploying stage
 	deployingProcessedClusters map[string]bool // Track which clusters have been processed
+	mu                         sync.Mutex
+	completedStages            map[string]string // tracks stage state: "in-progress" or "completed"
 }
 
 func NewMigrationTargetSyncer(client client.Client,
@@ -124,6 +127,7 @@ func NewMigrationTargetSyncer(client client.Client,
 		transportConfig: agentConfig.TransportConfig,
 		bundleVersion:   eventversion.NewVersion(),
 		leafHubName:     agentConfig.LeafHubName,
+		completedStages: make(map[string]string),
 	}
 }
 
@@ -221,17 +225,32 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	log.Debugf("received migration event: migrationId=%s, stage=%s", event.MigrationId, event.Stage)
 
+	s.mu.Lock()
 	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
 	if s.processingMigrationId == "" ||
 		event.Stage == migrationv1alpha1.PhaseValidating {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
+		s.completedStages = make(map[string]string)
 	}
 
 	// Check if migration ID matches for all other stages, ignore the rollbacking status for the initializing
 	if s.processingMigrationId != event.MigrationId {
+		s.mu.Unlock()
 		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId, event.MigrationId)
 	}
+
+	// Skip stages that are already completed or in-progress (Rollbacking is excluded since it can repeat)
+	if event.Stage != migrationv1alpha1.PhaseRollbacking && s.completedStages[event.Stage] != "" {
+		s.mu.Unlock()
+		log.Infof("stage %s already %s for migration %s, skipping",
+			event.Stage, s.completedStages[event.Stage], event.MigrationId)
+		return nil
+	}
+	if event.Stage != migrationv1alpha1.PhaseRollbacking {
+		s.completedStages[event.Stage] = "in-progress"
+	}
+	s.mu.Unlock()
 
 	err = s.handleStage(ctx, event, clusterErrors)
 	if err != nil {
@@ -284,9 +303,18 @@ func (s *MigrationTargetSyncer) executeStage(
 	if err := stageFunc(ctx, event, clusterErrors); err != nil {
 		log.Errorf("migration %s failed: migrationId=%s, error=%v",
 			event.Stage, event.MigrationId, err)
+		// Clear in-progress state on failure so retries can run
+		s.mu.Lock()
+		delete(s.completedStages, event.Stage)
+		s.mu.Unlock()
 		return err
 	}
 
+	if event.Stage != migrationv1alpha1.PhaseRollbacking {
+		s.mu.Lock()
+		s.completedStages[event.Stage] = "completed"
+		s.mu.Unlock()
+	}
 	log.Infof("migration %s completed: migrationId=%s", event.Stage, event.MigrationId)
 	return nil
 }
