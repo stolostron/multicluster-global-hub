@@ -90,6 +90,11 @@ func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructur
 	log.Infof("creating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
 
+	// Clean ownerReferences to avoid permission issues
+	// Owner resources may not exist on standby hub, and ownership will be
+	// recreated by controllers on standby if needed
+	obj.SetOwnerReferences(nil)
+
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		_, err := controllerutil.CreateOrUpdate(ctx, s.client, obj, func() error {
 			// Resource will be created or updated as needed
@@ -109,6 +114,11 @@ func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructur
 func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructured.Unstructured, sourceHub string) error {
 	log.Debugf("updating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
+
+	// Clean ownerReferences to avoid permission issues
+	// Owner resources may not exist on standby hub, and ownership will be
+	// recreated by controllers on standby if needed
+	obj.SetOwnerReferences(nil)
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		existing := &unstructured.Unstructured{}

@@ -68,22 +68,38 @@ func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer tran
 	)
 
 	// Start controllers for each GVK
-	resourcesToSync := getHubHAResourcesToSync()
-	for _, gvk := range resourcesToSync {
+	allResources := getHubHAResourcesToSync()
+	var activeResources []schema.GroupVersionKind
+
+	for _, gvk := range allResources {
 		if err := startHubHAController(mgr, gvk, emitter); err != nil {
-			// Log error but don't fail - some CRDs might not be installed
+			// CRD not installed - skip without logging error
 			log.Debugf("skipped controller for %s: %v", gvk.String(), err)
+		} else {
+			// Track successfully started controllers
+			activeResources = append(activeResources, gvk)
 		}
 	}
 
+	log.Infof("Hub HA active syncer started %d/%d resource controllers", len(activeResources), len(allResources))
+
 	// Start periodic resync as a safety net for consistency (handles edge cases like missed events)
-	go periodicResync(ctx, mgr.GetClient(), emitter, resourcesToSync, hubhaResyncInterval)
+	// Only resync resources that have active controllers
+	go periodicResync(ctx, mgr.GetClient(), emitter, activeResources, hubhaResyncInterval)
 
 	return nil
 }
 
 // startHubHAController starts a controller for a specific GVK
 func startHubHAController(mgr ctrl.Manager, gvk schema.GroupVersionKind, emitter *HubHAEmitter) error {
+	// Check if the resource type exists before starting controller
+	// This prevents error logs for optional CRDs that aren't installed
+	_, err := mgr.GetRESTMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		// CRD not installed - skip without error
+		return err
+	}
+
 	// Create unstructured object instance for this GVK
 	instance := &unstructured.Unstructured{}
 	instance.SetGroupVersionKind(gvk)

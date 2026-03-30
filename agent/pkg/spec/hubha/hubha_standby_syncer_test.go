@@ -356,3 +356,60 @@ func TestHubHAStandbySyncer_DeleteResource(t *testing.T) {
 		t.Errorf("expected NotFound error, got %v", err)
 	}
 }
+
+func TestHubHAStandbySyncer_UpdateResource_CleansOwnerReferences(t *testing.T) {
+	// Test that ownerReferences are cleaned to avoid permission issues
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+
+	syncer := NewHubHAStandbySyncer(client)
+
+	// Create resource with ownerReferences
+	cmWithOwner := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      "test-cm",
+				"namespace": "default",
+				"ownerReferences": []interface{}{
+					map[string]interface{}{
+						"apiVersion":         "v1",
+						"kind":               "Pod",
+						"name":               "owner-pod",
+						"uid":                "12345",
+						"blockOwnerDeletion": true,
+					},
+				},
+			},
+			"data": map[string]interface{}{
+				"key": "value",
+			},
+		},
+	}
+
+	ctx := context.Background()
+	err := syncer.updateResource(ctx, cmWithOwner, "hub1")
+	if err != nil {
+		t.Errorf("updateResource() error = %v", err)
+	}
+
+	// Verify resource was created without ownerReferences
+	result := &unstructured.Unstructured{}
+	result.SetGroupVersionKind(cmWithOwner.GroupVersionKind())
+	err = client.Get(ctx, types.NamespacedName{Name: "test-cm", Namespace: "default"}, result)
+	if err != nil {
+		t.Errorf("Failed to get resource: %v", err)
+	}
+
+	ownerRefs := result.GetOwnerReferences()
+	if len(ownerRefs) != 0 {
+		t.Errorf("Expected ownerReferences to be cleaned, but got %v", ownerRefs)
+	}
+}
