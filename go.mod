@@ -23,7 +23,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/homeport/dyff v1.10.5
-	github.com/lib/pq v1.10.9
+	github.com/lib/pq v1.12.0
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/openshift/api v0.0.0-20251124235416-c11dd82e305c
