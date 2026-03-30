@@ -79,6 +79,12 @@ const (
 	GHDeployModeHosted = "hosted"
 	// GHDeployModeDefault is to install agent in default mode
 	GHDeployModeDefault = "default"
+	// GHHubRoleLabelKey is to indicate the hub role for Hub HA
+	GHHubRoleLabelKey = "global-hub.open-cluster-management.io/hub-role"
+	// GHHubRoleActive indicates this is an active ACM hub in HA setup
+	GHHubRoleActive = "active"
+	// GHHubRoleStandby indicates this is a standby ACM hub in HA setup
+	GHHubRoleStandby = "standby"
 )
 
 const (
@@ -187,6 +193,9 @@ const (
 
 	// GenericSpecMsgKey is the generic spec message key for the bundle
 	GenericSpecMsgKey = "Generic"
+
+	// HubHAResourcesMsgKey is the message key for Hub HA resource synchronization
+	HubHAResourcesMsgKey = "HubHAResources"
 )
 
 // event exporter reference object label keys

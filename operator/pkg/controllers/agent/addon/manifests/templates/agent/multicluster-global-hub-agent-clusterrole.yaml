@@ -298,3 +298,255 @@ rules:
   - get
   - watch
   - list
+# Hub HA - Permissions for syncing all Hub HA resources
+# Active hub needs: get/list/watch to read resources
+- apiGroups:
+  - addon.open-cluster-management.io
+  resources:
+  - addondeploymentconfigs
+  - addontemplates
+  - clustermanagementaddons
+  - managedclusteraddons
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.open-cluster-management.io
+  resources:
+  - channels
+  - deployables
+  - gitopsclusters
+  - helmreleases
+  - multiclusterapplicationsetreports
+  - placementrules
+  - subscriptionreports
+  - subscriptions
+  - subscriptionstatuses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - authentication.open-cluster-management.io
+  resources:
+  - managedserviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - addonplacementscores
+  - backupschedules
+  - clusterclaims
+  - clustercurators
+  - managedclusters
+  - managedclustersetbindings
+  - managedclustersets
+  - placementdecisions
+  - placements
+  - restores
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.open-cluster-management.io
+  resources:
+  - klusterletconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - console.open-cluster-management.io
+  resources:
+  - userpreferences
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - discovery.open-cluster-management.io
+  resources:
+  - discoveredclusters
+  - discoveryconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - global-hub.open-cluster-management.io
+  resources:
+  - managedclustermigrations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - imageregistry.open-cluster-management.io
+  resources:
+  - managedclusterimageregistries
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - observability.open-cluster-management.io
+  resources:
+  - multiclusterobservabilities
+  - observabilityaddons
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - policy.open-cluster-management.io
+  resources:
+  - certificatepolicies
+  - configurationpolicies
+  - operatorpolicies
+  - placementbindings
+  - policies
+  - policyautomations
+  - policysets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.open-cluster-management.io
+  resources:
+  - clusterpermissions
+  - multiclusterroleassignments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - siteconfig.open-cluster-management.io
+  resources:
+  - clusterinstances
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - submarineraddon.open-cluster-management.io
+  resources:
+  - submarinerconfigs
+  - submarinerdiagnoseconfigs
+  verbs:
+  - get
+  - list
+  - watch
+# Hub HA - Hive resources
+- apiGroups:
+  - hive.openshift.io
+  resources:
+  - checkpoints
+  - clusterclaims
+  - clusterdeploymentcustomizations
+  - clusterdeployments
+  - clusterdeprovisions
+  - clusterimagesets
+  - clusterpools
+  - clusterprovisions
+  - clusterrelocates
+  - clusterstates
+  - dnszones
+  - hiveconfigs
+  - machinepoolnameleases
+  - machinepools
+  - selectorsyncidentityproviders
+  - selectorsyncsets
+  - syncidentityproviders
+  - syncsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions.hive.openshift.io
+  resources:
+  - agentclusterinstalls
+  - imageclusterinstalls
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - hiveinternal.openshift.io
+  resources:
+  - clustersyncleases
+  - clustersyncs
+  - fakeclusterinstalls
+  verbs:
+  - get
+  - list
+  - watch
+# Hub HA - ArgoCD resources
+- apiGroups:
+  - argoproj.io
+  resources:
+  - applications
+  - applicationsets
+  - appprojects
+  - argocds
+  - workflows
+  - workflowtemplates
+  - clusterworkflowtemplates
+  - cronworkflows
+  - eventsources
+  - sensors
+  - eventbuses
+  - rollouts
+  - experiments
+  - analysistemplates
+  - clusteranalysistemplates
+  verbs:
+  - get
+  - list
+  - watch
+# Hub HA - Other included resources
+- apiGroups:
+  - app.k8s.io
+  resources:
+  - applications
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - core.observatorium.io
+  resources:
+  - observatoria
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - agent-install.openshift.io
+  resources:
+  - agentclassifications
+  - agents
+  - agentserviceconfigs
+  - hypershiftagentserviceconfigs
+  - infraenvs
+  - nmstateconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - capi-provider.agent-install.openshift.io
+  resources:
+  - agentclusters
+  - agentmachines
+  - agentmachinetemplates
+  verbs:
+  - get
+  - list
+  - watch

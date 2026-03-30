@@ -16,6 +16,9 @@ type ObjectMetadata struct {
 	ID        string `json:"id,omitempty"`
 	Namespace string `json:"ns,omitempty"`
 	Name      string `json:"name,omitempty"`
+	Group     string `json:"group,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Kind      string `json:"kind,omitempty"`
 }
 
 type GenericBundle[T any] struct {
