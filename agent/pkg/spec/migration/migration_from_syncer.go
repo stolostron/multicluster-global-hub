@@ -139,11 +139,11 @@ func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migratio
 	s.mu.Lock()
 	s.clusterErrors = make(map[string]string)
 
-	// Set current migration ID for stages that need cluster identification:
-	// - processingMigrationId is empty: always set, to handle restart case
-	// - Validating phase: always set (uses placement for cluster selection)
-	if s.processingMigrationId == "" ||
-		event.Stage == migrationv1alpha1.PhaseValidating {
+	// Reset state only on a genuine migration switch (new migrationId or first event after restart)
+	isNewMigration := s.processingMigrationId == "" ||
+		(event.Stage == migrationv1alpha1.PhaseValidating &&
+			s.processingMigrationId != event.MigrationId)
+	if isNewMigration {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
 		s.completedStages = make(map[string]string)

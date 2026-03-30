@@ -228,12 +228,16 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	log.Debugf("received migration event: migrationId=%s, stage=%s", event.MigrationId, event.Stage)
 
 	s.mu.Lock()
-	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
-	if s.processingMigrationId == "" ||
-		event.Stage == migrationv1alpha1.PhaseValidating {
+	// Reset state only on a genuine migration switch (new migrationId or first event after restart)
+	isNewMigration := s.processingMigrationId == "" ||
+		(event.Stage == migrationv1alpha1.PhaseValidating &&
+			s.processingMigrationId != event.MigrationId)
+	if isNewMigration {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
 		s.completedStages = make(map[string]string)
+		s.deployingTotalClusters = 0
+		s.deployingProcessedClusters = nil
 	}
 
 	// Check if migration ID matches for all other stages, ignore the rollbacking status for the initializing
