@@ -569,7 +569,7 @@ rules:
 - apiGroups:
   - core.observatorium.io
   resources:
-  - observatoriums
+  - observatoria
   verbs:
   - create
   - delete

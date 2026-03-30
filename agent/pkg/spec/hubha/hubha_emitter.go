@@ -55,11 +55,17 @@ func (e *HubHAEmitter) EventType() string {
 }
 
 // Predicate returns the predicate for filtering events.
-// We want to watch all events and filter at the Update/Delete level.
+// Filters resources based on labels and namespace rules.
 func (e *HubHAEmitter) Predicate() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(object client.Object) bool {
-		// Accept all objects - filtering happens in Update/Delete methods
-		return true
+	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+		// Convert to unstructured to get GVK
+		uObj, err := toUnstructured(obj)
+		if err != nil {
+			log.Errorf("failed to convert object to unstructured in predicate: %v", err)
+			return false
+		}
+		gvk := uObj.GroupVersionKind()
+		return e.resourceFilter.ShouldSyncResource(obj, gvk)
 	})
 }
 
@@ -76,11 +82,6 @@ func (e *HubHAEmitter) Update(obj client.Object) error {
 
 	// Get GVK from object
 	gvk := uObj.GroupVersionKind()
-
-	// Filter using resource filter
-	if !e.resourceFilter.ShouldSyncResource(obj, gvk) {
-		return nil
-	}
 
 	// Clean metadata
 	cleanUnstructuredMetadata(uObj)
@@ -106,10 +107,6 @@ func (e *HubHAEmitter) Delete(obj client.Object) error {
 
 	// Get GVK from object
 	gvk := uObj.GroupVersionKind()
-
-	// Note: We don't filter deletions because when an object is deleted,
-	// it doesn't have labels anymore. If it was previously synced (had required labels),
-	// we should also sync its deletion. The standby syncer handles NotFound gracefully.
 
 	// Remove from update list if present
 	for i, existingObj := range e.bundle.Update {

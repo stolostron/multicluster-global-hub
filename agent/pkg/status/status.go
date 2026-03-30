@@ -46,9 +46,12 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 ) error {
 	// Initialize Hub HA syncer manager for dynamic syncer lifecycle management
 	// This allows the configmap controller to start/stop the Hub HA syncer when hubRole changes
-	// The configmap controller will start the syncer on initial reconciliation if hub is active
 	// Pass the manager-level context for long-lived syncer goroutines
 	configmap.SetHubHASyncerManager(ctx, mgr, producer, hubha.StartHubHAActiveSyncer)
+
+	// Start Hub HA syncer on first boot if agent is in active role
+	// The configmap controller will handle dynamic role changes after this
+	configmap.StartHubHASyncerIfActive()
 
 	// start periodic syncer
 	periodicSyncer, err := generic.AddPeriodicSyncer(mgr)

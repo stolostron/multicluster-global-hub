@@ -176,7 +176,9 @@ func TestHubHAEmitter_Update_FilteredResource(t *testing.T) {
 
 	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
 
-	// Create a Secret WITHOUT required label - should be filtered
+	// Create a Secret WITHOUT required label
+	// Note: Filtering is done by the predicate, not by Update() method
+	// This test verifies that Update() sends whatever it receives
 	secret := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "v1",
@@ -188,15 +190,15 @@ func TestHubHAEmitter_Update_FilteredResource(t *testing.T) {
 		},
 	}
 
-	// Update should not send (filtered)
+	// Update() will send it (filtering is predicate's responsibility)
 	err := emitter.Update(secret)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	// Verify no event was sent
-	if len(producer.events) != 0 {
-		t.Errorf("Expected 0 events for filtered resource, got %d", len(producer.events))
+	// Verify event was sent (predicate would have filtered it before calling Update)
+	if len(producer.events) != 1 {
+		t.Errorf("Expected 1 event to be sent, got %d", len(producer.events))
 	}
 }
 
@@ -210,9 +212,8 @@ func TestHubHAEmitter_Delete_WithoutLabels(t *testing.T) {
 
 	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
 
-	// Create a Secret WITHOUT required label - simulating a deleted object
-	// When an object is deleted, the controller creates an unstructured object
-	// with only GVK, namespace, and name (no labels)
+	// Create a Secret WITH required label - simulating a deleted object that was synced
+	// The delete event contains the object's last known state with labels
 	secret := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "v1",
@@ -220,19 +221,23 @@ func TestHubHAEmitter_Delete_WithoutLabels(t *testing.T) {
 			"metadata": map[string]any{
 				"name":      "test-secret",
 				"namespace": "default",
+				"labels": map[string]any{
+					"hive.openshift.io/secret-type": "kubeconfig",
+				},
 			},
 		},
 	}
 
-	// Delete should still send (not filtered) because deletions are never filtered
+	// Delete should send because object has required labels (was synced)
+	// This tests direct Delete() call (predicate is bypassed in unit tests)
 	err := emitter.Delete(secret)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	// Verify event was sent even without labels
+	// Verify event was sent
 	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event to be sent for deletion without labels, got %d", len(producer.events))
+		t.Errorf("Expected 1 event to be sent for deletion, got %d", len(producer.events))
 	}
 
 	// Parse bundle from event data

@@ -6,13 +6,16 @@ package hubha
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -28,11 +31,10 @@ const (
 	hubhaResyncInterval = 30 * time.Minute
 )
 
-// hubHAController implements reconciliation for Hub HA resources using list-watch pattern
+// hubHAController implements reconciliation for all Hub HA resources using list-watch pattern
 type hubHAController struct {
 	client  client.Client
 	emitter *HubHAEmitter
-	gvk     schema.GroupVersionKind
 }
 
 // StartHubHAActiveSyncer starts the active hub syncer using controller-based list-watch pattern
@@ -67,21 +69,14 @@ func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer tran
 		standbyHub,
 	)
 
-	// Start controllers for each GVK
+	// Start a single controller that watches all resource types
 	allResources := getHubHAResourcesToSync()
-	var activeResources []schema.GroupVersionKind
-
-	for _, gvk := range allResources {
-		if err := startHubHAController(mgr, gvk, emitter); err != nil {
-			// CRD not installed - skip without logging error
-			log.Debugf("skipped controller for %s: %v", gvk.String(), err)
-		} else {
-			// Track successfully started controllers
-			activeResources = append(activeResources, gvk)
-		}
+	activeResources, err := startHubHAController(mgr, allResources, emitter)
+	if err != nil {
+		return err
 	}
 
-	log.Infof("Hub HA active syncer started %d/%d resource controllers", len(activeResources), len(allResources))
+	log.Infof("Hub HA active syncer started watching %d/%d resource types", len(activeResources), len(allResources))
 
 	// Start periodic resync as a safety net for consistency (handles edge cases like missed events)
 	// Only resync resources that have active controllers
@@ -90,67 +85,117 @@ func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer tran
 	return nil
 }
 
-// startHubHAController starts a controller for a specific GVK
-func startHubHAController(mgr ctrl.Manager, gvk schema.GroupVersionKind, emitter *HubHAEmitter) error {
-	// Check if the resource type exists before starting controller
-	// This prevents error logs for optional CRDs that aren't installed
-	_, err := mgr.GetRESTMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		// CRD not installed - skip without error
-		return err
-	}
-
-	// Create unstructured object instance for this GVK
-	instance := &unstructured.Unstructured{}
-	instance.SetGroupVersionKind(gvk)
-
-	// Create controller
+// startHubHAController starts a single controller that watches all Hub HA resource types
+func startHubHAController(mgr ctrl.Manager, allGVKs []schema.GroupVersionKind, emitter *HubHAEmitter) ([]schema.GroupVersionKind, error) {
+	// Create controller that handles all GVKs
 	controller := &hubHAController{
 		client:  mgr.GetClient(),
 		emitter: emitter,
-		gvk:     gvk,
 	}
 
-	// Build controller with manager
-	if err := ctrl.NewControllerManagedBy(mgr).
-		For(instance).
-		WithEventFilter(emitter.Predicate()).
-		Named(fmt.Sprintf("hubha-%s", gvk.Kind)).
-		Complete(controller); err != nil {
-		return err
+	// Start with empty controller builder
+	builder := ctrl.NewControllerManagedBy(mgr).
+		Named("hubha").
+		WithEventFilter(emitter.Predicate())
+
+	// Track which GVKs were successfully added
+	var activeGVKs []schema.GroupVersionKind
+
+	// Add watches for each GVK using WatchesMetadata with custom handler
+	for _, gvk := range allGVKs {
+		// Check if CRD exists
+		_, err := mgr.GetRESTMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err != nil {
+			log.Debugf("skipped watch for %s: CRD not installed", gvk.String())
+			continue
+		}
+
+		// Create instance for this GVK
+		instance := &unstructured.Unstructured{}
+		instance.SetGroupVersionKind(gvk)
+
+		// Use WatchesMetadata with custom handler that encodes GVK into the Name field
+		// This allows us to reconstruct the GVK in the Reconcile function
+		builder = builder.WatchesMetadata(instance, handler.EnqueueRequestsFromMapFunc(
+			func(ctx context.Context, obj client.Object) []ctrl.Request {
+				// Get GVK from the object
+				objGVK := obj.GetObjectKind().GroupVersionKind()
+
+				// Encode GVK into Name field using "||" delimiter
+				// Format: Group||Version||Kind||RealName
+				encodedName := fmt.Sprintf("%s||%s||%s||%s",
+					objGVK.Group, objGVK.Version, objGVK.Kind, obj.GetName())
+
+				return []ctrl.Request{{
+					NamespacedName: types.NamespacedName{
+						Namespace: obj.GetNamespace(), // Real namespace
+						Name:      encodedName,        // Encoded: GVK||RealName
+					},
+				}}
+			},
+		))
+
+		activeGVKs = append(activeGVKs, gvk)
+		log.Debugf("added Hub HA watch for %s", gvk.String())
 	}
 
-	log.Debugf("started Hub HA controller for %s", gvk.String())
-	return nil
+	// Complete the controller
+	if err := builder.Complete(controller); err != nil {
+		return nil, fmt.Errorf("failed to build Hub HA controller: %w", err)
+	}
+
+	return activeGVKs, nil
 }
 
 // Reconcile handles changes to Hub HA resources
+// This reconciler handles all GVKs watched by the controller
 func (c *hubHAController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	obj := &unstructured.Unstructured{}
-	obj.SetGroupVersionKind(c.gvk)
+	// Decode GVK from the encoded Name field
+	// Format: Group||Version||Kind||RealName
+	parts := strings.Split(req.Name, "||")
+	if len(parts) != 4 {
+		log.Errorf("invalid encoded name format: %s", req.Name)
+		return ctrl.Result{}, fmt.Errorf("invalid encoded name format: %s", req.Name)
+	}
 
-	err := c.client.Get(ctx, req.NamespacedName, obj)
+	gvk := schema.GroupVersionKind{
+		Group:   parts[0],
+		Version: parts[1],
+		Kind:    parts[2],
+	}
+	realName := parts[3]
+	realNamespace := req.Namespace
+
+	// Try to get the object as unstructured with the decoded GVK
+	obj := &unstructured.Unstructured{}
+	obj.SetGroupVersionKind(gvk)
+
+	err := c.client.Get(ctx, types.NamespacedName{
+		Namespace: realNamespace,
+		Name:      realName,
+	}, obj)
 	if err != nil {
 		if client.IgnoreNotFound(err) == nil {
 			// Object was deleted
-			obj.SetNamespace(req.Namespace)
-			obj.SetName(req.Name)
+			obj.SetNamespace(realNamespace)
+			obj.SetName(realName)
+			obj.SetGroupVersionKind(gvk)
 			if err := c.emitter.Delete(obj); err != nil {
 				log.Errorf("failed to handle delete for %s/%s (%s): %v",
-					req.Namespace, req.Name, c.gvk.Kind, err)
+					realNamespace, realName, gvk.Kind, err)
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 			}
 			return ctrl.Result{}, nil
 		}
-		log.Errorf("failed to get object %s/%s (%s): %v", req.Namespace, req.Name, c.gvk.Kind, err)
+		log.Errorf("failed to get object %s/%s (%s): %v", realNamespace, realName, gvk.Kind, err)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 	}
 
-	// Object exists - update or delete based on deletion timestamp
+	// Object exists but being deleted (has DeletionTimestamp)
 	if !obj.GetDeletionTimestamp().IsZero() {
 		if err := c.emitter.Delete(obj); err != nil {
 			log.Errorf("failed to handle delete for %s/%s (%s): %v",
-				req.Namespace, req.Name, c.gvk.Kind, err)
+				realNamespace, realName, gvk.Kind, err)
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 		return ctrl.Result{}, nil
@@ -159,7 +204,7 @@ func (c *hubHAController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// Update
 	if err := c.emitter.Update(obj); err != nil {
 		log.Errorf("failed to handle update for %s/%s (%s): %v",
-			req.Namespace, req.Name, c.gvk.Kind, err)
+			realNamespace, realName, gvk.Kind, err)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 	}
 

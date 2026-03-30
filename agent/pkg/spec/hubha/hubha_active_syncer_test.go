@@ -72,11 +72,6 @@ func TestHubHAController_Reconcile_Update(t *testing.T) {
 	controller := &hubHAController{
 		client:  fakeClient,
 		emitter: emitter,
-		gvk: schema.GroupVersionKind{
-			Group:   "",
-			Version: "v1",
-			Kind:    "Secret",
-		},
 	}
 
 	// Create a Secret with required label
@@ -103,11 +98,12 @@ func TestHubHAController_Reconcile_Update(t *testing.T) {
 		t.Fatalf("Failed to create secret: %v", err)
 	}
 
-	// Reconcile
+	// Reconcile with encoded name (GVK encoding format)
+	encodedName := "||v1||Secret||test-secret" // Empty group for core/v1 resources
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: "default",
-			Name:      "test-secret",
+			Name:      encodedName,
 		},
 	}
 
@@ -144,18 +140,14 @@ func TestHubHAController_Reconcile_Delete(t *testing.T) {
 	controller := &hubHAController{
 		client:  fakeClient,
 		emitter: emitter,
-		gvk: schema.GroupVersionKind{
-			Group:   "",
-			Version: "v1",
-			Kind:    "Secret",
-		},
 	}
 
-	// Reconcile for non-existent object (deleted)
+	// Reconcile for non-existent object (deleted) with encoded name
+	encodedName := "||v1||Secret||deleted-secret" // Empty group for core/v1 resources
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: "default",
-			Name:      "deleted-secret",
+			Name:      encodedName,
 		},
 	}
 
@@ -190,14 +182,11 @@ func TestHubHAController_Reconcile_FilteredResource(t *testing.T) {
 	controller := &hubHAController{
 		client:  fakeClient,
 		emitter: emitter,
-		gvk: schema.GroupVersionKind{
-			Group:   "",
-			Version: "v1",
-			Kind:    "Secret",
-		},
 	}
 
-	// Create a Secret WITHOUT required label (should be filtered)
+	// Create a Secret WITHOUT required label
+	// Note: In production, the predicate would filter this before Reconcile is called.
+	// This test directly calls Reconcile (bypassing predicate), so it will send the event.
 	secret := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
@@ -205,7 +194,7 @@ func TestHubHAController_Reconcile_FilteredResource(t *testing.T) {
 			"metadata": map[string]interface{}{
 				"name":      "filtered-secret",
 				"namespace": "default",
-				// No required labels
+				// No required labels - predicate would filter this in production
 			},
 		},
 	}
@@ -216,11 +205,12 @@ func TestHubHAController_Reconcile_FilteredResource(t *testing.T) {
 		t.Fatalf("Failed to create secret: %v", err)
 	}
 
-	// Reconcile
+	// Reconcile with encoded name
+	encodedName := "||v1||Secret||filtered-secret" // Empty group for core/v1 resources
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: "default",
-			Name:      "filtered-secret",
+			Name:      encodedName,
 		},
 	}
 
@@ -233,9 +223,10 @@ func TestHubHAController_Reconcile_FilteredResource(t *testing.T) {
 		t.Error("Expected no requeue")
 	}
 
-	// Verify no event was sent (filtered)
-	if len(producer.events) != 0 {
-		t.Errorf("Expected 0 events for filtered resource, got %d", len(producer.events))
+	// When Reconcile is called directly (bypassing predicate), it will send the event
+	// In production, predicate filters before Reconcile is called
+	if len(producer.events) != 1 {
+		t.Errorf("Expected 1 event when calling Reconcile directly, got %d", len(producer.events))
 	}
 }
 

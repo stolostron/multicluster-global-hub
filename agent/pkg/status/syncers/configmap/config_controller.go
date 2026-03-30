@@ -61,6 +61,44 @@ func SetHubHASyncerManager(ctx context.Context, mgr ctrl.Manager, producer trans
 	})
 }
 
+// StartHubHASyncerIfActive starts the Hub HA syncer if the agent is in active role
+// This should be called after SetHubHASyncerManager to handle first boot
+func StartHubHASyncerIfActive() {
+	if hubHASyncerManager == nil {
+		return
+	}
+
+	agentConfig := configs.GetAgentConfig()
+	if agentConfig == nil {
+		return
+	}
+
+	hubRole, _ := agentConfig.GetHubRoleAndStandbyHub()
+	if hubRole != constants.GHHubRoleActive {
+		return
+	}
+
+	// Use the manager's lock to avoid race conditions
+	hubHASyncerManager.mu.Lock()
+	defer hubHASyncerManager.mu.Unlock()
+
+	// Only start if not already running
+	if hubHASyncerManager.cancel != nil {
+		return
+	}
+
+	syncerCtx, cancel := context.WithCancel(hubHASyncerManager.ctx)
+	hubHASyncerManager.cancel = cancel
+
+	go func() {
+		if err := hubHASyncerManager.startFunc(syncerCtx, hubHASyncerManager.mgr, hubHASyncerManager.producer); err != nil {
+			logger.DefaultZapLogger().Errorw("Failed to start Hub HA active syncer", "error", err)
+		}
+	}()
+
+	logger.DefaultZapLogger().Info("Started Hub HA active syncer on first boot")
+}
+
 // AddConfigMapController creates a new instance of config controller and adds it to the manager.
 func AddConfigMapController(mgr ctrl.Manager, agentConfig *configs.AgentConfig) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
@@ -150,7 +188,12 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 				"newRole", newHubRole,
 				"previousStandbyHub", previousStandbyHub,
 				"newStandbyHub", newStandbyHub)
-			c.restartHubHASyncer(reqLogger)
+
+			// Try to restart syncer; if manager not initialized yet, requeue to retry later
+			if !c.restartHubHASyncer(reqLogger) {
+				reqLogger.Info("Hub HA syncer manager not ready, will retry in 5 seconds")
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
 		}
 	}
 
@@ -159,10 +202,11 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 }
 
 // restartHubHASyncer stops any existing Hub HA syncer and starts a new one if role is active
-func (c *hubOfHubsConfigController) restartHubHASyncer(log *zap.SugaredLogger) {
+// Returns true if successful (or manager not needed), false if manager not initialized yet (caller should requeue)
+func (c *hubOfHubsConfigController) restartHubHASyncer(log *zap.SugaredLogger) bool {
 	if hubHASyncerManager == nil {
 		log.Warn("Hub HA syncer manager not initialized, cannot restart syncer")
-		return
+		return false
 	}
 
 	hubHASyncerManager.mu.Lock()
@@ -198,6 +242,7 @@ func (c *hubOfHubsConfigController) restartHubHASyncer(log *zap.SugaredLogger) {
 			}()
 		}
 	}
+	return true
 }
 
 func (c *hubOfHubsConfigController) setSyncInterval(configMap *corev1.ConfigMap, key string) {
