@@ -200,14 +200,18 @@ func (s *MigrationSourceSyncer) executeStage(ctx context.Context, source *migrat
 			source.Stage, source.MigrationId, err)
 		// Clear in-progress state on failure so retries can run
 		s.mu.Lock()
-		delete(s.completedStages, source.Stage)
+		if s.processingMigrationId == source.MigrationId {
+			delete(s.completedStages, source.Stage)
+		}
 		s.mu.Unlock()
 		return err
 	}
 
 	if source.Stage != migrationv1alpha1.PhaseRollbacking {
 		s.mu.Lock()
-		s.completedStages[source.Stage] = "completed"
+		if s.processingMigrationId == source.MigrationId {
+			s.completedStages[source.Stage] = "completed"
+		}
 		s.mu.Unlock()
 	}
 	log.Infof("migration %s completed: migrationId=%s", source.Stage, source.MigrationId)

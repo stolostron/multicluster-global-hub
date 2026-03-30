@@ -312,14 +312,18 @@ func (s *MigrationTargetSyncer) executeStage(
 			event.Stage, event.MigrationId, err)
 		// Clear in-progress state on failure so retries can run
 		s.mu.Lock()
-		delete(s.completedStages, event.Stage)
+		if s.processingMigrationId == event.MigrationId {
+			delete(s.completedStages, event.Stage)
+		}
 		s.mu.Unlock()
 		return err
 	}
 
 	if event.Stage != migrationv1alpha1.PhaseRollbacking {
 		s.mu.Lock()
-		s.completedStages[event.Stage] = "completed"
+		if s.processingMigrationId == event.MigrationId {
+			s.completedStages[event.Stage] = "completed"
+		}
 		s.mu.Unlock()
 	}
 	log.Infof("migration %s completed: migrationId=%s", event.Stage, event.MigrationId)
