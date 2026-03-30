@@ -29,6 +29,30 @@ const (
 	// Full resync every 30 minutes as a safety net for consistency
 	// This handles edge cases like missed events during network issues or agent restarts
 	hubhaResyncInterval = 30 * time.Minute
+	// API Groups - constants to avoid string literal duplication
+	groupAddonOCM                 = "addon.open-cluster-management.io"
+	groupAgentOCM                 = "agent.open-cluster-management.io"
+	groupAppsOCM                  = "apps.open-cluster-management.io"
+	groupAuthenticationOCM        = "authentication.open-cluster-management.io"
+	groupClusterOCM               = "cluster.open-cluster-management.io"
+	groupConfigOCM                = "config.open-cluster-management.io"
+	groupConsoleOCM               = "console.open-cluster-management.io"
+	groupDiscoveryOCM             = "discovery.open-cluster-management.io"
+	groupGlobalHubOCM             = "global-hub.open-cluster-management.io"
+	groupImageRegistryOCM         = "imageregistry.open-cluster-management.io"
+	groupObservabilityOCM         = "observability.open-cluster-management.io"
+	groupPolicyOCM                = "policy.open-cluster-management.io"
+	groupRBACOCM                  = "rbac.open-cluster-management.io"
+	groupSiteConfigOCM            = "siteconfig.open-cluster-management.io"
+	groupSubmarinerAddonOCM       = "submarineraddon.open-cluster-management.io"
+	groupHiveExtensions           = "extensions.hive.openshift.io"
+	groupHive                     = "hive.openshift.io"
+	groupHiveInternal             = "hiveinternal.openshift.io"
+	groupArgoProj                 = "argoproj.io"
+	groupAppK8s                   = "app.k8s.io"
+	groupObservatorium            = "core.observatorium.io"
+	groupAgentInstall             = "agent-install.openshift.io"
+	groupCAPIProviderAgentInstall = "capi-provider.agent-install.openshift.io"
 )
 
 // hubHAController implements reconciliation for all Hub HA resources using list-watch pattern
@@ -86,7 +110,9 @@ func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer tran
 }
 
 // startHubHAController starts a single controller that watches all Hub HA resource types
-func startHubHAController(mgr ctrl.Manager, allGVKs []schema.GroupVersionKind, emitter *HubHAEmitter) ([]schema.GroupVersionKind, error) {
+func startHubHAController(mgr ctrl.Manager, allGVKs []schema.GroupVersionKind,
+	emitter *HubHAEmitter,
+) ([]schema.GroupVersionKind, error) {
 	// Create controller that handles all GVKs
 	controller := &hubHAController{
 		client:  mgr.GetClient(),
@@ -274,150 +300,150 @@ func performFullResync(ctx context.Context, c client.Client, emitter *HubHAEmitt
 func getHubHAResourcesToSync() []schema.GroupVersionKind {
 	return []schema.GroupVersionKind{
 		// ACM/OCM Addon resources
-		{Group: "addon.open-cluster-management.io", Version: "v1beta1", Kind: "AddOnDeploymentConfig"},
-		{Group: "addon.open-cluster-management.io", Version: "v1alpha1", Kind: "AddOnTemplate"},
-		{Group: "addon.open-cluster-management.io", Version: "v1beta1", Kind: "ClusterManagementAddOn"},
-		{Group: "addon.open-cluster-management.io", Version: "v1beta1", Kind: "ManagedClusterAddOn"},
+		{Group: groupAddonOCM, Version: "v1beta1", Kind: "AddOnDeploymentConfig"},
+		{Group: groupAddonOCM, Version: "v1alpha1", Kind: "AddOnTemplate"},
+		{Group: groupAddonOCM, Version: "v1beta1", Kind: "ClusterManagementAddOn"},
+		{Group: groupAddonOCM, Version: "v1beta1", Kind: "ManagedClusterAddOn"},
 
 		// ACM/OCM Agent resources
-		{Group: "agent.open-cluster-management.io", Version: "v1", Kind: "KlusterletAddonConfig"},
+		{Group: groupAgentOCM, Version: "v1", Kind: "KlusterletAddonConfig"},
 
 		// ACM/OCM Application resources
-		{Group: "apps.open-cluster-management.io", Version: "v1", Kind: "Channel"},
-		{Group: "apps.open-cluster-management.io", Version: "v1", Kind: "Deployable"},
-		{Group: "apps.open-cluster-management.io", Version: "v1beta1", Kind: "GitOpsCluster"},
-		{Group: "apps.open-cluster-management.io", Version: "v1", Kind: "HelmRelease"},
-		{Group: "apps.open-cluster-management.io", Version: "v1alpha1", Kind: "MulticlusterApplicationSetReport"},
-		{Group: "apps.open-cluster-management.io", Version: "v1", Kind: "PlacementRule"},
-		{Group: "apps.open-cluster-management.io", Version: "v1alpha1", Kind: "SubscriptionReport"},
-		{Group: "apps.open-cluster-management.io", Version: "v1", Kind: "Subscription"},
-		{Group: "apps.open-cluster-management.io", Version: "v1alpha1", Kind: "SubscriptionStatus"},
+		{Group: groupAppsOCM, Version: "v1", Kind: "Channel"},
+		{Group: groupAppsOCM, Version: "v1", Kind: "Deployable"},
+		{Group: groupAppsOCM, Version: "v1beta1", Kind: "GitOpsCluster"},
+		{Group: groupAppsOCM, Version: "v1", Kind: "HelmRelease"},
+		{Group: groupAppsOCM, Version: "v1alpha1", Kind: "MulticlusterApplicationSetReport"},
+		{Group: groupAppsOCM, Version: "v1", Kind: "PlacementRule"},
+		{Group: groupAppsOCM, Version: "v1alpha1", Kind: "SubscriptionReport"},
+		{Group: groupAppsOCM, Version: "v1", Kind: "Subscription"},
+		{Group: groupAppsOCM, Version: "v1alpha1", Kind: "SubscriptionStatus"},
 
 		// ACM/OCM Authentication resources
-		{Group: "authentication.open-cluster-management.io", Version: "v1beta1", Kind: "ManagedServiceAccount"},
+		{Group: groupAuthenticationOCM, Version: "v1beta1", Kind: "ManagedServiceAccount"},
 
 		// ACM/OCM Cluster resources
-		{Group: "cluster.open-cluster-management.io", Version: "v1alpha1", Kind: "AddOnPlacementScore"},
-		{Group: "cluster.open-cluster-management.io", Version: "v1beta1", Kind: "BackupSchedule"},
-		{Group: "cluster.open-cluster-management.io", Version: "v1alpha1", Kind: "ClusterClaim"},
-		{Group: "cluster.open-cluster-management.io", Version: "v1beta1", Kind: "ClusterCurator"},
-		{Group: "cluster.open-cluster-management.io", Version: "v1", Kind: "ManagedCluster"},
-		{Group: "cluster.open-cluster-management.io", Version: "v1beta2", Kind: "ManagedClusterSetBinding"},
-		{Group: "cluster.open-cluster-management.io", Version: "v1beta2", Kind: "ManagedClusterSet"},
-		{Group: "cluster.open-cluster-management.io", Version: "v1beta1", Kind: "PlacementDecision"},
-		{Group: "cluster.open-cluster-management.io", Version: "v1beta1", Kind: "Placement"},
-		{Group: "cluster.open-cluster-management.io", Version: "v1beta1", Kind: "Restore"},
+		{Group: groupClusterOCM, Version: "v1alpha1", Kind: "AddOnPlacementScore"},
+		{Group: groupClusterOCM, Version: "v1beta1", Kind: "BackupSchedule"},
+		{Group: groupClusterOCM, Version: "v1alpha1", Kind: "ClusterClaim"},
+		{Group: groupClusterOCM, Version: "v1beta1", Kind: "ClusterCurator"},
+		{Group: groupClusterOCM, Version: "v1", Kind: "ManagedCluster"},
+		{Group: groupClusterOCM, Version: "v1beta2", Kind: "ManagedClusterSetBinding"},
+		{Group: groupClusterOCM, Version: "v1beta2", Kind: "ManagedClusterSet"},
+		{Group: groupClusterOCM, Version: "v1beta1", Kind: "PlacementDecision"},
+		{Group: groupClusterOCM, Version: "v1beta1", Kind: "Placement"},
+		{Group: groupClusterOCM, Version: "v1beta1", Kind: "Restore"},
 
 		// ACM/OCM Config resources
-		{Group: "config.open-cluster-management.io", Version: "v1alpha1", Kind: "KlusterletConfig"},
+		{Group: groupConfigOCM, Version: "v1alpha1", Kind: "KlusterletConfig"},
 
 		// ACM/OCM Console resources
-		{Group: "console.open-cluster-management.io", Version: "v1", Kind: "UserPreference"},
+		{Group: groupConsoleOCM, Version: "v1", Kind: "UserPreference"},
 
 		// ACM/OCM Discovery resources
-		{Group: "discovery.open-cluster-management.io", Version: "v1", Kind: "DiscoveredCluster"},
-		{Group: "discovery.open-cluster-management.io", Version: "v1", Kind: "DiscoveryConfig"},
+		{Group: groupDiscoveryOCM, Version: "v1", Kind: "DiscoveredCluster"},
+		{Group: groupDiscoveryOCM, Version: "v1", Kind: "DiscoveryConfig"},
 
 		// Global Hub resources
-		{Group: "global-hub.open-cluster-management.io", Version: "v1alpha1", Kind: "ManagedClusterMigration"},
+		{Group: groupGlobalHubOCM, Version: "v1alpha1", Kind: "ManagedClusterMigration"},
 
 		// ACM/OCM Image Registry resources
-		{Group: "imageregistry.open-cluster-management.io", Version: "v1alpha1", Kind: "ManagedClusterImageRegistry"},
+		{Group: groupImageRegistryOCM, Version: "v1alpha1", Kind: "ManagedClusterImageRegistry"},
 
 		// ACM/OCM Observability resources
-		{Group: "observability.open-cluster-management.io", Version: "v1beta2", Kind: "MultiClusterObservability"},
-		{Group: "observability.open-cluster-management.io", Version: "v1beta1", Kind: "ObservabilityAddon"},
+		{Group: groupObservabilityOCM, Version: "v1beta2", Kind: "MultiClusterObservability"},
+		{Group: groupObservabilityOCM, Version: "v1beta1", Kind: "ObservabilityAddon"},
 
 		// ACM/OCM Policy resources
-		{Group: "policy.open-cluster-management.io", Version: "v1", Kind: "CertificatePolicy"},
-		{Group: "policy.open-cluster-management.io", Version: "v1", Kind: "ConfigurationPolicy"},
-		{Group: "policy.open-cluster-management.io", Version: "v1beta1", Kind: "OperatorPolicy"},
-		{Group: "policy.open-cluster-management.io", Version: "v1", Kind: "PlacementBinding"},
-		{Group: "policy.open-cluster-management.io", Version: "v1", Kind: "Policy"},
-		{Group: "policy.open-cluster-management.io", Version: "v1beta1", Kind: "PolicyAutomation"},
-		{Group: "policy.open-cluster-management.io", Version: "v1beta1", Kind: "PolicySet"},
+		{Group: groupPolicyOCM, Version: "v1", Kind: "CertificatePolicy"},
+		{Group: groupPolicyOCM, Version: "v1", Kind: "ConfigurationPolicy"},
+		{Group: groupPolicyOCM, Version: "v1beta1", Kind: "OperatorPolicy"},
+		{Group: groupPolicyOCM, Version: "v1", Kind: "PlacementBinding"},
+		{Group: groupPolicyOCM, Version: "v1", Kind: "Policy"},
+		{Group: groupPolicyOCM, Version: "v1beta1", Kind: "PolicyAutomation"},
+		{Group: groupPolicyOCM, Version: "v1beta1", Kind: "PolicySet"},
 
 		// ACM/OCM RBAC resources
-		{Group: "rbac.open-cluster-management.io", Version: "v1alpha1", Kind: "ClusterPermission"},
-		{Group: "rbac.open-cluster-management.io", Version: "v1beta1", Kind: "MulticlusterRoleAssignment"},
+		{Group: groupRBACOCM, Version: "v1alpha1", Kind: "ClusterPermission"},
+		{Group: groupRBACOCM, Version: "v1beta1", Kind: "MulticlusterRoleAssignment"},
 
 		// ACM/OCM Site Config resources
-		{Group: "siteconfig.open-cluster-management.io", Version: "v1alpha1", Kind: "ClusterInstance"},
+		{Group: groupSiteConfigOCM, Version: "v1alpha1", Kind: "ClusterInstance"},
 
 		// ACM/OCM Submariner resources
-		{Group: "submarineraddon.open-cluster-management.io", Version: "v1alpha1", Kind: "SubmarinerConfig"},
-		{Group: "submarineraddon.open-cluster-management.io", Version: "v1alpha1", Kind: "SubmarinerDiagnoseConfig"},
+		{Group: groupSubmarinerAddonOCM, Version: "v1alpha1", Kind: "SubmarinerConfig"},
+		{Group: groupSubmarinerAddonOCM, Version: "v1alpha1", Kind: "SubmarinerDiagnoseConfig"},
 
 		// Hive extension resources
-		{Group: "extensions.hive.openshift.io", Version: "v1beta1", Kind: "AgentClusterInstall"},
-		{Group: "extensions.hive.openshift.io", Version: "v1alpha1", Kind: "ImageClusterInstall"},
+		{Group: groupHiveExtensions, Version: "v1beta1", Kind: "AgentClusterInstall"},
+		{Group: groupHiveExtensions, Version: "v1alpha1", Kind: "ImageClusterInstall"},
 
 		// Hive resources
-		{Group: "hive.openshift.io", Version: "v1", Kind: "Checkpoint"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterClaim"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterDeploymentCustomization"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterDeployment"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterDeprovision"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterImageSet"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterPool"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterProvision"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterRelocate"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterState"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "DNSZone"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "HiveConfig"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "MachinePoolNameLease"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "MachinePool"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "SelectorSyncIdentityProvider"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "SelectorSyncSet"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "SyncIdentityProvider"},
-		{Group: "hive.openshift.io", Version: "v1", Kind: "SyncSet"},
+		{Group: groupHive, Version: "v1", Kind: "Checkpoint"},
+		{Group: groupHive, Version: "v1", Kind: "ClusterClaim"},
+		{Group: groupHive, Version: "v1", Kind: "ClusterDeploymentCustomization"},
+		{Group: groupHive, Version: "v1", Kind: "ClusterDeployment"},
+		{Group: groupHive, Version: "v1", Kind: "ClusterDeprovision"},
+		{Group: groupHive, Version: "v1", Kind: "ClusterImageSet"},
+		{Group: groupHive, Version: "v1", Kind: "ClusterPool"},
+		{Group: groupHive, Version: "v1", Kind: "ClusterProvision"},
+		{Group: groupHive, Version: "v1", Kind: "ClusterRelocate"},
+		{Group: groupHive, Version: "v1", Kind: "ClusterState"},
+		{Group: groupHive, Version: "v1", Kind: "DNSZone"},
+		{Group: groupHive, Version: "v1", Kind: "HiveConfig"},
+		{Group: groupHive, Version: "v1", Kind: "MachinePoolNameLease"},
+		{Group: groupHive, Version: "v1", Kind: "MachinePool"},
+		{Group: groupHive, Version: "v1", Kind: "SelectorSyncIdentityProvider"},
+		{Group: groupHive, Version: "v1", Kind: "SelectorSyncSet"},
+		{Group: groupHive, Version: "v1", Kind: "SyncIdentityProvider"},
+		{Group: groupHive, Version: "v1", Kind: "SyncSet"},
 
 		// Hive internal resources
-		{Group: "hiveinternal.openshift.io", Version: "v1alpha1", Kind: "ClusterSyncLease"},
-		{Group: "hiveinternal.openshift.io", Version: "v1alpha1", Kind: "ClusterSync"},
-		{Group: "hiveinternal.openshift.io", Version: "v1alpha1", Kind: "FakeClusterInstall"},
+		{Group: groupHiveInternal, Version: "v1alpha1", Kind: "ClusterSyncLease"},
+		{Group: groupHiveInternal, Version: "v1alpha1", Kind: "ClusterSync"},
+		{Group: groupHiveInternal, Version: "v1alpha1", Kind: "FakeClusterInstall"},
 
 		// ArgoCD Application resources
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "Application"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "ApplicationSet"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "AppProject"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "ArgoCD"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "Application"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "ApplicationSet"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "AppProject"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "ArgoCD"},
 
 		// ArgoCD Workflow resources
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "WorkflowTemplate"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "ClusterWorkflowTemplate"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "CronWorkflow"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "Workflow"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "WorkflowTemplate"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "ClusterWorkflowTemplate"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "CronWorkflow"},
 
 		// ArgoCD Events resources
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "EventSource"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "Sensor"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "EventBus"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "EventSource"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "Sensor"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "EventBus"},
 
 		// ArgoCD Rollouts resources
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "Rollout"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "Experiment"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "AnalysisTemplate"},
-		{Group: "argoproj.io", Version: "v1alpha1", Kind: "ClusterAnalysisTemplate"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "Rollout"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "Experiment"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "AnalysisTemplate"},
+		{Group: groupArgoProj, Version: "v1alpha1", Kind: "ClusterAnalysisTemplate"},
 
 		// Application resources
-		{Group: "app.k8s.io", Version: "v1beta1", Kind: "Application"},
+		{Group: groupAppK8s, Version: "v1beta1", Kind: "Application"},
 
 		// Observatorium resources
-		{Group: "core.observatorium.io", Version: "v1alpha1", Kind: "Observatorium"},
+		{Group: groupObservatorium, Version: "v1alpha1", Kind: "Observatorium"},
 
 		// Agent install resources (ZTP)
-		{Group: "agent-install.openshift.io", Version: "v1beta1", Kind: "AgentClassification"},
-		{Group: "agent-install.openshift.io", Version: "v1beta1", Kind: "Agent"},
-		{Group: "agent-install.openshift.io", Version: "v1beta1", Kind: "AgentServiceConfig"},
-		{Group: "agent-install.openshift.io", Version: "v1beta1", Kind: "HypershiftAgentServiceConfig"},
-		{Group: "agent-install.openshift.io", Version: "v1beta1", Kind: "InfraEnv"},
-		{Group: "agent-install.openshift.io", Version: "v1beta1", Kind: "NMStateConfig"},
+		{Group: groupAgentInstall, Version: "v1beta1", Kind: "AgentClassification"},
+		{Group: groupAgentInstall, Version: "v1beta1", Kind: "Agent"},
+		{Group: groupAgentInstall, Version: "v1beta1", Kind: "AgentServiceConfig"},
+		{Group: groupAgentInstall, Version: "v1beta1", Kind: "HypershiftAgentServiceConfig"},
+		{Group: groupAgentInstall, Version: "v1beta1", Kind: "InfraEnv"},
+		{Group: groupAgentInstall, Version: "v1beta1", Kind: "NMStateConfig"},
 
 		// CAPI Provider resources
-		{Group: "capi-provider.agent-install.openshift.io", Version: "v1beta1", Kind: "AgentCluster"},
-		{Group: "capi-provider.agent-install.openshift.io", Version: "v1beta1", Kind: "AgentMachine"},
-		{Group: "capi-provider.agent-install.openshift.io", Version: "v1beta1", Kind: "AgentMachineTemplate"},
+		{Group: groupCAPIProviderAgentInstall, Version: "v1beta1", Kind: "AgentCluster"},
+		{Group: groupCAPIProviderAgentInstall, Version: "v1beta1", Kind: "AgentMachine"},
+		{Group: groupCAPIProviderAgentInstall, Version: "v1beta1", Kind: "AgentMachineTemplate"},
 
 		// Secrets and ConfigMaps (will be filtered by labels)
 		{Group: "", Version: "v1", Kind: "Secret"},

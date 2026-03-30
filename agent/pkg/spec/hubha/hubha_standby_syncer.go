@@ -86,7 +86,9 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 	return nil
 }
 
-func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructured.Unstructured, sourceHub string) error {
+func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructured.Unstructured,
+	sourceHub string,
+) error {
 	log.Infof("creating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
 
@@ -111,7 +113,9 @@ func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructur
 	return nil
 }
 
-func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructured.Unstructured, sourceHub string) error {
+func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructured.Unstructured,
+	sourceHub string,
+) error {
 	log.Debugf("updating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
 
