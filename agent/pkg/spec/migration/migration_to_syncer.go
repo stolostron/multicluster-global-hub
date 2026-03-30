@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
@@ -112,6 +113,8 @@ type MigrationTargetSyncer struct {
 	// Batch tracking for deploying stage
 	deployingTotalClusters     int             // Total clusters expected in deploying stage
 	deployingProcessedClusters map[string]bool // Track which clusters have been processed
+	mu                         sync.Mutex
+	completedStages            map[string]string // tracks stage state: "in-progress" or "completed"
 }
 
 func NewMigrationTargetSyncer(client client.Client,
@@ -124,6 +127,7 @@ func NewMigrationTargetSyncer(client client.Client,
 		transportConfig: agentConfig.TransportConfig,
 		bundleVersion:   eventversion.NewVersion(),
 		leafHubName:     agentConfig.LeafHubName,
+		completedStages: make(map[string]string),
 	}
 }
 
@@ -175,6 +179,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			}
 		} else {
 			if receivedStage == migrationv1alpha1.PhaseDeploying {
+				s.mu.Lock()
 				if s.deployingTotalClusters > 0 && len(s.deployingProcessedClusters) == s.deployingTotalClusters {
 					log.Infof("deploying: all %d clusters have been processed successfully", s.deployingTotalClusters)
 					// Reset batch tracking for next migration
@@ -184,6 +189,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 					log.Infof("deploying: not finished, skip reporting status")
 					reportStatus = false
 				}
+				s.mu.Unlock()
 			}
 		}
 
@@ -221,17 +227,37 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	log.Debugf("received migration event: migrationId=%s, stage=%s", event.MigrationId, event.Stage)
 
-	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
-	if s.processingMigrationId == "" ||
-		event.Stage == migrationv1alpha1.PhaseValidating {
+	s.mu.Lock()
+	// Reset state only on a genuine migration switch (new migrationId or first event after restart)
+	isNewMigration := s.processingMigrationId == "" ||
+		(event.Stage == migrationv1alpha1.PhaseValidating &&
+			s.processingMigrationId != event.MigrationId)
+	if isNewMigration {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
+		s.completedStages = make(map[string]string)
+		s.deployingTotalClusters = 0
+		s.deployingProcessedClusters = nil
 	}
 
 	// Check if migration ID matches for all other stages, ignore the rollbacking status for the initializing
 	if s.processingMigrationId != event.MigrationId {
+		s.mu.Unlock()
 		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId, event.MigrationId)
 	}
+
+	// Skip stages that are already completed or in-progress (Rollbacking is excluded since it can repeat)
+	if event.Stage != migrationv1alpha1.PhaseRollbacking && s.completedStages[event.Stage] != "" {
+		stageState := s.completedStages[event.Stage]
+		s.mu.Unlock()
+		log.Infof("stage %s already %s for migration %s, skipping",
+			event.Stage, stageState, event.MigrationId)
+		return nil
+	}
+	if event.Stage != migrationv1alpha1.PhaseRollbacking {
+		s.completedStages[event.Stage] = "in-progress"
+	}
+	s.mu.Unlock()
 
 	err = s.handleStage(ctx, event, clusterErrors)
 	if err != nil {
@@ -284,9 +310,22 @@ func (s *MigrationTargetSyncer) executeStage(
 	if err := stageFunc(ctx, event, clusterErrors); err != nil {
 		log.Errorf("migration %s failed: migrationId=%s, error=%v",
 			event.Stage, event.MigrationId, err)
+		// Clear in-progress state on failure so retries can run
+		s.mu.Lock()
+		if s.processingMigrationId == event.MigrationId {
+			delete(s.completedStages, event.Stage)
+		}
+		s.mu.Unlock()
 		return err
 	}
 
+	if event.Stage != migrationv1alpha1.PhaseRollbacking {
+		s.mu.Lock()
+		if s.processingMigrationId == event.MigrationId {
+			s.completedStages[event.Stage] = "completed"
+		}
+		s.mu.Unlock()
+	}
 	log.Infof("migration %s completed: migrationId=%s", event.Stage, event.MigrationId)
 	return nil
 }
@@ -476,7 +515,8 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 	log.Debugf("deploying: received migrationId=%s with %d cluster resources",
 		resourceEvent.MigrationId, len(resourceEvent.MigrationClusterResources))
 
-	// Initialize or validate migration tracking
+	// Initialize or validate migration tracking under lock
+	s.mu.Lock()
 	if s.processingMigrationId == "" {
 		s.processingMigrationId = resourceEvent.MigrationId
 		s.bundleVersion.Reset()
@@ -485,6 +525,7 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 
 	// only handle the current migration event, ignore the previous ones
 	if s.processingMigrationId != resourceEvent.MigrationId {
+		s.mu.Unlock()
 		return fmt.Errorf("expected migrationId %s, but got %s", s.processingMigrationId,
 			resourceEvent.MigrationId)
 	}
@@ -493,6 +534,7 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 	if s.deployingProcessedClusters == nil {
 		totalClusters := resourceEvent.TotalClusters
 		if totalClusters == 0 {
+			s.mu.Unlock()
 			log.Error("deploying: totalClusters in payload is 0, expecting at least 1 cluster")
 			return fmt.Errorf("totalClusters in payload is 0, expecting at least 1 cluster")
 		}
@@ -501,21 +543,26 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 		log.Infof("deploying: initialized batch tracking for migration %s, expecting %d total clusters",
 			resourceEvent.MigrationId, totalClusters)
 	}
+	s.mu.Unlock()
 
-	// Process the resources in this batch
+	// Process the resources in this batch (outside lock to avoid blocking)
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		return s.syncMigrationResources(ctx, resourceEvent)
 	}); err != nil {
 		return err
 	}
 
-	// Track processed clusters
+	// Track processed clusters under lock
+	s.mu.Lock()
 	for _, clusterResource := range resourceEvent.MigrationClusterResources {
 		s.deployingProcessedClusters[clusterResource.ClusterName] = true
 	}
+	processed := len(s.deployingProcessedClusters)
+	total := s.deployingTotalClusters
+	s.mu.Unlock()
 
 	log.Infof("deploying: processed batch with %d clusters, total processed: %d/%d",
-		len(resourceEvent.MigrationClusterResources), len(s.deployingProcessedClusters), s.deployingTotalClusters)
+		len(resourceEvent.MigrationClusterResources), processed, total)
 	return nil
 }
 

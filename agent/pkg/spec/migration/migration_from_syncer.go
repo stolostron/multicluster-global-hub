@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -73,6 +74,8 @@ type MigrationSourceSyncer struct {
 	processingMigrationId string
 	clusterErrors         map[string]string
 	leafHubName           string
+	mu                    sync.Mutex
+	completedStages       map[string]string // tracks stage state: "in-progress" or "completed"
 }
 
 func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
@@ -86,6 +89,7 @@ func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 		transportConfig: agentConfig.TransportConfig,
 		bundleVersion:   eventversion.NewVersion(),
 		leafHubName:     agentConfig.LeafHubName,
+		completedStages: make(map[string]string),
 	}
 }
 
@@ -132,22 +136,38 @@ func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migratio
 		return fmt.Errorf("migrationId is required but not provided in stage %s", event.Stage)
 	}
 
+	s.mu.Lock()
 	s.clusterErrors = make(map[string]string)
 
-	// Set current migration ID for stages that need cluster identification:
-	// - processingMigrationId is empty: always set, to handle restart case
-	// - Validating phase: always set (uses placement for cluster selection)
-	if s.processingMigrationId == "" ||
-		event.Stage == migrationv1alpha1.PhaseValidating {
+	// Reset state only on a genuine migration switch (new migrationId or first event after restart)
+	isNewMigration := s.processingMigrationId == "" ||
+		(event.Stage == migrationv1alpha1.PhaseValidating &&
+			s.processingMigrationId != event.MigrationId)
+	if isNewMigration {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
+		s.completedStages = make(map[string]string)
 	}
 
 	// Check if migration ID matches for all other stages
 	if s.processingMigrationId != event.MigrationId {
+		s.mu.Unlock()
 		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId,
 			event.MigrationId)
 	}
+
+	// Skip stages that are already completed or in-progress (Rollbacking is excluded since it can repeat)
+	if event.Stage != migrationv1alpha1.PhaseRollbacking && s.completedStages[event.Stage] != "" {
+		stageState := s.completedStages[event.Stage]
+		s.mu.Unlock()
+		log.Infof("stage %s already %s for migration %s, skipping",
+			event.Stage, stageState, event.MigrationId)
+		return nil
+	}
+	if event.Stage != migrationv1alpha1.PhaseRollbacking {
+		s.completedStages[event.Stage] = "in-progress"
+	}
+	s.mu.Unlock()
 
 	switch event.Stage {
 	case migrationv1alpha1.PhaseValidating:
@@ -178,9 +198,22 @@ func (s *MigrationSourceSyncer) executeStage(ctx context.Context, source *migrat
 	if err := stageFunc(ctx, source); err != nil {
 		log.Errorf("migration %s failed: migrationId=%s, error=%v",
 			source.Stage, source.MigrationId, err)
+		// Clear in-progress state on failure so retries can run
+		s.mu.Lock()
+		if s.processingMigrationId == source.MigrationId {
+			delete(s.completedStages, source.Stage)
+		}
+		s.mu.Unlock()
 		return err
 	}
 
+	if source.Stage != migrationv1alpha1.PhaseRollbacking {
+		s.mu.Lock()
+		if s.processingMigrationId == source.MigrationId {
+			s.completedStages[source.Stage] = "completed"
+		}
+		s.mu.Unlock()
+	}
 	log.Infof("migration %s completed: migrationId=%s", source.Stage, source.MigrationId)
 	return nil
 }

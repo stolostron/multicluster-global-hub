@@ -173,8 +173,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 					constants.CloudEventGlobalHubClusterName, testMigrationID, migrationv1alpha1.PhaseValidating)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
-			By("Testing validation failure when cluster already exists")
-			event = createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
+			By("Testing validation failure when cluster already exists (uses new migrationId)")
+			newMigrationID := "test-migration-validate-existing"
+			event = createMigrationToEvent(newMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
 				ManagedClusters: []string{testClusterName},
 			})
@@ -182,6 +183,14 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			err = migrationSyncer.Sync(testCtx, event)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("clusters validation failed"))
+
+			By("Resetting migration state back to testMigrationID for subsequent tests")
+			resetEvent := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
+			resetEvent.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
+				ManagedClusters: []string{"non-existing-cluster"},
+			})
+			err = migrationSyncer.Sync(testCtx, resetEvent)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should initialize migration permissions successfully", func() {
