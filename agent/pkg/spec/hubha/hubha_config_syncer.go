@@ -19,7 +19,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	haconfigbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/haconfig"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -33,7 +32,7 @@ type HAConfigSyncer struct {
 	leafHubName string
 }
 
-func NewHAConfigSyncer(client client.Client, _ transport.TransportClient,
+func NewHAConfigSyncer(client client.Client,
 	agentConfig *configs.AgentConfig,
 ) *HAConfigSyncer {
 	return &HAConfigSyncer{
@@ -152,8 +151,13 @@ spec:
 		return "", err
 	}
 
-	existing.Object["spec"] = obj.Object["spec"]
-	if err := s.client.Update(ctx, existing); err != nil {
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := s.client.Get(ctx, client.ObjectKeyFromObject(obj), existing); err != nil {
+			return err
+		}
+		existing.Object["spec"] = obj.Object["spec"]
+		return s.client.Update(ctx, existing)
+	}); err != nil {
 		return "", fmt.Errorf("failed to update KlusterletConfig %s: %w", configName, err)
 	}
 	log.Infof("updated KlusterletConfig %s", configName)

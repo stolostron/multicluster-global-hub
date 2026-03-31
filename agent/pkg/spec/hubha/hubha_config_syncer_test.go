@@ -232,7 +232,7 @@ func TestNewHAConfigSyncer(t *testing.T) {
 		LeafHubName:     "hub1",
 		TransportConfig: &transport.TransportInternalConfig{},
 	}
-	syncer := NewHAConfigSyncer(nil, nil, agentConfig)
+	syncer := NewHAConfigSyncer(nil, agentConfig)
 	assert.Equal(t, "hub1", syncer.leafHubName)
 }
 

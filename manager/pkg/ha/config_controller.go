@@ -208,6 +208,11 @@ func (c *ConfigController) generateBootstrapSecret(ctx context.Context,
 		return nil, err
 	}
 
+	if len(msaSecret.Data["ca.crt"]) == 0 || len(msaSecret.Data["token"]) == 0 {
+		return nil, fmt.Errorf("MSA secret %s/%s is missing required data (ca.crt or token)",
+			localClusterNamespace, msaPrefix+activeHubName)
+	}
+
 	managedCluster := &clusterv1.ManagedCluster{}
 	if err := c.Get(ctx, types.NamespacedName{
 		Name: localClusterNamespace,
