@@ -160,7 +160,11 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	ctx = withExpireTime(ctx, parseExpireTime(evt))
 
 	clusterErrors := map[string]string{}
+	isDuplicateEvent := false
 	defer func() {
+		if isDuplicateEvent {
+			return
+		}
 		if receivedStage == "" || receivedMigrationId == "" {
 			log.Warnf("stage(%s) or migrationId(%s) is empty ", receivedStage, receivedMigrationId)
 			return
@@ -252,6 +256,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		s.mu.Unlock()
 		log.Infof("stage %s already %s for migration %s, skipping",
 			event.Stage, stageState, event.MigrationId)
+		isDuplicateEvent = true
 		return nil
 	}
 	if event.Stage != migrationv1alpha1.PhaseRollbacking {
