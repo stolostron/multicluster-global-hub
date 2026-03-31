@@ -3,8 +3,8 @@
 
 -include /opt/build-harness/Makefile.prow
 
-REGISTRY ?= quay.io/morvencao
-IMAGE_TAG ?= dev
+REGISTRY ?= quay.io/stolostron
+IMAGE_TAG ?= latest
 TMP_BIN ?= /tmp/cr-tests-bin
 GO_TEST ?= go test -v
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
