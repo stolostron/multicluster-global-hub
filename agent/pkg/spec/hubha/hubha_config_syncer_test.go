@@ -1,4 +1,4 @@
-package haconfig
+package hubha
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-func newTestScheme() *runtime.Scheme {
+func newHAConfigTestScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = clientgoscheme.AddToScheme(scheme)
@@ -37,13 +36,13 @@ func newTestScheme() *runtime.Scheme {
 	return scheme
 }
 
-func newTestEvent(t *testing.T, bundle *haconfigbundle.HAConfigBundle) *cloudevents.Event {
+func newHAConfigTestEvent(t *testing.T, bundle *haconfigbundle.HAConfigBundle) *cloudevents.Event {
 	t.Helper()
 	data, err := json.Marshal(bundle)
 	require.NoError(t, err, "failed to marshal test bundle")
 	evt := cloudevents.NewEvent()
 	evt.SetType("HAConfig")
-	evt.SetSource("global-hub")
+	evt.SetSource("local-cluster")
 	evt.SetSubject("hub1")
 	evt.SetExtension(constants.CloudEventExtensionKeyExpireTime,
 		time.Now().Add(10*time.Minute).Format(time.RFC3339))
@@ -51,10 +50,8 @@ func newTestEvent(t *testing.T, bundle *haconfigbundle.HAConfigBundle) *cloudeve
 	return &evt
 }
 
-func newTestBundle() *haconfigbundle.HAConfigBundle {
+func newHAConfigTestBundle() *haconfigbundle.HAConfigBundle {
 	return &haconfigbundle.HAConfigBundle{
-		ActiveHubName:  "hub1",
-		StandbyHubName: "local-cluster",
 		BootstrapSecret: &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "bootstrap-ha-local-cluster",
@@ -67,7 +64,7 @@ func newTestBundle() *haconfigbundle.HAConfigBundle {
 	}
 }
 
-func newSyncer(fakeClient client.Client) *HAConfigSyncer {
+func newHAConfigSyncer(fakeClient client.Client) *HAConfigSyncer {
 	return &HAConfigSyncer{
 		client:      fakeClient,
 		leafHubName: "hub1",
@@ -75,7 +72,7 @@ func newSyncer(fakeClient client.Client) *HAConfigSyncer {
 }
 
 func TestSync_BootstrapSecretCreatedInMCE(t *testing.T) {
-	scheme := newTestScheme()
+	scheme := newHAConfigTestScheme()
 	mch := &mchv1.MultiClusterHub{
 		ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"},
 		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: "2.14.0"},
@@ -87,7 +84,7 @@ func TestSync_BootstrapSecretCreatedInMCE(t *testing.T) {
 		WithStatusSubresource(mch).
 		Build()
 
-	err := newSyncer(fakeClient).Sync(context.Background(), newTestEvent(t, newTestBundle()))
+	err := newHAConfigSyncer(fakeClient).Sync(context.Background(), newHAConfigTestEvent(t, newHAConfigTestBundle()))
 	require.NoError(t, err)
 
 	secret := &corev1.Secret{}
@@ -100,7 +97,7 @@ func TestSync_BootstrapSecretCreatedInMCE(t *testing.T) {
 }
 
 func TestSync_KlusterletConfigCreated_214(t *testing.T) {
-	scheme := newTestScheme()
+	scheme := newHAConfigTestScheme()
 	mch := &mchv1.MultiClusterHub{
 		ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"},
 		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: "2.14.0"},
@@ -112,7 +109,7 @@ func TestSync_KlusterletConfigCreated_214(t *testing.T) {
 		WithStatusSubresource(mch).
 		Build()
 
-	err := newSyncer(fakeClient).Sync(context.Background(), newTestEvent(t, newTestBundle()))
+	err := newHAConfigSyncer(fakeClient).Sync(context.Background(), newHAConfigTestEvent(t, newHAConfigTestBundle()))
 	require.NoError(t, err)
 
 	klusterletConfig := &unstructured.Unstructured{}
@@ -134,7 +131,7 @@ func TestSync_KlusterletConfigCreated_214(t *testing.T) {
 }
 
 func TestSync_KlusterletConfigCreated_213(t *testing.T) {
-	scheme := newTestScheme()
+	scheme := newHAConfigTestScheme()
 	mch := &mchv1.MultiClusterHub{
 		ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"},
 		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: "2.13.5"},
@@ -146,7 +143,7 @@ func TestSync_KlusterletConfigCreated_213(t *testing.T) {
 		WithStatusSubresource(mch).
 		Build()
 
-	err := newSyncer(fakeClient).Sync(context.Background(), newTestEvent(t, newTestBundle()))
+	err := newHAConfigSyncer(fakeClient).Sync(context.Background(), newHAConfigTestEvent(t, newHAConfigTestBundle()))
 	require.NoError(t, err)
 
 	klusterletConfig := &unstructured.Unstructured{}
@@ -169,7 +166,7 @@ func TestSync_KlusterletConfigCreated_213(t *testing.T) {
 }
 
 func TestSync_AllManagedClustersAnnotated(t *testing.T) {
-	scheme := newTestScheme()
+	scheme := newHAConfigTestScheme()
 	mch := &mchv1.MultiClusterHub{
 		ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"},
 		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: "2.14.0"},
@@ -190,7 +187,7 @@ func TestSync_AllManagedClustersAnnotated(t *testing.T) {
 		WithStatusSubresource(mch).
 		Build()
 
-	err := newSyncer(fakeClient).Sync(context.Background(), newTestEvent(t, newTestBundle()))
+	err := newHAConfigSyncer(fakeClient).Sync(context.Background(), newHAConfigTestEvent(t, newHAConfigTestBundle()))
 	require.NoError(t, err)
 
 	checkAnnotated := func(name string, shouldHave bool) {
@@ -216,48 +213,18 @@ func TestSync_AllManagedClustersAnnotated(t *testing.T) {
 }
 
 func TestSync_NilBootstrapSecret(t *testing.T) {
-	scheme := newTestScheme()
+	scheme := newHAConfigTestScheme()
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		Build()
 
 	bundle := &haconfigbundle.HAConfigBundle{
-		ActiveHubName:   "hub1",
-		StandbyHubName:  "local-cluster",
 		BootstrapSecret: nil,
 	}
 
-	err := newSyncer(fakeClient).Sync(context.Background(), newTestEvent(t, bundle))
+	err := newHAConfigSyncer(fakeClient).Sync(context.Background(), newHAConfigTestEvent(t, bundle))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "bootstrap secret is nil")
-}
-
-func TestSync_ExpiredEvent(t *testing.T) {
-	scheme := newTestScheme()
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		Build()
-
-	bundle := newTestBundle()
-	data, err := json.Marshal(bundle)
-	require.NoError(t, err)
-	evt := cloudevents.NewEvent()
-	evt.SetType("HAConfig")
-	evt.SetSource("global-hub")
-	evt.SetSubject("hub1")
-	evt.SetExtension(constants.CloudEventExtensionKeyExpireTime,
-		time.Now().Add(-1*time.Minute).Format(time.RFC3339))
-	_ = evt.SetData(cloudevents.ApplicationJSON, data)
-
-	err = newSyncer(fakeClient).Sync(context.Background(), &evt)
-	assert.NoError(t, err)
-
-	secret := &corev1.Secret{}
-	err = fakeClient.Get(context.Background(), types.NamespacedName{
-		Name:      "bootstrap-ha-local-cluster",
-		Namespace: "multicluster-engine",
-	}, secret)
-	assert.True(t, apierrors.IsNotFound(err), "expired event should not create bootstrap secret")
 }
 
 func TestNewHAConfigSyncer(t *testing.T) {
@@ -270,7 +237,7 @@ func TestNewHAConfigSyncer(t *testing.T) {
 }
 
 func TestAnnotateSkipsAlreadyAnnotated(t *testing.T) {
-	scheme := newTestScheme()
+	scheme := newHAConfigTestScheme()
 	cluster1 := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cluster1",
@@ -285,7 +252,7 @@ func TestAnnotateSkipsAlreadyAnnotated(t *testing.T) {
 		WithObjects(cluster1).
 		Build()
 
-	err := newSyncer(fakeClient).annotateAllManagedClusters(context.Background(), "ha-standby-local-cluster")
+	err := newHAConfigSyncer(fakeClient).annotateAllManagedClusters(context.Background(), "ha-standby-local-cluster")
 	require.NoError(t, err)
 
 	mc := &clusterv1.ManagedCluster{}

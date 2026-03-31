@@ -1,4 +1,4 @@
-package hubofhubs
+package ha
 
 import (
 	"context"
@@ -25,8 +25,8 @@ type mockProducer struct {
 	sentEvents []cloudevents.Event
 }
 
-func (m *mockProducer) SendEvent(ctx context.Context, event cloudevents.Event) error {
-	m.sentEvents = append(m.sentEvents, event)
+func (m *mockProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	m.sentEvents = append(m.sentEvents, evt)
 	return nil
 }
 
@@ -73,7 +73,7 @@ func TestReconcile_CreatesMSAInLocalCluster(t *testing.T) {
 		WithObjects(activeHub, localCluster).
 		Build()
 	producer := &mockProducer{}
-	controller := &HAConfigController{
+	controller := &ConfigController{
 		Client:   fakeClient,
 		Producer: producer,
 		Scheme:   scheme,
@@ -85,9 +85,9 @@ func TestReconcile_CreatesMSAInLocalCluster(t *testing.T) {
 	require.NoError(t, err)
 
 	// MSA token not available yet, should requeue
-	assert.Equal(t, haConfigRequeueInterval, result.RequeueAfter)
+	assert.Equal(t, requeueInterval, result.RequeueAfter)
 
-	// Verify MSA was created in local-cluster namespace (not hub1 namespace)
+	// Verify MSA was created in local-cluster namespace
 	msa := &v1beta1.ManagedServiceAccount{}
 	err = fakeClient.Get(context.Background(), types.NamespacedName{
 		Name:      "ha-config-hub1",
@@ -141,7 +141,7 @@ func TestReconcile_BootstrapSecretUsesLocalClusterURL(t *testing.T) {
 		WithObjects(activeHub, localCluster, msaSecret).
 		Build()
 	producer := &mockProducer{}
-	controller := &HAConfigController{
+	controller := &ConfigController{
 		Client:   fakeClient,
 		Producer: producer,
 		Scheme:   scheme,
@@ -157,17 +157,22 @@ func TestReconcile_BootstrapSecretUsesLocalClusterURL(t *testing.T) {
 	require.Len(t, producer.sentEvents, 1)
 	evt := producer.sentEvents[0]
 	assert.Equal(t, constants.HAConfigMsgKey, evt.Type())
-	assert.Equal(t, constants.CloudEventGlobalHubClusterName, evt.Source())
+	assert.Equal(t, "local-cluster", evt.Source())
 	assert.Equal(t, "hub1", evt.Subject())
 	assert.NotNil(t, evt.Extensions()[constants.CloudEventExtensionKeyExpireTime])
 }
 
-func TestReconcile_CleanupWhenLabelRemoved(t *testing.T) {
+func TestReconcile_RemovesActiveHubResourcesWhenLabelRemoved(t *testing.T) {
 	scheme := newTestScheme()
 	activeHub := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "hub1",
 			Labels: map[string]string{},
+		},
+	}
+	localCluster := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "local-cluster",
 		},
 	}
 	msa := &v1beta1.ManagedServiceAccount{
@@ -182,10 +187,10 @@ func TestReconcile_CleanupWhenLabelRemoved(t *testing.T) {
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(activeHub, msa).
+		WithObjects(activeHub, localCluster, msa).
 		Build()
 	producer := &mockProducer{}
-	controller := &HAConfigController{
+	controller := &ConfigController{
 		Client:   fakeClient,
 		Producer: producer,
 		Scheme:   scheme,
@@ -253,7 +258,7 @@ func TestReconcile_Idempotent(t *testing.T) {
 		WithObjects(activeHub, localCluster, existingMSA, msaSecret).
 		Build()
 	producer := &mockProducer{}
-	controller := &HAConfigController{
+	controller := &ConfigController{
 		Client:   fakeClient,
 		Producer: producer,
 		Scheme:   scheme,
@@ -274,13 +279,13 @@ func TestReconcile_Idempotent(t *testing.T) {
 	assert.Len(t, producer.sentEvents, 2)
 }
 
-func TestReconcile_ClusterNotFound(t *testing.T) {
+func TestReconcile_SkipsWhenLocalClusterNotFound(t *testing.T) {
 	scheme := newTestScheme()
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		Build()
 	producer := &mockProducer{}
-	controller := &HAConfigController{
+	controller := &ConfigController{
 		Client:   fakeClient,
 		Producer: producer,
 		Scheme:   scheme,

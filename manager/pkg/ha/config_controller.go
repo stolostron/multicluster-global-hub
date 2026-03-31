@@ -1,4 +1,4 @@
-package hubofhubs
+package ha
 
 import (
 	"context"
@@ -32,30 +32,30 @@ import (
 )
 
 const (
-	localClusterNamespace   = "local-cluster"
-	mceNamespace            = "multicluster-engine"
-	haConfigMSAPrefix       = "ha-config-"
-	haConfigOwnerLabel      = "ha-config"
-	haBootstrapPrefix       = "bootstrap-ha-"
-	haConfigRequeueInterval = 5 * time.Second
-	haConfigEventExpiry     = 10 * time.Minute
+	localClusterNamespace = "local-cluster"
+	mceNamespace          = "multicluster-engine"
+	msaPrefix             = "ha-config-"
+	ownerLabel            = "ha-config"
+	bootstrapPrefix       = "bootstrap-ha-"
+	requeueInterval       = 5 * time.Second
+	eventExpiry           = 10 * time.Minute
 )
 
-var haConfigLog = logger.DefaultZapLogger()
+var log = logger.DefaultZapLogger()
 
-type HAConfigController struct {
+type ConfigController struct {
 	client.Client
 	transport.Producer
 	Scheme *runtime.Scheme
 }
 
-var haConfigCtrl *HAConfigController
+var configCtrl *ConfigController
 
-func AddHAConfigToManager(mgr ctrl.Manager, producer transport.Producer) error {
-	if haConfigCtrl != nil {
+func AddToManager(mgr ctrl.Manager, producer transport.Producer) error {
+	if configCtrl != nil {
 		return nil
 	}
-	c := &HAConfigController{
+	c := &ConfigController{
 		Client:   mgr.GetClient(),
 		Producer: producer,
 		Scheme:   mgr.GetScheme(),
@@ -63,11 +63,11 @@ func AddHAConfigToManager(mgr ctrl.Manager, producer transport.Producer) error {
 	if err := c.SetupWithManager(mgr); err != nil {
 		return err
 	}
-	haConfigCtrl = c
+	configCtrl = c
 	return nil
 }
 
-func (h *HAConfigController) SetupWithManager(mgr ctrl.Manager) error {
+func (c *ConfigController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("ha-config-ctrl").
 		Watches(&clusterv1.ManagedCluster{},
 			&handler.EnqueueRequestForObject{},
@@ -88,10 +88,10 @@ func (h *HAConfigController) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				name := obj.GetName()
-				if !strings.HasPrefix(name, haConfigMSAPrefix) {
+				if !strings.HasPrefix(name, msaPrefix) {
 					return nil
 				}
-				activeHubName := strings.TrimPrefix(name, haConfigMSAPrefix)
+				activeHubName := strings.TrimPrefix(name, msaPrefix)
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{Name: activeHubName}},
 				}
@@ -111,94 +111,105 @@ func (h *HAConfigController) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			}),
 		).
-		Complete(h)
+		Complete(c)
 }
 
-func (h *HAConfigController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	haConfigLog.Debugf("reconcile HA config for %v", req)
+func (c *ConfigController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debugf("reconcile HA config for %v", req)
 
-	mc := &clusterv1.ManagedCluster{}
-	if err := h.Get(ctx, types.NamespacedName{Name: req.Name}, mc); err != nil {
+	// Step 1: verify local-cluster exists, HA requires it as the standby hub
+	localCluster := &clusterv1.ManagedCluster{}
+	if err := c.Get(ctx, types.NamespacedName{Name: localClusterNamespace}, localCluster); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, h.cleanup(ctx, req.Name)
+			log.Infof("local-cluster not found, HA feature requires local-cluster to be available")
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	// Step 2: check if the managed cluster is an active hub
+	mc := &clusterv1.ManagedCluster{}
+	if err := c.Get(ctx, types.NamespacedName{Name: req.Name}, mc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, c.removeActiveHubResources(ctx, req.Name)
 		}
 		return ctrl.Result{}, err
 	}
 
 	if mc.DeletionTimestamp != nil || mc.Labels[constants.GHHubRoleLabelKey] != constants.GHHubRoleActive {
-		return ctrl.Result{}, h.cleanup(ctx, req.Name)
+		return ctrl.Result{}, c.removeActiveHubResources(ctx, req.Name)
 	}
 
 	activeHubName := mc.Name
 
-	if err := h.ensureManagedServiceAccount(ctx, activeHubName); err != nil {
+	if err := c.ensureMSA(ctx, activeHubName); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	bootstrapSecret, err := h.generateBootstrapSecret(ctx, activeHubName)
+	bootstrapSecret, err := c.generateBootstrapSecret(ctx, activeHubName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			haConfigLog.Infof("MSA token secret not yet available for %s, requeuing", activeHubName)
-			return ctrl.Result{RequeueAfter: haConfigRequeueInterval}, nil
+			log.Infof("MSA token secret not yet available for %s, requeuing", activeHubName)
+			return ctrl.Result{RequeueAfter: requeueInterval}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	if err := h.sendHAConfigEvent(ctx, activeHubName, bootstrapSecret); err != nil {
+	if err := c.sendHAConfig(ctx, localClusterNamespace, activeHubName, bootstrapSecret, eventExpiry); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	haConfigLog.Infof("HA config event sent for active hub %s", activeHubName)
+	log.Infof("HA config sent: source=%s, activeHub=%s, expiry=%s", localClusterNamespace, activeHubName, eventExpiry)
 	return ctrl.Result{}, nil
 }
 
-func (h *HAConfigController) ensureManagedServiceAccount(ctx context.Context, activeHubName string) error {
-	msaName := haConfigMSAPrefix + activeHubName
-	desiredMSA := &v1beta1.ManagedServiceAccount{
+func (c *ConfigController) ensureMSA(ctx context.Context, activeHubName string) error {
+	msaName := msaPrefix + activeHubName
+	desired := &v1beta1.ManagedServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      msaName,
 			Namespace: localClusterNamespace,
 			Labels: map[string]string{
-				"owner": haConfigOwnerLabel,
+				"owner": ownerLabel,
 			},
 		},
 		Spec: v1beta1.ManagedServiceAccountSpec{
 			Rotation: v1beta1.ManagedServiceAccountRotation{
 				Enabled: true,
 				Validity: metav1.Duration{
-					Duration: 24 * time.Hour,
+					Duration: 365 * 24 * time.Hour,
 				},
 			},
 		},
 	}
 
-	existingMSA := &v1beta1.ManagedServiceAccount{}
-	err := h.Get(ctx, types.NamespacedName{
+	existing := &v1beta1.ManagedServiceAccount{}
+	err := c.Get(ctx, types.NamespacedName{
 		Name:      msaName,
 		Namespace: localClusterNamespace,
-	}, existingMSA)
+	}, existing)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return h.Create(ctx, desiredMSA)
+			return c.Create(ctx, desired)
 		}
 		return err
 	}
 	return nil
 }
 
-func (h *HAConfigController) generateBootstrapSecret(ctx context.Context,
+func (c *ConfigController) generateBootstrapSecret(ctx context.Context,
 	activeHubName string,
 ) (*corev1.Secret, error) {
 	msaSecret := &corev1.Secret{}
-	if err := h.Get(ctx, types.NamespacedName{
-		Name:      haConfigMSAPrefix + activeHubName,
+	if err := c.Get(ctx, types.NamespacedName{
+		Name:      msaPrefix + activeHubName,
 		Namespace: localClusterNamespace,
 	}, msaSecret); err != nil {
 		return nil, err
 	}
 
 	managedCluster := &clusterv1.ManagedCluster{}
-	if err := h.Get(ctx, types.NamespacedName{
+	if err := c.Get(ctx, types.NamespacedName{
 		Name: localClusterNamespace,
 	}, managedCluster); err != nil {
 		return nil, err
@@ -227,24 +238,21 @@ func (h *HAConfigController) generateBootstrapSecret(ctx context.Context,
 		return nil, err
 	}
 
-	bootstrapSecret := &corev1.Secret{
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      haBootstrapPrefix + localClusterNamespace,
+			Name:      bootstrapPrefix + localClusterNamespace,
 			Namespace: mceNamespace,
 		},
 		Data: map[string][]byte{
 			"kubeconfig": kubeconfigBytes,
 		},
-	}
-	return bootstrapSecret, nil
+	}, nil
 }
 
-func (h *HAConfigController) sendHAConfigEvent(ctx context.Context,
-	activeHubName string, bootstrapSecret *corev1.Secret,
+func (c *ConfigController) sendHAConfig(ctx context.Context,
+	sourceHub, activeHub string, bootstrapSecret *corev1.Secret, expiry time.Duration,
 ) error {
 	bundle := &haconfigbundle.HAConfigBundle{
-		ActiveHubName:   activeHubName,
-		StandbyHubName:  localClusterNamespace,
 		BootstrapSecret: bootstrapSecret,
 	}
 
@@ -253,20 +261,19 @@ func (h *HAConfigController) sendHAConfigEvent(ctx context.Context,
 		return fmt.Errorf("failed to marshal HA config bundle: %w", err)
 	}
 
-	evt := utils.ToCloudEvent(constants.HAConfigMsgKey,
-		constants.CloudEventGlobalHubClusterName, activeHubName, payloadBytes)
+	evt := utils.ToCloudEvent(constants.HAConfigMsgKey, sourceHub, activeHub, payloadBytes)
 	evt.SetExtension(constants.CloudEventExtensionKeyExpireTime,
-		time.Now().Add(haConfigEventExpiry).Format(time.RFC3339))
-	if err := h.SendEvent(ctx, evt); err != nil {
-		return fmt.Errorf("failed to send HA config event to %s: %w", activeHubName, err)
+		time.Now().Add(expiry).Format(time.RFC3339))
+	if err := c.SendEvent(ctx, evt); err != nil {
+		return fmt.Errorf("failed to send HA config to activeHub=%s: %w", activeHub, err)
 	}
 	return nil
 }
 
-func (h *HAConfigController) cleanup(ctx context.Context, activeHubName string) error {
-	msaName := haConfigMSAPrefix + activeHubName
+func (c *ConfigController) removeActiveHubResources(ctx context.Context, activeHubName string) error {
+	msaName := msaPrefix + activeHubName
 	msa := &v1beta1.ManagedServiceAccount{}
-	err := h.Get(ctx, types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Name:      msaName,
 		Namespace: localClusterNamespace,
 	}, msa)
@@ -276,6 +283,6 @@ func (h *HAConfigController) cleanup(ctx context.Context, activeHubName string) 
 		}
 		return err
 	}
-	haConfigLog.Infof("deleting MSA %s/%s for HA config cleanup", localClusterNamespace, msaName)
-	return h.Delete(ctx, msa)
+	log.Infof("deleting MSA %s/%s for HA config cleanup", localClusterNamespace, msaName)
+	return c.Delete(ctx, msa)
 }
