@@ -19,6 +19,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 const (
@@ -761,6 +762,258 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 				// Should remain not found
 				return err != nil
 			}, hubHASyncWait, 5*time.Second).Should(BeTrue(), "Secret with velero exclude label should not be synced")
+		})
+
+		Context("ManagedCluster hubAcceptsClient failover", func() {
+			var testClusterName string
+
+			BeforeEach(func() {
+				testClusterName = fmt.Sprintf("hubha-test-cluster-%d", time.Now().Unix())
+			})
+
+			AfterEach(func() {
+				// Clean up test ManagedCluster from both hubs
+				if testClusterName != "" {
+					_ = activeHubClient.Delete(ctx, &clusterv1.ManagedCluster{
+						ObjectMeta: metav1.ObjectMeta{Name: testClusterName},
+					})
+					_ = standbyHubClient.Delete(ctx, &clusterv1.ManagedCluster{
+						ObjectMeta: metav1.ObjectMeta{Name: testClusterName},
+					})
+				}
+			})
+
+			It("should sync ManagedCluster with hubAcceptsClient=false from active to standby", func() {
+				By("Creating ManagedCluster on active hub with hubAcceptsClient=true")
+				managedCluster := &clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: testClusterName,
+						Labels: map[string]string{
+							"hive.openshift.io/secret-type": "kubeconfig",
+						},
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true, // Set to true on active hub
+						ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+							{
+								URL: "https://test-cluster.example.com:6443",
+							},
+						},
+					},
+				}
+				Expect(activeHubClient.Create(ctx, managedCluster)).To(Succeed())
+				klog.Infof("Created test ManagedCluster %s on active hub with hubAcceptsClient=true", testClusterName)
+
+				By("Verifying ManagedCluster is synced to standby hub with hubAcceptsClient=false")
+				Eventually(func() error {
+					standbyCluster := &clusterv1.ManagedCluster{}
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{
+						Name: testClusterName,
+					}, standbyCluster); err != nil {
+						return fmt.Errorf("managedcluster not found on standby hub: %w", err)
+					}
+
+					// Critical check: hubAcceptsClient should be false on standby
+					// This ensures standby hub doesn't accept connections in normal state
+					if standbyCluster.Spec.HubAcceptsClient != false {
+						return fmt.Errorf("expected hubAcceptsClient=false on standby hub, got %v",
+							standbyCluster.Spec.HubAcceptsClient)
+					}
+
+					// Verify other spec fields are synced
+					if len(standbyCluster.Spec.ManagedClusterClientConfigs) == 0 {
+						return fmt.Errorf("managedcluster client configs not synced")
+					}
+					if standbyCluster.Spec.ManagedClusterClientConfigs[0].URL != "https://test-cluster.example.com:6443" {
+						return fmt.Errorf("managedcluster URL not synced correctly")
+					}
+
+					klog.Infof("ManagedCluster %s synced to standby with hubAcceptsClient=false (correct)", testClusterName)
+					return nil
+				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+			})
+
+			It("should set hubAcceptsClient=true on failover and false on recovery", func() {
+				By("Creating ManagedCluster on active hub")
+				managedCluster := &clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: testClusterName,
+						Labels: map[string]string{
+							"hive.openshift.io/secret-type": "kubeconfig",
+						},
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+						ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+							{
+								URL: "https://test-cluster.example.com:6443",
+							},
+						},
+					},
+				}
+				Expect(activeHubClient.Create(ctx, managedCluster)).To(Succeed())
+				klog.Infof("Created ManagedCluster %s on active hub", testClusterName)
+
+				By("Waiting for ManagedCluster to sync to standby with hubAcceptsClient=false (normal state)")
+				Eventually(func() error {
+					standbyCluster := &clusterv1.ManagedCluster{}
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, standbyCluster); err != nil {
+						return err
+					}
+					if standbyCluster.Spec.HubAcceptsClient != false {
+						return fmt.Errorf("expected hubAcceptsClient=false in normal state, got %v",
+							standbyCluster.Spec.HubAcceptsClient)
+					}
+					klog.Infof("ManagedCluster synced to standby with hubAcceptsClient=false (normal state)")
+					return nil
+				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+
+				By("Simulating active hub failure by setting old heartbeat timestamp")
+				// Hub management checks every 2 minutes, considers hub inactive if heartbeat > 5 minutes old
+				// Set heartbeat to 6 minutes ago to trigger inactive detection
+				oldHeartbeat := models.LeafHubHeartbeat{
+					Name:         activeHubName,
+					LastUpdateAt: time.Now().Add(-6 * time.Minute),
+					Status:       constants.HubStatusActive, // Will be changed to inactive by hub management
+				}
+				Expect(oldHeartbeat.UpInsertHeartBeat(db)).To(Succeed())
+				klog.Infof("Set %s heartbeat to 6 minutes ago to simulate hub failure", activeHubName)
+
+				By("Waiting for hub management to detect inactive status and trigger failover")
+				// Hub management runs every 2 minutes, so wait up to 3 minutes for detection + processing
+				Eventually(func() error {
+					var heartbeat models.LeafHubHeartbeat
+					if err := db.Where("leaf_hub_name = ?", activeHubName).First(&heartbeat).Error; err != nil {
+						return err
+					}
+					if heartbeat.Status != constants.HubStatusInactive {
+						return fmt.Errorf("hub status should be inactive, got %s", heartbeat.Status)
+					}
+					klog.Infof("Hub %s detected as inactive in database", activeHubName)
+					return nil
+				}, 3*time.Minute, 10*time.Second).Should(Succeed())
+
+				By("Verifying hubAcceptsClient=true on standby (failover triggered)")
+				Eventually(func() error {
+					standbyCluster := &clusterv1.ManagedCluster{}
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, standbyCluster); err != nil {
+						return err
+					}
+					if standbyCluster.Spec.HubAcceptsClient != true {
+						return fmt.Errorf("expected hubAcceptsClient=true during failover, got %v",
+							standbyCluster.Spec.HubAcceptsClient)
+					}
+					klog.Infof("ManagedCluster %s has hubAcceptsClient=true (failover successful)", testClusterName)
+					return nil
+				}, 2*time.Minute, 5*time.Second).Should(Succeed())
+
+				By("Simulating active hub recovery by updating heartbeat to recent time")
+				recentHeartbeat := models.LeafHubHeartbeat{
+					Name:         activeHubName,
+					LastUpdateAt: time.Now(),
+					Status:       constants.HubStatusInactive, // Will be changed to active by hub management
+				}
+				Expect(recentHeartbeat.UpInsertHeartBeat(db)).To(Succeed())
+				klog.Infof("Updated %s heartbeat to current time to simulate recovery", activeHubName)
+
+				By("Waiting for hub management to detect active status recovery")
+				Eventually(func() error {
+					var heartbeat models.LeafHubHeartbeat
+					if err := db.Where("leaf_hub_name = ?", activeHubName).First(&heartbeat).Error; err != nil {
+						return err
+					}
+					if heartbeat.Status != constants.HubStatusActive {
+						return fmt.Errorf("hub status should be active after recovery, got %s", heartbeat.Status)
+					}
+					klog.Infof("Hub %s detected as active in database (recovered)", activeHubName)
+					return nil
+				}, 3*time.Minute, 10*time.Second).Should(Succeed())
+
+				By("Verifying hubAcceptsClient=false on standby (back to normal state)")
+				Eventually(func() error {
+					standbyCluster := &clusterv1.ManagedCluster{}
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, standbyCluster); err != nil {
+						return err
+					}
+					if standbyCluster.Spec.HubAcceptsClient != false {
+						return fmt.Errorf("expected hubAcceptsClient=false after recovery, got %v",
+							standbyCluster.Spec.HubAcceptsClient)
+					}
+					klog.Infof("ManagedCluster %s has hubAcceptsClient=false (back to normal)", testClusterName)
+					return nil
+				}, 2*time.Minute, 5*time.Second).Should(Succeed())
+			})
+
+			It("should maintain hubAcceptsClient=false when ManagedCluster is updated on active hub", func() {
+				By("Creating ManagedCluster on active hub")
+				managedCluster := &clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: testClusterName,
+						Labels: map[string]string{
+							"hive.openshift.io/secret-type": "kubeconfig",
+							"env":                           "test",
+						},
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+						ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+							{
+								URL: "https://test-cluster-v1.example.com:6443",
+							},
+						},
+					},
+				}
+				Expect(activeHubClient.Create(ctx, managedCluster)).To(Succeed())
+
+				By("Waiting for initial sync to standby hub")
+				Eventually(func() error {
+					standbyCluster := &clusterv1.ManagedCluster{}
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, standbyCluster); err != nil {
+						return err
+					}
+					if standbyCluster.Spec.HubAcceptsClient != false {
+						return fmt.Errorf("initial sync: expected hubAcceptsClient=false")
+					}
+					return nil
+				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+
+				By("Updating ManagedCluster on active hub (changing URL and labels)")
+				Eventually(func() error {
+					activeCluster := &clusterv1.ManagedCluster{}
+					if err := activeHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, activeCluster); err != nil {
+						return err
+					}
+					activeCluster.Labels["env"] = "production"
+					activeCluster.Spec.ManagedClusterClientConfigs[0].URL = "https://test-cluster-v2.example.com:6443"
+					return activeHubClient.Update(ctx, activeCluster)
+				}, 1*time.Minute, 5*time.Second).Should(Succeed())
+
+				By("Verifying update is synced with hubAcceptsClient still false")
+				Eventually(func() error {
+					standbyCluster := &clusterv1.ManagedCluster{}
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, standbyCluster); err != nil {
+						return err
+					}
+
+					// hubAcceptsClient should remain false
+					if standbyCluster.Spec.HubAcceptsClient != false {
+						return fmt.Errorf("after update: expected hubAcceptsClient=false, got %v",
+							standbyCluster.Spec.HubAcceptsClient)
+					}
+
+					// Verify updates were applied
+					if standbyCluster.Labels["env"] != "production" {
+						return fmt.Errorf("label update not synced, expected production, got %s",
+							standbyCluster.Labels["env"])
+					}
+					if standbyCluster.Spec.ManagedClusterClientConfigs[0].URL != "https://test-cluster-v2.example.com:6443" {
+						return fmt.Errorf("URL update not synced")
+					}
+
+					klog.Infof("ManagedCluster %s update synced correctly with hubAcceptsClient=false maintained", testClusterName)
+					return nil
+				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+			})
 		})
 	})
 })

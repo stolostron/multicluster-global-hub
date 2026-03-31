@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/hubmanagement"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -27,17 +28,17 @@ var _ = Describe("hub management", func() {
 			{
 				Name:         "heartbeat-hub02",
 				LastUpdateAt: now.Add(-120 * time.Second),
-				Status:       hubmanagement.HubActive,
+				Status:       constants.HubStatusActive,
 			},
 			{
 				Name:         "heartbeat-hub03",
 				LastUpdateAt: now.Add(-20 * time.Second),
-				Status:       hubmanagement.HubActive,
+				Status:       constants.HubStatusActive,
 			},
 			{
 				Name:         "heartbeat-hub04",
 				LastUpdateAt: now.Add(-180 * time.Second),
-				Status:       hubmanagement.HubInactive,
+				Status:       constants.HubStatusInactive,
 			},
 		}
 		db := database.GetGorm()
@@ -52,10 +53,10 @@ var _ = Describe("hub management", func() {
 		for _, heartbeatHub := range heartbeatHubs {
 			fmt.Println(heartbeatHub.Name, heartbeatHub.LastUpdateAt, heartbeatHub.Status)
 			if heartbeatHub.Name == "heartbeat-hub04" {
-				Expect(hubmanagement.HubInactive).To(Equal(heartbeatHub.Status))
+				Expect(constants.HubStatusInactive).To(Equal(heartbeatHub.Status))
 				continue
 			}
-			Expect(hubmanagement.HubActive).To(Equal(heartbeatHub.Status))
+			Expect(constants.HubStatusActive).To(Equal(heartbeatHub.Status))
 		}
 
 		// only update the heartbeat Time
@@ -71,13 +72,13 @@ var _ = Describe("hub management", func() {
 		err = db.Where("leaf_hub_name = ?", "heartbeat-hub04").Find(&updatedHub4).Error
 		Expect(err).To(Succeed())
 		fmt.Println(hub4.Name, hub4.LastUpdateAt, hub4.Status)
-		Expect(hubmanagement.HubInactive).To(Equal(hub4.Status)) // status isn't is updated
+		Expect(constants.HubStatusInactive).To(Equal(hub4.Status)) // status isn't is updated
 
 		timeFormat := "2006-01-02 15:04:05" // timestamp is updated
 		Expect(now.Add(-60 * time.Second).Format(timeFormat)).To(Equal(updatedHub4.LastUpdateAt.Format(timeFormat)))
 
 		// update
-		hubManagement := hubmanagement.NewHubManagement(&tmpProducer{}, 1*time.Second, 90*time.Second)
+		hubManagement := hubmanagement.NewHubManagement(mgr.GetClient(), &tmpProducer{}, 1*time.Second, 90*time.Second)
 		Expect(hubManagement.Start(ctx)).To(Succeed())
 
 		time.Sleep(3 * time.Second)
@@ -90,10 +91,10 @@ var _ = Describe("hub management", func() {
 		for _, updatedHub := range updatedHubs {
 			fmt.Println(updatedHub.Name, updatedHub.LastUpdateAt, updatedHub.Status)
 			if updatedHub.Name == "heartbeat-hub02" {
-				Expect(hubmanagement.HubInactive).To(Equal(updatedHub.Status))
+				Expect(constants.HubStatusInactive).To(Equal(updatedHub.Status))
 				continue
 			}
-			Expect(hubmanagement.HubActive).To(Equal(updatedHub.Status))
+			Expect(constants.HubStatusActive).To(Equal(updatedHub.Status))
 		}
 	})
 })

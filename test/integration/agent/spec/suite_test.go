@@ -17,6 +17,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	speccontroller "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
@@ -58,6 +59,7 @@ var _ = BeforeSuite(func() {
 		LeafHubName:        leafHubName,
 		SpecEnforceHohRbac: true,
 	}
+	agentConfig.SetHubRole(constants.GHHubRoleStandby) // Set as standby hub to enable hub status syncer
 	configs.SetAgentConfig(agentConfig)
 
 	var err error

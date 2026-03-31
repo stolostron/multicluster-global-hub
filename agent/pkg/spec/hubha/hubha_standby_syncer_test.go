@@ -413,3 +413,126 @@ func TestHubHAStandbySyncer_UpdateResource_CleansOwnerReferences(t *testing.T) {
 		t.Errorf("Expected ownerReferences to be cleaned, but got %v", ownerRefs)
 	}
 }
+
+func TestHubHAStandbySyncer_CreateManagedCluster_SetsHubAcceptsClient(t *testing.T) {
+	// Test that when creating ManagedCluster via Hub HA sync,
+	// hubAcceptsClient is set to false (standby should not accept clients)
+	scheme := runtime.NewScheme()
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+
+	syncer := NewHubHAStandbySyncer(client)
+
+	// Create ManagedCluster resource
+	managedCluster := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "cluster1",
+			},
+			"spec": map[string]interface{}{
+				"hubAcceptsClient": true, // Should be overridden to false
+			},
+		},
+	}
+
+	ctx := context.Background()
+	err := syncer.createResource(ctx, managedCluster, "hub1")
+	if err != nil {
+		t.Errorf("createResource() error = %v", err)
+	}
+
+	// Verify ManagedCluster was created with hubAcceptsClient=false
+	result := &unstructured.Unstructured{}
+	result.SetGroupVersionKind(managedCluster.GroupVersionKind())
+	err = client.Get(ctx, types.NamespacedName{Name: "cluster1"}, result)
+	if err != nil {
+		t.Errorf("Failed to get created ManagedCluster: %v", err)
+	}
+
+	hubAcceptsClient, found, err := unstructured.NestedBool(result.Object, "spec", "hubAcceptsClient")
+	if err != nil || !found {
+		t.Errorf("Failed to get spec.hubAcceptsClient from ManagedCluster")
+	}
+	if hubAcceptsClient != false {
+		t.Errorf("ManagedCluster hubAcceptsClient = %v, want false", hubAcceptsClient)
+	}
+}
+
+func TestHubHAStandbySyncer_UpdateManagedCluster_SetsHubAcceptsClient(t *testing.T) {
+	// Test that when updating ManagedCluster via Hub HA sync,
+	// hubAcceptsClient is set to false (standby should not accept clients)
+	scheme := runtime.NewScheme()
+
+	// Create existing ManagedCluster with hubAcceptsClient=true
+	existing := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "cluster1",
+			},
+			"spec": map[string]interface{}{
+				"hubAcceptsClient": true,
+			},
+		},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existing).
+		Build()
+
+	syncer := NewHubHAStandbySyncer(client)
+
+	// Update with new labels but hubAcceptsClient still true
+	updated := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "cluster1",
+				"labels": map[string]interface{}{
+					"new-label": "new-value",
+				},
+			},
+			"spec": map[string]interface{}{
+				"hubAcceptsClient": true, // Should be overridden to false
+			},
+		},
+	}
+
+	ctx := context.Background()
+	err := syncer.updateResource(ctx, updated, "hub1")
+	if err != nil {
+		t.Errorf("updateResource() error = %v", err)
+	}
+
+	// Verify ManagedCluster was updated with hubAcceptsClient=false
+	result := &unstructured.Unstructured{}
+	result.SetGroupVersionKind(updated.GroupVersionKind())
+	err = client.Get(ctx, types.NamespacedName{Name: "cluster1"}, result)
+	if err != nil {
+		t.Errorf("Failed to get updated ManagedCluster: %v", err)
+	}
+
+	hubAcceptsClient, found, err := unstructured.NestedBool(result.Object, "spec", "hubAcceptsClient")
+	if err != nil || !found {
+		t.Errorf("Failed to get spec.hubAcceptsClient from ManagedCluster")
+	}
+	if hubAcceptsClient != false {
+		t.Errorf("ManagedCluster hubAcceptsClient = %v, want false", hubAcceptsClient)
+	}
+
+	// Verify labels were still updated
+	labels, found, err := unstructured.NestedStringMap(result.Object, "metadata", "labels")
+	if err != nil || !found {
+		t.Errorf("Failed to get labels from ManagedCluster")
+	}
+	if labels["new-label"] != "new-value" {
+		t.Errorf("Labels not updated correctly, got %v", labels)
+	}
+}
