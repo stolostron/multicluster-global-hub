@@ -106,11 +106,20 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 			existingCondition.Message != condition.Message
 
 		// Only set LastTransitionTime if condition has changed or doesn't exist
+		transitionTime := metav1.NewTime(time.Now())
 		if conditionChanged {
-			condition.LastTransitionTime = metav1.NewTime(time.Now())
+			condition.LastTransitionTime = transitionTime
 		}
 
 		if meta.SetStatusCondition(&mcm.Status.Conditions, condition) || mcm.Status.Phase != phase {
+			// meta.SetStatusCondition only updates LastTransitionTime on status changes.
+			// Force update when condition content (reason/message) changed to accurately
+			// reflect when the transition happened.
+			if conditionChanged {
+				if c := meta.FindStatusCondition(mcm.Status.Conditions, condition.Type); c != nil {
+					c.LastTransitionTime = transitionTime
+				}
+			}
 			mcm.Status.Phase = phase
 
 			// reason and status
