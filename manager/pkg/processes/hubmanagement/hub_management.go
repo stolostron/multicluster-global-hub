@@ -28,6 +28,9 @@ const (
 	// heartbeatInterval = 1 * time.Minute
 	ActiveTimeout = 5 * time.Minute // if heartbeat < (now - ActiveTimeout), then status = inactive, vice versa
 	ProbeDuration = 2 * time.Minute // the duration to detect run the updating
+
+	// SQL query constants
+	whereLeafHubName = "leaf_hub_name = ?"
 )
 
 var hubStatusManager HubStatusManager
@@ -45,7 +48,9 @@ type HubManagement struct {
 	activeTimeout time.Duration
 }
 
-func NewHubManagement(c client.Client, producer transport.Producer, probeDuration, activeTimeout time.Duration) *HubManagement {
+func NewHubManagement(c client.Client, producer transport.Producer, probeDuration,
+	activeTimeout time.Duration,
+) *HubManagement {
 	return &HubManagement{
 		client:        c,
 		producer:      producer,
@@ -124,6 +129,16 @@ func (h *HubManagement) update(ctx context.Context) error {
 func (h *HubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeartbeat) error {
 	for _, hub := range hubs {
 		log.Infow("inactive the hub", "name", hub.Name)
+
+		// Notify standby hub BEFORE cleanup, so we can get the managed cluster list
+		// cleanup() soft-deletes managed clusters, making them invisible to subsequent queries
+		if err := h.sendHubStatusUpdate(ctx, hub.Name, constants.HubStatusInactive); err != nil {
+			log.Warnw("failed to send hub status update to standby",
+				"hub", hub.Name,
+				"status", constants.HubStatusInactive,
+				"error", err)
+		}
+
 		err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
 			func(ctx context.Context) (bool, error) {
 				if e := h.cleanup(hub.Name); e != nil {
@@ -134,14 +149,6 @@ func (h *HubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeart
 			})
 		if err != nil {
 			return err
-		}
-
-		// Notify standby hub that this hub state update
-		if err := h.sendHubStatusUpdate(ctx, hub.Name, constants.HubStatusInactive); err != nil {
-			log.Warnw("failed to send hub status update to standby",
-				"hub", hub.Name,
-				"status", constants.HubStatusInactive,
-				"error", err)
 		}
 	}
 	return nil
@@ -181,7 +188,8 @@ func (h *HubManagement) cleanup(hubName string) error {
 		}
 
 		// inactive the hub status
-		return tx.Model(&models.LeafHubHeartbeat{}).Where("leaf_hub_name = ?", hubName).Update("status", constants.HubStatusInactive).Error
+		return tx.Model(&models.LeafHubHeartbeat{}).Where(whereLeafHubName, hubName).
+			Update("status", constants.HubStatusInactive).Error
 	})
 }
 
@@ -197,7 +205,8 @@ func (h *HubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeart
 					return false, nil
 				}
 				// reactive the batch hub status
-				e := db.Model(&models.LeafHubHeartbeat{}).Where("leaf_hub_name = ?", hub.Name).Update("status", constants.HubStatusActive).Error
+				e := db.Model(&models.LeafHubHeartbeat{}).Where(whereLeafHubName, hub.Name).
+					Update("status", constants.HubStatusActive).Error
 				if e != nil {
 					log.Info("fail to reactive the hub, retrying...", "name", hub.Name, "err", e.Error())
 					return false, nil
@@ -288,7 +297,7 @@ func (h *HubManagement) getManagedClusterNames(hubName string) ([]string, error)
 
 	// Use Pluck to get only cluster_name column (generated from payload->metadata->name)
 	if err := db.Model(&models.ManagedCluster{}).
-		Where("leaf_hub_name = ?", hubName).
+		Where(whereLeafHubName, hubName).
 		Pluck("cluster_name", &clusterNames).Error; err != nil {
 		return nil, err
 	}
@@ -327,7 +336,8 @@ func (h *HubManagement) sendHubStatusUpdate(ctx context.Context, hubName, status
 	}
 
 	// Send message to standby hub
-	e := utils.ToCloudEvent(constants.HubStatusUpdateMsgKey, constants.CloudEventGlobalHubClusterName, standbyHub, payloadBytes)
+	e := utils.ToCloudEvent(constants.HubStatusUpdateMsgKey, constants.CloudEventGlobalHubClusterName,
+		standbyHub, payloadBytes)
 
 	if err := h.producer.SendEvent(ctx, e); err != nil {
 		return fmt.Errorf("failed to send hub status update to standby hub %s: %w", standbyHub, err)

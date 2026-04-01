@@ -140,7 +140,7 @@ var _ = Describe("HubStatusSyncer", func() {
 		err = genericProducer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
-		// Wait for failover to complete
+		// Wait for failover to complete on BOTH clusters
 		Eventually(func() error {
 			mc1 := &clusterv1.ManagedCluster{}
 			if err := runtimeClient.Get(ctx, client.ObjectKey{Name: cluster1Name}, mc1); err != nil {
@@ -149,6 +149,15 @@ var _ = Describe("HubStatusSyncer", func() {
 			if !mc1.Spec.HubAcceptsClient {
 				return fmt.Errorf("waiting for failover - cluster1 hubAcceptsClient should be true")
 			}
+
+			mc2 := &clusterv1.ManagedCluster{}
+			if err := runtimeClient.Get(ctx, client.ObjectKey{Name: cluster2Name}, mc2); err != nil {
+				return err
+			}
+			if !mc2.Spec.HubAcceptsClient {
+				return fmt.Errorf("waiting for failover - cluster2 hubAcceptsClient should be true")
+			}
+
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 

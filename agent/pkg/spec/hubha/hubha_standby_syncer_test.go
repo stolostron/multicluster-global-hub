@@ -20,6 +20,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
+const (
+	testCMName                    = "test-cm"
+	existingCMName                = "existing-cm"
+	newValue                      = "new-value"
+	managedClusterAPIVersion      = "cluster.open-cluster-management.io/v1"
+	errFailedToGetCreatedResource = "Failed to get created resource: %v"
+	errUpdateResource             = "updateResource() error = %v"
+)
+
 func TestNewHubHAStandbySyncer(t *testing.T) {
 	scheme := runtime.NewScheme()
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
@@ -65,7 +74,7 @@ func TestHubHAStandbySyncer_CreateResource(t *testing.T) {
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
-				"name":      "test-cm",
+				"name":      testCMName,
 				"namespace": "default",
 			},
 			"data": map[string]interface{}{
@@ -85,11 +94,11 @@ func TestHubHAStandbySyncer_CreateResource(t *testing.T) {
 	created.SetGroupVersionKind(obj.GroupVersionKind())
 	err = client.Get(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, created)
 	if err != nil {
-		t.Errorf("Failed to get created resource: %v", err)
+		t.Errorf(errFailedToGetCreatedResource, err)
 	}
 
-	if created.GetName() != "test-cm" {
-		t.Errorf("Created resource name = %s, want test-cm", created.GetName())
+	if created.GetName() != testCMName {
+		t.Errorf("Created resource name = %s, want %s", created.GetName(), testCMName)
 	}
 }
 
@@ -102,7 +111,7 @@ func TestHubHAStandbySyncer_UpdateResource(t *testing.T) {
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
-				"name":      "test-cm",
+				"name":      testCMName,
 				"namespace": "default",
 			},
 			"data": map[string]interface{}{
@@ -124,11 +133,11 @@ func TestHubHAStandbySyncer_UpdateResource(t *testing.T) {
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
-				"name":      "test-cm",
+				"name":      testCMName,
 				"namespace": "default",
 			},
 			"data": map[string]interface{}{
-				"key": "new-value",
+				"key": newValue,
 			},
 		},
 	}
@@ -136,7 +145,7 @@ func TestHubHAStandbySyncer_UpdateResource(t *testing.T) {
 	ctx := context.Background()
 	err := syncer.updateResource(ctx, updated, "hub1")
 	if err != nil {
-		t.Errorf("updateResource() error = %v", err)
+		t.Errorf(errUpdateResource, err)
 	}
 
 	// Verify resource was updated
@@ -151,8 +160,8 @@ func TestHubHAStandbySyncer_UpdateResource(t *testing.T) {
 	if err != nil || !found {
 		t.Errorf("Failed to get data.key from updated resource")
 	}
-	if data != "new-value" {
-		t.Errorf("Updated resource data = %s, want new-value", data)
+	if data != newValue {
+		t.Errorf("Updated resource data = %s, want %s", data, newValue)
 	}
 }
 
@@ -168,7 +177,7 @@ func TestHubHAStandbySyncer_UpdateResource_CreateIfNotExists(t *testing.T) {
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
-				"name":      "test-cm",
+				"name":      testCMName,
 				"namespace": "default",
 			},
 			"data": map[string]interface{}{
@@ -180,7 +189,7 @@ func TestHubHAStandbySyncer_UpdateResource_CreateIfNotExists(t *testing.T) {
 	ctx := context.Background()
 	err := syncer.updateResource(ctx, obj, "hub1")
 	if err != nil {
-		t.Errorf("updateResource() error = %v", err)
+		t.Errorf(errUpdateResource, err)
 	}
 
 	// Verify resource was created
@@ -188,7 +197,7 @@ func TestHubHAStandbySyncer_UpdateResource_CreateIfNotExists(t *testing.T) {
 	created.SetGroupVersionKind(obj.GroupVersionKind())
 	err = client.Get(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, created)
 	if err != nil {
-		t.Errorf("Failed to get created resource: %v", err)
+		t.Errorf(errFailedToGetCreatedResource, err)
 	}
 }
 
@@ -201,7 +210,7 @@ func TestHubHAStandbySyncer_Sync_FullBundle(t *testing.T) {
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
-				"name":      "existing-cm",
+				"name":      existingCMName,
 				"namespace": "default",
 			},
 			"data": map[string]interface{}{
@@ -244,7 +253,7 @@ func TestHubHAStandbySyncer_Sync_FullBundle(t *testing.T) {
 				"apiVersion": "v1",
 				"kind":       "ConfigMap",
 				"metadata": map[string]interface{}{
-					"name":      "existing-cm",
+					"name":      existingCMName,
 					"namespace": "default",
 				},
 				"data": map[string]interface{}{
@@ -294,7 +303,7 @@ func TestHubHAStandbySyncer_Sync_FullBundle(t *testing.T) {
 	// Verify updated resource
 	updatedCM := &unstructured.Unstructured{}
 	updatedCM.SetGroupVersionKind(bundle.Update[0].GroupVersionKind())
-	if err := client.Get(ctx, types.NamespacedName{Name: "existing-cm", Namespace: "default"}, updatedCM); err != nil {
+	if err := client.Get(ctx, types.NamespacedName{Name: existingCMName, Namespace: "default"}, updatedCM); err != nil {
 		t.Errorf("Failed to get updated resource: %v", err)
 	}
 	data, _, _ := unstructured.NestedString(updatedCM.Object, "data", "key")
@@ -320,7 +329,7 @@ func TestHubHAStandbySyncer_DeleteResource(t *testing.T) {
 	// Create a ConfigMap to be deleted
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-cm",
+			Name:      testCMName,
 			Namespace: "default",
 		},
 		Data: map[string]string{
@@ -332,7 +341,7 @@ func TestHubHAStandbySyncer_DeleteResource(t *testing.T) {
 	syncer := NewHubHAStandbySyncer(client)
 
 	meta := &generic.ObjectMetadata{
-		Name:      "test-cm",
+		Name:      testCMName,
 		Namespace: "default",
 		ID:        "test-id",
 		Group:     "",
@@ -348,7 +357,7 @@ func TestHubHAStandbySyncer_DeleteResource(t *testing.T) {
 
 	// Verify the resource was actually deleted
 	verifyDeleted := &corev1.ConfigMap{}
-	err = client.Get(ctx, types.NamespacedName{Name: "test-cm", Namespace: "default"}, verifyDeleted)
+	err = client.Get(ctx, types.NamespacedName{Name: testCMName, Namespace: "default"}, verifyDeleted)
 	if err == nil {
 		t.Errorf("expected resource to be deleted, but it still exists")
 	}
@@ -376,7 +385,7 @@ func TestHubHAStandbySyncer_UpdateResource_CleansOwnerReferences(t *testing.T) {
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
 			"metadata": map[string]interface{}{
-				"name":      "test-cm",
+				"name":      testCMName,
 				"namespace": "default",
 				"ownerReferences": []interface{}{
 					map[string]interface{}{
@@ -397,13 +406,13 @@ func TestHubHAStandbySyncer_UpdateResource_CleansOwnerReferences(t *testing.T) {
 	ctx := context.Background()
 	err := syncer.updateResource(ctx, cmWithOwner, "hub1")
 	if err != nil {
-		t.Errorf("updateResource() error = %v", err)
+		t.Errorf(errUpdateResource, err)
 	}
 
 	// Verify resource was created without ownerReferences
 	result := &unstructured.Unstructured{}
 	result.SetGroupVersionKind(cmWithOwner.GroupVersionKind())
-	err = client.Get(ctx, types.NamespacedName{Name: "test-cm", Namespace: "default"}, result)
+	err = client.Get(ctx, types.NamespacedName{Name: testCMName, Namespace: "default"}, result)
 	if err != nil {
 		t.Errorf("Failed to get resource: %v", err)
 	}
@@ -428,7 +437,7 @@ func TestHubHAStandbySyncer_CreateManagedCluster_SetsHubAcceptsClient(t *testing
 	// Create ManagedCluster resource
 	managedCluster := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"apiVersion": managedClusterAPIVersion,
 			"kind":       "ManagedCluster",
 			"metadata": map[string]interface{}{
 				"name": "cluster1",
@@ -470,7 +479,7 @@ func TestHubHAStandbySyncer_UpdateManagedCluster_SetsHubAcceptsClient(t *testing
 	// Create existing ManagedCluster with hubAcceptsClient=true
 	existing := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"apiVersion": managedClusterAPIVersion,
 			"kind":       "ManagedCluster",
 			"metadata": map[string]interface{}{
 				"name": "cluster1",
@@ -491,12 +500,12 @@ func TestHubHAStandbySyncer_UpdateManagedCluster_SetsHubAcceptsClient(t *testing
 	// Update with new labels but hubAcceptsClient still true
 	updated := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"apiVersion": managedClusterAPIVersion,
 			"kind":       "ManagedCluster",
 			"metadata": map[string]interface{}{
 				"name": "cluster1",
 				"labels": map[string]interface{}{
-					"new-label": "new-value",
+					"new-label": newValue,
 				},
 			},
 			"spec": map[string]interface{}{
@@ -508,7 +517,7 @@ func TestHubHAStandbySyncer_UpdateManagedCluster_SetsHubAcceptsClient(t *testing
 	ctx := context.Background()
 	err := syncer.updateResource(ctx, updated, "hub1")
 	if err != nil {
-		t.Errorf("updateResource() error = %v", err)
+		t.Errorf(errUpdateResource, err)
 	}
 
 	// Verify ManagedCluster was updated with hubAcceptsClient=false
@@ -532,7 +541,7 @@ func TestHubHAStandbySyncer_UpdateManagedCluster_SetsHubAcceptsClient(t *testing
 	if err != nil || !found {
 		t.Errorf("Failed to get labels from ManagedCluster")
 	}
-	if labels["new-label"] != "new-value" {
+	if labels["new-label"] != newValue {
 		t.Errorf("Labels not updated correctly, got %v", labels)
 	}
 }

@@ -88,7 +88,9 @@ func (s *HubStatusSyncer) Sync(ctx context.Context, evt *cloudevents.Event) erro
 }
 
 // updateManagedClusterHubAcceptsClient updates the hubAcceptsClient field in ManagedCluster spec
-func (s *HubStatusSyncer) updateManagedClusterHubAcceptsClient(ctx context.Context, clusterName string, hubAcceptsClient bool) error {
+func (s *HubStatusSyncer) updateManagedClusterHubAcceptsClient(ctx context.Context, clusterName string,
+	hubAcceptsClient bool,
+) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Get the ManagedCluster
 		managedCluster := &clusterv1.ManagedCluster{}
