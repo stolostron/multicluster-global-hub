@@ -68,11 +68,11 @@ func TestRollbacking(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRolledBack,
 							Status: metav1.ConditionTrue,
-						},
+						}},
 					},
 				},
 			},
@@ -93,16 +93,16 @@ func TestRollbacking(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:               migrationv1alpha1.ConditionTypeStarted,
 							Status:             metav1.ConditionTrue,
 							LastTransitionTime: metav1.Time{Time: time.Now()},
-						},
-						{
+						}},
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeInitialized,
 							Status: metav1.ConditionFalse,
-						},
+						}},
 					},
 				},
 			},
@@ -127,16 +127,16 @@ func TestRollbacking(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:               migrationv1alpha1.ConditionTypeStarted,
 							Status:             metav1.ConditionTrue,
 							LastTransitionTime: metav1.Time{Time: time.Now()},
-						},
-						{
+						}},
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeInitialized,
 							Status: metav1.ConditionFalse,
-						},
+						}},
 					},
 				},
 			},
@@ -169,18 +169,24 @@ func TestRollbacking(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
+					Conditions: []migrationv1alpha1.MigrationCondition{
 						{
-							Type:               migrationv1alpha1.ConditionTypeStarted,
-							Status:             metav1.ConditionTrue,
-							LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
+							Condition: metav1.Condition{
+								Type:               migrationv1alpha1.ConditionTypeStarted,
+								Status:             metav1.ConditionTrue,
+								LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
+							},
+							LastUpdateTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
 						},
 						{
-							Type:               migrationv1alpha1.ConditionTypeRolledBack,
-							Status:             metav1.ConditionFalse,
-							Reason:             ConditionReasonWaiting,
-							Message:            "waiting for source hub  to complete Rollbacking stage rollback",
-							LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)}, // Simulate timeout
+							Condition: metav1.Condition{
+								Type:               migrationv1alpha1.ConditionTypeRolledBack,
+								Status:             metav1.ConditionFalse,
+								Reason:             ConditionReasonWaiting,
+								Message:            "waiting for source hub  to complete Rollbacking stage rollback",
+								LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)}, // Simulate timeout
+							},
+							LastUpdateTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
 						},
 					},
 				},
@@ -347,11 +353,11 @@ func TestDetermineFailedStage(t *testing.T) {
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeInitialized,
 							Status: metav1.ConditionFalse,
-						},
+						}},
 					},
 				},
 			},
@@ -362,15 +368,15 @@ func TestDetermineFailedStage(t *testing.T) {
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeInitialized,
 							Status: metav1.ConditionTrue,
-						},
-						{
+						}},
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeDeployed,
 							Status: metav1.ConditionFalse,
-						},
+						}},
 					},
 				},
 			},
@@ -381,19 +387,19 @@ func TestDetermineFailedStage(t *testing.T) {
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeInitialized,
 							Status: metav1.ConditionTrue,
-						},
-						{
+						}},
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeDeployed,
 							Status: metav1.ConditionTrue,
-						},
-						{
+						}},
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionFalse,
-						},
+						}},
 					},
 				},
 			},
@@ -404,11 +410,11 @@ func TestDetermineFailedStage(t *testing.T) {
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeInitialized,
 							Status: metav1.ConditionTrue,
-						},
+						}},
 					},
 				},
 			},
@@ -451,12 +457,12 @@ func TestHandleRollbackStatus(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:               migrationv1alpha1.ConditionTypeStarted,
 							Status:             metav1.ConditionTrue,
 							LastTransitionTime: metav1.Time{Time: time.Now()},
-						},
+						}},
 					},
 				},
 			},
@@ -480,18 +486,24 @@ func TestHandleRollbackStatus(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
+					Conditions: []migrationv1alpha1.MigrationCondition{
 						{
-							Type:               migrationv1alpha1.ConditionTypeStarted,
-							Status:             metav1.ConditionTrue,
-							LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
+							Condition: metav1.Condition{
+								Type:               migrationv1alpha1.ConditionTypeStarted,
+								Status:             metav1.ConditionTrue,
+								LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
+							},
+							LastUpdateTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
 						},
 						{
-							Type:               migrationv1alpha1.ConditionTypeRolledBack,
-							Status:             metav1.ConditionFalse,
-							Reason:             ConditionReasonWaiting,
-							Message:            "Waiting for rollback to complete",
-							LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)}, // Simulate timeout
+							Condition: metav1.Condition{
+								Type:               migrationv1alpha1.ConditionTypeRolledBack,
+								Status:             metav1.ConditionFalse,
+								Reason:             ConditionReasonWaiting,
+								Message:            "Waiting for rollback to complete",
+								LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)}, // Simulate timeout
+							},
+							LastUpdateTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
 						},
 					},
 				},

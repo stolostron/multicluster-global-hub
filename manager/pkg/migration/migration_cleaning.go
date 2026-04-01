@@ -6,7 +6,6 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
@@ -28,7 +27,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) ||
+	if migrationv1alpha1.IsMigrationConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) ||
 		mcm.Status.Phase != migrationv1alpha1.PhaseCleaning {
 		return false, nil
 	}
@@ -58,7 +57,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	// cleanup the source hub: cleaning or failed state, if registering is executed, cleaning the ready clusters
 	fromHub := mcm.Spec.From
 	cleaningClusters := GetClusterList(string(mcm.UID))
-	if meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) != nil {
+	if migrationv1alpha1.FindMigrationCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) != nil {
 		successClusters, err := m.GetSuccessClusters(ctx, mcm)
 		if err != nil {
 			log.Errorf("failed to get success clusters: %v", err)
@@ -162,7 +161,7 @@ func (m *ClusterMigrationController) handleCleaningStatus(ctx context.Context,
 
 	// finished cleaning - update phase
 	if condition.Reason != ConditionReasonWaiting {
-		if meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack) != nil {
+		if migrationv1alpha1.FindMigrationCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack) != nil {
 			*nextPhase = migrationv1alpha1.PhaseFailed
 		} else {
 			// Ensure cleaning always ends in Completed phase, regardless of cleaning condition status

@@ -61,11 +61,11 @@ func TestRegistering(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRegistering,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
-						},
+						}},
 					},
 				},
 			},
@@ -240,7 +240,7 @@ func TestRegistering(t *testing.T) {
 }
 
 // findRegisteringCondition finds a specific condition in the conditions slice for registering tests
-func findRegisteringCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+func findRegisteringCondition(conditions []migrationv1alpha1.MigrationCondition, conditionType string) *migrationv1alpha1.MigrationCondition {
 	for i := range conditions {
 		if conditions[i].Type == conditionType {
 			return &conditions[i]

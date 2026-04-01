@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -64,10 +63,10 @@ func (m *ClusterMigrationController) handleRollbackRetryRequest(ctx context.Cont
 		// Remove the existing RolledBack and Cleaned conditions to reset LastTransitionTime
 		// Cleaned condition must also be removed because rollback can transition to cleaning phase
 		// and the old True status would cause cleaning() to return early
-		meta.RemoveStatusCondition(&mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack)
-		meta.RemoveStatusCondition(&mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned)
+		migrationv1alpha1.RemoveMigrationCondition(&mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack)
+		migrationv1alpha1.RemoveMigrationCondition(&mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned)
 		// Add new condition with fresh LastTransitionTime
-		meta.SetStatusCondition(&mcm.Status.Conditions, metav1.Condition{
+		migrationv1alpha1.SetMigrationCondition(&mcm.Status.Conditions, metav1.Condition{
 			Type:               migrationv1alpha1.ConditionTypeRolledBack,
 			Status:             metav1.ConditionFalse,
 			Reason:             ConditionReasonWaiting,

@@ -62,11 +62,11 @@ func TestDeploying(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseDeploying,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeDeployed,
 							Status: metav1.ConditionTrue,
-						},
+						}},
 					},
 				},
 			},
@@ -284,7 +284,7 @@ func TestDeploying(t *testing.T) {
 }
 
 // findDeployingCondition finds a specific condition in the conditions slice for deploying tests
-func findDeployingCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+func findDeployingCondition(conditions []migrationv1alpha1.MigrationCondition, conditionType string) *migrationv1alpha1.MigrationCondition {
 	for i := range conditions {
 		if conditions[i].Type == conditionType {
 			return &conditions[i]

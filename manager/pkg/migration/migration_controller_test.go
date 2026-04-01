@@ -41,7 +41,7 @@ func (m *MockProducer) Reconnect(config *transport.TransportInternalConfig, topi
 }
 
 // findControllerCondition finds a specific condition in the conditions slice for controller tests
-func findControllerCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+func findControllerCondition(conditions []migrationv1alpha1.MigrationCondition, conditionType string) *migrationv1alpha1.MigrationCondition {
 	for i := range conditions {
 		if conditions[i].Type == conditionType {
 			return &conditions[i]
@@ -120,12 +120,12 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
 							Reason: "TestReason",
-						},
+						}},
 					},
 				},
 			},
@@ -150,12 +150,12 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
 							Reason: "TestReason",
-						},
+						}},
 					},
 				},
 			},

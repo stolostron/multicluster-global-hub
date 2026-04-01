@@ -63,11 +63,11 @@ func TestCompleted(t *testing.T) {
 				},
 				Status: v1alpha1.ManagedClusterMigrationStatus{
 					Phase: v1alpha1.PhaseCleaning,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []v1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   v1alpha1.ConditionTypeCleaned,
 							Status: metav1.ConditionTrue,
-						},
+						}},
 					},
 				},
 			},
@@ -281,7 +281,7 @@ func TestCompleted(t *testing.T) {
 }
 
 // findCondition finds a specific condition in the conditions slice
-func findCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+func findCondition(conditions []v1alpha1.MigrationCondition, conditionType string) *v1alpha1.MigrationCondition {
 	for i := range conditions {
 		if conditions[i].Type == conditionType {
 			return &conditions[i]
