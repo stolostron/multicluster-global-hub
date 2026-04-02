@@ -11,10 +11,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -60,6 +60,9 @@ func TestReconcile_CreatesMSAInLocalCluster(t *testing.T) {
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "local-cluster",
+			Labels: map[string]string{
+				constants.LocalClusterName: "true",
+			},
 		},
 		Spec: clusterv1.ManagedClusterSpec{
 			ManagedClusterClientConfigs: []clusterv1.ClientConfig{
@@ -80,7 +83,7 @@ func TestReconcile_CreatesMSAInLocalCluster(t *testing.T) {
 	}
 
 	result, err := controller.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: "hub1"},
+		NamespacedName: client.ObjectKey{Name: "hub1"},
 	})
 	require.NoError(t, err)
 
@@ -89,7 +92,7 @@ func TestReconcile_CreatesMSAInLocalCluster(t *testing.T) {
 
 	// Verify MSA was created in local-cluster namespace
 	msa := &v1beta1.ManagedServiceAccount{}
-	err = fakeClient.Get(context.Background(), types.NamespacedName{
+	err = fakeClient.Get(context.Background(), client.ObjectKey{
 		Name:      "ha-config-hub1",
 		Namespace: "local-cluster",
 	}, msa)
@@ -115,6 +118,9 @@ func TestReconcile_BootstrapSecretUsesLocalClusterURL(t *testing.T) {
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "local-cluster",
+			Labels: map[string]string{
+				constants.LocalClusterName: "true",
+			},
 		},
 		Spec: clusterv1.ManagedClusterSpec{
 			ManagedClusterClientConfigs: []clusterv1.ClientConfig{
@@ -148,7 +154,7 @@ func TestReconcile_BootstrapSecretUsesLocalClusterURL(t *testing.T) {
 	}
 
 	result, err := controller.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: "hub1"},
+		NamespacedName: client.ObjectKey{Name: "hub1"},
 	})
 	require.NoError(t, err)
 	assert.Zero(t, result.RequeueAfter)
@@ -173,6 +179,9 @@ func TestReconcile_RemovesActiveHubResourcesWhenLabelRemoved(t *testing.T) {
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "local-cluster",
+			Labels: map[string]string{
+				constants.LocalClusterName: "true",
+			},
 		},
 	}
 	msa := &v1beta1.ManagedServiceAccount{
@@ -197,13 +206,13 @@ func TestReconcile_RemovesActiveHubResourcesWhenLabelRemoved(t *testing.T) {
 	}
 
 	_, err := controller.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: "hub1"},
+		NamespacedName: client.ObjectKey{Name: "hub1"},
 	})
 	require.NoError(t, err)
 
 	// Verify MSA was deleted
 	deletedMSA := &v1beta1.ManagedServiceAccount{}
-	err = fakeClient.Get(context.Background(), types.NamespacedName{
+	err = fakeClient.Get(context.Background(), client.ObjectKey{
 		Name:      "ha-config-hub1",
 		Namespace: "local-cluster",
 	}, deletedMSA)
@@ -223,6 +232,9 @@ func TestReconcile_Idempotent(t *testing.T) {
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "local-cluster",
+			Labels: map[string]string{
+				constants.LocalClusterName: "true",
+			},
 		},
 		Spec: clusterv1.ManagedClusterSpec{
 			ManagedClusterClientConfigs: []clusterv1.ClientConfig{
@@ -266,13 +278,13 @@ func TestReconcile_Idempotent(t *testing.T) {
 
 	// First reconcile
 	_, err := controller.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: "hub1"},
+		NamespacedName: client.ObjectKey{Name: "hub1"},
 	})
 	require.NoError(t, err)
 
 	// Second reconcile (idempotent)
 	_, err = controller.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: "hub1"},
+		NamespacedName: client.ObjectKey{Name: "hub1"},
 	})
 	require.NoError(t, err)
 
@@ -292,7 +304,7 @@ func TestReconcile_SkipsWhenLocalClusterNotFound(t *testing.T) {
 	}
 
 	_, err := controller.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: "nonexistent"},
+		NamespacedName: client.ObjectKey{Name: "nonexistent"},
 	})
 	require.NoError(t, err)
 	assert.Empty(t, producer.sentEvents)

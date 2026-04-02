@@ -11,7 +11,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -32,13 +31,12 @@ import (
 )
 
 const (
-	localClusterNamespace = "local-cluster"
-	mceNamespace          = "multicluster-engine"
-	msaPrefix             = "ha-config-"
-	ownerLabel            = "ha-config"
-	bootstrapPrefix       = "bootstrap-ha-"
-	requeueInterval       = 5 * time.Second
-	eventExpiry           = 10 * time.Minute
+	mceNamespace    = "multicluster-engine"
+	msaPrefix       = "ha-config-"
+	ownerLabel      = "ha-config"
+	bootstrapPrefix = "bootstrap-ha-"
+	requeueInterval = 5 * time.Second
+	eventExpiry     = 10 * time.Minute
 )
 
 var log = logger.DefaultZapLogger()
@@ -93,17 +91,17 @@ func (c *ConfigController) SetupWithManager(mgr ctrl.Manager) error {
 				}
 				activeHubName := strings.TrimPrefix(name, msaPrefix)
 				return []reconcile.Request{
-					{NamespacedName: types.NamespacedName{Name: activeHubName}},
+					{NamespacedName: client.ObjectKey{Name: activeHubName}},
 				}
 			}),
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
 					return e.Object.GetLabels()[constants.LabelKeyIsManagedServiceAccount] == "true" &&
-						e.Object.GetNamespace() == localClusterNamespace
+						strings.HasPrefix(e.Object.GetName(), msaPrefix)
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return e.ObjectNew.GetLabels()[constants.LabelKeyIsManagedServiceAccount] == "true" &&
-						e.ObjectNew.GetNamespace() == localClusterNamespace &&
+						strings.HasPrefix(e.ObjectNew.GetName(), msaPrefix) &&
 						e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
@@ -117,36 +115,38 @@ func (c *ConfigController) SetupWithManager(mgr ctrl.Manager) error {
 func (c *ConfigController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Debugf("reconcile HA config for %v", req)
 
-	// Step 1: verify local-cluster exists, HA requires it as the standby hub
-	localCluster := &clusterv1.ManagedCluster{}
-	if err := c.Get(ctx, types.NamespacedName{Name: localClusterNamespace}, localCluster); err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Infof("local-cluster not found, HA feature requires local-cluster to be available")
-			return ctrl.Result{}, nil
-		}
+	// Step 1: find local-cluster by label, HA requires it as the standby hub
+	localCluster, err := c.getLocalCluster(ctx)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if localCluster == nil {
+		log.Infof("local-cluster not found, HA feature requires a cluster with label %s=true",
+			constants.LocalClusterName)
+		return ctrl.Result{}, nil
+	}
+	localClusterName := localCluster.Name
 
 	// Step 2: check if the managed cluster is an active hub
 	mc := &clusterv1.ManagedCluster{}
-	if err := c.Get(ctx, types.NamespacedName{Name: req.Name}, mc); err != nil {
+	if err := c.Get(ctx, client.ObjectKey{Name: req.Name}, mc); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, c.removeActiveHubResources(ctx, req.Name)
+			return ctrl.Result{}, c.removeActiveHubResources(ctx, localClusterName, req.Name)
 		}
 		return ctrl.Result{}, err
 	}
 
 	if mc.DeletionTimestamp != nil || mc.Labels[constants.GHHubRoleLabelKey] != constants.GHHubRoleActive {
-		return ctrl.Result{}, c.removeActiveHubResources(ctx, req.Name)
+		return ctrl.Result{}, c.removeActiveHubResources(ctx, localClusterName, req.Name)
 	}
 
 	activeHubName := mc.Name
 
-	if err := c.ensureMSA(ctx, activeHubName); err != nil {
+	if err := c.ensureMSA(ctx, localClusterName, activeHubName); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	bootstrapSecret, err := c.generateBootstrapSecret(ctx, activeHubName)
+	bootstrapSecret, err := c.generateBootstrapSecret(ctx, localCluster, activeHubName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Infof("MSA token secret not yet available for %s, requeuing", activeHubName)
@@ -155,20 +155,35 @@ func (c *ConfigController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	if err := c.sendHAConfig(ctx, localClusterNamespace, activeHubName, bootstrapSecret, eventExpiry); err != nil {
+	if err := c.sendHAConfig(ctx, localClusterName, activeHubName, bootstrapSecret, eventExpiry); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	log.Infof("HA config sent: source=%s, activeHub=%s, expiry=%s", localClusterNamespace, activeHubName, eventExpiry)
+	log.Infof("HA config sent: source=%s, activeHub=%s, expiry=%s", localClusterName, activeHubName, eventExpiry)
 	return ctrl.Result{}, nil
 }
 
-func (c *ConfigController) ensureMSA(ctx context.Context, activeHubName string) error {
+// getLocalCluster finds the local cluster by the label "local-cluster=true".
+// Returns nil if no local cluster is found.
+func (c *ConfigController) getLocalCluster(ctx context.Context) (*clusterv1.ManagedCluster, error) {
+	clusterList := &clusterv1.ManagedClusterList{}
+	if err := c.List(ctx, clusterList, client.MatchingLabels{
+		constants.LocalClusterName: "true",
+	}); err != nil {
+		return nil, err
+	}
+	if len(clusterList.Items) == 0 {
+		return nil, nil
+	}
+	return &clusterList.Items[0], nil
+}
+
+func (c *ConfigController) ensureMSA(ctx context.Context, localClusterName, activeHubName string) error {
 	msaName := msaPrefix + activeHubName
 	desired := &v1beta1.ManagedServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      msaName,
-			Namespace: localClusterNamespace,
+			Namespace: localClusterName,
 			Labels: map[string]string{
 				"owner": ownerLabel,
 			},
@@ -184,9 +199,9 @@ func (c *ConfigController) ensureMSA(ctx context.Context, activeHubName string) 
 	}
 
 	existing := &v1beta1.ManagedServiceAccount{}
-	err := c.Get(ctx, types.NamespacedName{
+	err := c.Get(ctx, client.ObjectKey{
 		Name:      msaName,
-		Namespace: localClusterNamespace,
+		Namespace: localClusterName,
 	}, existing)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -198,42 +213,37 @@ func (c *ConfigController) ensureMSA(ctx context.Context, activeHubName string) 
 }
 
 func (c *ConfigController) generateBootstrapSecret(ctx context.Context,
-	activeHubName string,
+	localCluster *clusterv1.ManagedCluster, activeHubName string,
 ) (*corev1.Secret, error) {
+	localClusterName := localCluster.Name
+
 	msaSecret := &corev1.Secret{}
-	if err := c.Get(ctx, types.NamespacedName{
+	if err := c.Get(ctx, client.ObjectKey{
 		Name:      msaPrefix + activeHubName,
-		Namespace: localClusterNamespace,
+		Namespace: localClusterName,
 	}, msaSecret); err != nil {
 		return nil, err
 	}
 
 	if len(msaSecret.Data["ca.crt"]) == 0 || len(msaSecret.Data["token"]) == 0 {
 		return nil, fmt.Errorf("MSA secret %s/%s is missing required data (ca.crt or token)",
-			localClusterNamespace, msaPrefix+activeHubName)
+			localClusterName, msaPrefix+activeHubName)
 	}
 
-	managedCluster := &clusterv1.ManagedCluster{}
-	if err := c.Get(ctx, types.NamespacedName{
-		Name: localClusterNamespace,
-	}, managedCluster); err != nil {
-		return nil, err
-	}
-
-	if len(managedCluster.Spec.ManagedClusterClientConfigs) == 0 {
-		return nil, fmt.Errorf("no ManagedClusterClientConfigs found for %s", localClusterNamespace)
+	if len(localCluster.Spec.ManagedClusterClientConfigs) == 0 {
+		return nil, fmt.Errorf("no ManagedClusterClientConfigs found for %s", localClusterName)
 	}
 
 	config := clientcmdapi.NewConfig()
-	config.Clusters[localClusterNamespace] = &clientcmdapi.Cluster{
-		Server:                   managedCluster.Spec.ManagedClusterClientConfigs[0].URL,
+	config.Clusters[localClusterName] = &clientcmdapi.Cluster{
+		Server:                   localCluster.Spec.ManagedClusterClientConfigs[0].URL,
 		CertificateAuthorityData: msaSecret.Data["ca.crt"],
 	}
 	config.AuthInfos["user"] = &clientcmdapi.AuthInfo{
 		Token: string(msaSecret.Data["token"]),
 	}
 	config.Contexts["default-context"] = &clientcmdapi.Context{
-		Cluster:  localClusterNamespace,
+		Cluster:  localClusterName,
 		AuthInfo: "user",
 	}
 	config.CurrentContext = "default-context"
@@ -245,7 +255,7 @@ func (c *ConfigController) generateBootstrapSecret(ctx context.Context,
 
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      bootstrapPrefix + localClusterNamespace,
+			Name:      bootstrapPrefix + localClusterName,
 			Namespace: mceNamespace,
 		},
 		Data: map[string][]byte{
@@ -275,12 +285,14 @@ func (c *ConfigController) sendHAConfig(ctx context.Context,
 	return nil
 }
 
-func (c *ConfigController) removeActiveHubResources(ctx context.Context, activeHubName string) error {
+func (c *ConfigController) removeActiveHubResources(ctx context.Context,
+	localClusterName, activeHubName string,
+) error {
 	msaName := msaPrefix + activeHubName
 	msa := &v1beta1.ManagedServiceAccount{}
-	err := c.Get(ctx, types.NamespacedName{
+	err := c.Get(ctx, client.ObjectKey{
 		Name:      msaName,
-		Namespace: localClusterNamespace,
+		Namespace: localClusterName,
 	}, msa)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -288,6 +300,6 @@ func (c *ConfigController) removeActiveHubResources(ctx context.Context, activeH
 		}
 		return err
 	}
-	log.Infof("deleting MSA %s/%s for HA config cleanup", localClusterNamespace, msaName)
+	log.Infof("deleting MSA %s/%s for HA config cleanup", localClusterName, msaName)
 	return c.Delete(ctx, msa)
 }
