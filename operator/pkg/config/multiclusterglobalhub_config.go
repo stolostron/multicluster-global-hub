@@ -84,7 +84,7 @@ var (
 		GlobalHubAgentImageKey:      "quay.io/stolostron/multicluster-global-hub-agent:latest",
 		GlobalHubManagerImageKey:    "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:          "quay.io/stolostron/origin-oauth-proxy:4.9",
-		GrafanaImageKey:             "quay.io/stolostron/grafana:2.17.0-SNAPSHOT-2026-03-31-01-38-20",
+		GrafanaImageKey:             "quay.io/stolostron/grafana-global-hub:12.4.0",
 		PostgresImageKey:            "quay.io/stolostron/postgresql-16:9.5-1732622748",
 		PostgresExporterImageKey:    "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
 		InventoryImageKey:           fmt.Sprintf("%s/kessel-inventory/inventory-api@sha256:c443e7494d7b1dd4bb24234cf265a3f0fb5e9c3c0e2edeb2f00285a2286ff24f", RedHatKesselQuayIORegistry),
