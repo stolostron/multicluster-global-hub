@@ -12,7 +12,6 @@ import (
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -22,8 +21,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
@@ -58,6 +57,10 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	}
 	log.Info("initialized networkpolicy controller")
 	return networkPolicyController, nil
+}
+
+func (r *NetworkPolicyReconciler) IsResourceRemoved() bool {
+	return true
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -101,10 +104,12 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	npRenderer := renderer.NewHoHRenderer(fs)
 	npDeployer := deployer.NewHoHDeployer(r.GetClient())
 
-	networkPolicyObjects, err := npRenderer.Render("manifests", "", struct {
-		Namespace string
-	}{
-		Namespace: mgh.Namespace,
+	networkPolicyObjects, err := npRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
+		return struct {
+			Namespace string
+		}{
+			Namespace: mgh.Namespace,
+		}, nil
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to render networkpolicy manifests: %w", err)
