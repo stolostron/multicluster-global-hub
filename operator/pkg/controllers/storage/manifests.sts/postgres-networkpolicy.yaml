@@ -1,0 +1,60 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{.Name}}
+  namespace: {{.Namespace}}
+  labels:
+    name: {{.Name}}
+spec:
+  podSelector:
+    matchLabels:
+      name: {{.Name}}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow connections from manager
+  - from:
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-manager
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow connections from grafana
+  - from:
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-grafana
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow Prometheus exporter scraping
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-monitoring
+    ports:
+    - protocol: TCP
+      port: 9187
+    - protocol: TCP
+      port: 80
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+    ports:
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow access to Kubernetes API for certificate verification
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443

@@ -15,6 +15,7 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,6 +45,7 @@ import (
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;create;list;watch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
 
 //go:embed database
 var databaseFS embed.FS
@@ -123,6 +125,8 @@ func (r *StorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Watches(&promv1.ServiceMonitor{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&networkingv1.NetworkPolicy{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(networkPolicyPred)).
 		Complete(r)
 }
 
@@ -141,6 +145,21 @@ var configMapPredicate = predicate.Funcs{
 }
 
 var statefulSetPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == BuiltinPostgresName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == BuiltinPostgresName
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == BuiltinPostgresName
+	},
+}
+
+var networkPolicyPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == BuiltinPostgresName

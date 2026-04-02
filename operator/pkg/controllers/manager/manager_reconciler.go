@@ -13,6 +13,7 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -66,6 +67,7 @@ import (
 // +kubebuilder:rbac:groups=policy.open-cluster-management.io,resources=placementbindings,verbs=get;list;patch;update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkausers,verbs=get;watch;update
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
 
 //go:embed manifests
 var fs embed.FS
@@ -143,7 +145,9 @@ func (r *ManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&rbacv1.RoleBinding{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Watches(&routev1.Route{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate))
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&networkingv1.NetworkPolicy{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(networkPolicyPred))
 
 	if config.IsACMResourceReady() {
 		mgrBuilder = mgrBuilder.
@@ -154,6 +158,21 @@ func (r *ManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 var deploymentPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_MANAGER_NAME
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == config.COMPONENTS_MANAGER_NAME
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_MANAGER_NAME
+	},
+}
+
+var networkPolicyPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == config.COMPONENTS_MANAGER_NAME

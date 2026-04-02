@@ -1,0 +1,68 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{.KafkaCluster}}
+  namespace: {{.Namespace}}
+  labels:
+    strimzi.io/cluster: {{.KafkaCluster}}
+spec:
+  podSelector:
+    matchLabels:
+      strimzi.io/cluster: {{.KafkaCluster}}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow connections from manager
+  - from:
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-manager
+    ports:
+    - protocol: TCP
+      port: 9093
+  # Allow Kafka internal communication (between brokers, controllers)
+  - from:
+    - podSelector:
+        matchLabels:
+          strimzi.io/cluster: {{.KafkaCluster}}
+  # Allow from agents in managed hub namespaces (hosted mode)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          global-hub.open-cluster-management.io/managed-hub: "true"
+    podSelector:
+      matchLabels:
+        name: multicluster-global-hub-agent
+    ports:
+    - protocol: TCP
+      port: 9093
+  # Allow metrics scraping from Prometheus
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-monitoring
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+    ports:
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow Kafka internal communication
+  - to:
+    - podSelector:
+        matchLabels:
+          strimzi.io/cluster: {{.KafkaCluster}}
+  # Allow Kafka to access Kubernetes API (for Strimzi operator coordination)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443
