@@ -8,6 +8,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/hubha"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/hubstatus"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/migration"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -49,6 +50,12 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 		log.Info("registering Hub HA standby syncer - this is a standby hub")
 		dispatcher.RegisterSyncer(constants.HubHAResourcesMsgKey,
 			hubha.NewHubHAStandbySyncer(mgr.GetClient()))
+
+		// Register hub status syncer to handle active hub failover
+		// This syncer updates ManagedCluster.spec.hubAcceptsClient based on active hub status
+		log.Info("registering hub status syncer - this is a standby hub")
+		dispatcher.RegisterSyncer(constants.HubStatusUpdateMsgKey,
+			hubstatus.NewHubStatusSyncer(mgr))
 	}
 
 	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncer())

@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/retry"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -97,6 +98,15 @@ func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructur
 	// recreated by controllers on standby if needed
 	obj.SetOwnerReferences(nil)
 
+	// For ManagedCluster resources, set hubAcceptsClient to false
+	// This prevents standby hub from accepting client connections while active hub is healthy
+	gvk := obj.GroupVersionKind()
+	if gvk.Group == clusterv1.GroupName && gvk.Kind == "ManagedCluster" {
+		if err := s.setHubAcceptsClient(obj, false); err != nil {
+			return fmt.Errorf("failed to set ManagedCluster hubAcceptsClient: %w", err)
+		}
+	}
+
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		_, err := controllerutil.CreateOrUpdate(ctx, s.client, obj, func() error {
 			// Resource will be created or updated as needed
@@ -123,6 +133,15 @@ func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructur
 	// Owner resources may not exist on standby hub, and ownership will be
 	// recreated by controllers on standby if needed
 	obj.SetOwnerReferences(nil)
+
+	// For ManagedCluster resources, set hubAcceptsClient to false
+	// This prevents standby hub from accepting client connections while active hub is healthy
+	gvk := obj.GroupVersionKind()
+	if gvk.Group == clusterv1.GroupName && gvk.Kind == "ManagedCluster" {
+		if err := s.setHubAcceptsClient(obj, false); err != nil {
+			return fmt.Errorf("failed to set ManagedCluster hubAcceptsClient: %w", err)
+		}
+	}
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		existing := &unstructured.Unstructured{}
@@ -179,5 +198,24 @@ func (s *HubHAStandbySyncer) deleteResource(ctx context.Context, meta *generic.O
 	}
 
 	log.Infof("successfully deleted resource %s/%s from standby hub", meta.Namespace, meta.Name)
+	return nil
+}
+
+// setHubAcceptsClient sets ManagedCluster.Spec.HubAcceptsClient field
+// For Hub HA failover:
+// - false when active hub is healthy (normal state - standby should not accept clients)
+// - true when active hub becomes inactive (failover state - standby should accept clients)
+func (s *HubHAStandbySyncer) setHubAcceptsClient(obj *unstructured.Unstructured, hubAcceptsClient bool) error {
+	// Only process ManagedCluster resources
+	gvk := obj.GroupVersionKind()
+	if gvk.Group != clusterv1.GroupName || gvk.Kind != "ManagedCluster" {
+		return nil
+	}
+
+	if err := unstructured.SetNestedField(obj.Object, hubAcceptsClient, "spec", "hubAcceptsClient"); err != nil {
+		return fmt.Errorf("failed to set hubAcceptsClient: %w", err)
+	}
+
+	log.Debugf("adjusted ManagedCluster %s hubAcceptsClient to %v", obj.GetName(), hubAcceptsClient)
 	return nil
 }

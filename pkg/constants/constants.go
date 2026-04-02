@@ -184,6 +184,9 @@ const (
 	// ResyncMsgKey - request resync from the managed hub
 	ResyncMsgKey = "Resync"
 
+	// HubStatusUpdateMsgKey - hub state update message for Hub HA failover
+	HubStatusUpdateMsgKey = "HubStatusUpdate"
+
 	// ManagedClustersLabelsMsgKey - managed clusters labels message key.
 	ManagedClustersLabelsMsgKey = "ManagedClustersLabels"
 
@@ -196,6 +199,12 @@ const (
 
 	// HubHAResourcesMsgKey is the message key for Hub HA resource synchronization
 	HubHAResourcesMsgKey = "HubHAResources"
+)
+
+// Hub status constants for Hub HA failover
+const (
+	HubStatusActive   = "active"
+	HubStatusInactive = "inactive"
 )
 
 // event exporter reference object label keys

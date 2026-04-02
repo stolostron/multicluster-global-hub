@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-co-op/gocron"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/hubmanagement"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -110,7 +110,7 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 			return
 		}
 	}
-	err = db.Where("last_timestamp < ? AND status = ?", minTime, hubmanagement.HubInactive).
+	err = db.Where("last_timestamp < ? AND status = ?", minTime, constants.HubStatusInactive).
 		Delete(&models.LeafHubHeartbeat{}).Error
 	if err != nil {
 		retentionLog.Error(err, "failed to delete the expired leaf hub heartbeat")
