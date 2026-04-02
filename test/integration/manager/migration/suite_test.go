@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -388,7 +387,7 @@ func setValidatingFinished(m *migrationv1alpha1.ManagedClusterMigration, fromHub
 		if err != nil {
 			return false
 		}
-		if meta.IsStatusConditionTrue(mig.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) {
+		if migrationv1alpha1.IsMigrationConditionTrue(mig.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) {
 			return true
 		}
 		if mig.Status.Phase == migrationv1alpha1.PhaseValidating {

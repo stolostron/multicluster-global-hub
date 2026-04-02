@@ -7,7 +7,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -76,7 +75,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 					if m.Status.Phase != migrationv1alpha1.PhaseFailed {
 						return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
 					}
-					condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+					condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 					if condition == nil {
 						return fmt.Errorf("ConditionTypeValidated not found")
 					}
@@ -104,7 +103,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 					if m.Status.Phase != migrationv1alpha1.PhaseFailed {
 						return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
 					}
-					condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+					condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 					if condition == nil {
 						return fmt.Errorf("ConditionTypeValidated not found")
 					}
@@ -139,7 +138,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 				if m.Status.Phase != migrationv1alpha1.PhaseInitializing {
 					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseInitializing, m.Status.Phase)
 				}
-				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+				condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 				if condition == nil || condition.Status != metav1.ConditionTrue || condition.Reason != migration.ConditionReasonResourceValidated {
 					return fmt.Errorf("validation condition not properly set")
 				}
@@ -161,7 +160,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("failed to get migration: %v", err)
 				}
 
-				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 				if condition == nil {
 					return fmt.Errorf("ConditionTypeInitialized not found")
 				}
@@ -190,7 +189,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("failed to get migration: %v", err)
 				}
 
-				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 				if condition == nil {
 					return fmt.Errorf("ConditionTypeInitialized not found")
 				}
@@ -220,7 +219,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("failed to get migration: %v", err)
 				}
 
-				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 				if condition == nil {
 					return fmt.Errorf("ConditionTypeInitialized not found")
 				}
@@ -298,7 +297,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseRollbacking, m.Status.Phase)
 				}
 
-				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
+				condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
 				if condition == nil {
 					return fmt.Errorf("ConditionTypeDeployed not found")
 				}
@@ -348,7 +347,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
 				}
 
-				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack)
+				condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack)
 				if condition == nil {
 					return fmt.Errorf("ConditionTypeRolledBack not found")
 				}
@@ -408,7 +407,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
 				}
 
-				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack)
+				condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack)
 				if condition == nil {
 					return fmt.Errorf("ConditionTypeRolledBack not found")
 				}
