@@ -39,13 +39,13 @@ arches:
     name: glibc-devel
     evr: 2.34-231.el9_7.10
     sourcerpm: glibc-2.34-231.el9_7.10.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/k/kernel-headers-5.14.0-611.35.1.el9_7.aarch64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/k/kernel-headers-5.14.0-611.45.1.el9_7.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
-    size: 2978789
-    checksum: sha256:32fa7425a81398e94d001ed6da353e643ce95574e2d031d60614c081f10bed4d
+    size: 2986145
+    checksum: sha256:fbdcc54177b86fc7047b81f326cde1d606f97b722169d2c6319e47559bad89bc
     name: kernel-headers
-    evr: 5.14.0-611.35.1.el9_7
-    sourcerpm: kernel-5.14.0-611.35.1.el9_7.src.rpm
+    evr: 5.14.0-611.45.1.el9_7
+    sourcerpm: kernel-5.14.0-611.45.1.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libasan-11.5.0-11.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
     size: 408716
@@ -837,13 +837,13 @@ arches:
     name: systemd-rpm-macros
     evr: 252-55.el9_7.7
     sourcerpm: systemd-252-55.el9_7.7.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/t/tzdata-2025c-1.el9.noarch.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/t/tzdata-2026a-1.el9.noarch.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 925360
-    checksum: sha256:1de77872c3c896e801dc1e28ab01218026ea812cc03999d65a886a4a0afc5797
+    size: 933237
+    checksum: sha256:90bc7252dcef87507a6dc097763894d264544b42c77ce67696192db2bcc8cd07
     name: tzdata
-    evr: 2025c-1.el9
-    sourcerpm: tzdata-2025c-1.el9.src.rpm
+    evr: 2026a-1.el9
+    sourcerpm: tzdata-2026a-1.el9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/u/util-linux-2.37.4-21.el9_7.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
     size: 2388428
@@ -911,13 +911,13 @@ arches:
     name: glibc-devel
     evr: 2.34-231.el9_7.10
     sourcerpm: glibc-2.34-231.el9_7.10.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/k/kernel-headers-5.14.0-611.35.1.el9_7.ppc64le.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/k/kernel-headers-5.14.0-611.45.1.el9_7.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-appstream-rpms
-    size: 3000449
-    checksum: sha256:f4ab26b797969037083a12722e385ca74ec3afd3d4b3ff2b0e95e26bcf7a3911
+    size: 3007813
+    checksum: sha256:5d0ee7e2e6a8915f6b6ed21afa67eadc7c1de1d9a596e791af4bd335b083b30c
     name: kernel-headers
-    evr: 5.14.0-611.35.1.el9_7
-    sourcerpm: kernel-5.14.0-611.35.1.el9_7.src.rpm
+    evr: 5.14.0-611.45.1.el9_7
+    sourcerpm: kernel-5.14.0-611.45.1.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/l/libasan-11.5.0-11.el9.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-appstream-rpms
     size: 440457
@@ -1716,13 +1716,13 @@ arches:
     name: systemd-rpm-macros
     evr: 252-55.el9_7.7
     sourcerpm: systemd-252-55.el9_7.7.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/t/tzdata-2025c-1.el9.noarch.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/t/tzdata-2026a-1.el9.noarch.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
-    size: 925360
-    checksum: sha256:1de77872c3c896e801dc1e28ab01218026ea812cc03999d65a886a4a0afc5797
+    size: 933237
+    checksum: sha256:90bc7252dcef87507a6dc097763894d264544b42c77ce67696192db2bcc8cd07
     name: tzdata
-    evr: 2025c-1.el9
-    sourcerpm: tzdata-2025c-1.el9.src.rpm
+    evr: 2026a-1.el9
+    sourcerpm: tzdata-2026a-1.el9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/u/util-linux-2.37.4-21.el9_7.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
     size: 2424397
@@ -1797,13 +1797,13 @@ arches:
     name: glibc-headers
     evr: 2.34-231.el9_7.10
     sourcerpm: glibc-2.34-231.el9_7.10.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/k/kernel-headers-5.14.0-611.35.1.el9_7.s390x.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/k/kernel-headers-5.14.0-611.45.1.el9_7.s390x.rpm
     repoid: ubi-9-for-s390x-appstream-rpms
-    size: 3009013
-    checksum: sha256:30975ef422cb15e9fa6f43827025ab1fb73baec133f4a0be6f0c237e8b927ead
+    size: 3016369
+    checksum: sha256:f9a73a1c848773ca4319f6c0e9bc7b09337dd63ae57929e6e569acc223873765
     name: kernel-headers
-    evr: 5.14.0-611.35.1.el9_7
-    sourcerpm: kernel-5.14.0-611.35.1.el9_7.src.rpm
+    evr: 5.14.0-611.45.1.el9_7
+    sourcerpm: kernel-5.14.0-611.45.1.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/l/libasan-11.5.0-11.el9.s390x.rpm
     repoid: ubi-9-for-s390x-appstream-rpms
     size: 412655
@@ -2595,13 +2595,13 @@ arches:
     name: systemd-rpm-macros
     evr: 252-55.el9_7.7
     sourcerpm: systemd-252-55.el9_7.7.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/t/tzdata-2025c-1.el9.noarch.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/t/tzdata-2026a-1.el9.noarch.rpm
     repoid: ubi-9-for-s390x-baseos-rpms
-    size: 925360
-    checksum: sha256:1de77872c3c896e801dc1e28ab01218026ea812cc03999d65a886a4a0afc5797
+    size: 933237
+    checksum: sha256:90bc7252dcef87507a6dc097763894d264544b42c77ce67696192db2bcc8cd07
     name: tzdata
-    evr: 2025c-1.el9
-    sourcerpm: tzdata-2025c-1.el9.src.rpm
+    evr: 2026a-1.el9
+    sourcerpm: tzdata-2026a-1.el9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/u/util-linux-2.37.4-21.el9_7.s390x.rpm
     repoid: ubi-9-for-s390x-baseos-rpms
     size: 2326731
@@ -2676,13 +2676,13 @@ arches:
     name: glibc-headers
     evr: 2.34-231.el9_7.10
     sourcerpm: glibc-2.34-231.el9_7.10.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/k/kernel-headers-5.14.0-611.35.1.el9_7.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/k/kernel-headers-5.14.0-611.45.1.el9_7.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
-    size: 3017809
-    checksum: sha256:beca4f8a886a45f20f1ff796fe68b0c2b447d54cff861c3c658c8d497f1adcc5
+    size: 3025189
+    checksum: sha256:eb6aafff64717dc24622c8990dfd50c2a5778b6ec71fac8360d28a524d22bc41
     name: kernel-headers
-    evr: 5.14.0-611.35.1.el9_7
-    sourcerpm: kernel-5.14.0-611.35.1.el9_7.src.rpm
+    evr: 5.14.0-611.45.1.el9_7
+    sourcerpm: kernel-5.14.0-611.45.1.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libmpc-1.2.1-4.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
     size: 66075
@@ -3453,13 +3453,13 @@ arches:
     name: systemd-rpm-macros
     evr: 252-55.el9_7.7
     sourcerpm: systemd-252-55.el9_7.7.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/t/tzdata-2025c-1.el9.noarch.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/t/tzdata-2026a-1.el9.noarch.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
-    size: 925360
-    checksum: sha256:1de77872c3c896e801dc1e28ab01218026ea812cc03999d65a886a4a0afc5797
+    size: 933237
+    checksum: sha256:90bc7252dcef87507a6dc097763894d264544b42c77ce67696192db2bcc8cd07
     name: tzdata
-    evr: 2025c-1.el9
-    sourcerpm: tzdata-2025c-1.el9.src.rpm
+    evr: 2026a-1.el9
+    sourcerpm: tzdata-2026a-1.el9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/u/util-linux-2.37.4-21.el9_7.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
     size: 2382589
