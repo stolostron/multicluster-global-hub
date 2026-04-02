@@ -27,6 +27,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+const (
+	testLocalClusterName     = "local-cluster"
+	testKlusterletConfigName = "ha-standby-local-cluster"
+	testBootstrapSecretName  = "bootstrap-ha-local-cluster"
+	testMCHVersion214        = "2.14.0"
+)
+
 func newHAConfigTestScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
@@ -42,7 +49,7 @@ func newHAConfigTestEvent(t *testing.T, bundle *haconfigbundle.HAConfigBundle) *
 	require.NoError(t, err, "failed to marshal test bundle")
 	evt := cloudevents.NewEvent()
 	evt.SetType("HAConfig")
-	evt.SetSource("local-cluster")
+	evt.SetSource(testLocalClusterName)
 	evt.SetSubject("hub1")
 	evt.SetExtension(constants.CloudEventExtensionKeyExpireTime,
 		time.Now().Add(10*time.Minute).Format(time.RFC3339))
@@ -54,7 +61,7 @@ func newHAConfigTestBundle() *haconfigbundle.HAConfigBundle {
 	return &haconfigbundle.HAConfigBundle{
 		BootstrapSecret: &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "bootstrap-ha-local-cluster",
+				Name:      testBootstrapSecretName,
 				Namespace: "multicluster-engine",
 			},
 			Data: map[string][]byte{
@@ -75,7 +82,7 @@ func TestSync_BootstrapSecretCreatedInMCE(t *testing.T) {
 	scheme := newHAConfigTestScheme()
 	mch := &mchv1.MultiClusterHub{
 		ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"},
-		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: "2.14.0"},
+		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: testMCHVersion214},
 	}
 
 	fakeClient := fake.NewClientBuilder().
@@ -89,7 +96,7 @@ func TestSync_BootstrapSecretCreatedInMCE(t *testing.T) {
 
 	secret := &corev1.Secret{}
 	err = fakeClient.Get(context.Background(), types.NamespacedName{
-		Name:      "bootstrap-ha-local-cluster",
+		Name:      testBootstrapSecretName,
 		Namespace: "multicluster-engine",
 	}, secret)
 	require.NoError(t, err)
@@ -100,7 +107,7 @@ func TestSync_KlusterletConfigCreated_214(t *testing.T) {
 	scheme := newHAConfigTestScheme()
 	mch := &mchv1.MultiClusterHub{
 		ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"},
-		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: "2.14.0"},
+		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: testMCHVersion214},
 	}
 
 	fakeClient := fake.NewClientBuilder().
@@ -119,7 +126,7 @@ func TestSync_KlusterletConfigCreated_214(t *testing.T) {
 		Kind:    "KlusterletConfig",
 	})
 	err = fakeClient.Get(context.Background(), types.NamespacedName{
-		Name: "ha-standby-local-cluster",
+		Name: testKlusterletConfigName,
 	}, klusterletConfig)
 	require.NoError(t, err)
 
@@ -153,7 +160,7 @@ func TestSync_KlusterletConfigCreated_213(t *testing.T) {
 		Kind:    "KlusterletConfig",
 	})
 	err = fakeClient.Get(context.Background(), types.NamespacedName{
-		Name: "ha-standby-local-cluster",
+		Name: testKlusterletConfigName,
 	}, klusterletConfig)
 	require.NoError(t, err)
 
@@ -169,7 +176,7 @@ func TestSync_AllManagedClustersAnnotated(t *testing.T) {
 	scheme := newHAConfigTestScheme()
 	mch := &mchv1.MultiClusterHub{
 		ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"},
-		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: "2.14.0"},
+		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: testMCHVersion214},
 	}
 	cluster1 := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
@@ -178,7 +185,7 @@ func TestSync_AllManagedClustersAnnotated(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster2"},
 	}
 	localCluster := &clusterv1.ManagedCluster{
-		ObjectMeta: metav1.ObjectMeta{Name: "local-cluster"},
+		ObjectMeta: metav1.ObjectMeta{Name: testLocalClusterName},
 	}
 
 	fakeClient := fake.NewClientBuilder().
@@ -196,7 +203,7 @@ func TestSync_AllManagedClustersAnnotated(t *testing.T) {
 		require.NoError(t, err)
 		annotations := mc.GetAnnotations()
 		if shouldHave {
-			assert.Equal(t, "ha-standby-local-cluster", annotations[klusterletConfigAnnotation],
+			assert.Equal(t, testKlusterletConfigName, annotations[klusterletConfigAnnotation],
 				"cluster %s should have klusterlet-config annotation", name)
 		} else {
 			if annotations != nil {
@@ -209,7 +216,7 @@ func TestSync_AllManagedClustersAnnotated(t *testing.T) {
 
 	checkAnnotated("cluster1", true)
 	checkAnnotated("cluster2", true)
-	checkAnnotated("local-cluster", false)
+	checkAnnotated(testLocalClusterName, false)
 }
 
 func TestSync_NilBootstrapSecret(t *testing.T) {
@@ -242,7 +249,7 @@ func TestAnnotateSkipsAlreadyAnnotated(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cluster1",
 			Annotations: map[string]string{
-				klusterletConfigAnnotation: "ha-standby-local-cluster",
+				klusterletConfigAnnotation: testKlusterletConfigName,
 			},
 		},
 	}
@@ -252,11 +259,11 @@ func TestAnnotateSkipsAlreadyAnnotated(t *testing.T) {
 		WithObjects(cluster1).
 		Build()
 
-	err := newHAConfigSyncer(fakeClient).annotateAllManagedClusters(context.Background(), "ha-standby-local-cluster")
+	err := newHAConfigSyncer(fakeClient).annotateAllManagedClusters(context.Background(), testKlusterletConfigName)
 	require.NoError(t, err)
 
 	mc := &clusterv1.ManagedCluster{}
 	err = fakeClient.Get(context.Background(), client.ObjectKeyFromObject(cluster1), mc)
 	require.NoError(t, err)
-	assert.Equal(t, "ha-standby-local-cluster", mc.GetAnnotations()[klusterletConfigAnnotation])
+	assert.Equal(t, testKlusterletConfigName, mc.GetAnnotations()[klusterletConfigAnnotation])
 }

@@ -21,6 +21,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+const (
+	testLocalClusterName = "local-cluster"
+	testLocalClusterURL  = "https://global-hub.example.com:6443"
+	testMSASecretName    = "ha-config-hub1"
+)
+
 type mockProducer struct {
 	sentEvents []cloudevents.Event
 }
@@ -59,14 +65,14 @@ func TestReconcile_CreatesMSAInLocalCluster(t *testing.T) {
 	}
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "local-cluster",
+			Name: testLocalClusterName,
 			Labels: map[string]string{
 				constants.LocalClusterName: "true",
 			},
 		},
 		Spec: clusterv1.ManagedClusterSpec{
 			ManagedClusterClientConfigs: []clusterv1.ClientConfig{
-				{URL: "https://global-hub.example.com:6443"},
+				{URL: testLocalClusterURL},
 			},
 		},
 	}
@@ -93,11 +99,11 @@ func TestReconcile_CreatesMSAInLocalCluster(t *testing.T) {
 	// Verify MSA was created in local-cluster namespace
 	msa := &v1beta1.ManagedServiceAccount{}
 	err = fakeClient.Get(context.Background(), client.ObjectKey{
-		Name:      "ha-config-hub1",
-		Namespace: "local-cluster",
+		Name:      testMSASecretName,
+		Namespace: testLocalClusterName,
 	}, msa)
 	require.NoError(t, err)
-	assert.Equal(t, "ha-config", msa.Labels["owner"])
+	assert.Equal(t, ownerLabel, msa.Labels["owner"])
 }
 
 func TestReconcile_BootstrapSecretUsesLocalClusterURL(t *testing.T) {
@@ -117,21 +123,21 @@ func TestReconcile_BootstrapSecretUsesLocalClusterURL(t *testing.T) {
 	}
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "local-cluster",
+			Name: testLocalClusterName,
 			Labels: map[string]string{
 				constants.LocalClusterName: "true",
 			},
 		},
 		Spec: clusterv1.ManagedClusterSpec{
 			ManagedClusterClientConfigs: []clusterv1.ClientConfig{
-				{URL: "https://global-hub.example.com:6443"},
+				{URL: testLocalClusterURL},
 			},
 		},
 	}
 	msaSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ha-config-hub1",
-			Namespace: "local-cluster",
+			Name:      testMSASecretName,
+			Namespace: testLocalClusterName,
 			Labels: map[string]string{
 				constants.LabelKeyIsManagedServiceAccount: "true",
 			},
@@ -163,7 +169,7 @@ func TestReconcile_BootstrapSecretUsesLocalClusterURL(t *testing.T) {
 	require.Len(t, producer.sentEvents, 1)
 	evt := producer.sentEvents[0]
 	assert.Equal(t, constants.HAConfigMsgKey, evt.Type())
-	assert.Equal(t, "local-cluster", evt.Source())
+	assert.Equal(t, testLocalClusterName, evt.Source())
 	assert.Equal(t, "hub1", evt.Subject())
 	assert.NotNil(t, evt.Extensions()[constants.CloudEventExtensionKeyExpireTime])
 }
@@ -178,7 +184,7 @@ func TestReconcile_RemovesActiveHubResourcesWhenLabelRemoved(t *testing.T) {
 	}
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "local-cluster",
+			Name: testLocalClusterName,
 			Labels: map[string]string{
 				constants.LocalClusterName: "true",
 			},
@@ -186,10 +192,10 @@ func TestReconcile_RemovesActiveHubResourcesWhenLabelRemoved(t *testing.T) {
 	}
 	msa := &v1beta1.ManagedServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ha-config-hub1",
-			Namespace: "local-cluster",
+			Name:      testMSASecretName,
+			Namespace: testLocalClusterName,
 			Labels: map[string]string{
-				"owner": "ha-config",
+				"owner": ownerLabel,
 			},
 		},
 	}
@@ -213,8 +219,8 @@ func TestReconcile_RemovesActiveHubResourcesWhenLabelRemoved(t *testing.T) {
 	// Verify MSA was deleted
 	deletedMSA := &v1beta1.ManagedServiceAccount{}
 	err = fakeClient.Get(context.Background(), client.ObjectKey{
-		Name:      "ha-config-hub1",
-		Namespace: "local-cluster",
+		Name:      testMSASecretName,
+		Namespace: testLocalClusterName,
 	}, deletedMSA)
 	assert.True(t, apierrors.IsNotFound(err), "MSA should be deleted")
 }
@@ -231,30 +237,30 @@ func TestReconcile_Idempotent(t *testing.T) {
 	}
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "local-cluster",
+			Name: testLocalClusterName,
 			Labels: map[string]string{
 				constants.LocalClusterName: "true",
 			},
 		},
 		Spec: clusterv1.ManagedClusterSpec{
 			ManagedClusterClientConfigs: []clusterv1.ClientConfig{
-				{URL: "https://global-hub.example.com:6443"},
+				{URL: testLocalClusterURL},
 			},
 		},
 	}
 	existingMSA := &v1beta1.ManagedServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ha-config-hub1",
-			Namespace: "local-cluster",
+			Name:      testMSASecretName,
+			Namespace: testLocalClusterName,
 			Labels: map[string]string{
-				"owner": "ha-config",
+				"owner": ownerLabel,
 			},
 		},
 	}
 	msaSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ha-config-hub1",
-			Namespace: "local-cluster",
+			Name:      testMSASecretName,
+			Namespace: testLocalClusterName,
 			Labels: map[string]string{
 				constants.LabelKeyIsManagedServiceAccount: "true",
 			},
