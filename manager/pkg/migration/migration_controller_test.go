@@ -40,7 +40,6 @@ func (m *MockProducer) Reconnect(config *transport.TransportInternalConfig, topi
 	return nil
 }
 
-
 func TestUpdateStatusWithRetry(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)

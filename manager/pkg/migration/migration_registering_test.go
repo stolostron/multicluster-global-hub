@@ -238,4 +238,3 @@ func TestRegistering(t *testing.T) {
 		})
 	}
 }
-

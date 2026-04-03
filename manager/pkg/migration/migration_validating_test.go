@@ -355,7 +355,6 @@ func TestValidating(t *testing.T) {
 	}
 }
 
-
 func TestValidatingEdgeCases(t *testing.T) {
 	tests := []struct {
 		name        string
