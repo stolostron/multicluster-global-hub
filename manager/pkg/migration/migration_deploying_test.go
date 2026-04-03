@@ -265,14 +265,14 @@ func TestDeploying(t *testing.T) {
 
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
-				deployedCondition := findDeployingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
+				deployedCondition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
 				assert.NotNil(t, deployedCondition, "ResourceDeployed condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, deployedCondition.Status, "Expected condition status should match")
 			}
 
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
-				deployedCondition := findDeployingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
+				deployedCondition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
 				assert.NotNil(t, deployedCondition, "ResourceDeployed condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, deployedCondition.Reason, "Expected condition reason should match")
 			}
@@ -283,12 +283,3 @@ func TestDeploying(t *testing.T) {
 	}
 }
 
-// findDeployingCondition finds a specific condition in the conditions slice for deploying tests
-func findDeployingCondition(conditions []migrationv1alpha1.MigrationCondition, conditionType string) *migrationv1alpha1.MigrationCondition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-	return nil
-}

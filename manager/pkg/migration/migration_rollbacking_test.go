@@ -315,7 +315,7 @@ func TestRollbacking(t *testing.T) {
 			}
 
 			if tt.expectedConditionType != "" {
-				condition := findControllerCondition(tt.migration.Status.Conditions, tt.expectedConditionType)
+				condition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, tt.expectedConditionType)
 				utils.PrettyPrint(tt.migration.Status)
 				assert.NotNil(t, condition, fmt.Sprintf("Expected condition should exist: %s", tt.expectedConditionType))
 				if tt.expectedConditionStatus != "" {
@@ -563,7 +563,7 @@ func TestHandleRollbackStatus(t *testing.T) {
 			// Verify the results
 			assert.Equal(t, tt.expectedPhase, tt.migration.Status.Phase)
 
-			condition := findControllerCondition(tt.migration.Status.Conditions, tt.condition.Type)
+			condition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, tt.condition.Type)
 			assert.NotNil(t, condition)
 			assert.Equal(t, tt.expectedConditionReason, condition.Reason)
 

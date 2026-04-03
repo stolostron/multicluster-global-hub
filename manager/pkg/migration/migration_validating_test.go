@@ -340,14 +340,14 @@ func TestValidating(t *testing.T) {
 
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
-				validatedCondition := findValidatingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+				validatedCondition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 				assert.NotNil(t, validatedCondition, "ResourceValidated condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, validatedCondition.Status, "Expected condition status should match")
 			}
 
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
-				validatedCondition := findValidatingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+				validatedCondition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 				assert.NotNil(t, validatedCondition, "ResourceValidated condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, validatedCondition.Reason, "Expected condition reason should match")
 			}
@@ -355,15 +355,6 @@ func TestValidating(t *testing.T) {
 	}
 }
 
-// findValidatingCondition finds a specific condition in the conditions slice for validating tests
-func findValidatingCondition(conditions []migrationv1alpha1.MigrationCondition, conditionType string) *migrationv1alpha1.MigrationCondition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-	return nil
-}
 
 func TestValidatingEdgeCases(t *testing.T) {
 	tests := []struct {

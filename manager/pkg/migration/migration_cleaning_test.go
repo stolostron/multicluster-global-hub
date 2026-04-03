@@ -265,14 +265,14 @@ func TestCompleted(t *testing.T) {
 
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
-				cleanedCondition := findCondition(tt.mcm.Status.Conditions, v1alpha1.ConditionTypeCleaned)
+				cleanedCondition := v1alpha1.FindMigrationCondition(tt.mcm.Status.Conditions, v1alpha1.ConditionTypeCleaned)
 				assert.NotNil(t, cleanedCondition, "ResourceCleaned condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, cleanedCondition.Status, "Expected condition status should match")
 			}
 
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
-				cleanedCondition := findCondition(tt.mcm.Status.Conditions, v1alpha1.ConditionTypeCleaned)
+				cleanedCondition := v1alpha1.FindMigrationCondition(tt.mcm.Status.Conditions, v1alpha1.ConditionTypeCleaned)
 				assert.NotNil(t, cleanedCondition, "ResourceCleaned condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, cleanedCondition.Reason, "Expected condition reason should match")
 			}
@@ -280,12 +280,3 @@ func TestCompleted(t *testing.T) {
 	}
 }
 
-// findCondition finds a specific condition in the conditions slice
-func findCondition(conditions []v1alpha1.MigrationCondition, conditionType string) *v1alpha1.MigrationCondition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-	return nil
-}

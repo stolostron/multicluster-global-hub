@@ -77,6 +77,7 @@ func AddHubManagement(mgr ctrl.Manager, producer transport.Producer) error {
 }
 
 func (h *HubManagement) Start(ctx context.Context) error {
+	h.db = database.GetGorm()
 	// when start the hub management, resync all the necessary resources
 	err := h.resync(ctx, transport.Broadcast)
 	if err != nil {

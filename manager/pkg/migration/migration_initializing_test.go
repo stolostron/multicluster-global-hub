@@ -382,14 +382,14 @@ func TestInitializing(t *testing.T) {
 
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
-				initializedCondition := findInitializingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				initializedCondition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 				assert.NotNil(t, initializedCondition, "ResourceInitialized condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, initializedCondition.Status, "Expected condition status should match")
 			}
 
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
-				initializedCondition := findInitializingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				initializedCondition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 				assert.NotNil(t, initializedCondition, "ResourceInitialized condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, initializedCondition.Reason, "Expected condition reason should match")
 			}
@@ -400,12 +400,3 @@ func TestInitializing(t *testing.T) {
 	}
 }
 
-// findInitializingCondition finds a specific condition in the conditions slice for initializing tests
-func findInitializingCondition(conditions []migrationv1alpha1.MigrationCondition, conditionType string) *migrationv1alpha1.MigrationCondition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-	return nil
-}
