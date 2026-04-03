@@ -321,6 +321,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			EnablePostgresMetrics     bool
 			EnableMetrics             bool
 			EnableStackroxIntegration bool
+			StorageLabel              string
 		}{
 			Namespace:                 mgh.GetNamespace(),
 			Replicas:                  replicas,
@@ -337,6 +338,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			EnableMetrics:             mgh.Spec.EnableMetrics,
 			EnableStackroxIntegration: config.WithStackroxIntegration(mgh),
 			Resources:                 operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedSpec),
+			StorageLabel:              config.COMPONENTS_POSTGRES_NAME,
 		}, nil
 	})
 	if err != nil {

@@ -329,6 +329,8 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			Resources:                 utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedSpec),
 			WithACM:                   config.IsACMResourceReady(),
 			TransportFailureThreshold: r.operatorConfig.TransportFailureThreshold,
+			StorageLabel:              config.COMPONENTS_POSTGRES_NAME,
+			KafkaCluster:              "kafka",
 		}, nil
 	})
 	if err != nil {
@@ -481,4 +483,6 @@ type ManagerVariables struct {
 	Resources                 *corev1.ResourceRequirements
 	WithACM                   bool
 	TransportFailureThreshold int
+	StorageLabel              string
+	KafkaCluster              string
 }
