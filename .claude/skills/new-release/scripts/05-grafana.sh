@@ -187,6 +187,29 @@ else
   echo "   ⚠️  No previous grafana tag found, skipping pipeline update" >&2
 fi
 
+# Step 1.5: Update Containerfile.konflux labels
+echo ""
+echo "📍 Step 1.5: Updating Containerfile.konflux labels..."
+
+CONTAINERFILE="Containerfile.konflux"
+if [[ -f "$CONTAINERFILE" ]]; then
+  PREV_GH_VERSION_SHORT="1.${PREV_GH_MINOR}"
+
+  if [[ "$PREV_GH_VERSION_SHORT" != "$GH_VERSION_SHORT" ]]; then
+    echo "   Updating cpe: ${PREV_GH_VERSION_SHORT} → ${GH_VERSION_SHORT}"
+    sed "${SED_INPLACE[@]}" "s|cpe:/a:redhat:multicluster_globalhub:${PREV_GH_VERSION_SHORT}|cpe:/a:redhat:multicluster_globalhub:${GH_VERSION_SHORT}|g" "$CONTAINERFILE"
+
+    echo "   Updating version: release-${PREV_GH_VERSION_SHORT} → release-${GH_VERSION_SHORT}"
+    sed "${SED_INPLACE[@]}" "s|version=\"release-${PREV_GH_VERSION_SHORT}\"|version=\"release-${GH_VERSION_SHORT}\"|g" "$CONTAINERFILE"
+
+    echo "   ✅ Updated $CONTAINERFILE"
+  else
+    echo "   ℹ️  Version unchanged (${GH_VERSION_SHORT}), skipping"
+  fi
+else
+  echo "   ⚠️  File not found: $CONTAINERFILE" >&2
+fi
+
 # Step 2: Commit changes
 echo ""
 echo "📍 Step 2: Committing changes on $GRAFANA_BRANCH..."
@@ -202,6 +225,7 @@ else
 - Rename and update pull-request pipeline for ${GRAFANA_TAG}
 - Rename and update push pipeline for ${GRAFANA_TAG}
 - Update branch references to ${GRAFANA_BRANCH}
+- Update Containerfile.konflux labels (cpe, version)
 
 Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}"
 
@@ -293,6 +317,7 @@ else
 - Rename and update pull-request pipeline for \`${GRAFANA_TAG}\`
 - Rename and update push pipeline for \`${GRAFANA_TAG}\`
 - Update branch references to \`${GRAFANA_BRANCH}\`
+- Update Containerfile.konflux labels (cpe, version)
 
 ## Version Mapping
 
