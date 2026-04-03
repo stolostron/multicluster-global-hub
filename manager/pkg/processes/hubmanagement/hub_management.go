@@ -156,8 +156,7 @@ func (h *HubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeart
 }
 
 func (h *HubManagement) cleanup(hubName string) error {
-	db := database.GetGorm()
-	return db.Transaction(func(tx *gorm.DB) error {
+	return h.db.Transaction(func(tx *gorm.DB) error {
 		// soft delete the cluster
 		e := tx.Where(&models.ManagedCluster{
 			LeafHubName: hubName,
@@ -196,7 +195,6 @@ func (h *HubManagement) cleanup(hubName string) error {
 
 func (h *HubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeartbeat) error {
 	// resync hub resources
-	db := database.GetGorm()
 	for _, hub := range hubs {
 		log.Infow("reactive the hub", "name", hub.Name)
 		err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
@@ -206,7 +204,7 @@ func (h *HubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeart
 					return false, nil
 				}
 				// reactive the batch hub status
-				e := db.Model(&models.LeafHubHeartbeat{}).Where(whereLeafHubName, hub.Name).
+				e := h.db.Model(&models.LeafHubHeartbeat{}).Where(whereLeafHubName, hub.Name).
 					Update("status", constants.HubStatusActive).Error
 				if e != nil {
 					log.Info("fail to reactive the hub, retrying...", "name", hub.Name, "err", e.Error())
@@ -293,11 +291,10 @@ func (h *HubManagement) findStandbyHub(ctx context.Context) (string, error) {
 
 // getManagedClusterNames gets the list of managed cluster names for a given hub
 func (h *HubManagement) getManagedClusterNames(hubName string) ([]string, error) {
-	db := database.GetGorm()
 	var clusterNames []string
 
 	// Use Pluck to get only cluster_name column (generated from payload->metadata->name)
-	if err := db.Model(&models.ManagedCluster{}).
+	if err := h.db.Model(&models.ManagedCluster{}).
 		Where(whereLeafHubName, hubName).
 		Pluck("cluster_name", &clusterNames).Error; err != nil {
 		return nil, err
