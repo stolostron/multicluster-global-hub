@@ -106,9 +106,11 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	networkPolicyObjects, err := npRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
-			Namespace string
+			Namespace    string
+			PostgresName string
 		}{
-			Namespace: mgh.Namespace,
+			Namespace:    mgh.Namespace,
+			PostgresName: config.COMPONENTS_POSTGRES_NAME,
 		}, nil
 	})
 	if err != nil {

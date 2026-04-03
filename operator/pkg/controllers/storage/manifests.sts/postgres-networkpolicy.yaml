@@ -13,6 +13,14 @@ spec:
   - Ingress
   - Egress
   ingress:
+      # Allow connections from operator (for database verification)
+  - from:
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-operator
+    ports:
+    - protocol: TCP
+      port: 5432
   # Allow connections from manager
   - from:
     - podSelector:
@@ -26,6 +34,30 @@ spec:
     - podSelector:
         matchLabels:
           name: multicluster-global-hub-grafana
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow connections from inventory-api
+  - from:
+    - podSelector:
+        matchLabels:
+          name: inventory-api
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow connections from relations-api
+  - from:
+    - podSelector:
+        matchLabels:
+          app: relations-api
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow connections from spicedb (including migration jobs)
+  - from:
+    - podSelector:
+        matchLabels:
+          authzed.com/cluster: spicedb
     ports:
     - protocol: TCP
       port: 5432

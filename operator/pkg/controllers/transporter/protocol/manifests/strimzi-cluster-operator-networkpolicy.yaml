@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: strimzi-cluster-operator
+  namespace: {{.Namespace}}
+  labels:
+    global-hub.open-cluster-management.io/managed-by: global-hub-operator
+spec:
+  podSelector:
+    matchLabels:
+      strimzi.io/kind: cluster-operator
+  policyTypes:
+  - Egress
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+    ports:
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow access to Kafka pods for management (KRaft controller, replication, metrics)
+  - to:
+    - podSelector:
+        matchLabels:
+          strimzi.io/cluster: {{.KafkaCluster}}
+    ports:
+    - protocol: TCP
+      port: 9090  # KRaft controller
+    - protocol: TCP
+      port: 9091  # Replication
+    - protocol: TCP
+      port: 8443  # JMX/metrics
+    - protocol: TCP
+      port: 9093  # TLS client listener (admin API)
+  # Allow access to Kubernetes API (for watching CRs and managing resources)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443
