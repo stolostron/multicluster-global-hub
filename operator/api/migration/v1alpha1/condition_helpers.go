@@ -60,7 +60,8 @@ func SetMigrationCondition(conditions *[]MigrationCondition, newCond metav1.Cond
 	// Check if any content changed
 	contentChanged := existing.Status != newCond.Status ||
 		existing.Reason != newCond.Reason ||
-		existing.Message != newCond.Message
+		existing.Message != newCond.Message ||
+		existing.ObservedGeneration != newCond.ObservedGeneration
 
 	if !contentChanged {
 		return false

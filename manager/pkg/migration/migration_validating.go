@@ -324,12 +324,9 @@ func latestConditionTime(mcm *migrationv1alpha1.ManagedClusterMigration, exclude
 		if excluded[c.Type] {
 			continue
 		}
-		if c.LastUpdateTime.Time.After(latest) {
+		if c.LastUpdateTime.After(latest) {
 			latest = c.LastUpdateTime.Time
 		}
-	}
-	if latest.IsZero() {
-		return time.Now()
 	}
 	return latest
 }
@@ -346,6 +343,11 @@ func updateConditionWithTimeout(mcm *migrationv1alpha1.ManagedClusterMigration,
 	}
 
 	startTime := latestConditionTime(mcm, condition.Type)
+	// Fallback to the current condition's LastTransitionTime when no prior-stage condition exists,
+	// so the timeout baseline is persisted across reconciles instead of resetting to time.Now().
+	if startTime.IsZero() {
+		startTime = foundCond.LastTransitionTime.Time
+	}
 	if condition.Reason == ConditionReasonWaiting && time.Since(startTime) > stageTimeout {
 		condition.Reason = ConditionReasonTimeout
 		if timeoutMessage != "" {
