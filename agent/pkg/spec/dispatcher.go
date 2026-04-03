@@ -3,8 +3,10 @@ package spec
 import (
 	"context"
 	"sync"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cetypes "github.com/cloudevents/sdk-go/v2/types"
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -64,6 +66,21 @@ func (d *genericDispatcher) Start(ctx context.Context) error {
 	return nil
 }
 
+// isEventExpired checks if the event has an expiry time extension and whether it has passed.
+// Events without the expiry extension are considered non-expiring and will not be skipped.
+// Returns the expiry string for logging when the event is expired.
+func isEventExpired(evt *cloudevents.Event) (bool, string) {
+	expireStr, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyExpireTime])
+	if err != nil {
+		return false, ""
+	}
+	expireTime, err := time.Parse(time.RFC3339, expireStr)
+	if err != nil {
+		return false, ""
+	}
+	return time.Now().After(expireTime), expireStr
+}
+
 func (d *genericDispatcher) dispatch(ctx context.Context) {
 	for {
 		select {
@@ -80,6 +97,11 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 			}
 			if subject != transport.Broadcast && subject != d.agentConfig.LeafHubName {
 				d.log.Infow("event dropped due to subject mismatch", "type", evt.Type(), "subject", subject)
+				continue
+			}
+			if expired, expiry := isEventExpired(evt); expired {
+				d.log.Infow("event dropped due to expiry",
+					"type", evt.Type(), "source", evt.Source(), "subject", subject, "expiry", expiry)
 				continue
 			}
 			d.mu.RLock()

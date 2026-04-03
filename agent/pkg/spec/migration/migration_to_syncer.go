@@ -207,7 +207,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 		// update the latest migration time into configmap to avoid duplicate processing
 		if err := configs.SetSyncTimeState(ctx, s.client, migrationStateKey(evt), evt.Time()); err != nil {
-			log.Errorf("failed to update latest migration time: %w", err)
+			log.Errorf("failed to update latest migration time: %v", err)
 		}
 	}()
 
