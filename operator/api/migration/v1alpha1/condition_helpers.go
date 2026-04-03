@@ -69,7 +69,11 @@ func SetMigrationCondition(conditions *[]MigrationCondition, newCond metav1.Cond
 
 	// Status changed: update LastTransitionTime
 	if existing.Status != newCond.Status {
-		existing.LastTransitionTime = now
+		if newCond.LastTransitionTime.IsZero() {
+			existing.LastTransitionTime = now
+		} else {
+			existing.LastTransitionTime = newCond.LastTransitionTime
+		}
 	}
 
 	// Any content change: update LastUpdateTime
