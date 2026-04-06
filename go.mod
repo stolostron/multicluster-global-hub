@@ -57,8 +57,8 @@ require (
 	open-cluster-management.io/governance-policy-propagator v0.18.0
 	open-cluster-management.io/managed-serviceaccount v0.10.0
 	sigs.k8s.io/controller-runtime v0.23.3
-	sigs.k8s.io/kustomize/api v0.20.1
-	sigs.k8s.io/kustomize/kyaml v0.20.1
+	sigs.k8s.io/kustomize/api v0.21.1
+	sigs.k8s.io/kustomize/kyaml v0.21.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
