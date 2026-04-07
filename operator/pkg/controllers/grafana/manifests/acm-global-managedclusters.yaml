@@ -239,7 +239,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH hub_status AS(\n  SELECT leaf_hub_name, 'Available' AS status\n  FROM status.leaf_hub_heartbeats\n  WHERE status = 'active'\n)\nSELECT lh.leaf_hub_name || ' (' || COALESCE(hs.status, 'Unknown') || ')' as hub,\n  COUNT(DISTINCT mc.cluster_id) as clusters\n  FROM status.leaf_hubs lh\n  LEFT JOIN status.managed_clusters mc\n    ON lh.leaf_hub_name = mc.leaf_hub_name\n    AND mc.deleted_at IS NULL\n  LEFT JOIN hub_status hs\n    ON lh.leaf_hub_name = hs.leaf_hub_name\n  WHERE lh.leaf_hub_name ${hub_query:raw}\n    AND lh.deleted_at IS NULL\n  GROUP BY lh.leaf_hub_name, hs.status\n  ORDER BY clusters DESC",
+              "rawSql": "WITH hub_status AS(\n  SELECT leaf_hub_name, 'Available' AS status\n  FROM status.leaf_hub_heartbeats\n  WHERE status = 'active'\n)\nSELECT lh.leaf_hub_name || ' (' || COALESCE(hs.status, 'Unknown') || ')' as hub,\n  COUNT(DISTINCT mc.cluster_id) as clusters\n  FROM status.leaf_hubs lh\n  LEFT JOIN status.managed_clusters mc\n    ON lh.leaf_hub_name = mc.leaf_hub_name\n    AND mc.deleted_at IS NULL\n    AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n    AND (string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n    OR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0'))\n  LEFT JOIN hub_status hs\n    ON lh.leaf_hub_name = hs.leaf_hub_name\n  WHERE lh.leaf_hub_name ${hub_query:raw}\n    AND lh.deleted_at IS NULL\n  GROUP BY lh.leaf_hub_name, hs.status\n  ORDER BY clusters DESC",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -391,7 +391,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH all_managed_clusters AS (\n  WITH cluster_status AS(\n    SELECT cluster_id, 'Available' AS available \n    FROM (\n      SELECT cluster_id, jsonb_array_elements(payload->'status'->'conditions') AS conditions\n      FROM status.managed_clusters) c1\n    WHERE conditions->>'type' = 'ManagedClusterConditionAvailable' AND conditions->>'status' = 'True'\n  )\n  SELECT leaf_hub_name,mc.cluster_id, COALESCE(available,'Unknown') AS available\n  FROM status.managed_clusters mc LEFT JOIN cluster_status cs\n  ON mc.cluster_id = cs.cluster_id\n  WHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}\n  AND payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND (string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n  OR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0'))\n)\nSELECT available, COUNT(DISTINCT cluster_id)\nFROM all_managed_clusters\nGROUP BY available",
+              "rawSql": "WITH all_managed_clusters AS (\n  WITH cluster_status AS(\n    SELECT cluster_id, 'Available' AS available \n    FROM (\n      SELECT cluster_id, jsonb_array_elements(payload->'status'->'conditions') AS conditions\n      FROM status.managed_clusters\n      WHERE deleted_at IS NULL) c1\n    WHERE conditions->>'type' = 'ManagedClusterConditionAvailable' AND conditions->>'status' = 'True'\n  )\n  SELECT leaf_hub_name,mc.cluster_id, COALESCE(available,'Unknown') AS available\n  FROM status.managed_clusters mc LEFT JOIN cluster_status cs\n  ON mc.cluster_id = cs.cluster_id\n  WHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}\n  AND payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND (string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n  OR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0'))\n)\nSELECT available, COUNT(DISTINCT cluster_id)\nFROM all_managed_clusters\nGROUP BY available",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -781,7 +781,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH cluster_status AS(\n  SELECT cluster_id, 'Available' AS available \n  FROM (\n    SELECT cluster_id, jsonb_array_elements(payload->'status'->'conditions') AS conditions\n    FROM status.managed_clusters) c1\n  WHERE conditions->>'type' = 'ManagedClusterConditionAvailable' AND conditions->>'status' = 'True'\n)\nSELECT mc.leaf_hub_name,mc.cluster_name,\n  mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' AS openshiftVersion, \n  mc.payload -> 'metadata' -> 'labels' ->> 'cloud' AS cloud,\n  mc.payload -> 'metadata' -> 'labels' ->> 'vendor' AS vendor,\n  COALESCE(available,'Unknown') AS available,\n  console_url as \"hub_console_url\",\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || cluster_name\n  END AS hub_obs_url\nFROM status.managed_clusters mc LEFT JOIN cluster_status cs\nON mc.cluster_id = cs.cluster_id\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nWHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND (string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n  OR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0'))",
+              "rawSql": "WITH cluster_status AS(\n  SELECT cluster_id, 'Available' AS available \n  FROM (\n    SELECT cluster_id, jsonb_array_elements(payload->'status'->'conditions') AS conditions\n    FROM status.managed_clusters\n    WHERE deleted_at IS NULL) c1\n  WHERE conditions->>'type' = 'ManagedClusterConditionAvailable' AND conditions->>'status' = 'True'\n)\nSELECT mc.leaf_hub_name,mc.cluster_name,\n  mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' AS openshiftVersion, \n  mc.payload -> 'metadata' -> 'labels' ->> 'cloud' AS cloud,\n  mc.payload -> 'metadata' -> 'labels' ->> 'vendor' AS vendor,\n  COALESCE(available,'Unknown') AS available,\n  console_url as \"hub_console_url\",\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || cluster_name\n  END AS hub_obs_url\nFROM status.managed_clusters mc LEFT JOIN cluster_status cs\nON mc.cluster_id = cs.cluster_id\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name AND lh.deleted_at IS NULL\nWHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND (string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n  OR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0'))",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -964,7 +964,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT emc.created_at,mc.leaf_hub_name,mc.cluster_name,event_type,reason,message,\n  console_url as \"hub_console_url\",\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || mc.cluster_name\n  END AS hub_obs_url\nFROM status.managed_clusters mc JOIN event.managed_clusters emc\nON mc.cluster_id = emc.cluster_id\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nWHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND (\n    string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n    OR \n    (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0')\n    )\nORDER BY emc.created_at DESC\nLIMIT 100",
+              "rawSql": "SELECT emc.created_at,mc.leaf_hub_name,mc.cluster_name,event_type,reason,message,\n  console_url as \"hub_console_url\",\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || mc.cluster_name\n  END AS hub_obs_url\nFROM status.managed_clusters mc JOIN event.managed_clusters emc\nON mc.cluster_id = emc.cluster_id\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name AND lh.deleted_at IS NULL\nWHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND (\n    string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n    OR \n    (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0')\n    )\nORDER BY emc.created_at DESC\nLIMIT 100",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -1053,13 +1053,13 @@ data:
               "type": "grafana-postgresql-datasource",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
+            "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters\nWHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}",
             "includeAll": false,
             "label": "Label",
             "name": "label",
             "options": [],
-            "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
-            "refresh": 2,
+            "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters\nWHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}",
+            "refresh": 1,
             "regex": "",
             "skipUrlSync": true,
             "sort": 1,
@@ -1076,14 +1076,14 @@ data:
               "type": "grafana-postgresql-datasource",
               "uid": "P244538DD76A4C61D"
             },
-            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}",
             "includeAll": true,
             "label": "Value",
             "multi": true,
             "name": "value",
             "options": [],
-            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
-            "refresh": 2,
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters\nWHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}",
+            "refresh": 1,
             "regex": "",
             "skipUrlSync": true,
             "type": "query"
