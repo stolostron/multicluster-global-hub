@@ -50,12 +50,8 @@ spec:
       port: 5353
     - protocol: TCP
       port: 5353
-  # Allow access to PostgreSQL in same namespace
-  - to:
-    - podSelector:
-        matchLabels:
-          name: {{.StorageLabel}}
-    ports:
+  # Allow access to PostgreSQL (in-cluster or external)
+  - ports:
     - protocol: TCP
       port: 5432
   # Allow OAuth token validation with OpenShift OAuth
@@ -69,10 +65,6 @@ spec:
         matchLabels:
           kubernetes.io/metadata.name: default
     ports:
-    - protocol: TCP
-      port: 443
-  # Allow HTTPS to external services for OAuth proxy
-  - ports:
     - protocol: TCP
       port: 443
   # Allow Grafana HA alerting between replicas
