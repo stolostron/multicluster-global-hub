@@ -49,8 +49,8 @@ func TestGetCurrentClusterName(t *testing.T) {
 							Spec: corev1.PodSpec{
 								Containers: []corev1.Container{
 									{
-										Name:  "agent",
-										Args:  []string{"--leaf-hub-name=local-cluster"},
+										Name: "agent",
+										Args: []string{"--leaf-hub-name=local-cluster"},
 									},
 								},
 							},
@@ -114,7 +114,7 @@ func TestGetCurrentClusterName(t *testing.T) {
 func TestGetLocalClusterName(t *testing.T) {
 	namespace := utils.GetDefaultNamespace()
 
-	err := clusterv1.AddToScheme(scheme.Scheme)
+	err := clusterv1.Install(scheme.Scheme)
 	assert.NoError(t, err)
 
 	tests := []struct {
@@ -281,7 +281,7 @@ func TestReconcile_LocalAgent(t *testing.T) {
 
 	err := v1alpha4.AddToScheme(scheme.Scheme)
 	assert.NoError(t, err)
-	err = clusterv1.AddToScheme(scheme.Scheme)
+	err = clusterv1.Install(scheme.Scheme)
 	assert.NoError(t, err)
 	err = appsv1.AddToScheme(scheme.Scheme)
 	assert.NoError(t, err)
@@ -291,7 +291,7 @@ func TestReconcile_LocalAgent(t *testing.T) {
 		initObjects []runtime.Object
 	}{
 		{
-			name: "reconcile with nil MGH",
+			name:        "reconcile with nil MGH",
 			initObjects: []runtime.Object{},
 		},
 		{
