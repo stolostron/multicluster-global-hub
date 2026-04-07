@@ -31,9 +31,9 @@ spec:
     - namespaceSelector:
         matchLabels:
           global-hub.open-cluster-management.io/managed-hub: "true"
-    podSelector:
-      matchLabels:
-        name: multicluster-global-hub-agent
+      podSelector:
+        matchLabels:
+          name: multicluster-global-hub-agent
     ports:
     - protocol: TCP
       port: 9093
