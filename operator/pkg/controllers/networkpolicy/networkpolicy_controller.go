@@ -77,15 +77,21 @@ func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 var networkPolicyPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			(e.Object.GetName() == "default-deny-all" || e.Object.GetName() == "allow-dns")
+			(e.Object.GetName() == "default-deny-all" ||
+			 e.Object.GetName() == "allow-dns" ||
+			 e.Object.GetName() == "multicluster-global-hub-operator")
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			(e.ObjectNew.GetName() == "default-deny-all" || e.ObjectNew.GetName() == "allow-dns")
+			(e.ObjectNew.GetName() == "default-deny-all" ||
+			 e.ObjectNew.GetName() == "allow-dns" ||
+			 e.ObjectNew.GetName() == "multicluster-global-hub-operator")
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			(e.Object.GetName() == "default-deny-all" || e.Object.GetName() == "allow-dns")
+			(e.Object.GetName() == "default-deny-all" ||
+			 e.Object.GetName() == "allow-dns" ||
+			 e.Object.GetName() == "multicluster-global-hub-operator")
 	},
 }
 
