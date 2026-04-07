@@ -238,6 +238,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 
 	inventoryObjects, err := hohRenderer.Render("inventory-api", "", func(profile string) (interface{}, error) {
 		return struct {
+			Name                  string
 			Image                 string
 			Replicas              int32
 			ImagePullSecret       string
@@ -248,6 +249,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 			PostgresPassword      string
 			PostgresCACert        string
 			PostgresDBName        string
+			PostgresName          string
 			Namespace             string
 			NodeSelector          map[string]string
 			Tolerations           []corev1.Toleration
@@ -257,6 +259,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 			KafkaSSLKeyPEM        string
 			InventoryAPIRouteHost string
 		}{
+			Name:                  config.COMPONENTS_INVENTORY_API_NAME,
 			Image:                 config.GetImage(config.InventoryImageKey),
 			Replicas:              replicas,
 			ImagePullSecret:       mgh.Spec.ImagePullSecret,
@@ -267,6 +270,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 			PostgresPassword:      postgresPassword,
 			PostgresDBName:        InventoryDatabaseName,
 			PostgresCACert:        base64.StdEncoding.EncodeToString(storageConn.CACert),
+			PostgresName:          config.COMPONENTS_POSTGRES_NAME,
 			Namespace:             mgh.Namespace,
 			NodeSelector:          mgh.Spec.NodeSelector,
 			Tolerations:           mgh.Spec.Tolerations,

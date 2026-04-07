@@ -1,0 +1,70 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multicluster-global-hub-agent
+  namespace: {{.Namespace}}
+  labels:
+    component: multicluster-global-hub-agent
+    global-hub.open-cluster-management.io/managed-by: global-hub-operator
+spec:
+  podSelector:
+    matchLabels:
+      name: multicluster-global-hub-agent
+  policyTypes:
+  - Egress
+  egress:
+  # Allow DNS resolution (OpenShift)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+    ports:
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow DNS resolution (Kubernetes)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow access to Kubernetes API server
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow connections to Kafka (Strimzi)
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          strimzi.io/cluster: kafka
+    ports:
+    - protocol: TCP
+      port: 9093
+    - protocol: TCP
+      port: 9094
+    - protocol: TCP
+      port: 9095
+  # Allow connections to external Kafka via LoadBalancer/NodePort
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 9092
+    - protocol: TCP
+      port: 9093
+  # Allow HTTPS egress for internal Kubernetes services (webhooks, admission controllers)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8443

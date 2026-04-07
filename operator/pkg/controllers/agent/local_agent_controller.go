@@ -41,6 +41,9 @@ type LocalAgentController struct {
 }
 
 func StartLocalAgentController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if !config.IsACMResourceReady() {
+		return nil, nil
+	}
 	if localAgentReconciler != nil {
 		return localAgentReconciler, nil
 	}

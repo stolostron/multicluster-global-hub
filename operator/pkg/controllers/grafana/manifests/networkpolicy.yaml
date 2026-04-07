@@ -1,0 +1,77 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multicluster-global-hub-grafana
+  namespace: {{.Namespace}}
+  labels:
+    name: multicluster-global-hub-grafana
+spec:
+  podSelector:
+    matchLabels:
+      name: multicluster-global-hub-grafana
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow external access via OpenShift router
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          network.openshift.io/policy-group: ingress
+    ports:
+    - protocol: TCP
+      port: 9443
+  # Allow metrics scraping from Prometheus
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-monitoring
+    ports:
+    - protocol: TCP
+      port: 3001
+    - protocol: TCP
+      port: 9443
+  # Allow Grafana HA alerting between replicas
+  - from:
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-grafana
+    ports:
+    - protocol: TCP
+      port: 9094
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+    ports:
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow access to PostgreSQL (in-cluster or external)
+  - ports:
+    - protocol: TCP
+      port: 5432
+  # Allow OAuth token validation with OpenShift OAuth
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-authentication
+  # Allow access to Kubernetes API for OAuth
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow Grafana HA alerting between replicas
+  - to:
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-grafana
+    ports:
+    - protocol: TCP
+      port: 9094

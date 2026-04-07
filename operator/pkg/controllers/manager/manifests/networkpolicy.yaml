@@ -1,0 +1,67 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multicluster-global-hub-manager
+  namespace: {{.Namespace}}
+  labels:
+    name: multicluster-global-hub-manager
+spec:
+  podSelector:
+    matchLabels:
+      name: multicluster-global-hub-manager
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow API server access from within cluster
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow metrics scraping from Prometheus
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-monitoring
+    ports:
+    - protocol: TCP
+      port: 8384
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+    ports:
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow access to PostgreSQL in same namespace
+  - to:
+    - podSelector:
+        matchLabels:
+          name: {{.StorageLabel}}
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow access to Kafka in same namespace
+  - to:
+    - podSelector:
+        matchLabels:
+          strimzi.io/cluster: {{.KafkaCluster}}
+    ports:
+    - protocol: TCP
+      port: 9093
+  # Allow access to Kubernetes API server
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow access to other namespaces (for managing resources)
+  - to:
+    - namespaceSelector: {}
