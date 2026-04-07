@@ -388,10 +388,15 @@ var _ = Describe("Migration Error Scenarios", func() {
 
 			By("Setting up short timeout for rollback test")
 			// Configure the migration to use a very short timeout for rollback testing
-			m.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
-				StageTimeout: &metav1.Duration{Duration: 1 * time.Second},
-			}
-			Expect(mgr.GetClient().Update(ctx, m)).To(Succeed())
+			Eventually(func() error {
+				if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+					return err
+				}
+				m.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
+					StageTimeout: &metav1.Duration{Duration: 1 * time.Second},
+				}
+				return mgr.GetClient().Update(ctx, m)
+			}, "10s", "200ms").Should(Succeed())
 
 			By("Simulating partial rollback success (only from hub)")
 			migration.SetStarted(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseRollbacking)

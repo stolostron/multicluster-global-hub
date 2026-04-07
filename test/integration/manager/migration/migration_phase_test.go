@@ -149,7 +149,6 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 				return false
 			}
 			condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
-			fmt.Printf("#######%v, m: %v \n", condition, m)
 			return condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == migration.ConditionReasonError
 		}, "10s", "200ms").Should(BeTrue())
 
