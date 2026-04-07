@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,11 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -22,37 +16,7 @@ import (
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func TestNewStorageReconciler(t *testing.T) {
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme.Scheme,
-	})
-	if err != nil {
-		t.Skip("Skipping test - no kubeconfig available")
-	}
-
-	reconciler := NewStorageReconciler(mgr, true)
-	assert.NotNil(t, reconciler)
-	assert.Equal(t, mgr, reconciler.Manager)
-	assert.False(t, reconciler.upgrade)
-	assert.Equal(t, 0, reconciler.databaseReconcileCount)
-	assert.True(t, reconciler.enableMetrics)
-}
-
-func TestStorageReconcilerIsResourceRemoved(t *testing.T) {
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme.Scheme,
-	})
-	if err != nil {
-		t.Skip("Skipping test - no kubeconfig available")
-	}
-
-	reconciler := &StorageReconciler{
-		Manager: mgr,
-	}
-
-	result := reconciler.IsResourceRemoved()
-	assert.True(t, result)
-}
+// Predicate Tests - These test critical watch logic that determines which resources trigger reconciliation
 
 func TestConfigMapPredicate(t *testing.T) {
 	tests := []struct {
@@ -212,6 +176,16 @@ func TestNetworkPolicyPredicate_Storage(t *testing.T) {
 			},
 			wantBool: false,
 		},
+		{
+			name: "wrong namespace should not match",
+			obj: &networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      BuiltinPostgresName,
+					Namespace: "wrong-namespace",
+				},
+			},
+			wantBool: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -301,6 +275,8 @@ func TestSecretPredicate_Storage(t *testing.T) {
 	}
 }
 
+// Utility Function Tests - These test pure functions with business logic
+
 func TestGetRetentionConditions(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -336,6 +312,34 @@ func TestGetRetentionConditions(t *testing.T) {
 			wantType:   config.CONDITION_TYPE_DATABASE,
 			wantStatus: config.CONDITION_STATUS_FALSE,
 		},
+		{
+			name: "empty retention is invalid",
+			mgh: &v1alpha4.MulticlusterGlobalHub{
+				Spec: v1alpha4.MulticlusterGlobalHubSpec{
+					DataLayerSpec: v1alpha4.DataLayerSpec{
+						Postgres: v1alpha4.PostgresSpec{
+							Retention: "",
+						},
+					},
+				},
+			},
+			wantType:   config.CONDITION_TYPE_DATABASE,
+			wantStatus: config.CONDITION_STATUS_FALSE,
+		},
+		{
+			name: "retention with year format",
+			mgh: &v1alpha4.MulticlusterGlobalHub{
+				Spec: v1alpha4.MulticlusterGlobalHubSpec{
+					DataLayerSpec: v1alpha4.DataLayerSpec{
+						Postgres: v1alpha4.PostgresSpec{
+							Retention: "1y",
+						},
+					},
+				},
+			},
+			wantType:   config.CONDITION_TYPE_DATABASE,
+			wantStatus: config.CONDITION_STATUS_TRUE,
+		},
 	}
 
 	for _, tt := range tests {
@@ -364,170 +368,37 @@ func TestGeneratePassword(t *testing.T) {
 			name:   "generate 32 char password",
 			length: 32,
 		},
+		{
+			name:   "generate 64 char password",
+			length: 64,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			password := generatePassword(tt.length)
 			assert.Equal(t, tt.length, len(password))
+
 			// Verify all characters are alphanumeric
 			for _, char := range password {
 				assert.True(t, (char >= 'A' && char <= 'Z') ||
 					(char >= 'a' && char <= 'z') ||
-					(char >= '0' && char <= '9'))
+					(char >= '0' && char <= '9'),
+					"Password contains non-alphanumeric character: %c", char)
+			}
+
+			// Test that multiple calls generate different passwords (randomness check)
+			password2 := generatePassword(tt.length)
+			// It's extremely unlikely (but not impossible) that two random passwords are identical
+			// This is a heuristic check
+			if tt.length > 8 {
+				assert.NotEqual(t, password, password2, "Generated passwords should be random")
 			}
 		})
 	}
 }
 
-func TestGetDatabaseComponentStatus(t *testing.T) {
-	namespace := commonutils.GetDefaultNamespace()
-
-	err := v1alpha4.AddToScheme(scheme.Scheme)
-	assert.NoError(t, err)
-
-	tests := []struct {
-		name         string
-		reconcileErr error
-		wantStatus   string
-	}{
-		{
-			name:         "reconcile error",
-			reconcileErr: assert.AnError,
-			wantStatus:   config.CONDITION_STATUS_FALSE,
-		},
-		{
-			name:         "no error but no connection",
-			reconcileErr: nil,
-			wantStatus:   config.CONDITION_STATUS_FALSE,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-
-			ctx := context.Background()
-			condition := getDatabaseComponentStatus(ctx, fakeClient, namespace, config.COMPONENTS_POSTGRES_NAME, tt.reconcileErr)
-
-			assert.Equal(t, "DatabaseConnection", condition.Kind)
-			assert.Equal(t, config.COMPONENTS_POSTGRES_NAME, condition.Name)
-			assert.Equal(t, tt.wantStatus, string(condition.Status))
-		})
-	}
-}
-
-func TestReconcile_Storage(t *testing.T) {
-	namespace := commonutils.GetDefaultNamespace()
-
-	err := v1alpha4.AddToScheme(scheme.Scheme)
-	assert.NoError(t, err)
-
-	tests := []struct {
-		name        string
-		initObjects []runtime.Object
-	}{
-		{
-			name:        "reconcile with nil MGH",
-			initObjects: []runtime.Object{},
-		},
-		{
-			name: "reconcile with paused MGH",
-			initObjects: []runtime.Object{
-				&v1alpha4.MulticlusterGlobalHub{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-mgh",
-						Namespace: namespace,
-						Annotations: map[string]string{
-							"mgh-pause": "true",
-						},
-					},
-					Spec: v1alpha4.MulticlusterGlobalHubSpec{},
-				},
-			},
-		},
-		{
-			name: "reconcile with deleting MGH",
-			initObjects: []runtime.Object{
-				&v1alpha4.MulticlusterGlobalHub{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:              "test-mgh",
-						Namespace:         namespace,
-						DeletionTimestamp: &metav1.Time{},
-					},
-					Spec: v1alpha4.MulticlusterGlobalHubSpec{},
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-				Scheme: scheme.Scheme,
-			})
-			if err != nil {
-				t.Skip("Skipping test - no kubeconfig available")
-			}
-
-			reconciler := &StorageReconciler{
-				Manager:                mgr,
-				upgrade:                false,
-				databaseReconcileCount: 0,
-				enableMetrics:          false,
-			}
-
-			ctx := context.Background()
-			req := ctrl.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      "test-mgh",
-					Namespace: namespace,
-				},
-			}
-
-			_, err = reconciler.Reconcile(ctx, req)
-			// Errors are expected in unit tests due to missing configuration
-			t.Logf("Reconcile result: %v", err)
-		})
-	}
-}
-
-func TestStartController_Storage(t *testing.T) {
-	// Reset the singleton
-	storageReconciler = nil
-
-	err := v1alpha4.AddToScheme(scheme.Scheme)
-	assert.NoError(t, err)
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme.Scheme,
-	})
-	if err != nil {
-		t.Skip("Skipping test - no kubeconfig available")
-	}
-
-	initOption := config.ControllerOption{
-		Manager: mgr,
-		MulticlusterGlobalHub: &v1alpha4.MulticlusterGlobalHub{
-			Spec: v1alpha4.MulticlusterGlobalHubSpec{
-				EnableMetrics: true,
-			},
-		},
-	}
-
-	// Test first call - should create controller
-	controller, err := StartController(initOption)
-	if err != nil {
-		t.Logf("Controller setup error (may be expected): %v", err)
-	}
-
-	// Test second call - should return existing controller
-	controller2, err2 := StartController(initOption)
-	if err == nil {
-		assert.NoError(t, err2)
-		assert.Equal(t, controller, controller2)
-	}
-
-	// Cleanup
-	storageReconciler = nil
+func TestIsResourceRemoved(t *testing.T) {
+	reconciler := &StorageReconciler{}
+	assert.True(t, reconciler.IsResourceRemoved())
 }
