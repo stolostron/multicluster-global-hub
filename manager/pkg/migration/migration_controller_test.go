@@ -390,7 +390,8 @@ func TestSelectAndPrepareMigration(t *testing.T) {
 				}
 
 				if tt.expectedConditionType != "" {
-					condition := migrationv1alpha1.FindMigrationCondition(selectedMigration.Status.Conditions, tt.expectedConditionType)
+					condition := migrationv1alpha1.FindMigrationCondition(
+					selectedMigration.Status.Conditions, tt.expectedConditionType)
 					assert.NotNil(t, condition, "Expected condition should exist")
 					if tt.expectedConditionStatus != "" {
 						assert.Equal(t, tt.expectedConditionStatus, condition.Status, "Expected condition status should match")

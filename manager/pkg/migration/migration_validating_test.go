@@ -340,14 +340,16 @@ func TestValidating(t *testing.T) {
 
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
-				validatedCondition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+				validatedCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 				assert.NotNil(t, validatedCondition, "ResourceValidated condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, validatedCondition.Status, "Expected condition status should match")
 			}
 
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
-				validatedCondition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+				validatedCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 				assert.NotNil(t, validatedCondition, "ResourceValidated condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, validatedCondition.Reason, "Expected condition reason should match")
 			}

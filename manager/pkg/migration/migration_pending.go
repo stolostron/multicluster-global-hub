@@ -65,7 +65,8 @@ func (m *ClusterMigrationController) selectAndPrepareMigration(ctx context.Conte
 
 	// select the instance, and initialize it if it's not validated yet
 	if nextMigration != nil &&
-		migrationv1alpha1.FindMigrationCondition(nextMigration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) == nil {
+		migrationv1alpha1.FindMigrationCondition(
+			nextMigration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) == nil {
 		if err := m.UpdateStatusWithRetry(ctx, nextMigration, metav1.Condition{
 			Type:    migrationv1alpha1.ConditionTypeStarted,
 			Status:  metav1.ConditionTrue,
