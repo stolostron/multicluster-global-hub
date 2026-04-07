@@ -103,11 +103,11 @@ func TestValidating(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseValidating,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeValidated,
 							Status: metav1.ConditionTrue,
-						},
+						}},
 					},
 				},
 			},
@@ -340,29 +340,21 @@ func TestValidating(t *testing.T) {
 
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
-				validatedCondition := findValidatingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+				validatedCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 				assert.NotNil(t, validatedCondition, "ResourceValidated condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, validatedCondition.Status, "Expected condition status should match")
 			}
 
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
-				validatedCondition := findValidatingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+				validatedCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 				assert.NotNil(t, validatedCondition, "ResourceValidated condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, validatedCondition.Reason, "Expected condition reason should match")
 			}
 		})
 	}
-}
-
-// findValidatingCondition finds a specific condition in the conditions slice for validating tests
-func findValidatingCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-	return nil
 }
 
 func TestValidatingEdgeCases(t *testing.T) {

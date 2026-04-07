@@ -40,16 +40,6 @@ func (m *MockProducer) Reconnect(config *transport.TransportInternalConfig, topi
 	return nil
 }
 
-// findControllerCondition finds a specific condition in the conditions slice for controller tests
-func findControllerCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-	return nil
-}
-
 func TestUpdateStatusWithRetry(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
@@ -120,12 +110,12 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
 							Reason: "TestReason",
-						},
+						}},
 					},
 				},
 			},
@@ -150,12 +140,12 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
 							Reason: "TestReason",
-						},
+						}},
 					},
 				},
 			},
@@ -194,7 +184,7 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 			assert.Equal(t, tt.expectedPhase, tt.migration.Status.Phase, "Expected phase should match")
 
 			// Verify the condition status and reason
-			condition := findControllerCondition(tt.migration.Status.Conditions, tt.condition.Type)
+			condition := migrationv1alpha1.FindMigrationCondition(tt.migration.Status.Conditions, tt.condition.Type)
 			assert.NotNil(t, condition, "Condition should exist")
 			assert.Equal(t, tt.expectedConditionStatus, condition.Status, "Expected condition status should match")
 			assert.Equal(t, tt.expectedConditionReason, condition.Reason, "Expected condition reason should match")
@@ -400,7 +390,8 @@ func TestSelectAndPrepareMigration(t *testing.T) {
 				}
 
 				if tt.expectedConditionType != "" {
-					condition := findControllerCondition(selectedMigration.Status.Conditions, tt.expectedConditionType)
+					condition := migrationv1alpha1.FindMigrationCondition(
+						selectedMigration.Status.Conditions, tt.expectedConditionType)
 					assert.NotNil(t, condition, "Expected condition should exist")
 					if tt.expectedConditionStatus != "" {
 						assert.Equal(t, tt.expectedConditionStatus, condition.Status, "Expected condition status should match")

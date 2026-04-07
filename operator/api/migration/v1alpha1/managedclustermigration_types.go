@@ -101,6 +101,18 @@ type ManagedClusterMigrationSpec struct {
 	SupportedConfigs *ConfigMeta `json:"supportedConfigs,omitempty"`
 }
 
+// MigrationCondition extends metav1.Condition with LastUpdateTime to track
+// when any field (reason, message, or status) was last updated. Unlike LastTransitionTime
+// (which only updates on status changes per K8s convention), LastUpdateTime updates on
+// any condition content change.
+type MigrationCondition struct {
+	metav1.Condition `json:",inline"`
+
+	// LastUpdateTime is the last time the condition was updated (reason, message, or status change).
+	// +optional
+	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
+}
+
 // ManagedClusterMigrationStatus defines the observed state of managedclustermigration
 type ManagedClusterMigrationStatus struct {
 	// Phase represents the current phase of the migration
@@ -110,7 +122,7 @@ type ManagedClusterMigrationStatus struct {
 
 	// Conditions represents the latest available observations of the current state
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Conditions []MigrationCondition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

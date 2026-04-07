@@ -9,7 +9,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
@@ -45,7 +44,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized) ||
+	if migrationv1alpha1.IsMigrationConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized) ||
 		mcm.Status.Phase != migrationv1alpha1.PhaseInitializing {
 		return false, nil
 	}

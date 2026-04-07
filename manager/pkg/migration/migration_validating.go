@@ -10,7 +10,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -63,7 +62,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) ||
+	if migrationv1alpha1.IsMigrationConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) ||
 		mcm.Status.Phase != migrationv1alpha1.PhaseValidating {
 		return false, nil
 	}
@@ -308,15 +307,48 @@ func isHubCluster(ctx context.Context, c client.Client, mc *clusterv1.ManagedClu
 	return false
 }
 
-// updateConditionWithTimeout updates the condition with timeout, if the condition is not found, it will return false
+// latestConditionTime returns the most recent LastUpdateTime among all conditions
+// except those whose types are in the excluded list. This is used as the timeout baseline
+// for a stage — by excluding the current condition type, the latest remaining condition
+// naturally represents the previous stage's completion time. LastUpdateTime is used instead
+// of LastTransitionTime because it more accurately represents when the previous stage completed
+// (it updates on any content change, not just status transitions).
+func latestConditionTime(mcm *migrationv1alpha1.ManagedClusterMigration, excludeTypes ...string) time.Time {
+	excluded := make(map[string]bool, len(excludeTypes))
+	for _, t := range excludeTypes {
+		excluded[t] = true
+	}
+	var latest time.Time
+	for i := range mcm.Status.Conditions {
+		c := &mcm.Status.Conditions[i]
+		if excluded[c.Type] {
+			continue
+		}
+		if c.LastUpdateTime.After(latest) {
+			latest = c.LastUpdateTime.Time
+		}
+	}
+	return latest
+}
+
+// updateConditionWithTimeout updates the condition with timeout, if the condition is not found, it will return false.
+// It uses the latest condition time (excluding current type) as the timeout baseline, so that the current
+// condition's LastTransitionTime can be freely updated when reason or message changes.
 func updateConditionWithTimeout(mcm *migrationv1alpha1.ManagedClusterMigration,
 	condition *metav1.Condition, stageTimeout time.Duration, timeoutMessage string,
 ) bool {
-	foundCond := meta.FindStatusCondition(mcm.Status.Conditions, condition.Type)
+	foundCond := migrationv1alpha1.FindMigrationCondition(mcm.Status.Conditions, condition.Type)
 	if foundCond == nil {
 		return false
 	}
-	if condition.Reason == ConditionReasonWaiting && time.Since(foundCond.LastTransitionTime.Time) > stageTimeout {
+
+	startTime := latestConditionTime(mcm, condition.Type)
+	// Fallback to the current condition's LastTransitionTime when no prior-stage condition exists,
+	// so the timeout baseline is persisted across reconciles instead of resetting to time.Now().
+	if startTime.IsZero() {
+		startTime = foundCond.LastTransitionTime.Time
+	}
+	if condition.Reason == ConditionReasonWaiting && time.Since(startTime) > stageTimeout {
 		condition.Reason = ConditionReasonTimeout
 		if timeoutMessage != "" {
 			condition.Message = fmt.Sprintf("Timeout: %s", timeoutMessage)

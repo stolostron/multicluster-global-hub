@@ -7,7 +7,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -100,7 +99,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 			if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
 				return false
 			}
-			condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+			condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 			return condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == migration.ConditionReasonWaiting
 		}, "10s", "200ms").Should(BeTrue())
 
@@ -115,7 +114,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 			if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
 				return false
 			}
-			condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+			condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 			return condition != nil && condition.Status == metav1.ConditionTrue && condition.Reason == migration.ConditionReasonResourceInitialized
 		}, "20s", "200ms").Should(BeTrue())
 
@@ -149,8 +148,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 			if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
 				return false
 			}
-			condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
-			fmt.Printf("#######%v, m: %v \n", condition, m)
+			condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 			return condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == migration.ConditionReasonError
 		}, "10s", "200ms").Should(BeTrue())
 
@@ -181,7 +179,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 			if m.Status.Phase != migrationv1alpha1.PhaseInitializing {
 				return fmt.Errorf("expected phase %s, got %s, m: %v", migrationv1alpha1.PhaseInitializing, m.Status.Phase, m)
 			}
-			condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+			condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 			if condition == nil {
 				return fmt.Errorf("ConditionTypeValidated not found")
 			}
@@ -207,7 +205,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 			if m.Status.Phase != migrationv1alpha1.PhaseDeploying {
 				return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseDeploying, m.Status.Phase)
 			}
-			condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+			condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 			if condition == nil {
 				return fmt.Errorf("ConditionTypeInitialized not found")
 			}
@@ -232,7 +230,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 			if m.Status.Phase != migrationv1alpha1.PhaseRegistering {
 				return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseRegistering, m.Status.Phase)
 			}
-			condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
+			condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
 			if condition == nil {
 				return fmt.Errorf("ConditionTypeDeployed not found")
 			}
@@ -255,7 +253,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 			if m.Status.Phase != migrationv1alpha1.PhaseCleaning {
 				return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseCleaning, m.Status.Phase)
 			}
-			condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
+			condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
 			if condition == nil {
 				return fmt.Errorf("ConditionTypeRegistered not found")
 			}
@@ -278,7 +276,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 			if m.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseCompleted, m.Status.Phase)
 			}
-			condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned)
+			condition := migrationv1alpha1.FindMigrationCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned)
 			if condition == nil {
 				return fmt.Errorf("ConditionTypeCleaned not found")
 			}

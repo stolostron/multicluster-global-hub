@@ -62,11 +62,11 @@ func TestDeploying(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseDeploying,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeDeployed,
 							Status: metav1.ConditionTrue,
-						},
+						}},
 					},
 				},
 			},
@@ -265,14 +265,16 @@ func TestDeploying(t *testing.T) {
 
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
-				deployedCondition := findDeployingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
+				deployedCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
 				assert.NotNil(t, deployedCondition, "ResourceDeployed condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, deployedCondition.Status, "Expected condition status should match")
 			}
 
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
-				deployedCondition := findDeployingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
+				deployedCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
 				assert.NotNil(t, deployedCondition, "ResourceDeployed condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, deployedCondition.Reason, "Expected condition reason should match")
 			}
@@ -281,14 +283,4 @@ func TestDeploying(t *testing.T) {
 			RemoveMigrationStatus(string(tt.migration.GetUID()))
 		})
 	}
-}
-
-// findDeployingCondition finds a specific condition in the conditions slice for deploying tests
-func findDeployingCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-	return nil
 }

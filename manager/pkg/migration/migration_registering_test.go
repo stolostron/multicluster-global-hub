@@ -61,11 +61,11 @@ func TestRegistering(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRegistering,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
-						},
+						}},
 					},
 				},
 			},
@@ -221,14 +221,16 @@ func TestRegistering(t *testing.T) {
 
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
-				registeredCondition := findRegisteringCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
+				registeredCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
 				assert.NotNil(t, registeredCondition, "ClusterRegistered condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, registeredCondition.Status, "Expected condition status should match")
 			}
 
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
-				registeredCondition := findRegisteringCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
+				registeredCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
 				assert.NotNil(t, registeredCondition, "ClusterRegistered condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, registeredCondition.Reason, "Expected condition reason should match")
 			}
@@ -237,14 +239,4 @@ func TestRegistering(t *testing.T) {
 			RemoveMigrationStatus(string(tt.migration.GetUID()))
 		})
 	}
-}
-
-// findRegisteringCondition finds a specific condition in the conditions slice for registering tests
-func findRegisteringCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-	return nil
 }

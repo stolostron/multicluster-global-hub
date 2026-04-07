@@ -83,11 +83,11 @@ func TestInitializing(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseInitializing,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeInitialized,
 							Status: metav1.ConditionTrue,
-						},
+						}},
 					},
 				},
 			},
@@ -382,14 +382,16 @@ func TestInitializing(t *testing.T) {
 
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
-				initializedCondition := findInitializingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				initializedCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 				assert.NotNil(t, initializedCondition, "ResourceInitialized condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, initializedCondition.Status, "Expected condition status should match")
 			}
 
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
-				initializedCondition := findInitializingCondition(tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				initializedCondition := migrationv1alpha1.FindMigrationCondition(
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
 				assert.NotNil(t, initializedCondition, "ResourceInitialized condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, initializedCondition.Reason, "Expected condition reason should match")
 			}
@@ -398,14 +400,4 @@ func TestInitializing(t *testing.T) {
 			RemoveMigrationStatus(string(tt.migration.GetUID()))
 		})
 	}
-}
-
-// findInitializingCondition finds a specific condition in the conditions slice for initializing tests
-func findInitializingCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
-	for i := range conditions {
-		if conditions[i].Type == conditionType {
-			return &conditions[i]
-		}
-	}
-	return nil
 }

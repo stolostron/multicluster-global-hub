@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
@@ -26,7 +25,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed) ||
+	if migrationv1alpha1.IsMigrationConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed) ||
 		mcm.Status.Phase != migrationv1alpha1.PhaseDeploying {
 		return false, nil
 	}

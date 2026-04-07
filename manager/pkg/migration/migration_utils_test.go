@@ -63,12 +63,12 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
 							Reason: "TestReason",
-						},
+						}},
 					},
 				},
 			},
@@ -87,12 +87,12 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
 							Reason: "TestReason",
-						},
+						}},
 					},
 				},
 			},
@@ -121,12 +121,12 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
 							Reason: "TestReason",
-						},
+						}},
 					},
 				},
 			},
@@ -156,12 +156,12 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRegistered,
 							Status: metav1.ConditionTrue,
 							Reason: "TestReason",
-						},
+						}},
 					},
 				},
 			},
@@ -285,12 +285,12 @@ func TestUpdateFailedClustersConfimap_ErrorCases(t *testing.T) {
 			},
 			Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 				Phase: migrationv1alpha1.PhaseFailed,
-				Conditions: []metav1.Condition{
-					{
+				Conditions: []migrationv1alpha1.MigrationCondition{
+					{Condition: metav1.Condition{
 						Type:   migrationv1alpha1.ConditionTypeRegistered,
 						Status: metav1.ConditionTrue,
 						Reason: "TestReason",
-					},
+					}},
 				},
 			},
 		}
@@ -338,12 +338,12 @@ func TestHandleRollbackRetryRequest(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
-					Conditions: []metav1.Condition{
-						{
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
 							Type:   migrationv1alpha1.ConditionTypeRolledBack,
 							Status: metav1.ConditionFalse,
 							Reason: "Error",
-						},
+						}},
 					},
 				},
 			},
@@ -510,14 +510,14 @@ func TestHandleRollbackRetryRequest_ConditionReset(t *testing.T) {
 		},
 		Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 			Phase: migrationv1alpha1.PhaseFailed,
-			Conditions: []metav1.Condition{
-				{
+			Conditions: []migrationv1alpha1.MigrationCondition{
+				{Condition: metav1.Condition{
 					Type:               migrationv1alpha1.ConditionTypeRolledBack,
 					Status:             metav1.ConditionFalse,
 					Reason:             ConditionReasonTimeout,
 					Message:            "Rollback timed out waiting for agents",
 					LastTransitionTime: oldTime,
-				},
+				}},
 			},
 		},
 	}
@@ -556,7 +556,7 @@ func TestHandleRollbackRetryRequest_ConditionReset(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify the RolledBack condition was reset
-	var rolledBackCondition *metav1.Condition
+	var rolledBackCondition *migrationv1alpha1.MigrationCondition
 	for i := range updatedMigration.Status.Conditions {
 		if updatedMigration.Status.Conditions[i].Type == migrationv1alpha1.ConditionTypeRolledBack {
 			rolledBackCondition = &updatedMigration.Status.Conditions[i]
