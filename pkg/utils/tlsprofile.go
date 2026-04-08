@@ -13,6 +13,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	errMsgFailedToGetAPIServer = "failed to get APIServer config: %w"
+)
+
 // GetTLSConfigFromAPIServer fetches the TLS profile from the OpenShift APIServer
 // and builds a tls.Config based on cluster-wide TLS security profile.
 // This is the recommended approach for OpenShift components.
@@ -24,7 +28,7 @@ func GetTLSConfigFromAPIServer(ctx context.Context, restConfig *rest.Config) (*t
 
 	apiserver, err := configClient.ConfigV1().APIServers().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get APIServer config: %w", err)
+		return nil, fmt.Errorf(errMsgFailedToGetAPIServer, err)
 	}
 
 	profile := apiserver.Spec.TLSSecurityProfile
@@ -72,7 +76,10 @@ func BuildTLSConfig(profile *configv1.TLSSecurityProfile) (*tls.Config, error) {
 	if minVer < tls.VersionTLS13 {
 		suites := mapCipherSuites(spec.Ciphers)
 		if len(suites) == 0 && len(spec.Ciphers) > 0 {
-			return nil, fmt.Errorf("no valid cipher suites found for TLS profile (all %d cipher(s) unsupported by Go)", len(spec.Ciphers))
+			return nil, fmt.Errorf(
+				"no valid cipher suites found for TLS profile (all %d cipher(s) unsupported by Go)",
+				len(spec.Ciphers),
+			)
 		}
 		cfg.CipherSuites = suites
 	}
@@ -99,7 +106,10 @@ func BuildTLSConfigFunc(profile *configv1.TLSSecurityProfile) (func(*tls.Config)
 	if minVer < tls.VersionTLS13 {
 		suites = mapCipherSuites(spec.Ciphers)
 		if len(suites) == 0 && len(spec.Ciphers) > 0 {
-			return nil, fmt.Errorf("no valid cipher suites found for TLS profile (all %d cipher(s) unsupported by Go)", len(spec.Ciphers))
+			return nil, fmt.Errorf(
+				"no valid cipher suites found for TLS profile (all %d cipher(s) unsupported by Go)",
+				len(spec.Ciphers),
+			)
 		}
 	}
 
@@ -204,7 +214,10 @@ func GetOpenShiftConfigClient(restConfig *rest.Config) (configv1client.ConfigV1I
 
 // FetchAPIServerTLSProfile fetches the TLS security profile from the cluster APIServer resource.
 // Returns the Intermediate profile as default if no profile is specified.
-func FetchAPIServerTLSProfile(ctx context.Context, configClient configv1client.ConfigV1Interface) (*configv1.TLSSecurityProfile, error) {
+func FetchAPIServerTLSProfile(
+	ctx context.Context,
+	configClient configv1client.ConfigV1Interface,
+) (*configv1.TLSSecurityProfile, error) {
 	apiserver, err := configClient.APIServers().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get APIServer config: %w", err)

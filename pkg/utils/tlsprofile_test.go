@@ -7,6 +7,14 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 )
 
+const (
+	testCipherECDHERSAAES128 = "ECDHE-RSA-AES128-GCM-SHA256"
+	testCipherUnsupported    = "UNSUPPORTED-CIPHER"
+	testProfileTypeOld       = "Old profile type"
+	testErrExpectedError     = "expected error but got none"
+	testErrUnexpected        = "unexpected error: %v"
+)
+
 // TestGetTLSConfigFromAPIServer, GetTLSConfigFromClient, GetOpenShiftConfigClient,
 // and FetchAPIServerTLSProfile require real Kubernetes clients and are tested in integration tests.
 
@@ -24,7 +32,7 @@ func TestResolveSpec(t *testing.T) {
 			expectType:  configv1.TLSProfileIntermediateType,
 		},
 		{
-			name: "Old profile type",
+			name: testProfileTypeOld,
 			profile: &configv1.TLSSecurityProfile{
 				Type: configv1.TLSProfileOldType,
 			},
@@ -53,7 +61,7 @@ func TestResolveSpec(t *testing.T) {
 				Type: configv1.TLSProfileCustomType,
 				Custom: &configv1.CustomTLSProfile{
 					TLSProfileSpec: configv1.TLSProfileSpec{
-						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Ciphers:       []string{testCipherECDHERSAAES128},
 						MinTLSVersion: configv1.VersionTLS12,
 					},
 				},
@@ -82,12 +90,12 @@ func TestResolveSpec(t *testing.T) {
 			spec, err := resolveSpec(tt.profile)
 			if tt.expectError {
 				if err == nil {
-					t.Errorf("expected error but got none")
+					t.Errorf(testErrExpectedError)
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("unexpected error: %v", err)
+				t.Errorf(testErrUnexpected, err)
 				return
 			}
 			if spec == nil {
@@ -145,12 +153,12 @@ func TestParseTLSVersion(t *testing.T) {
 			result, err := parseTLSVersion(tt.version)
 			if tt.expectError {
 				if err == nil {
-					t.Errorf("expected error but got none")
+					t.Errorf(testErrExpectedError)
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("unexpected error: %v", err)
+				t.Errorf(testErrUnexpected, err)
 				return
 			}
 			if result != tt.expected {
@@ -173,17 +181,17 @@ func TestMapCipherSuites(t *testing.T) {
 		},
 		{
 			name:     "all valid ciphers",
-			ciphers:  []string{"ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256"},
+			ciphers:  []string{testCipherECDHERSAAES128, "ECDHE-ECDSA-AES128-GCM-SHA256"},
 			expected: 2,
 		},
 		{
 			name:     "mixed valid and invalid",
-			ciphers:  []string{"ECDHE-RSA-AES128-GCM-SHA256", "UNSUPPORTED-CIPHER"},
+			ciphers:  []string{testCipherECDHERSAAES128, testCipherUnsupported},
 			expected: 1,
 		},
 		{
 			name:     "all unsupported",
-			ciphers:  []string{"DHE-RSA-AES256-SHA", "UNSUPPORTED-CIPHER"},
+			ciphers:  []string{"DHE-RSA-AES256-SHA", testCipherUnsupported},
 			expected: 0,
 		},
 		{
@@ -203,14 +211,16 @@ func TestMapCipherSuites(t *testing.T) {
 	}
 }
 
-func TestBuildTLSConfig(t *testing.T) {
-	tests := []struct {
-		name        string
-		profile     *configv1.TLSSecurityProfile
-		expectError bool
-		checkMinVer bool
-		expectedMin uint16
-	}{
+type tlsConfigTestCase struct {
+	name        string
+	profile     *configv1.TLSSecurityProfile
+	expectError bool
+	checkMinVer bool
+	expectedMin uint16
+}
+
+func getBuildTLSConfigTestCases() []tlsConfigTestCase {
+	return []tlsConfigTestCase{
 		{
 			name: "Intermediate profile",
 			profile: &configv1.TLSSecurityProfile{
@@ -235,7 +245,7 @@ func TestBuildTLSConfig(t *testing.T) {
 				Type: configv1.TLSProfileCustomType,
 				Custom: &configv1.CustomTLSProfile{
 					TLSProfileSpec: configv1.TLSProfileSpec{
-						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Ciphers:       []string{testCipherECDHERSAAES128},
 						MinTLSVersion: configv1.VersionTLS12,
 					},
 				},
@@ -285,7 +295,7 @@ func TestBuildTLSConfig(t *testing.T) {
 				Type: configv1.TLSProfileCustomType,
 				Custom: &configv1.CustomTLSProfile{
 					TLSProfileSpec: configv1.TLSProfileSpec{
-						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Ciphers:       []string{testCipherECDHERSAAES128},
 						MinTLSVersion: "BadVersion",
 					},
 				},
@@ -317,18 +327,22 @@ func TestBuildTLSConfig(t *testing.T) {
 			expectedMin: tls.VersionTLS13,
 		},
 	}
+}
+
+func TestBuildTLSConfig(t *testing.T) {
+	tests := getBuildTLSConfigTestCases()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg, err := BuildTLSConfig(tt.profile)
 			if tt.expectError {
 				if err == nil {
-					t.Errorf("expected error but got none")
+					t.Errorf(testErrExpectedError)
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("unexpected error: %v", err)
+				t.Errorf(testErrUnexpected, err)
 				return
 			}
 			if cfg == nil {
@@ -342,14 +356,8 @@ func TestBuildTLSConfig(t *testing.T) {
 	}
 }
 
-func TestBuildTLSConfigFunc(t *testing.T) {
-	tests := []struct {
-		name        string
-		profile     *configv1.TLSSecurityProfile
-		expectError bool
-		checkMinVer bool
-		expectedMin uint16
-	}{
+func getBuildTLSConfigFuncTestCases() []tlsConfigTestCase {
+	return []tlsConfigTestCase{
 		{
 			name: "Intermediate profile",
 			profile: &configv1.TLSSecurityProfile{
@@ -387,7 +395,7 @@ func TestBuildTLSConfigFunc(t *testing.T) {
 				Type: configv1.TLSProfileCustomType,
 				Custom: &configv1.CustomTLSProfile{
 					TLSProfileSpec: configv1.TLSProfileSpec{
-						Ciphers:       []string{"UNSUPPORTED-CIPHER"},
+						Ciphers:       []string{testCipherUnsupported},
 						MinTLSVersion: configv1.VersionTLS13,
 					},
 				},
@@ -409,7 +417,7 @@ func TestBuildTLSConfigFunc(t *testing.T) {
 				Type: configv1.TLSProfileCustomType,
 				Custom: &configv1.CustomTLSProfile{
 					TLSProfileSpec: configv1.TLSProfileSpec{
-						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						Ciphers:       []string{testCipherECDHERSAAES128},
 						MinTLSVersion: "InvalidVersion",
 					},
 				},
@@ -441,18 +449,22 @@ func TestBuildTLSConfigFunc(t *testing.T) {
 			expectedMin: tls.VersionTLS10,
 		},
 	}
+}
+
+func TestBuildTLSConfigFunc(t *testing.T) {
+	tests := getBuildTLSConfigFuncTestCases()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configFunc, err := BuildTLSConfigFunc(tt.profile)
 			if tt.expectError {
 				if err == nil {
-					t.Errorf("expected error but got none")
+					t.Errorf(testErrExpectedError)
 				}
 				return
 			}
 			if err != nil {
-				t.Errorf("unexpected error: %v", err)
+				t.Errorf(testErrUnexpected, err)
 				return
 			}
 			if configFunc == nil {
