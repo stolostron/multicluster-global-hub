@@ -114,6 +114,15 @@ func BuildTLSConfigFunc(profile *configv1.TLSSecurityProfile) (func(*tls.Config)
 // resolveSpec resolves the TLSProfileSpec from a TLSSecurityProfile.
 // It handles both built-in profiles (Old, Intermediate, Modern) and custom profiles.
 func resolveSpec(profile *configv1.TLSSecurityProfile) (*configv1.TLSProfileSpec, error) {
+	// Handle nil profile by defaulting to Intermediate
+	if profile == nil {
+		spec := configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+		if spec == nil {
+			return nil, fmt.Errorf("default Intermediate TLS profile not found in configv1.TLSProfiles")
+		}
+		return spec, nil
+	}
+
 	switch profile.Type {
 	case configv1.TLSProfileOldType,
 		configv1.TLSProfileIntermediateType,
@@ -129,12 +138,8 @@ func resolveSpec(profile *configv1.TLSSecurityProfile) (*configv1.TLSProfileSpec
 		}
 		return &profile.Custom.TLSProfileSpec, nil
 	default:
-		// Default to Intermediate profile for unknown types
-		spec := configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
-		if spec == nil {
-			return nil, fmt.Errorf("default TLS profile not found")
-		}
-		return spec, nil
+		// Return error for unknown/unsupported profile types instead of silently defaulting
+		return nil, fmt.Errorf("unsupported TLS profile type %q", profile.Type)
 	}
 }
 
