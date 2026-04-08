@@ -90,7 +90,7 @@ func TestResolveSpec(t *testing.T) {
 			spec, err := resolveSpec(tt.profile)
 			if tt.expectError {
 				if err == nil {
-					t.Errorf(testErrExpectedError)
+					t.Error(testErrExpectedError)
 				}
 				return
 			}
@@ -153,7 +153,7 @@ func TestParseTLSVersion(t *testing.T) {
 			result, err := parseTLSVersion(tt.version)
 			if tt.expectError {
 				if err == nil {
-					t.Errorf(testErrExpectedError)
+					t.Error(testErrExpectedError)
 				}
 				return
 			}
@@ -337,7 +337,7 @@ func TestBuildTLSConfig(t *testing.T) {
 			cfg, err := BuildTLSConfig(tt.profile)
 			if tt.expectError {
 				if err == nil {
-					t.Errorf(testErrExpectedError)
+					t.Error(testErrExpectedError)
 				}
 				return
 			}
@@ -459,7 +459,7 @@ func TestBuildTLSConfigFunc(t *testing.T) {
 			configFunc, err := BuildTLSConfigFunc(tt.profile)
 			if tt.expectError {
 				if err == nil {
-					t.Errorf(testErrExpectedError)
+					t.Error(testErrExpectedError)
 				}
 				return
 			}

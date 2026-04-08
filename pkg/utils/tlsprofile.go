@@ -69,6 +69,8 @@ func BuildTLSConfig(profile *configv1.TLSSecurityProfile) (*tls.Config, error) {
 		return nil, fmt.Errorf("invalid MinTLSVersion: %w", err)
 	}
 
+	// #nosec G402 -- MinVersion is dynamically set from cluster TLS profile config.
+	// Even "Old" profile (TLS 1.0) is a deliberate cluster-wide security policy.
 	cfg := &tls.Config{MinVersion: minVer}
 
 	// TLS 1.3 cipher suites are not configurable in Go (golang/go#29349).
