@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -134,10 +135,15 @@ func createManager(ctx context.Context,
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(managerConfig.ElectionConfig.RetryPeriod) * time.Second
+
+	// Get TLS configuration from cluster APIServer profile for metrics server
+	tlsConfigFunc := getMetricsTLSConfigFunc(restConfig)
+
 	options := ctrl.Options{
 		Scheme: configs.GetRuntimeScheme(),
 		Metrics: metricsserver.Options{
 			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			TLSOpts:     []func(*tls.Config){tlsConfigFunc},
 		},
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
@@ -297,4 +303,37 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		},
 	}
 	return cache.New(config, cacheOpts)
+}
+
+// getMetricsTLSConfigFunc fetches the cluster TLS profile and returns a function to configure tls.Config.
+// Falls back to TLS 1.3 if unable to fetch the cluster profile.
+func getMetricsTLSConfigFunc(restConfig *rest.Config) func(*tls.Config) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	configClient, err := utils.GetOpenShiftConfigClient(restConfig)
+	if err != nil {
+		logger.DefaultZapLogger().Info("Failed to create config client, using TLS 1.3 as default", "error", err)
+		return func(config *tls.Config) {
+			config.MinVersion = tls.VersionTLS13
+		}
+	}
+
+	profile, err := utils.FetchAPIServerTLSProfile(ctx, configClient)
+	if err != nil {
+		logger.DefaultZapLogger().Info("Failed to fetch cluster TLS profile, using TLS 1.3 as default", "error", err)
+		return func(config *tls.Config) {
+			config.MinVersion = tls.VersionTLS13
+		}
+	}
+
+	tlsConfigFunc, err := utils.BuildTLSConfigFunc(profile)
+	if err != nil {
+		logger.DefaultZapLogger().Info("Failed to build TLS config from profile, using TLS 1.3 as default", "error", err)
+		return func(config *tls.Config) {
+			config.MinVersion = tls.VersionTLS13
+		}
+	}
+
+	return tlsConfigFunc
 }

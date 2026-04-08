@@ -33,6 +33,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	configv1 "github.com/openshift/api/config/v1"
+
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers"
 	globalhubwebhook "github.com/stolostron/multicluster-global-hub/operator/pkg/webhook"
@@ -141,6 +143,15 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 	renewDeadline := time.Duration(electionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(electionConfig.RetryPeriod) * time.Second
 
+	// Get TLS configuration from cluster APIServer profile
+	tlsConfigFunc, err := getTLSConfigFunc(restConfig)
+	if err != nil {
+		setupLog.Info("Failed to get cluster TLS profile, using TLS 1.3 as default", "error", err)
+		tlsConfigFunc = func(config *tls.Config) {
+			config.MinVersion = tls.VersionTLS13
+		}
+	}
+
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme: config.GetRuntimeScheme(),
 		Metrics: metricsserver.Options{
@@ -148,12 +159,8 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 		},
 		WebhookServer: &webhook.DefaultServer{
 			Options: webhook.Options{
-				Port: webhookPort,
-				TLSOpts: []func(*tls.Config){
-					func(config *tls.Config) {
-						config.MinVersion = tls.VersionTLS13
-					},
-				},
+				Port:    webhookPort,
+				TLSOpts: []func(*tls.Config){tlsConfigFunc},
 			},
 		},
 		HealthProbeBindAddress:  operatorConfig.ProbeAddress,
@@ -167,4 +174,23 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 	})
 
 	return mgr, err
+}
+
+// getTLSConfigFunc fetches the cluster TLS profile and returns a function to configure tls.Config
+func getTLSConfigFunc(restConfig *rest.Config) (func(*tls.Config), error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Fetch the TLS profile from cluster APIServer
+	configClient, err := utils.GetOpenShiftConfigClient(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create config client: %w", err)
+	}
+
+	profile, err := utils.FetchAPIServerTLSProfile(ctx, configClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch APIServer TLS profile: %w", err)
+	}
+
+	return utils.BuildTLSConfigFunc(profile)
 }
