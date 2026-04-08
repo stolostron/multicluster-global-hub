@@ -9,15 +9,18 @@ import (
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-// mockProducer implements transport.Producer for testing
 type mockProducer struct {
 	events []cloudevents.Event
 }
@@ -41,7 +44,7 @@ func TestHubHAEmitter_EventType(t *testing.T) {
 		},
 	}
 
-	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2", nil)
 
 	if emitter.EventType() != constants.HubHAResourcesMsgKey {
 		t.Errorf("Expected EventType %s, got %s", constants.HubHAResourcesMsgKey, emitter.EventType())
@@ -56,9 +59,8 @@ func TestHubHAEmitter_Update_SendsImmediately(t *testing.T) {
 		},
 	}
 
-	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2", nil)
 
-	// Create an unstructured Secret with required label
 	secret := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "v1",
@@ -76,24 +78,20 @@ func TestHubHAEmitter_Update_SendsImmediately(t *testing.T) {
 		},
 	}
 
-	// Update should send immediately
 	err := emitter.Update(secret)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	// Verify event was sent
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event to be sent immediately, got %d", len(producer.events))
 	}
 
-	// Verify event content
 	event := producer.events[0]
 	if event.Type() != constants.HubHAResourcesMsgKey {
 		t.Errorf("Expected event type %s, got %s", constants.HubHAResourcesMsgKey, event.Type())
 	}
 
-	// Parse bundle from event data
 	var bundle generic.GenericBundle[*unstructured.Unstructured]
 	err = json.Unmarshal(event.Data(), &bundle)
 	if err != nil {
@@ -108,7 +106,6 @@ func TestHubHAEmitter_Update_SendsImmediately(t *testing.T) {
 		t.Errorf("Expected secret name 'test-secret', got %s", bundle.Update[0].GetName())
 	}
 
-	// Bundle should be cleared after send
 	if len(emitter.bundle.Update) != 0 {
 		t.Errorf("Expected bundle to be cleared after send, got %d updates", len(emitter.bundle.Update))
 	}
@@ -122,9 +119,8 @@ func TestHubHAEmitter_Delete_SendsImmediately(t *testing.T) {
 		},
 	}
 
-	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2", nil)
 
-	// Create an unstructured Secret with required label
 	secret := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "v1",
@@ -139,18 +135,15 @@ func TestHubHAEmitter_Delete_SendsImmediately(t *testing.T) {
 		},
 	}
 
-	// Delete should send immediately
 	err := emitter.Delete(secret)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	// Verify event was sent
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event to be sent immediately, got %d", len(producer.events))
 	}
 
-	// Parse bundle from event data
 	var bundle generic.GenericBundle[*unstructured.Unstructured]
 	err = json.Unmarshal(producer.events[0].Data(), &bundle)
 	if err != nil {
@@ -174,11 +167,8 @@ func TestHubHAEmitter_Update_FilteredResource(t *testing.T) {
 		},
 	}
 
-	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2", nil)
 
-	// Create a Secret WITHOUT required label
-	// Note: Filtering is done by the predicate, not by Update() method
-	// This test verifies that Update() sends whatever it receives
 	secret := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "v1",
@@ -190,13 +180,11 @@ func TestHubHAEmitter_Update_FilteredResource(t *testing.T) {
 		},
 	}
 
-	// Update() will send it (filtering is predicate's responsibility)
 	err := emitter.Update(secret)
 	if err != nil {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	// Verify event was sent (predicate would have filtered it before calling Update)
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event to be sent, got %d", len(producer.events))
 	}
@@ -210,10 +198,8 @@ func TestHubHAEmitter_Delete_WithoutLabels(t *testing.T) {
 		},
 	}
 
-	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2", nil)
 
-	// Create a Secret WITH required label - simulating a deleted object that was synced
-	// The delete event contains the object's last known state with labels
 	secret := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "v1",
@@ -228,19 +214,15 @@ func TestHubHAEmitter_Delete_WithoutLabels(t *testing.T) {
 		},
 	}
 
-	// Delete should send because object has required labels (was synced)
-	// This tests direct Delete() call (predicate is bypassed in unit tests)
 	err := emitter.Delete(secret)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}
 
-	// Verify event was sent
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event to be sent for deletion, got %d", len(producer.events))
 	}
 
-	// Parse bundle from event data
 	var bundle generic.GenericBundle[*unstructured.Unstructured]
 	err = json.Unmarshal(producer.events[0].Data(), &bundle)
 	if err != nil {
@@ -264,60 +246,56 @@ func TestHubHAEmitter_Resync(t *testing.T) {
 		},
 	}
 
-	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
 
-	// Create test secrets
-	secret1 := &unstructured.Unstructured{
-		Object: map[string]any{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]any{
-				"name":      "secret1",
-				"namespace": "default",
-				"labels": map[string]any{
-					"hive.openshift.io/secret-type": "kubeconfig",
-				},
+	secret1 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "secret1",
+			Namespace: "default",
+			Labels: map[string]string{
+				"hive.openshift.io/secret-type": "kubeconfig",
+			},
+		},
+	}
+	secret2 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "secret2",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cluster.open-cluster-management.io/type": "managed",
 			},
 		},
 	}
 
-	secret2 := &unstructured.Unstructured{
-		Object: map[string]any{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]any{
-				"name":      "secret2",
-				"namespace": "default",
-				"labels": map[string]any{
-					"cluster.open-cluster-management.io/type": "managed",
-				},
-			},
-		},
-	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(secret1, secret2).
+		Build()
 
-	// Resync should NOT send immediately
-	err := emitter.Resync([]client.Object{secret1, secret2})
+	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2", fakeClient)
+	emitter.SetActiveResources([]schema.GroupVersionKind{
+		{Group: "", Version: "v1", Kind: "Secret"},
+	})
+
+	err := emitter.Resync(nil)
 	if err != nil {
 		t.Errorf("Resync() error = %v", err)
 	}
 
-	// No events should be sent yet
 	if len(producer.events) != 0 {
 		t.Errorf("Expected 0 events after Resync, got %d", len(producer.events))
 	}
 
-	// Now send the bundle
 	err = emitter.Send()
 	if err != nil {
 		t.Errorf("Send() error = %v", err)
 	}
 
-	// Verify event was sent
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event after Send, got %d", len(producer.events))
 	}
 
-	// Parse bundle
 	var bundle generic.GenericBundle[*unstructured.Unstructured]
 	err = json.Unmarshal(producer.events[0].Data(), &bundle)
 	if err != nil {
@@ -365,7 +343,6 @@ func TestCleanUnstructuredMetadata(t *testing.T) {
 		t.Errorf("Expected managedFields to be nil, got %v", uObj.GetManagedFields())
 	}
 
-	// Name and namespace should remain
 	if uObj.GetName() != "test" {
 		t.Errorf("Expected name to remain, got %s", uObj.GetName())
 	}

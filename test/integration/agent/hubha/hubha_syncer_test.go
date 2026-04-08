@@ -18,6 +18,7 @@ import (
 
 	agentconfigs "github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/hubha"
+	statushubha "github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/hubha"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -84,8 +85,9 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 		agentconfigs.SetAgentConfig(agentConfig)
 
 		// Start the syncer once for all tests
-		syncCtx := context.Background()
-		syncErr := hubha.StartHubHAActiveSyncer(syncCtx, mgr, producer)
+		emitter := statushubha.NewHubHAEmitter(producer, transportConfig, "hub1", "hub2", mgr.GetClient())
+		allResources := statushubha.GetHubHAResourcesToSync()
+		_, syncErr := statushubha.StartHubHAResourceSyncer(mgr, allResources, emitter)
 		Expect(syncErr).NotTo(HaveOccurred())
 	})
 

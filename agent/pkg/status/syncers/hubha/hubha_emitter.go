@@ -10,7 +10,9 @@ import (
 	"sync"
 
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -20,45 +22,54 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-// HubHAEmitter implements the Emitter interface for Hub HA resource synchronization.
-// It tracks changes to resources across all GVKs and bundles them for transmission to the standby hub.
 type HubHAEmitter struct {
 	producer        transport.Producer
 	transportConfig *transport.TransportInternalConfig
 	activeHubName   string
 	standbyHubName  string
+	client          client.Client
+	activeResources []schema.GroupVersionKind
 	resourceFilter  *utils.HubHAResourceFilter
 	bundle          *generic.GenericBundle[*unstructured.Unstructured]
 	mu              sync.Mutex
 }
 
-// NewHubHAEmitter creates a new Hub HA emitter that handles all Hub HA resources.
 func NewHubHAEmitter(
 	producer transport.Producer,
 	transportConfig *transport.TransportInternalConfig,
 	activeHubName string,
 	standbyHubName string,
+	c client.Client,
 ) *HubHAEmitter {
 	return &HubHAEmitter{
 		producer:        producer,
 		transportConfig: transportConfig,
 		activeHubName:   activeHubName,
 		standbyHubName:  standbyHubName,
+		client:          c,
 		resourceFilter:  utils.NewHubHAResourceFilter(),
 		bundle:          generic.NewGenericBundle[*unstructured.Unstructured](),
 	}
 }
 
-// EventType returns the event type for Hub HA resources.
+func (e *HubHAEmitter) SetActiveResources(resources []schema.GroupVersionKind) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.activeResources = resources
+}
+
+func (e *HubHAEmitter) SetStandbyHub(standbyHub string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.standbyHubName = standbyHub
+}
+
 func (e *HubHAEmitter) EventType() string {
 	return constants.HubHAResourcesMsgKey
 }
 
-// Predicate returns the predicate for filtering events.
-// Filters resources based on labels and namespace rules.
 func (e *HubHAEmitter) Predicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		// Convert to unstructured to get GVK
 		uObj, err := toUnstructured(obj)
 		if err != nil {
 			log.Errorf("failed to convert object to unstructured in predicate: %v", err)
@@ -69,46 +80,36 @@ func (e *HubHAEmitter) Predicate() predicate.Predicate {
 	})
 }
 
-// Update handles object creation/update events and sends immediately.
 func (e *HubHAEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	// Convert to unstructured to get GVK
 	uObj, err := toUnstructured(obj)
 	if err != nil {
 		return fmt.Errorf("failed to convert object to unstructured: %w", err)
 	}
 
-	// Get GVK from object
 	gvk := uObj.GroupVersionKind()
 
-	// Clean metadata
 	cleanUnstructuredMetadata(uObj)
 
-	// Add to bundle.Update and send immediately
 	e.bundle.Update = append(e.bundle.Update, uObj)
 	log.Debugf("syncing update for %s/%s (%s)", uObj.GetNamespace(), uObj.GetName(), gvk.Kind)
 
-	// Send immediately for fast failover
 	return e.sendBundleUnlocked()
 }
 
-// Delete handles object deletion events and sends immediately.
 func (e *HubHAEmitter) Delete(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	// Convert to unstructured to get GVK
 	uObj, err := toUnstructured(obj)
 	if err != nil {
 		return fmt.Errorf("failed to convert object to unstructured: %w", err)
 	}
 
-	// Get GVK from object
 	gvk := uObj.GroupVersionKind()
 
-	// Remove from update list if present
 	for i, existingObj := range e.bundle.Update {
 		if existingObj.GetNamespace() == obj.GetNamespace() && existingObj.GetName() == obj.GetName() {
 			e.bundle.Update = append(e.bundle.Update[:i], e.bundle.Update[i+1:]...)
@@ -116,7 +117,6 @@ func (e *HubHAEmitter) Delete(obj client.Object) error {
 		}
 	}
 
-	// Add to bundle.Delete and send immediately
 	objMeta := generic.ObjectMetadata{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
@@ -128,67 +128,66 @@ func (e *HubHAEmitter) Delete(obj client.Object) error {
 	e.bundle.Delete = append(e.bundle.Delete, objMeta)
 	log.Debugf("syncing delete for %s/%s (%s)", obj.GetNamespace(), obj.GetName(), gvk.Kind)
 
-	// Send immediately for fast failover
 	return e.sendBundleUnlocked()
 }
 
-// Resync performs a full resync of all objects.
-func (e *HubHAEmitter) Resync(objects []client.Object) error {
+func (e *HubHAEmitter) Resync(_ []client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	// Clear existing bundle
 	e.bundle.Clean()
 
-	for _, obj := range objects {
-		// Convert to unstructured to get GVK
-		uObj, err := toUnstructured(obj)
-		if err != nil {
-			log.Warnf("failed to convert object to unstructured during resync: %v", err)
+	ctx := context.TODO()
+	for _, gvk := range e.activeResources {
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   gvk.Group,
+			Version: gvk.Version,
+			Kind:    gvk.Kind + "List",
+		})
+
+		if err := e.client.List(ctx, list); err != nil {
+			if meta.IsNoMatchError(err) {
+				log.Debugf("CRD not installed for %s, skipping resync", gvk.String())
+				continue
+			}
+			log.Warnf("failed to list resources for %s during resync: %v", gvk.String(), err)
 			continue
 		}
 
-		// Get GVK from object
-		gvk := uObj.GroupVersionKind()
-
-		// Filter using resource filter
-		if !e.resourceFilter.ShouldSyncResource(obj, gvk) {
-			continue
+		for i := range list.Items {
+			obj := &list.Items[i]
+			objGVK := obj.GroupVersionKind()
+			if !e.resourceFilter.ShouldSyncResource(obj, objGVK) {
+				continue
+			}
+			cleanUnstructuredMetadata(obj)
+			e.bundle.Resync = append(e.bundle.Resync, obj)
 		}
-
-		// Clean metadata
-		cleanUnstructuredMetadata(uObj)
-
-		// Add to bundle.Resync
-		e.bundle.Resync = append(e.bundle.Resync, uObj)
 	}
 
 	log.Infof("resynced %d Hub HA objects", len(e.bundle.Resync))
 	return nil
 }
 
-// Send sends the current bundle to the standby hub.
 func (e *HubHAEmitter) Send() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.sendBundleUnlocked()
 }
 
-// sendBundleUnlocked sends the bundle without acquiring the lock (caller must hold lock).
 func (e *HubHAEmitter) sendBundleUnlocked() error {
 	if len(e.bundle.Update) == 0 && len(e.bundle.Delete) == 0 && len(e.bundle.Resync) == 0 {
 		return nil
 	}
 
-	// Create CloudEvent
 	evt := utils.ToCloudEvent(
 		constants.HubHAResourcesMsgKey,
-		e.activeHubName,  // source = active hub
-		e.standbyHubName, // clustername extension = standby hub
+		e.activeHubName,
+		e.standbyHubName,
 		e.bundle,
 	)
 
-	// Send to spec topic
 	ctx := context.TODO()
 	topicCtx := cecontext.WithTopic(ctx, e.transportConfig.KafkaCredential.SpecTopic)
 	if err := e.producer.SendEvent(topicCtx, evt); err != nil {
@@ -199,18 +198,15 @@ func (e *HubHAEmitter) sendBundleUnlocked() error {
 	log.Infof("sent Hub HA bundle: updates=%d, deletes=%d, resync=%d",
 		len(e.bundle.Update), len(e.bundle.Delete), len(e.bundle.Resync))
 
-	// Clear bundle after successful send
 	e.bundle.Clean()
 	return nil
 }
 
-// toUnstructured converts a client.Object to *unstructured.Unstructured.
 func toUnstructured(obj client.Object) (*unstructured.Unstructured, error) {
 	if uObj, ok := obj.(*unstructured.Unstructured); ok {
 		return uObj.DeepCopy(), nil
 	}
 
-	// Convert via JSON marshaling (works for all types)
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
@@ -224,7 +220,6 @@ func toUnstructured(obj client.Object) (*unstructured.Unstructured, error) {
 	return uObj, nil
 }
 
-// cleanUnstructuredMetadata removes metadata that should not be synced.
 func cleanUnstructuredMetadata(obj *unstructured.Unstructured) {
 	obj.SetManagedFields(nil)
 	obj.SetResourceVersion("")

@@ -19,8 +19,11 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	haconfigbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/haconfig"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+var log = logger.DefaultZapLogger()
 
 const (
 	klusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
@@ -67,6 +70,8 @@ func (s *HAConfigSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error
 	if err := s.annotateAllManagedClusters(ctx, klusterletConfigName); err != nil {
 		return fmt.Errorf("failed to annotate managed clusters: %w", err)
 	}
+
+	configs.GetAgentConfig().SetStandbyHub(standbyHub)
 
 	log.Infof("HA config applied: klusterletConfig=%s", klusterletConfigName)
 	return nil

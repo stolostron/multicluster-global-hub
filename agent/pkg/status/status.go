@@ -12,11 +12,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/hubha"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/filter"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/hubha"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedhub"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/policies"
@@ -44,28 +43,21 @@ func AddToManager(ctx context.Context, mgr ctrl.Manager, transportClient transpo
 func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Producer,
 	agentConfig *configs.AgentConfig,
 ) error {
-	// Initialize Hub HA syncer manager for dynamic syncer lifecycle management
-	// This allows the configmap controller to start/stop the Hub HA syncer when hubRole changes
-	// Pass the manager-level context for long-lived syncer goroutines
-	configmap.SetHubHASyncerManager(ctx, mgr, producer, hubha.StartHubHAActiveSyncer)
-
-	// Start Hub HA syncer on first boot if agent is in active role
-	// The configmap controller will handle dynamic role changes after this
-	configmap.StartHubHASyncerIfActive()
-
 	// start periodic syncer
 	periodicSyncer, err := generic.AddPeriodicSyncer(mgr)
 	if err != nil {
 		return fmt.Errorf("failed to start the periodic syncer: %w", err)
 	}
+
+	// Hub HA controller watches KlusterletConfig to trigger active syncer
+	if err := hubha.AddHubHAController(ctx, mgr, producer, periodicSyncer); err != nil {
+		return fmt.Errorf("failed to add hub HA controller: %w", err)
+	}
+
 	// managed cluster
 	if err := managedcluster.AddManagedClusterSyncer(ctx, mgr, producer, periodicSyncer); err != nil {
 		return fmt.Errorf("failed to launch managedcluster syncer: %w", err)
 	}
-
-	// Hub HA active syncer lifecycle is now fully managed by the configmap controller
-	// It will start/stop the syncer based on hub role changes in the configmap
-	// No boot-time direct call to avoid creating untracked syncer instances
 
 	// event syncer
 	err = events.AddEventSyncer(ctx, mgr, producer, periodicSyncer)

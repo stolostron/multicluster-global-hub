@@ -45,8 +45,18 @@ func AddPeriodicSyncer(mgr ctrl.Manager) (*PeriodicSyncer, error) {
 }
 
 // Register adds an emitter to the periodic syncer.
+func (p *PeriodicSyncer) Unregister(eventType string) {
+	for i, state := range p.syncStates {
+		if state.Registration.Emitter.EventType() == eventType {
+			p.syncStates = append(p.syncStates[:i], p.syncStates[i+1:]...)
+			log.Infof("unregistered emitter for event type: %s", eventType)
+			return
+		}
+	}
+}
+
 func (p *PeriodicSyncer) Register(e *EmitterRegistration) {
-	if e.ListFunc == nil || e.Emitter == nil {
+	if e.Emitter == nil {
 		log.Warnf("Emitter registration for event type %v is invalid, skipping", e)
 		return
 	}
@@ -79,6 +89,16 @@ func (p *PeriodicSyncer) Resync(ctx context.Context, eventType string) error {
 			continue
 		}
 
+		if state.Registration.ListFunc == nil {
+			if err := state.Registration.Emitter.Resync(nil); err != nil {
+				return fmt.Errorf("failed to resync objects for event type %s: %w", registeredType, err)
+			}
+			resynced = true
+			state.NextResyncAt = time.Now().Add(configmap.GetResyncInterval(enum.EventType(registeredType)))
+			log.Infof("resynced objects for event type: %s", enum.ShortenEventType(registeredType))
+			continue
+		}
+
 		objects, err := state.Registration.ListFunc()
 		if err != nil {
 			return fmt.Errorf("failed to list objects for event type %s in Resync: %w", registeredType, err)
@@ -93,7 +113,6 @@ func (p *PeriodicSyncer) Resync(ctx context.Context, eventType string) error {
 			return fmt.Errorf("failed to resync objects for event type %s: %w", registeredType, err)
 		}
 		resynced = true
-		// Update the next resync time for this emitter
 		state.NextResyncAt = time.Now().Add(configmap.GetResyncInterval(enum.EventType(registeredType)))
 		log.Infof("resynced %d objects for event type: %s", len(objects), enum.ShortenEventType(registeredType))
 	}

@@ -22,7 +22,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -40,7 +39,6 @@ var (
 	k8sClient       client.Client
 	mgr             ctrl.Manager
 	transportConfig *transport.TransportInternalConfig
-	suiteProducer   *mockProducer
 )
 
 var _ = BeforeSuite(func() {
@@ -113,28 +111,6 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Adding configmap controller")
-	// Initialize agent config for the controller
-	agentConfig := &configs.AgentConfig{
-		LeafHubName:  "hub1",
-		PodNamespace: constants.GHAgentNamespace,
-	}
-	configs.SetAgentConfig(agentConfig)
-
-	// Add the configmap controller that watches for hub role changes
-	err = configmap.AddConfigMapController(mgr, agentConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	By("Setting up Hub HA syncer manager")
-	// Create suite-level mock producer for all lifecycle tests
-	suiteProducer = newMockProducer()
-	// Initialize Hub HA syncer manager once for all tests
-	// Use suite-level context for long-lived syncer goroutines
-	configmap.SetHubHASyncerManager(ctx, mgr, suiteProducer, func(ctx context.Context, m ctrl.Manager, prod transport.Producer) error {
-		// Mock start function for testing - doesn't actually start syncers
-		return nil
-	})
-
 	go func() {
 		defer GinkgoRecover()
 		err := mgr.Start(ctx)
@@ -147,10 +123,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("Tearing down the test environment")
-	// Stop suite-level producer
-	if suiteProducer != nil {
-		suiteProducer.Stop()
-	}
 	if cancel != nil {
 		cancel()
 	}
