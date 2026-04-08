@@ -108,6 +108,11 @@ func TestHubHAController_Reconcile_Update(t *testing.T) {
 		t.Error("Expected no requeue")
 	}
 
+	err = emitter.Send()
+	if err != nil {
+		t.Errorf("Send() error = %v", err)
+	}
+
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event to be sent, got %d", len(producer.events))
 	}
@@ -200,6 +205,11 @@ func TestHubHAController_Reconcile_FilteredResource(t *testing.T) {
 		t.Error("Expected no requeue")
 	}
 
+	err = emitter.Send()
+	if err != nil {
+		t.Errorf("Send() error = %v", err)
+	}
+
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event when calling Reconcile directly, got %d", len(producer.events))
 	}
@@ -257,13 +267,8 @@ func TestPerformFullResync(t *testing.T) {
 		t.Errorf("Resync() error = %v", err)
 	}
 
-	err = emitter.Send()
-	if err != nil {
-		t.Errorf("Send() error = %v", err)
-	}
-
-	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event to be sent after resync, got %d", len(producer.events))
+	if len(producer.events) != 2 {
+		t.Fatalf("Expected 2 events to be sent after resync, got %d", len(producer.events))
 	}
 
 	var bundle generic.GenericBundle[*unstructured.Unstructured]

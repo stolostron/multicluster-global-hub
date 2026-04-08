@@ -9,6 +9,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/retry"
@@ -78,6 +79,13 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 		if err := s.deleteResource(ctx, &meta, sourceHub); err != nil {
 			log.Errorf("failed to delete resource %s/%s from active hub %s: %v",
 				meta.Namespace, meta.Name, sourceHub, err)
+		}
+	}
+
+	// Handle resync metadata: delete local resources not present in active hub
+	if len(bundle.ResyncMetadata) > 0 {
+		if err := s.cleanupStaleResources(ctx, bundle.ResyncMetadata, sourceHub); err != nil {
+			log.Errorf("failed to cleanup stale resources from active hub %s: %v", sourceHub, err)
 		}
 	}
 
@@ -198,6 +206,61 @@ func (s *HubHAStandbySyncer) deleteResource(ctx context.Context, meta *generic.O
 	}
 
 	log.Infof("successfully deleted resource %s/%s from standby hub", meta.Namespace, meta.Name)
+	return nil
+}
+
+func (s *HubHAStandbySyncer) cleanupStaleResources(
+	ctx context.Context, metadata []generic.ObjectMetadata, sourceHub string,
+) error {
+	activeKeys := make(map[string]bool, len(metadata))
+	var gvk schema.GroupVersionKind
+	for _, m := range metadata {
+		activeKeys[m.Key()] = true
+		if gvk.Kind == "" && m.Kind != "" {
+			gvk = schema.GroupVersionKind{Group: m.Group, Version: m.Version, Kind: m.Kind}
+		}
+	}
+
+	if gvk.Kind == "" {
+		log.Warnf("no valid GVK found in resync metadata from %s", sourceHub)
+		return nil
+	}
+
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind + "List",
+	})
+	if err := s.client.List(ctx, list); err != nil {
+		if meta.IsNoMatchError(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to list %s for stale cleanup: %w", gvk, err)
+	}
+
+	for i := range list.Items {
+		obj := &list.Items[i]
+		key := (&generic.ObjectMetadata{
+			Namespace: obj.GetNamespace(),
+			Name:      obj.GetName(),
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Kind:      gvk.Kind,
+		}).Key()
+		if activeKeys[key] {
+			continue
+		}
+		objMeta := generic.ObjectMetadata{
+			Namespace: obj.GetNamespace(),
+			Name:      obj.GetName(),
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Kind:      gvk.Kind,
+		}
+		if err := s.deleteResource(ctx, &objMeta, sourceHub); err != nil {
+			log.Errorf("failed to delete stale resource %s/%s (%s): %v",
+				obj.GetNamespace(), obj.GetName(), gvk.Kind, err)
+		}
+	}
 	return nil
 }
 

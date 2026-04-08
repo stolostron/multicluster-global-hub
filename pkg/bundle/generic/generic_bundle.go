@@ -21,16 +21,34 @@ type ObjectMetadata struct {
 	Kind      string `json:"kind,omitempty"`
 }
 
+func (m ObjectMetadata) Key() string {
+	return m.Group + "/" + m.Version + "/" + m.Kind + "/" + m.Namespace + "/" + m.Name
+}
+
 type GenericBundle[T any] struct {
 	Create         []T              `json:"create,omitempty"`
 	Update         []T              `json:"update,omitempty"`
 	Delete         []ObjectMetadata `json:"delete,omitempty"`
 	Resync         []T              `json:"resync,omitempty"`
 	ResyncMetadata []ObjectMetadata `json:"resync_metadata,omitempty"`
+
+	keyFunc func(T) string `json:"-"`
 }
 
-func NewGenericBundle[T any]() *GenericBundle[T] {
-	return &GenericBundle[T]{}
+type BundleOption[T any] func(*GenericBundle[T])
+
+func WithKeyFunc[T any](fn func(T) string) BundleOption[T] {
+	return func(b *GenericBundle[T]) {
+		b.keyFunc = fn
+	}
+}
+
+func NewGenericBundle[T any](opts ...BundleOption[T]) *GenericBundle[T] {
+	b := &GenericBundle[T]{}
+	for _, opt := range opts {
+		opt(b)
+	}
+	return b
 }
 
 func (b *GenericBundle[T]) IsEmpty() bool {
@@ -64,6 +82,15 @@ func (b *GenericBundle[T]) AddCreate(obj T) (bool, error) {
 }
 
 func (b *GenericBundle[T]) AddUpdate(obj T) (bool, error) {
+	if b.keyFunc != nil {
+		key := b.keyFunc(obj)
+		for i, existing := range b.Update {
+			if b.keyFunc(existing) == key {
+				b.Update[i] = obj
+				return true, nil
+			}
+		}
+	}
 	return b.tryAdd(&b.Update, obj)
 }
 
@@ -72,6 +99,14 @@ func (b *GenericBundle[T]) AddResync(obj T) (bool, error) {
 }
 
 func (b *GenericBundle[T]) AddDelete(meta ObjectMetadata) (bool, error) {
+	key := meta.Key()
+	for i, existing := range b.Delete {
+		if existing.Key() == key {
+			b.Delete[i] = meta
+			return true, nil
+		}
+	}
+
 	wasEmptyBeforeAdd := b.IsEmpty()
 
 	b.Delete = append(b.Delete, meta)

@@ -83,8 +83,13 @@ func TestHubHAEmitter_Update_SendsImmediately(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
+	err = emitter.Send()
+	if err != nil {
+		t.Errorf("Send() error = %v", err)
+	}
+
 	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event to be sent immediately, got %d", len(producer.events))
+		t.Errorf("Expected 1 event to be sent after Send, got %d", len(producer.events))
 	}
 
 	event := producer.events[0]
@@ -140,8 +145,13 @@ func TestHubHAEmitter_Delete_SendsImmediately(t *testing.T) {
 		t.Errorf("Delete() error = %v", err)
 	}
 
+	err = emitter.Send()
+	if err != nil {
+		t.Errorf("Send() error = %v", err)
+	}
+
 	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event to be sent immediately, got %d", len(producer.events))
+		t.Errorf("Expected 1 event to be sent after Send, got %d", len(producer.events))
 	}
 
 	var bundle generic.GenericBundle[*unstructured.Unstructured]
@@ -185,6 +195,11 @@ func TestHubHAEmitter_Update_FilteredResource(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
+	err = emitter.Send()
+	if err != nil {
+		t.Errorf("Send() error = %v", err)
+	}
+
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event to be sent, got %d", len(producer.events))
 	}
@@ -217,6 +232,11 @@ func TestHubHAEmitter_Delete_WithoutLabels(t *testing.T) {
 	err := emitter.Delete(secret)
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
+	}
+
+	err = emitter.Send()
+	if err != nil {
+		t.Errorf("Send() error = %v", err)
 	}
 
 	if len(producer.events) != 1 {
@@ -280,30 +300,28 @@ func TestHubHAEmitter_Resync(t *testing.T) {
 
 	err := emitter.Resync(nil)
 	if err != nil {
-		t.Errorf("Resync() error = %v", err)
+		t.Fatalf("Resync() error = %v", err)
 	}
 
-	if len(producer.events) != 0 {
-		t.Errorf("Expected 0 events after Resync, got %d", len(producer.events))
+	// Expect 2 events: one with resync objects, one with resync metadata
+	if len(producer.events) != 2 {
+		t.Fatalf("Expected 2 events after Resync, got %d", len(producer.events))
 	}
 
-	err = emitter.Send()
-	if err != nil {
-		t.Errorf("Send() error = %v", err)
+	var resyncBundle generic.GenericBundle[*unstructured.Unstructured]
+	if err := json.Unmarshal(producer.events[0].Data(), &resyncBundle); err != nil {
+		t.Fatalf("Failed to unmarshal resync bundle: %v", err)
+	}
+	if len(resyncBundle.Resync) != 2 {
+		t.Errorf("Expected 2 resync items, got %d", len(resyncBundle.Resync))
 	}
 
-	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event after Send, got %d", len(producer.events))
+	var metaBundle generic.GenericBundle[*unstructured.Unstructured]
+	if err := json.Unmarshal(producer.events[1].Data(), &metaBundle); err != nil {
+		t.Fatalf("Failed to unmarshal metadata bundle: %v", err)
 	}
-
-	var bundle generic.GenericBundle[*unstructured.Unstructured]
-	err = json.Unmarshal(producer.events[0].Data(), &bundle)
-	if err != nil {
-		t.Errorf("Failed to unmarshal bundle: %v", err)
-	}
-
-	if len(bundle.Resync) != 2 {
-		t.Errorf("Expected 2 resync items in sent bundle, got %d", len(bundle.Resync))
+	if len(metaBundle.ResyncMetadata) != 2 {
+		t.Errorf("Expected 2 resync metadata items, got %d", len(metaBundle.ResyncMetadata))
 	}
 }
 

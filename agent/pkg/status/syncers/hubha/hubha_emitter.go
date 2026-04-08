@@ -48,7 +48,13 @@ func NewHubHAEmitter(
 		standbyHubName:  standbyHubName,
 		client:          c,
 		resourceFilter:  utils.NewHubHAResourceFilter(),
-		bundle:          generic.NewGenericBundle[*unstructured.Unstructured](),
+		bundle: generic.NewGenericBundle(
+			generic.WithKeyFunc(func(obj *unstructured.Unstructured) string {
+				gvk := obj.GroupVersionKind()
+				return fmt.Sprintf("%s/%s/%s/%s/%s",
+					gvk.Group, gvk.Version, gvk.Kind, obj.GetNamespace(), obj.GetName())
+			}),
+		),
 	}
 }
 
@@ -90,13 +96,30 @@ func (e *HubHAEmitter) Update(obj client.Object) error {
 	}
 
 	gvk := uObj.GroupVersionKind()
-
 	cleanUnstructuredMetadata(uObj)
 
-	e.bundle.Update = append(e.bundle.Update, uObj)
-	log.Debugf("syncing update for %s/%s (%s)", uObj.GetNamespace(), uObj.GetName(), gvk.Kind)
+	added, err := e.bundle.AddUpdate(uObj)
+	if err != nil {
+		return fmt.Errorf("failed to add update for %s/%s (%s): %w",
+			uObj.GetNamespace(), uObj.GetName(), gvk.Kind, err)
+	}
+	if !added {
+		if err := e.sendBundleUnlocked(); err != nil {
+			return err
+		}
+		added, err = e.bundle.AddUpdate(uObj)
+		if err != nil {
+			return fmt.Errorf("failed to add update for %s/%s (%s) after flush: %w",
+				uObj.GetNamespace(), uObj.GetName(), gvk.Kind, err)
+		}
+		if !added {
+			return fmt.Errorf("update object too large: %s/%s (%s)",
+				uObj.GetNamespace(), uObj.GetName(), gvk.Kind)
+		}
+	}
 
-	return e.sendBundleUnlocked()
+	log.Debugf("bundled update for %s/%s (%s)", uObj.GetNamespace(), uObj.GetName(), gvk.Kind)
+	return nil
 }
 
 func (e *HubHAEmitter) Delete(obj client.Object) error {
@@ -117,18 +140,35 @@ func (e *HubHAEmitter) Delete(obj client.Object) error {
 		}
 	}
 
-	objMeta := generic.ObjectMetadata{
+	meta := generic.ObjectMetadata{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
 		Group:     gvk.Group,
 		Version:   gvk.Version,
 		Kind:      gvk.Kind,
 	}
+	added, err := e.bundle.AddDelete(meta)
+	if err != nil {
+		return fmt.Errorf("failed to add delete for %s/%s (%s): %w",
+			obj.GetNamespace(), obj.GetName(), gvk.Kind, err)
+	}
+	if !added {
+		if err := e.sendBundleUnlocked(); err != nil {
+			return err
+		}
+		added, err = e.bundle.AddDelete(meta)
+		if err != nil {
+			return fmt.Errorf("failed to add delete for %s/%s (%s) after flush: %w",
+				obj.GetNamespace(), obj.GetName(), gvk.Kind, err)
+		}
+		if !added {
+			return fmt.Errorf("delete metadata too large: %s/%s (%s)",
+				obj.GetNamespace(), obj.GetName(), gvk.Kind)
+		}
+	}
 
-	e.bundle.Delete = append(e.bundle.Delete, objMeta)
-	log.Debugf("syncing delete for %s/%s (%s)", obj.GetNamespace(), obj.GetName(), gvk.Kind)
-
-	return e.sendBundleUnlocked()
+	log.Debugf("bundled delete for %s/%s (%s)", obj.GetNamespace(), obj.GetName(), gvk.Kind)
+	return nil
 }
 
 func (e *HubHAEmitter) Resync(_ []client.Object) error {
@@ -136,8 +176,8 @@ func (e *HubHAEmitter) Resync(_ []client.Object) error {
 	defer e.mu.Unlock()
 
 	e.bundle.Clean()
+	totalObjects := 0
 
-	ctx := context.TODO()
 	for _, gvk := range e.activeResources {
 		list := &unstructured.UnstructuredList{}
 		list.SetGroupVersionKind(schema.GroupVersionKind{
@@ -146,7 +186,7 @@ func (e *HubHAEmitter) Resync(_ []client.Object) error {
 			Kind:    gvk.Kind + "List",
 		})
 
-		if err := e.client.List(ctx, list); err != nil {
+		if err := e.client.List(context.TODO(), list); err != nil {
 			if meta.IsNoMatchError(err) {
 				log.Debugf("CRD not installed for %s, skipping resync", gvk.String())
 				continue
@@ -155,18 +195,60 @@ func (e *HubHAEmitter) Resync(_ []client.Object) error {
 			continue
 		}
 
+		var metadataList []generic.ObjectMetadata
 		for i := range list.Items {
 			obj := &list.Items[i]
-			objGVK := obj.GroupVersionKind()
-			if !e.resourceFilter.ShouldSyncResource(obj, objGVK) {
+			if !e.resourceFilter.ShouldSyncResource(obj, gvk) {
 				continue
 			}
 			cleanUnstructuredMetadata(obj)
-			e.bundle.Resync = append(e.bundle.Resync, obj)
+
+			added, err := e.bundle.AddResync(obj)
+			if err != nil {
+				return fmt.Errorf("failed to add resync object %s/%s (%s): %w",
+					obj.GetNamespace(), obj.GetName(), gvk.Kind, err)
+			}
+			if !added {
+				if err := e.sendBundleUnlocked(); err != nil {
+					return err
+				}
+				added, err = e.bundle.AddResync(obj)
+				if err != nil {
+					return fmt.Errorf("failed to add resync object %s/%s (%s) after flush: %w",
+						obj.GetNamespace(), obj.GetName(), gvk.Kind, err)
+				}
+				if !added {
+					return fmt.Errorf("resync object too large: %s/%s (%s)",
+						obj.GetNamespace(), obj.GetName(), gvk.Kind)
+				}
+			}
+
+			metadataList = append(metadataList, generic.ObjectMetadata{
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+				Group:     gvk.Group,
+				Version:   gvk.Version,
+				Kind:      gvk.Kind,
+			})
+			totalObjects++
+		}
+
+		if len(metadataList) == 0 {
+			continue
+		}
+
+		if err := e.sendBundleUnlocked(); err != nil {
+			return err
+		}
+		if err := e.bundle.AddResyncMetadata(metadataList); err != nil {
+			return fmt.Errorf("resync metadata too large for %s: %w", gvk.Kind, err)
+		}
+		if err := e.sendBundleUnlocked(); err != nil {
+			return err
 		}
 	}
 
-	log.Infof("resynced %d Hub HA objects", len(e.bundle.Resync))
+	log.Infof("resynced %d Hub HA objects", totalObjects)
 	return nil
 }
 
@@ -177,7 +259,7 @@ func (e *HubHAEmitter) Send() error {
 }
 
 func (e *HubHAEmitter) sendBundleUnlocked() error {
-	if len(e.bundle.Update) == 0 && len(e.bundle.Delete) == 0 && len(e.bundle.Resync) == 0 {
+	if e.bundle.IsEmpty() {
 		return nil
 	}
 

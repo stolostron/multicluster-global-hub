@@ -112,6 +112,10 @@ func (p *PeriodicSyncer) Resync(ctx context.Context, eventType string) error {
 		if err = state.Registration.Emitter.Resync(objects); err != nil {
 			return fmt.Errorf("failed to resync objects for event type %s: %w", registeredType, err)
 		}
+
+		if err = state.Registration.Emitter.Send(); err != nil {
+			return fmt.Errorf("failed to send resync bundle for event type %s: %w", registeredType, err)
+		}
 		resynced = true
 		state.NextResyncAt = time.Now().Add(configmap.GetResyncInterval(enum.EventType(registeredType)))
 		log.Infof("resynced %d objects for event type: %s", len(objects), enum.ShortenEventType(registeredType))
