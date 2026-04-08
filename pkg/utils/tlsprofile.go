@@ -71,8 +71,8 @@ func BuildTLSConfig(profile *configv1.TLSSecurityProfile) (*tls.Config, error) {
 	// Only set CipherSuites for TLS 1.2 and below.
 	if minVer < tls.VersionTLS13 {
 		suites := mapCipherSuites(spec.Ciphers)
-		if len(suites) == 0 {
-			return nil, fmt.Errorf("no valid cipher suites found for TLS profile")
+		if len(suites) == 0 && len(spec.Ciphers) > 0 {
+			return nil, fmt.Errorf("no valid cipher suites found for TLS profile (all %d cipher(s) unsupported by Go)", len(spec.Ciphers))
 		}
 		cfg.CipherSuites = suites
 	}

@@ -261,6 +261,21 @@ func TestBuildTLSConfig(t *testing.T) {
 			checkMinVer: true,
 			expectedMin: tls.VersionTLS12,
 		},
+		{
+			name: "Custom profile with empty ciphers uses Go defaults",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						Ciphers:       []string{},
+						MinTLSVersion: configv1.VersionTLS12,
+					},
+				},
+			},
+			expectError: false,
+			checkMinVer: true,
+			expectedMin: tls.VersionTLS12,
+		},
 	}
 
 	for _, tt := range tests {
