@@ -45,11 +45,3 @@ spec:
       port: 8443  # JMX/metrics
     - protocol: TCP
       port: 9093  # TLS client listener (admin API)
-  # Allow access to Kubernetes API (for watching CRs and managing resources)
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: default
-    ports:
-    - protocol: TCP
-      port: 443

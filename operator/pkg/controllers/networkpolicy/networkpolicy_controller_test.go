@@ -23,17 +23,17 @@ func TestNetworkPolicyPredicate(t *testing.T) {
 			name: "default-deny-all network policy should match",
 			obj: &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default-deny-all",
+					Name:      NetworkPolicyDefaultDenyAll,
 					Namespace: namespace,
 				},
 			},
 			wantBool: true,
 		},
 		{
-			name: "allow-dns network policy should match",
+			name: "allow-dns-and-api network policy should match",
 			obj: &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "allow-dns",
+					Name:      NetworkPolicyAllowDNSAndAPI,
 					Namespace: namespace,
 				},
 			},
@@ -43,7 +43,7 @@ func TestNetworkPolicyPredicate(t *testing.T) {
 			name: "multicluster-global-hub-operator network policy should match",
 			obj: &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "multicluster-global-hub-operator",
+					Name:      NetworkPolicyOperator,
 					Namespace: namespace,
 				},
 			},
@@ -63,7 +63,7 @@ func TestNetworkPolicyPredicate(t *testing.T) {
 			name: "wrong namespace should not match",
 			obj: &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default-deny-all",
+					Name:      NetworkPolicyDefaultDenyAll,
 					Namespace: "wrong-namespace",
 				},
 			},

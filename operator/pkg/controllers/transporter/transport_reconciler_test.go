@@ -16,6 +16,8 @@ import (
 
 // Predicate Tests - These test critical watch logic for Kafka-related resources
 
+const testSecretName = "some-secret"
+
 func TestSecretPredicate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -39,8 +41,8 @@ func TestSecretPredicate(t *testing.T) {
 					Name:      "kafka-user-secret",
 					Namespace: utils.GetDefaultNamespace(),
 					Labels: map[string]string{
-						"strimzi.io/cluster": protocol.KafkaClusterName,
-						"strimzi.io/kind":    "KafkaUser",
+						StrimziClusterLabel: protocol.KafkaClusterName,
+						StrimziKindLabel:    StrimziKindUser,
 					},
 				},
 			},
@@ -53,8 +55,8 @@ func TestSecretPredicate(t *testing.T) {
 					Name:      "kafka-user-secret",
 					Namespace: utils.GetDefaultNamespace(),
 					Labels: map[string]string{
-						"strimzi.io/cluster": "wrong-cluster",
-						"strimzi.io/kind":    "KafkaUser",
+						StrimziClusterLabel: "wrong-cluster",
+						StrimziKindLabel:    StrimziKindUser,
 					},
 				},
 			},
@@ -67,8 +69,8 @@ func TestSecretPredicate(t *testing.T) {
 					Name:      "kafka-secret",
 					Namespace: utils.GetDefaultNamespace(),
 					Labels: map[string]string{
-						"strimzi.io/cluster": protocol.KafkaClusterName,
-						"strimzi.io/kind":    "Kafka",
+						StrimziClusterLabel: protocol.KafkaClusterName,
+						StrimziKindLabel:    "Kafka",
 					},
 				},
 			},
@@ -227,10 +229,10 @@ func TestSecretCond(t *testing.T) {
 			name: "kafka user secret with both labels matches",
 			obj: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "some-secret",
+					Name: testSecretName,
 					Labels: map[string]string{
-						"strimzi.io/cluster": protocol.KafkaClusterName,
-						"strimzi.io/kind":    "KafkaUser",
+						StrimziClusterLabel: protocol.KafkaClusterName,
+						StrimziKindLabel:    StrimziKindUser,
 					},
 				},
 			},
@@ -240,9 +242,9 @@ func TestSecretCond(t *testing.T) {
 			name: "kafka secret with only cluster label does not match",
 			obj: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "some-secret",
+					Name: testSecretName,
 					Labels: map[string]string{
-						"strimzi.io/cluster": protocol.KafkaClusterName,
+						StrimziClusterLabel: protocol.KafkaClusterName,
 					},
 				},
 			},
@@ -252,9 +254,9 @@ func TestSecretCond(t *testing.T) {
 			name: "kafka secret with only kind label does not match",
 			obj: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "some-secret",
+					Name: testSecretName,
 					Labels: map[string]string{
-						"strimzi.io/kind": "KafkaUser",
+						StrimziKindLabel: StrimziKindUser,
 					},
 				},
 			},

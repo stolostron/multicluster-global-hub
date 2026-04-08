@@ -10,7 +10,17 @@ spec:
     matchLabels:
       name: multicluster-global-hub-operator
   policyTypes:
+  - Ingress
   - Egress
+  ingress:
+  # Allow health check probes from kubelet (runs on node, not in a pod)
+  - ports:
+    - protocol: TCP
+      port: 8081
+  # Allow webhook traffic from API server
+  - ports:
+    - protocol: TCP
+      port: 9443
   egress:
   # Allow DNS resolution
   - to:
@@ -31,14 +41,6 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow access to Kubernetes API
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: default
-    ports:
-    - protocol: TCP
-      port: 443
   # Allow connections to PostgreSQL
   - to:
     - podSelector:

@@ -86,11 +86,11 @@ var _ = Describe("networkpolicy", Ordered, func() {
 			}, np)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
-		// Verify allow-dns NetworkPolicy is created
+		// Verify allow-dns-and-api NetworkPolicy is created
 		Eventually(func() error {
 			np := &networkingv1.NetworkPolicy{}
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      "allow-dns",
+				Name:      "allow-dns-and-api",
 				Namespace: mgh.Namespace,
 			}, np)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
@@ -180,7 +180,7 @@ var _ = Describe("networkpolicy", Ordered, func() {
 		// Delete a NetworkPolicy
 		np := &networkingv1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "allow-dns",
+				Name:      "allow-dns-and-api",
 				Namespace: mgh.Namespace,
 			},
 		}
@@ -199,7 +199,7 @@ var _ = Describe("networkpolicy", Ordered, func() {
 		// Verify NetworkPolicy is NOT recreated (remains deleted)
 		Consistently(func() bool {
 			err := runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      "allow-dns",
+				Name:      "allow-dns-and-api",
 				Namespace: mgh.Namespace,
 			}, np)
 			return errors.IsNotFound(err)

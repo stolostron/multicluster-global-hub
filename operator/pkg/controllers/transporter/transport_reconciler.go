@@ -35,6 +35,12 @@ var WatchedSecret = sets.NewString(
 	constants.GHTransportSecretName,
 )
 
+const (
+	StrimziClusterLabel = "strimzi.io/cluster"
+	StrimziKindLabel    = "strimzi.io/kind"
+	StrimziKindUser     = "KafkaUser"
+)
+
 var (
 	log                 = logger.DefaultZapLogger()
 	isResourceRemoved   = true
@@ -111,8 +117,8 @@ func secretCond(obj client.Object) bool {
 	if WatchedSecret.Has(obj.GetName()) {
 		return true
 	}
-	if obj.GetLabels()["strimzi.io/cluster"] == protocol.KafkaClusterName &&
-		obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
+	if obj.GetLabels()[StrimziClusterLabel] == protocol.KafkaClusterName &&
+		obj.GetLabels()[StrimziKindLabel] == StrimziKindUser {
 		return true
 	}
 	return false

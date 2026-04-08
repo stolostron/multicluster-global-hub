@@ -33,6 +33,12 @@ var fs embed.FS
 
 var log = logger.DefaultZapLogger()
 
+const (
+	NetworkPolicyDefaultDenyAll = "default-deny-all"
+	NetworkPolicyAllowDNSAndAPI = "allow-dns-and-api"
+	NetworkPolicyOperator       = "multicluster-global-hub-operator"
+)
+
 type NetworkPolicyReconciler struct {
 	ctrl.Manager
 	kubeClient kubernetes.Interface
@@ -77,21 +83,21 @@ func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 var networkPolicyPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			(e.Object.GetName() == "default-deny-all" ||
-				e.Object.GetName() == "allow-dns" ||
-				e.Object.GetName() == "multicluster-global-hub-operator")
+			(e.Object.GetName() == NetworkPolicyDefaultDenyAll ||
+				e.Object.GetName() == NetworkPolicyAllowDNSAndAPI ||
+				e.Object.GetName() == NetworkPolicyOperator)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			(e.ObjectNew.GetName() == "default-deny-all" ||
-				e.ObjectNew.GetName() == "allow-dns" ||
-				e.ObjectNew.GetName() == "multicluster-global-hub-operator")
+			(e.ObjectNew.GetName() == NetworkPolicyDefaultDenyAll ||
+				e.ObjectNew.GetName() == NetworkPolicyAllowDNSAndAPI ||
+				e.ObjectNew.GetName() == NetworkPolicyOperator)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			(e.Object.GetName() == "default-deny-all" ||
-				e.Object.GetName() == "allow-dns" ||
-				e.Object.GetName() == "multicluster-global-hub-operator")
+			(e.Object.GetName() == NetworkPolicyDefaultDenyAll ||
+				e.Object.GetName() == NetworkPolicyAllowDNSAndAPI ||
+				e.Object.GetName() == NetworkPolicyOperator)
 	},
 }
 

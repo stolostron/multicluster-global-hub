@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-dns
+  name: allow-dns-and-api
   namespace: {{.Namespace}}
   labels:
     global-hub.open-cluster-management.io/managed-by: global-hub-operator
@@ -33,3 +33,9 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
+  # Allow access to Kubernetes API server service IP
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
