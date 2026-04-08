@@ -42,10 +42,15 @@ func GetPostgresConfig(URI string, cert []byte) (*pgx.ConnConfig, error) {
 	}
 	if len(cert) > 0 {
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(cert)
-		config.TLSConfig = &tls.Config{
-			RootCAs: caCertPool,
+		if !caCertPool.AppendCertsFromPEM(cert) {
+			return nil, fmt.Errorf("failed to parse database CA certificate PEM")
 		}
+		// Preserve existing TLSConfig settings from ParseConfig (ServerName, etc.)
+		// and only update RootCAs
+		if config.TLSConfig == nil {
+			config.TLSConfig = &tls.Config{}
+		}
+		config.TLSConfig.RootCAs = caCertPool
 	}
 	return config, nil
 }
@@ -63,10 +68,15 @@ func PostgresConnPool(ctx context.Context, databaseURI string, certPath string, 
 	}
 	if len(cert) > 0 {
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(cert)
-		config.ConnConfig.TLSConfig = &tls.Config{
-			RootCAs: caCertPool,
+		if !caCertPool.AppendCertsFromPEM(cert) {
+			return nil, fmt.Errorf("failed to parse database CA certificate PEM")
 		}
+		// Preserve existing TLSConfig settings from ParseConfig (ServerName, etc.)
+		// and only update RootCAs
+		if config.ConnConfig.TLSConfig == nil {
+			config.ConnConfig.TLSConfig = &tls.Config{}
+		}
+		config.ConnConfig.TLSConfig.RootCAs = caCertPool
 	}
 
 	if size > 0 {

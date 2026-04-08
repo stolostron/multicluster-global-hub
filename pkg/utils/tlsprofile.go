@@ -93,14 +93,20 @@ func BuildTLSConfigFunc(profile *configv1.TLSSecurityProfile) (func(*tls.Config)
 		return nil, fmt.Errorf("invalid MinTLSVersion: %w", err)
 	}
 
+	// TLS 1.3 cipher suites are not configurable in Go, so validate cipher suites
+	// early for TLS < 1.3 to fail fast if the profile specifies unsupported ciphers
+	var suites []uint16
+	if minVer < tls.VersionTLS13 {
+		suites = mapCipherSuites(spec.Ciphers)
+		if len(suites) == 0 && len(spec.Ciphers) > 0 {
+			return nil, fmt.Errorf("no valid cipher suites found for TLS profile (all %d cipher(s) unsupported by Go)", len(spec.Ciphers))
+		}
+	}
+
 	return func(cfg *tls.Config) {
 		cfg.MinVersion = minVer
-		// TLS 1.3 cipher suites are not configurable in Go
-		if minVer < tls.VersionTLS13 {
-			suites := mapCipherSuites(spec.Ciphers)
-			if len(suites) > 0 {
-				cfg.CipherSuites = suites
-			}
+		if len(suites) > 0 {
+			cfg.CipherSuites = suites
 		}
 	}, nil
 }
