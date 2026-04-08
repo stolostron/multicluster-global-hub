@@ -181,19 +181,6 @@ func mapCipherSuites(names []string) []uint16 {
 	return out
 }
 
-// ShouldHonorClusterTLSProfile returns true when the component must honor the
-// cluster-wide TLS profile based on the tlsAdherence policy.
-// Unknown values return true for forward compatibility.
-func ShouldHonorClusterTLSProfile(adherence configv1.TLSAdherencePolicy) bool {
-	switch adherence {
-	case "", configv1.TLSAdherenceLegacyAdheringComponentsOnly:
-		return false
-	default:
-		// StrictAllComponents and any future values default to true
-		return true
-	}
-}
-
 // GetOpenShiftConfigClient creates a versioned config client for accessing OpenShift config resources.
 func GetOpenShiftConfigClient(restConfig *rest.Config) (configv1client.ConfigV1Interface, error) {
 	configClient, err := configclientset.NewForConfig(restConfig)

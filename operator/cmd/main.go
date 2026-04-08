@@ -33,8 +33,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	configv1 "github.com/openshift/api/config/v1"
-
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers"
 	globalhubwebhook "github.com/stolostron/multicluster-global-hub/operator/pkg/webhook"
