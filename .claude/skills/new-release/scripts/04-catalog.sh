@@ -546,7 +546,9 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
     PREV_CONTAINERFILE="${PREV_OCP_DIR}/Containerfile.catalog"
     NEW_CONTAINERFILE="${NEW_OCP_DIR}/Containerfile.catalog"
 
-    if [[ -f "$PREV_CONTAINERFILE" ]]; then
+    if [[ -f "$NEW_CONTAINERFILE" ]]; then
+      echo "   ℹ️  Containerfile already exists: $NEW_CONTAINERFILE"
+    elif [[ -f "$PREV_CONTAINERFILE" ]]; then
       # Create new directory
       mkdir -p "$NEW_OCP_DIR"
 
@@ -566,8 +568,19 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
       #   - Second FROM (runtime): updated to new OCP version (e.g., v4.20 -> v4.21)
       sed "${SED_INPLACE[@]}" "s|ose-operator-registry-rhel9:v4.$((PREV_OCP_MAX%100))|ose-operator-registry-rhel9:v4.${NEW_OCP_VER}|g" "$NEW_CONTAINERFILE"
 
+      # 4. Remove filter_catalog.py lines - new OCP platforms have no existing entries
+      #    in catalog.json, so filtering is unnecessary
+      if grep -q 'filter_catalog.py' "$NEW_CONTAINERFILE"; then
+        sed "${SED_INPLACE[@]}" '/# Copy filter script/d' "$NEW_CONTAINERFILE"
+        sed "${SED_INPLACE[@]}" '/COPY filter_catalog.py/d' "$NEW_CONTAINERFILE"
+        sed "${SED_INPLACE[@]}" '/# remove the existing entries in catalog.json file/d' "$NEW_CONTAINERFILE"
+        sed "${SED_INPLACE[@]}" '/RUN python3 \/filter_catalog.py/d' "$NEW_CONTAINERFILE"
+        echo "   ✅ Created new Containerfile: $NEW_CONTAINERFILE (filter_catalog.py lines removed)"
+      else
+        echo "   ✅ Created new Containerfile: $NEW_CONTAINERFILE"
+      fi
+
       git add "$NEW_CONTAINERFILE"
-      echo "   ✅ Created new Containerfile: $NEW_CONTAINERFILE"
     else
       echo "   ⚠️  Previous Containerfile not found: $PREV_CONTAINERFILE" >&2
     fi
@@ -664,12 +677,16 @@ echo "📍 Step 2.7: Updating README.md..."
 
 README_FILE="README.md"
 if [[ -f "$README_FILE" && -n "$PREV_CATALOG_TAG" ]]; then
-  echo "   Updating image references in $README_FILE"
-  echo "   Changing: ${PREV_CATALOG_TAG} → ${CATALOG_TAG}"
-
-  sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$README_FILE"
-
-  echo "   ✅ Updated $README_FILE"
+  if grep -q "$PREV_CATALOG_TAG" "$README_FILE"; then
+    sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$README_FILE"
+    # Also update version references like release-1.7 -> release-1.8 and 1-7 -> 1-8
+    sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$README_FILE"
+    echo "   ✅ Updated $README_FILE"
+    echo "      - ${PREV_CATALOG_TAG} → ${CATALOG_TAG}"
+    echo "      - ${BASE_BRANCH} → ${CATALOG_BRANCH}"
+  else
+    echo "   ℹ️  $README_FILE already has correct version references"
+  fi
 elif [[ ! -f "$README_FILE" ]]; then
   echo "   ⚠️  File not found: $README_FILE" >&2
 fi
