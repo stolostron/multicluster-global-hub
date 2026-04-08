@@ -31,7 +31,9 @@ func GetSaramaConfig(kafkaConfig *transport.KafkaInternalConfig) (*sarama.Config
 }
 
 func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config, error) {
-	tlsConfig := tls.Config{}
+	tlsConfig := tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
 	// Load client cert for mutual TLS (optional)
 	_, validCert := utils.Validate(clientCertFile)

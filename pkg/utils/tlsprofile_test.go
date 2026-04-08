@@ -7,6 +7,9 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 )
 
+// TestGetTLSConfigFromAPIServer, GetTLSConfigFromClient, GetOpenShiftConfigClient,
+// and FetchAPIServerTLSProfile require real Kubernetes clients and are tested in integration tests.
+
 func TestResolveSpec(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -276,6 +279,43 @@ func TestBuildTLSConfig(t *testing.T) {
 			checkMinVer: true,
 			expectedMin: tls.VersionTLS12,
 		},
+		{
+			name: "Invalid TLS version",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						MinTLSVersion: "BadVersion",
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "Old profile type",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileOldType,
+			},
+			expectError: false,
+			checkMinVer: true,
+			expectedMin: tls.VersionTLS10,
+		},
+		{
+			name: "TLS 1.3 with cipher list (ciphers not set)",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						Ciphers:       []string{"ANY-CIPHER"},
+						MinTLSVersion: configv1.VersionTLS13,
+					},
+				},
+			},
+			expectError: false,
+			checkMinVer: true,
+			expectedMin: tls.VersionTLS13,
+		},
 	}
 
 	for _, tt := range tests {
@@ -362,6 +402,43 @@ func TestBuildTLSConfigFunc(t *testing.T) {
 			expectError: false,
 			checkMinVer: true,
 			expectedMin: tls.VersionTLS12,
+		},
+		{
+			name: "Invalid TLS version in profile",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+						MinTLSVersion: "InvalidVersion",
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "TLS 1.2 with empty cipher list",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						Ciphers:       []string{},
+						MinTLSVersion: configv1.VersionTLS12,
+					},
+				},
+			},
+			expectError: false,
+			checkMinVer: true,
+			expectedMin: tls.VersionTLS12,
+		},
+		{
+			name: "Old profile type",
+			profile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileOldType,
+			},
+			expectError: false,
+			checkMinVer: true,
+			expectedMin: tls.VersionTLS10,
 		},
 	}
 

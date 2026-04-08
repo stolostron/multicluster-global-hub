@@ -48,7 +48,9 @@ func GetPostgresConfig(URI string, cert []byte) (*pgx.ConnConfig, error) {
 		// Preserve existing TLSConfig settings from ParseConfig (ServerName, etc.)
 		// and only update RootCAs
 		if config.TLSConfig == nil {
-			config.TLSConfig = &tls.Config{}
+			config.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
 		}
 		config.TLSConfig.RootCAs = caCertPool
 	}
@@ -74,7 +76,9 @@ func PostgresConnPool(ctx context.Context, databaseURI string, certPath string, 
 		// Preserve existing TLSConfig settings from ParseConfig (ServerName, etc.)
 		// and only update RootCAs
 		if config.ConnConfig.TLSConfig == nil {
-			config.ConnConfig.TLSConfig = &tls.Config{}
+			config.ConnConfig.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
 		}
 		config.ConnConfig.TLSConfig.RootCAs = caCertPool
 	}
