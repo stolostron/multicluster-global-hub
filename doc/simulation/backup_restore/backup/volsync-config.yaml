@@ -7,7 +7,7 @@ metadata:
    cluster.open-cluster-management.io/backup: cluster-activation
 data:
  cacheCapacity: 1Gi
- copyMethod: Snapshot
+ copyMethod: Direct
  pruneIntervalDays: '2'
  repository: restic-secret
  retain_daily: '2'
