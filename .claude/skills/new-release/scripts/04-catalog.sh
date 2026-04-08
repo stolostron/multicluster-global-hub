@@ -506,20 +506,22 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
     fi
   done
 
-  # Remove old OCP version pipelines (only if OCP range changed)
-  if [[ "$PREV_OCP_MAX" != "$OCP_MAX" ]]; then
-    OLD_OCP_PR=".tekton/multicluster-global-hub-operator-catalog-v4${OLD_OCP_VER}-${PREV_CATALOG_TAG}-pull-request.yaml"
-    OLD_OCP_PUSH=".tekton/multicluster-global-hub-operator-catalog-v4${OLD_OCP_VER}-${PREV_CATALOG_TAG}-push.yaml"
-
-    if [[ -f "$OLD_OCP_PR" ]]; then
-      git rm "$OLD_OCP_PR" 2>/dev/null || rm "$OLD_OCP_PR"
-      echo "   ✅ Removed old OCP 4.${OLD_OCP_VER} pull-request pipeline"
+  # Remove all tekton pipelines for OCP versions below OCP_MIN
+  echo ""
+  echo "   Cleaning up outdated OCP tekton pipelines (below 4.$((OCP_MIN%100)))..."
+  CLEANED_PIPELINES=false
+  for old_pipeline in .tekton/multicluster-global-hub-operator-catalog-v4*; do
+    [[ -f "$old_pipeline" ]] || continue
+    # Extract OCP version number from filename (e.g., v416 -> 16, v417 -> 17)
+    pipeline_ocp_ver=$(echo "$old_pipeline" | grep -oE 'v4[0-9]+' | head -1 | sed 's/v4//')
+    if [[ -n "$pipeline_ocp_ver" ]] && (( pipeline_ocp_ver < (OCP_MIN%100) )); then
+      git rm "$old_pipeline" 2>/dev/null || rm "$old_pipeline"
+      echo "   ✅ Removed outdated pipeline: $(basename "$old_pipeline")"
+      CLEANED_PIPELINES=true
     fi
-
-    if [[ -f "$OLD_OCP_PUSH" ]]; then
-      git rm "$OLD_OCP_PUSH" 2>/dev/null || rm "$OLD_OCP_PUSH"
-      echo "   ✅ Removed old OCP 4.${OLD_OCP_VER} push pipeline"
-    fi
+  done
+  if [[ "$CLEANED_PIPELINES" = false ]]; then
+    echo "   ✓ No outdated tekton pipelines found"
   fi
 
   # Update Containerfile.catalog for OCP versions (only if OCP range changed)
@@ -527,12 +529,16 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
     echo ""
     echo "   Updating Containerfile.catalog files..."
 
-    # Remove old OCP version directory
-    OLD_OCP_DIR="v4.${OLD_OCP_VER}"
-    if [[ -d "$OLD_OCP_DIR" ]]; then
-      git rm -r "$OLD_OCP_DIR" 2>/dev/null || rm -rf "$OLD_OCP_DIR"
-      echo "   ✅ Removed old OCP directory: $OLD_OCP_DIR"
-    fi
+    # Remove all OCP version directories below OCP_MIN
+    for old_dir in v4.*/; do
+      [[ -d "$old_dir" ]] || continue
+      old_ver="${old_dir#v4.}"
+      old_ver="${old_ver%/}"
+      if [[ "$old_ver" =~ ^[0-9]+$ ]] && (( old_ver < (OCP_MIN%100) )); then
+        git rm -r "$old_dir" 2>/dev/null || rm -rf "$old_dir"
+        echo "   ✅ Removed old OCP directory: ${old_dir%/}"
+      fi
+    done
 
     # Create new OCP version directory and Containerfile.catalog
     NEW_OCP_DIR="v4.${NEW_OCP_VER}"
@@ -652,6 +658,22 @@ elif [[ ! -f "$FILTER_CATALOG_FILE" ]]; then
   echo "   ⚠️  File not found: $FILTER_CATALOG_FILE" >&2
 fi
 
+# Step 2.7: Update README.md
+echo ""
+echo "📍 Step 2.7: Updating README.md..."
+
+README_FILE="README.md"
+if [[ -f "$README_FILE" && -n "$PREV_CATALOG_TAG" ]]; then
+  echo "   Updating image references in $README_FILE"
+  echo "   Changing: ${PREV_CATALOG_TAG} → ${CATALOG_TAG}"
+
+  sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$README_FILE"
+
+  echo "   ✅ Updated $README_FILE"
+elif [[ ! -f "$README_FILE" ]]; then
+  echo "   ⚠️  File not found: $README_FILE" >&2
+fi
+
 # Step 3: Commit changes
 echo ""
 echo "📍 Step 3: Committing changes on $CATALOG_BRANCH..."
@@ -672,6 +694,7 @@ else
 - Remove OCP 4.${OLD_OCP_VER} pipelines and directory
 - Update existing OCP 4.$((OCP_MIN%100))-4.$((OCP_MAX-1%100)) pipelines
 - Update all Containerfile.catalog files with new bundle reference (${PREV_CATALOG_TAG} -> ${CATALOG_TAG})
+- Update README.md image references to ${CATALOG_TAG}
 
 Supports OCP 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))
 Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}"

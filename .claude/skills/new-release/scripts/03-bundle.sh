@@ -476,6 +476,33 @@ else
   echo "   ⚠️  File not found: $KONFLUX_SCRIPT" >&2
 fi
 
+# Step 5.5: Update Containerfile.bundle labels
+echo ""
+echo "📍 Step 5.5: Updating Containerfile.bundle labels..."
+
+CONTAINERFILE="Containerfile.bundle"
+if [[ -f "$CONTAINERFILE" ]]; then
+  if [[ -n "$PREV_BUNDLE_VERSION" ]]; then
+    echo "   Updating version labels in $CONTAINERFILE"
+    echo "   Changing: ${PREV_BUNDLE_VERSION} → ${BUNDLE_VERSION}"
+
+    # Update bundle channels
+    sed "${SED_INPLACE[@]}" "s|operators.operatorframework.io.bundle.channels.v1=release-${PREV_BUNDLE_VERSION}|operators.operatorframework.io.bundle.channels.v1=release-${BUNDLE_VERSION}|g" "$CONTAINERFILE"
+    # Update default channel
+    sed "${SED_INPLACE[@]}" "s|operators.operatorframework.io.bundle.channel.default.v1=release-${PREV_BUNDLE_VERSION}|operators.operatorframework.io.bundle.channel.default.v1=release-${BUNDLE_VERSION}|g" "$CONTAINERFILE"
+    # Update CPE label
+    sed "${SED_INPLACE[@]}" "s|cpe:/a:redhat:multicluster_globalhub:${PREV_BUNDLE_VERSION}|cpe:/a:redhat:multicluster_globalhub:${BUNDLE_VERSION}|g" "$CONTAINERFILE"
+    # Update version label
+    sed "${SED_INPLACE[@]}" "s|version=\"release-${PREV_BUNDLE_VERSION}\"|version=\"release-${BUNDLE_VERSION}\"|g" "$CONTAINERFILE"
+
+    echo "   ✅ Updated Containerfile.bundle labels to ${BUNDLE_VERSION}"
+  else
+    echo "   ⚠️  No previous bundle version found, skipping Containerfile.bundle update" >&2
+  fi
+else
+  echo "   ⚠️  File not found: $CONTAINERFILE" >&2
+fi
+
 # Step 6: Check if there are actual changes before committing
 echo ""
 echo "📍 Step 6: Checking for changes on $BUNDLE_BRANCH..."
@@ -501,11 +528,9 @@ elif git diff --quiet && git diff --cached --quiet; then
   CHANGES_COMMITTED=false
 else
   # Check if the only changes are createdAt timestamps (should be ignored)
-  DIFF_OUTPUT=$(git diff "origin/$BUNDLE_BRANCH" 2>/dev/null || echo "")
-
   # Filter out createdAt changes and check if there are any other changes
-  # Remove lines with createdAt changes and diff markers (---, +++)
-  NON_CREATEDAT_CHANGES=$(echo "$DIFF_OUTPUT" | grep -E '^[-+]' | grep -v 'createdAt:' | grep -v '^---' | grep -v '^\+\+\+' || echo "")
+  # Use git diff directly with grep to avoid issues with large diffs or special characters
+  NON_CREATEDAT_CHANGES=$(git diff "origin/$BUNDLE_BRANCH" 2>/dev/null | grep -E '^[-+]' | grep -vF -- '---' | grep -vF -- '+++' | grep -v 'createdAt:' || echo "")
 
   if [[ -z "$NON_CREATEDAT_CHANGES" ]]; then
     echo "   ℹ️  Only createdAt timestamp changes detected - ignoring"
@@ -523,6 +548,7 @@ else
 - Update CSV skipRange to '>=${PREV_BUNDLE_VERSION}.0 <${BUNDLE_VERSION}.0'
 - Update konflux-patch.sh image references to ${BUNDLE_TAG}
 - Update konflux-patch.sh version replacement to ${BUNDLE_VERSION}.0
+- Update Containerfile.bundle labels to ${BUNDLE_VERSION}
 
 Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}
 Bundle source: ${BUNDLE_SOURCE_DESCRIPTION}"
@@ -614,6 +640,7 @@ fi
 - Update CSV skipRange to \`>=${PREV_BUNDLE_VERSION}.0 <${BUNDLE_VERSION}.0\`
 - Update konflux-patch.sh image references to \`${BUNDLE_TAG}\`
 - Update konflux-patch.sh version replacement to \`${BUNDLE_VERSION}.0\`
+- Update Containerfile.bundle labels to \`${BUNDLE_VERSION}\`
 
 ## Version Mapping
 
@@ -667,6 +694,7 @@ if [[ -n "$PREV_BUNDLE_TAG" ]]; then
   echo "  ✓ Updated bundle image labels to ${BUNDLE_VERSION}"
   echo "  ✓ Updated CSV skipRange to '>=${PREV_BUNDLE_VERSION} <${BUNDLE_VERSION}'"
   echo "  ✓ Updated konflux-patch.sh image refs and version replacement"
+  echo "  ✓ Updated Containerfile.bundle labels to ${BUNDLE_VERSION}"
 fi
 if [[ "$PUSHED_TO_ORIGIN" = true ]]; then
   echo "  ✓ Pushed to origin: ${BUNDLE_REPO}/${BUNDLE_BRANCH}"
