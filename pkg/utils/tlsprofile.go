@@ -105,9 +105,10 @@ func BuildTLSConfigFunc(profile *configv1.TLSSecurityProfile) (func(*tls.Config)
 
 	return func(cfg *tls.Config) {
 		cfg.MinVersion = minVer
-		if len(suites) > 0 {
-			cfg.CipherSuites = suites
-		}
+		// Always set CipherSuites to ensure consistent behavior:
+		// - TLS < 1.3: use specific suites or nil for Go defaults
+		// - TLS >= 1.3: nil (cipher suites not configurable in Go)
+		cfg.CipherSuites = suites
 	}, nil
 }
 
