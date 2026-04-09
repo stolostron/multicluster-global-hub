@@ -261,6 +261,7 @@ func getMetricsTLSConfigFunc(restConfig *rest.Config) func(*tls.Config) {
 		}
 	}
 
+	logger.DefaultZapLogger().Info("Configuring metrics server TLS from cluster APIServer profile", "profileType", profile.Type)
 	return tlsConfigFunc
 }
 

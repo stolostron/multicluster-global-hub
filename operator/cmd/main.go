@@ -190,5 +190,6 @@ func getTLSConfigFunc(restConfig *rest.Config) (func(*tls.Config), error) {
 		return nil, fmt.Errorf("failed to fetch APIServer TLS profile: %w", err)
 	}
 
+	setupLog.Info("Configuring webhook server TLS from cluster APIServer profile", "profileType", profile.Type)
 	return utils.BuildTLSConfigFunc(profile)
 }
