@@ -1,10 +1,12 @@
 approvers:
 - nirrozenbaum
 - bjoydeep
+- birsanv
 
 reviewers:
 - nirrozenbaum
 - bjoydeep
+- birsanv
 - github-actions[bot]
 
 emeritus_approvers:
