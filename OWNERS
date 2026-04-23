@@ -1,14 +1,14 @@
 approvers:
-- vadimeisenbergibm
 - nirrozenbaum
-- clyang82
-- morvencao
-- yanmxa
+- bjoydeep
 
 reviewers:
-- vadimeisenbergibm
 - nirrozenbaum
+- bjoydeep
+- github-actions[bot]
+
+emeritus_approvers:
+- vadimeisenbergibm
 - clyang82
 - morvencao
 - yanmxa
-- github-actions[bot]
