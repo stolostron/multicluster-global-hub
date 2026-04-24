@@ -40,14 +40,19 @@ func GetPostgresConfig(URI string, cert []byte) (*pgx.ConnConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database uri: %w", err)
 	}
-	if len(cert) > 0 { // #nosec G402
+	if len(cert) > 0 {
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(cert)
-		config.TLSConfig = &tls.Config{
-			RootCAs: caCertPool,
-			// nolint:gosec
-			InsecureSkipVerify: true, // #nosec G402
+		if !caCertPool.AppendCertsFromPEM(cert) {
+			return nil, fmt.Errorf("failed to parse database CA certificate PEM")
 		}
+		// Preserve existing TLSConfig settings from ParseConfig (ServerName, etc.)
+		// and only update RootCAs
+		if config.TLSConfig == nil {
+			config.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
+		}
+		config.TLSConfig.RootCAs = caCertPool
 	}
 	return config, nil
 }
@@ -63,13 +68,19 @@ func PostgresConnPool(ctx context.Context, databaseURI string, certPath string, 
 	if err != nil && !strings.Contains(err.Error(), errMessageFileNotFound) {
 		return nil, fmt.Errorf("unable to read database cert file: %w", err)
 	}
-	if len(cert) > 0 { // #nosec G402
+	if len(cert) > 0 {
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(cert)
-		config.ConnConfig.TLSConfig = &tls.Config{
-			RootCAs:            caCertPool,
-			InsecureSkipVerify: true, // #nosec G402
+		if !caCertPool.AppendCertsFromPEM(cert) {
+			return nil, fmt.Errorf("failed to parse database CA certificate PEM")
 		}
+		// Preserve existing TLSConfig settings from ParseConfig (ServerName, etc.)
+		// and only update RootCAs
+		if config.ConnConfig.TLSConfig == nil {
+			config.ConnConfig.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
+		}
+		config.ConnConfig.TLSConfig.RootCAs = caCertPool
 	}
 
 	if size > 0 {
