@@ -30,8 +30,18 @@ fi
 # create all the resource in cluster KUBECONFIG
 kubectl create namespace "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" --dry-run=client -o yaml | kubectl apply -f - --kubeconfig "$KAFKA_KUBECONFIG"
 
-# deploy kafka operator
-kubectl -n "$kafka_namespace" create -f "https://strimzi.io/install/latest?namespace=$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG"
+# Pin to a specific Strimzi version to avoid breakage when "latest" changes.
+# The test manifests use kafka.strimzi.io/v1beta2 and Kafka 4.0.0.
+# Strimzi 1.0.0 (released April 2026) dropped v1beta2 support.
+# Strimzi 0.51.0 dropped Kafka 4.0.0 support.
+# Strimzi 0.50.1 is the last version that supports both v1beta2 and Kafka 4.0.0.
+STRIMZI_VERSION="0.50.1"
+
+# The strimzi.io/install URL replaces "namespace: myproject" with the target namespace.
+# Replicate that behaviour when downloading the pinned release directly from GitHub.
+curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${STRIMZI_VERSION}/strimzi-cluster-operator-${STRIMZI_VERSION}.yaml" \
+  | sed "s/namespace: myproject/namespace: ${kafka_namespace}/g" \
+  | kubectl create -f - -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG"
 retry "(kubectl get pods -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -l name=strimzi-cluster-operator | grep Running)" 60
 
 echo "Kafka operator is ready"
