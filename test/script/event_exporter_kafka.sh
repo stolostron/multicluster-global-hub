@@ -18,7 +18,7 @@ standalone_user=global-hub-standalone-agent-user
 status_topic="gh-status.standalone-agent"
 
 kubectl apply -f "$TEST_DIR/manifest/standalone-agent/standalone-agent-resources.yaml" -n "$kafka_namespace"
-kubectl wait --for=condition=Ready kafkauser/$standalone_user --timeout=500s
+kubectl wait --for=condition=Ready kafkauser/$standalone_user -n "$kafka_namespace" --timeout=500s
 
 # Define a 5-minute timeout
 timeout=300
