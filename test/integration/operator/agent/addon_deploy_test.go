@@ -342,7 +342,8 @@ var _ = Describe("addon deploy", func() {
 			clusterAvailableCondition)
 		By("By preparing an OCP with no condition Managed Clusters")
 		clusterName3 := fmt.Sprintf("hub-ocp-no-condtion-%s", rand.String(6))
-		prepareCluster(clusterName3,
+		prepareCluster(
+			clusterName3,
 			map[string]string{
 				"vendor": "OpenShift",
 				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,

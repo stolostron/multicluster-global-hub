@@ -95,7 +95,8 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if annotations != nil {
 		if _, ok := annotations[constants.InventoryResourceCreatingAnnotationlKey]; ok {
 			if resp, err := p.requester.GetHttpClient().PolicyServiceClient.CreateK8SPolicy(
-				ctx, &kessel.CreateK8SPolicyRequest{K8SPolicy: k8sPolicy}); err != nil {
+				ctx, &kessel.CreateK8SPolicyRequest{K8SPolicy: k8sPolicy},
+			); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to create k8s-policy %v: %w", resp, err)
 			}
 		}
@@ -113,14 +114,16 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// The policy object is being deleted
 		if controllerutil.ContainsFinalizer(policy, constants.InventoryResourceFinalizer) {
 			if resp, err := p.requester.GetHttpClient().PolicyServiceClient.DeleteK8SPolicy(
-				ctx, deleteK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
+				ctx, deleteK8SClusterPolicy(*policy, p.reporterInstanceId),
+			); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to delete k8s-policy %v: %w", resp, err)
 			}
 			for _, compliancePerClusterStatus := range policy.Status.Status {
 				if resp, err := p.requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
 					DeleteK8SPolicyIsPropagatedToK8SCluster(
 						ctx, deleteK8SPolicyIsPropagatedToK8SCluster(policy.Namespace+"/"+policy.Name,
-							compliancePerClusterStatus.ClusterName, p.reporterInstanceId)); err != nil {
+							compliancePerClusterStatus.ClusterName, p.reporterInstanceId),
+					); err != nil {
 					return ctrl.Result{}, fmt.Errorf("failed to delete k8s-policy_is-propagated-to_k8s-cluster %v: %w", resp, err)
 				}
 			}
@@ -134,7 +137,8 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if resp, err := p.requester.GetHttpClient().PolicyServiceClient.UpdateK8SPolicy(
-		ctx, &kessel.UpdateK8SPolicyRequest{K8SPolicy: k8sPolicy}); err != nil {
+		ctx, &kessel.UpdateK8SPolicyRequest{K8SPolicy: k8sPolicy},
+	); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update k8s-policy %v: %w", resp, err)
 	}
 	for _, compliancePerClusterStatus := range policy.Status.Status {
@@ -142,7 +146,8 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			UpdateK8SPolicyIsPropagatedToK8SCluster(
 				ctx, updateK8SPolicyIsPropagatedToK8SCluster(policy.Namespace+"/"+policy.Name,
 					compliancePerClusterStatus.ClusterName, string(compliancePerClusterStatus.ComplianceState),
-					p.reporterInstanceId)); err != nil {
+					p.reporterInstanceId),
+			); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update k8s-policy_is-propagated-to_k8s-cluster %v: %w", resp, err)
 		}
 	}

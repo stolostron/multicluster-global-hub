@@ -15,5 +15,6 @@ func NewLocalPlacementRuleSpecHandler() conflator.Handler {
 		string(enum.LocalPlacementRuleSpecType),
 		conflator.LocalPlacementRulesSpecPriority,
 		enum.CompleteStateMode,
-		fmt.Sprintf("%s.%s", database.LocalSpecSchema, database.PlacementRulesTableName))
+		fmt.Sprintf("%s.%s", database.LocalSpecSchema, database.PlacementRulesTableName),
+	)
 }

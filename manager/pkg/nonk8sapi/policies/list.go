@@ -109,7 +109,8 @@ func ListPolicies() gin.HandlerFunc {
 		LastResourceCompareCondition := fmt.Sprintf(
 			"(payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') > ('%s', '%s') ",
 			lastPolicyName,
-			lastPolicyUID)
+			lastPolicyUID,
+		)
 
 		// policy list query order by name and uid
 		policyListQuery := "SELECT id, payload FROM spec.policies WHERE deleted = FALSE AND " +
@@ -272,7 +273,8 @@ func sendPolicyWatchEvent(writer io.Writer, policy *policyv1.Policy, eventType,
 	}
 
 	compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(
-		policyComplianceQuery, policyID)
+		policyComplianceQuery, policyID,
+	)
 	if err != nil {
 		return fmt.Errorf("error in querying compliance status of a policy with UID: %s - %w", policyID, err)
 	}

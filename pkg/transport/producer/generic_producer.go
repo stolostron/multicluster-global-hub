@@ -138,7 +138,7 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportInterna
 
 func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 	var chunk []byte
-	chunks := make([][]byte, 0, len(payload)/(p.messageSizeLimit)+1)
+	chunks := make([][]byte, 0, len(payload)/p.messageSizeLimit+1)
 	for len(payload) >= p.messageSizeLimit {
 		chunk, payload = payload[:p.messageSizeLimit], payload[p.messageSizeLimit:]
 		chunks = append(chunks, chunk)

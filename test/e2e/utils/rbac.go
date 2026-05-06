@@ -59,7 +59,8 @@ func FetchBearerToken(opt Options) (string, error) {
 	config, err := LoadConfig(
 		opt.GlobalHub.ApiServer,
 		opt.GlobalHub.KubeConfig,
-		opt.GlobalHub.KubeContext)
+		opt.GlobalHub.KubeContext,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -112,7 +113,8 @@ func CreateClusterRoleBinding(opt Options, crb *rbacv1.ClusterRoleBinding) error
 		if errors.IsAlreadyExists(err) {
 			klog.V(6).Infof("clusterrolebinding %s already exists, updating...", crb.GetName())
 			_, err := clients.KubeClient().RbacV1().ClusterRoleBindings().Update(
-				context.TODO(), crb, metav1.UpdateOptions{})
+				context.TODO(), crb, metav1.UpdateOptions{},
+			)
 			return err
 		}
 		klog.Errorf("Failed to create cluster rolebinding %s due to %v", crb.GetName(), err)

@@ -58,7 +58,8 @@ var _ = Describe("claim controllers", Ordered, func() {
 			}, clusterClaim)
 		}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 		Expect(clusterClaim.Spec.Value).Should(Equal(
-			constants.HubInstalledByUser))
+			constants.HubInstalledByUser,
+		))
 	})
 
 	It("clusterClaim testing clusterManager and mch are not installed", func() {
@@ -131,7 +132,8 @@ var _ = Describe("claim controllers", Ordered, func() {
 			return true
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 		Expect(clusterClaim.Spec.Value).Should(Equal(
-			constants.HubInstalledByUser))
+			constants.HubInstalledByUser,
+		))
 
 		By("Expect clusterClaim version to be updated")
 		mch.Status = mchv1.MultiClusterHubStatus{CurrentVersion: "2.7.0"}
@@ -178,7 +180,8 @@ var _ = Describe("claim controllers", Ordered, func() {
 			return true
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 		Expect(clusterClaim.Spec.Value).Should(Equal(
-			constants.HubInstalledByUser))
+			constants.HubInstalledByUser,
+		))
 	})
 })
 

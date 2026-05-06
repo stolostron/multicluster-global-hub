@@ -186,7 +186,8 @@ func getLocalComplianceClusterSets(db *gorm.DB, query interface{}, args ...inter
 			allPolicyComplianceRowsFromDB[compliance.PolicyID] = NewPolicyClusterSets()
 		}
 		allPolicyComplianceRowsFromDB[compliance.PolicyID].AddCluster(
-			compliance.ClusterName, compliance.Compliance)
+			compliance.ClusterName, compliance.Compliance,
+		)
 	}
 	return allPolicyComplianceRowsFromDB, nil
 }

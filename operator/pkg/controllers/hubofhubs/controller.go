@@ -150,7 +150,8 @@ func addImageStreamWatch(mgr ctrl.Manager, globalHubController controller.Contro
 				c *imagev1.ImageStream,
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchImageStreamPredict())); err != nil {
+			}), watchImageStreamPredict()),
+	); err != nil {
 		return err
 	}
 	return nil
@@ -180,7 +181,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &v1alpha4.MulticlusterGlobalHub{},
 			&handler.TypedEnqueueRequestForObject[*v1alpha4.MulticlusterGlobalHub]{},
-			watchMulticlusterGlobalHubPredict())); err != nil {
+			watchMulticlusterGlobalHubPredict()),
+	); err != nil {
 		return err
 	}
 
@@ -188,7 +190,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &appsv1.Deployment{},
 			handler.TypedEnqueueRequestForOwner[*appsv1.Deployment](
-				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner(),
+			),
 			[]predicate.TypedPredicate[*appsv1.Deployment]{
 				predicate.TypedFuncs[*appsv1.Deployment]{
 					CreateFunc: func(e event.TypedCreateEvent[*appsv1.Deployment]) bool {
@@ -204,77 +207,92 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 						return true
 					},
 				},
-			}...)); err != nil {
+			}...),
+	); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &appsv1.StatefulSet{},
 			handler.TypedEnqueueRequestForOwner[*appsv1.StatefulSet](
-				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner(),
+			),
 			[]predicate.TypedPredicate[*appsv1.StatefulSet]{
 				predicate.TypedGenerationChangedPredicate[*appsv1.StatefulSet]{},
-			}...)); err != nil {
+			}...),
+	); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Service{},
 			handler.TypedEnqueueRequestForOwner[*corev1.Service](
-				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner(),
+			),
 			[]predicate.TypedPredicate[*corev1.Service]{
 				predicate.TypedGenerationChangedPredicate[*corev1.Service]{},
-			}...)); err != nil {
+			}...),
+	); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &corev1.ServiceAccount{},
 			handler.TypedEnqueueRequestForOwner[*corev1.ServiceAccount](
-				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner(),
+			),
 			[]predicate.TypedPredicate[*corev1.ServiceAccount]{
 				predicate.TypedGenerationChangedPredicate[*corev1.ServiceAccount]{},
-			}...)); err != nil {
+			}...),
+	); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Secret{},
 			handler.TypedEnqueueRequestForOwner[*corev1.Secret](
-				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner(),
+			),
 			[]predicate.TypedPredicate[*corev1.Secret]{
 				predicate.TypedGenerationChangedPredicate[*corev1.Secret]{},
-			}...)); err != nil {
+			}...),
+	); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &rbacv1.Role{},
 			handler.TypedEnqueueRequestForOwner[*rbacv1.Role](
-				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner(),
+			),
 			[]predicate.TypedPredicate[*rbacv1.Role]{
 				predicate.TypedGenerationChangedPredicate[*rbacv1.Role]{},
-			}...)); err != nil {
+			}...),
+	); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &rbacv1.RoleBinding{},
 			handler.TypedEnqueueRequestForOwner[*rbacv1.RoleBinding](
-				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner(),
+			),
 			[]predicate.TypedPredicate[*rbacv1.RoleBinding]{
 				predicate.TypedGenerationChangedPredicate[*rbacv1.RoleBinding]{},
-			}...)); err != nil {
+			}...),
+	); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &routev1.Route{},
 			handler.TypedEnqueueRequestForOwner[*routev1.Route](
-				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner(),
+			),
 			[]predicate.TypedPredicate[*routev1.Route]{
 				predicate.TypedGenerationChangedPredicate[*routev1.Route]{},
-			}...)); err != nil {
+			}...),
+	); err != nil {
 		return err
 	}
 
@@ -284,7 +302,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 				c *corev1.ConfigMap,
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchConfigMapPredict())); err != nil {
+			}), watchConfigMapPredict()),
+	); err != nil {
 		return err
 	}
 
@@ -294,7 +313,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 				a *admissionv1.MutatingWebhookConfiguration,
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchMutatingWebhookConfigurationPredicate())); err != nil {
+			}), watchMutatingWebhookConfigurationPredicate()),
+	); err != nil {
 		return err
 	}
 
@@ -304,7 +324,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 				c *corev1.Namespace,
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchNamespacePredict())); err != nil {
+			}), watchNamespacePredict()),
+	); err != nil {
 		return err
 	}
 
@@ -314,7 +335,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 				c *corev1.Secret,
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchSecretPredict())); err != nil {
+			}), watchSecretPredict()),
+	); err != nil {
 		return err
 	}
 
@@ -324,7 +346,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 				c *rbacv1.ClusterRole,
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchClusterRolePredict())); err != nil {
+			}), watchClusterRolePredict()),
+	); err != nil {
 		return err
 	}
 
@@ -334,7 +357,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 				c *rbacv1.ClusterRoleBinding,
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchClusterRoleBindingPredict())); err != nil {
+			}), watchClusterRoleBindingPredict()),
+	); err != nil {
 		return err
 	}
 
@@ -344,7 +368,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 				c *promv1.ServiceMonitor,
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchServiceMonitorPredict())); err != nil {
+			}), watchServiceMonitorPredict()),
+	); err != nil {
 		return err
 	}
 
@@ -354,7 +379,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 				c *subv1alpha1.Subscription,
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchSubscriptionPredict())); err != nil {
+			}), watchSubscriptionPredict()),
+	); err != nil {
 		return err
 	}
 

@@ -126,7 +126,8 @@ func TestCRDCtr(t *testing.T) {
 		Reconciler: reconcile.Func(
 			func(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
 				return reconcile.Result{}, nil
-			}),
+			},
+		),
 	})
 	assert.Nil(t, err)
 

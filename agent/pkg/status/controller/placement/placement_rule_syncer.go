@@ -54,5 +54,6 @@ func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfi
 		[]generic.ObjectEmitter{
 			globalPlacementRuleEmitter,
 			localPlacementRuleEmitter,
-		})
+		},
+	)
 }

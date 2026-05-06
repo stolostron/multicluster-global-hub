@@ -42,5 +42,6 @@ func LaunchManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, agentConf
 		statusconfig.GetManagerClusterDuration,
 		[]generic.ObjectEmitter{
 			emitter,
-		})
+		},
+	)
 }

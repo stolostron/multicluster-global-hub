@@ -44,5 +44,6 @@ func LaunchPlacementDecisionSyncer(ctx context.Context, mgr ctrl.Manager, agentC
 		syncInterval,
 		[]generic.ObjectEmitter{
 			placementDecisionEmitter,
-		})
+		},
+	)
 }

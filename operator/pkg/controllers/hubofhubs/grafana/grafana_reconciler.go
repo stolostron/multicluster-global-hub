@@ -438,7 +438,8 @@ func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.Con
 
 	mergedAlertYaml, err := mergeAlertYaml(
 		[]byte(defaultAlertConfigMap.Data[AlertConfigMapKey]),
-		[]byte(customAlertConfigMap.Data[AlertConfigMapKey]))
+		[]byte(customAlertConfigMap.Data[AlertConfigMapKey]),
+	)
 	if err != nil {
 		return nil, err
 	}

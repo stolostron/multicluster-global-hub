@@ -95,7 +95,8 @@ func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Conte
 				operatorv1.FeatureGate{
 					Feature: "ManagedClusterAutoApproval",
 					Mode:    operatorv1.FeatureGateModeTypeEnable,
-				})
+				},
+			)
 			clusterManagerChanged = true
 		}
 		for _, user := range registrationConfiguration.AutoApproveUsers {
@@ -107,7 +108,8 @@ func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Conte
 		if !autoApproveUserAdded {
 			registrationConfiguration.AutoApproveUsers = append(
 				registrationConfiguration.AutoApproveUsers,
-				autoApproveUser)
+				autoApproveUser,
+			)
 			clusterManagerChanged = true
 		}
 	} else {
