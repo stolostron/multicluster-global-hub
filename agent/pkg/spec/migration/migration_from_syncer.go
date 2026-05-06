@@ -232,7 +232,8 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 
 	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
 	if err := s.transportClient.GetProducer().SendEvent(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e,
+	); err != nil {
 		return fmt.Errorf(errFailedToSendEvent, constants.MigrationTargetMsgKey, fromHub, toHub, err)
 	}
 	return nil
@@ -666,7 +667,8 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 		timeout = time.Duration(spec.RollbackingTimeoutMinutes) * time.Minute
 	}
 
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
+	err := wait.PollUntilContextTimeout(
+		ctx, 5*time.Second, timeout, true,
 		func(context.Context) (done bool, err error) {
 			clusterErrors := map[string]string{}
 			defer func() {
@@ -726,7 +728,8 @@ func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migratio
 			ManagedClusters: allManagedClusterList,
 			ClusterErrors:   s.clusterErrors,
 		},
-		s.bundleVersion)
+		s.bundleVersion,
+	)
 
 	if reportErr != nil {
 		log.Errorf("failed to report migration status for stage %s: %v", spec.Stage, reportErr)
@@ -866,28 +869,32 @@ func (s *MigrationSourceSyncer) validateSingleCluster(ctx context.Context, clust
 	if s.isHostedCluster(mc) {
 		return fmt.Errorf(
 			"managed cluster %v is imported as hosted mode in managed hub %v, it cannot be migrated",
-			clusterName, s.leafHubName)
+			clusterName, s.leafHubName,
+		)
 	}
 
 	// Check if cluster is local cluster
 	if mc.Labels != nil && mc.Labels[constants.LocalClusterName] == "true" {
 		return fmt.Errorf(
 			"managed cluster %v is local cluster in managed hub %v, it cannot be migrated",
-			clusterName, s.leafHubName)
+			clusterName, s.leafHubName,
+		)
 	}
 
 	// Check if cluster is available
 	if !s.isManagedClusterAvailable(mc) {
 		return fmt.Errorf(
 			"managed cluster %v is not available in managed hub %v, it cannot be migrated",
-			clusterName, s.leafHubName)
+			clusterName, s.leafHubName,
+		)
 	}
 
 	// Check if cluster is a managed hub
 	if s.isManagedHub(mc) {
 		return fmt.Errorf(
 			"managed cluster %v is a managed hub cluster in managed hub %v, it cannot be migrated",
-			clusterName, s.leafHubName)
+			clusterName, s.leafHubName,
+		)
 	}
 
 	return nil

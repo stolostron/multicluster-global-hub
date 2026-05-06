@@ -93,7 +93,8 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 	var reconcileErr error
 	defer func() {
-		err = config.UpdateMGHComponent(ctx, r.c,
+		err = config.UpdateMGHComponent(
+			ctx, r.c,
 			r.getKafkaComponentStatus(reconcileErr, r.kafkaStatus),
 			updateConn,
 		)

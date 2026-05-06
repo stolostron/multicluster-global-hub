@@ -119,21 +119,23 @@ func (*policyStatusEventHandler) Delete(client.Object) bool {
 
 func NewPolicyStatusEventEmitter(eventType enum.EventType) interfaces.Emitter {
 	name := strings.ReplaceAll(string(eventType), enum.EventTypePrefix, "")
-	return generic.NewGenericEmitter(eventType, generic.WithPostSend(
-		// After sending the event, update the filter cache and clear the bundle from the handler cache.
-		func(data interface{}) {
-			events, ok := data.(*event.ReplicatedPolicyEventBundle)
-			if !ok {
-				return
-			}
-			// policyEvents, ok := data.([]event.ReplicatedPolicyEvent)
-			// update the time filter: with latest event
-			for _, evt := range *events {
-				filter.CacheTime(name, evt.CreatedAt)
-			}
-			// reset the payload
-			*events = (*events)[:0]
-		}),
+	return generic.NewGenericEmitter(
+		eventType, generic.WithPostSend(
+			// After sending the event, update the filter cache and clear the bundle from the handler cache.
+			func(data interface{}) {
+				events, ok := data.(*event.ReplicatedPolicyEventBundle)
+				if !ok {
+					return
+				}
+				// policyEvents, ok := data.([]event.ReplicatedPolicyEvent)
+				// update the time filter: with latest event
+				for _, evt := range *events {
+					filter.CacheTime(name, evt.CreatedAt)
+				}
+				// reset the payload
+				*events = (*events)[:0]
+			},
+		),
 	)
 }
 

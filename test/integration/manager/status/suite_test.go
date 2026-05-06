@@ -110,7 +110,8 @@ var _ = BeforeSuite(func() {
 		managerConfig.TransportConfig.KafkaCredential.StatusTopic, nil)
 	Expect(err).NotTo(HaveOccurred())
 
-	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
+	consumer, err := genericconsumer.NewGenericConsumer(
+		managerConfig.TransportConfig,
 		[]string{managerConfig.TransportConfig.KafkaCredential.StatusTopic},
 		[]genericconsumer.GenericConsumeOption{genericconsumer.SetTopicMetadataRefreshInterval(constants.TopicMetadataRefreshInterval)}...,
 	)

@@ -133,7 +133,8 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return
 		}
 
-		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+		err = config.UpdateMGHComponent(
+			ctx, r.GetClient(),
 			getTransportComponentStatus(reconcileErr),
 			updateConn,
 		)

@@ -54,5 +54,6 @@ func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfi
 					generic.WithShouldUpdate(localShouldUpdate)),
 				Emitter: generic.NewGenericEmitter(enum.LocalPlacementRuleSpecType),
 			},
-		})
+		},
+	)
 }
