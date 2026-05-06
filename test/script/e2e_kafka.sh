@@ -30,18 +30,41 @@ fi
 # create all the resource in cluster KUBECONFIG
 kubectl create namespace "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" --dry-run=client -o yaml | kubectl apply -f - --kubeconfig "$KAFKA_KUBECONFIG"
 
-# deploy kafka operator
-kubectl -n "$kafka_namespace" create -f "https://strimzi.io/install/latest?namespace=$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG"
+# Pin to a specific Strimzi version to avoid breakage when "latest" changes.
+# The test manifests use kafka.strimzi.io/v1beta2 and Kafka 4.0.0.
+# Strimzi 1.0.0 (released April 2026) dropped v1beta2 support.
+# Strimzi 0.51.0 dropped Kafka 4.0.0 support.
+# Strimzi 0.50.1 is the last version that supports both v1beta2 and Kafka 4.0.0.
+STRIMZI_VERSION="0.50.1"
+
+# The strimzi.io/install URL replaces "namespace: myproject" with the target namespace.
+# Replicate that behaviour when downloading the pinned release directly from GitHub.
+curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${STRIMZI_VERSION}/strimzi-cluster-operator-${STRIMZI_VERSION}.yaml" \
+  | sed "s/namespace: myproject/namespace: ${kafka_namespace}/g" \
+  | kubectl create -f - -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG"
 retry "(kubectl get pods -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -l name=strimzi-cluster-operator | grep Running)" 60
 
 echo "Kafka operator is ready"
 
+# Wait for Strimzi CRDs to be fully established before applying Kafka resources.
+# Without this, "kubectl apply -k kafka-cluster" fails with "no matches for kind Kafka"
+# because the CRDs are created but not yet registered with the API server.
+kubectl wait --for=condition=Established crd/kafkas.kafka.strimzi.io \
+  --kubeconfig "$KAFKA_KUBECONFIG" --timeout=120s
+kubectl wait --for=condition=Established crd/kafkatopics.kafka.strimzi.io \
+  --kubeconfig "$KAFKA_KUBECONFIG" --timeout=120s
+kubectl wait --for=condition=Established crd/kafkausers.kafka.strimzi.io \
+  --kubeconfig "$KAFKA_KUBECONFIG" --timeout=120s
+kubectl wait --for=condition=Established crd/kafkanodepools.kafka.strimzi.io \
+  --kubeconfig "$KAFKA_KUBECONFIG" --timeout=120s
+
 node_port_host=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --kubeconfig "$KAFKA_KUBECONFIG" | sed -e 's#^https\?://##' -e 's/:.*//')
 sed -i -e "s;NODE_PORT_HOST;$node_port_host;" "$TEST_DIR"/manifest/kafka/kafka-cluster/kafka-cluster.yaml
+
 # deploy kafka cluster
 kubectl apply -k "$TEST_DIR"/manifest/kafka/kafka-cluster -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG"
 
-wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
+wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers" 1200
 echo "Kafka cluster is ready"
 
 # generate resource for standalone agent
