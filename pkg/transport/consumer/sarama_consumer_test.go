@@ -134,7 +134,8 @@ func MockSaramaCluster(t *testing.T, messages []string) *sarama.MockBroker {
 					Topics: map[string][]int32{
 						"my-topic": {0},
 					},
-				}),
+				},
+			),
 		),
 		"OffsetFetchRequest": sarama.NewMockOffsetFetchResponse(t).SetOffset(
 			"my-group", "my-topic", 0, oldestOffset, "", sarama.ErrNoError,

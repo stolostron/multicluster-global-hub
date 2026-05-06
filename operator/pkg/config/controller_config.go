@@ -19,7 +19,8 @@ var controllerConfigMap *corev1.ConfigMap
 
 func LoadControllerConfig(ctx context.Context, kubeClient kubernetes.Interface) error {
 	config, err := kubeClient.CoreV1().ConfigMaps(utils.GetDefaultNamespace()).Get(
-		ctx, operatorconstants.ControllerConfig, metav1.GetOptions{})
+		ctx, operatorconstants.ControllerConfig, metav1.GetOptions{},
+	)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}

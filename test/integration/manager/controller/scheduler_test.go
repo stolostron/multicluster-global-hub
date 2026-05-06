@@ -39,7 +39,8 @@ var _ = Describe("scheduler", func() {
 
 		scheduler := gocron.NewScheduler(time.Local)
 		_, err := scheduler.Every(1).Day().At("00:00").Tag(task.LocalComplianceTaskName).DoWithJobDetails(
-			task.LocalComplianceHistory, ctx)
+			task.LocalComplianceHistory, ctx,
+		)
 		Expect(err).To(Succeed())
 
 		_, err = scheduler.Every(1).Month(1, 15, 28).At("00:00").Tag(task.RetentionTaskName).

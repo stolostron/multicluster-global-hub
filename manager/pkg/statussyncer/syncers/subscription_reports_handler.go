@@ -15,5 +15,6 @@ func NewSubscriptionReportHandler() conflator.Handler {
 		string(enum.SubscriptionReportType),
 		conflator.SubscriptionReportPriority,
 		enum.CompleteStateMode,
-		fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionReportsTableName))
+		fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionReportsTableName),
+	)
 }

@@ -96,7 +96,8 @@ func ListSubscriptions() gin.HandlerFunc {
 		LastResourceCompareCondition := fmt.Sprintf(
 			"(payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') > ('%s', '%s') ",
 			lastSubscriptionName,
-			lastSubscriptionUID)
+			lastSubscriptionUID,
+		)
 
 		// the last subscription query order by subscription name and uid
 		lastSubscriptionQuery := "SELECT payload FROM spec.subscriptions WHERE deleted = FALSE " +

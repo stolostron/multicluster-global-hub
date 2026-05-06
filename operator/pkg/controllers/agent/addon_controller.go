@@ -112,7 +112,8 @@ func (a *AddonController) Start(ctx context.Context) error {
 		return err
 	}
 	factory := addonfactory.NewAgentAddonFactory(
-		operatorconstants.GHManagedClusterAddonName, FS, "manifests").
+		operatorconstants.GHManagedClusterAddonName, FS, "manifests",
+	).
 		WithAgentHostedModeEnabledOption().
 		WithGetValuesFuncs(hohAgentAddon.GetValues,
 			addonfactory.GetValuesFromAddonAnnotation,

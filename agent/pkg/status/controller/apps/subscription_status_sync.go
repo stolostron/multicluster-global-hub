@@ -37,5 +37,6 @@ func LaunchSubscriptionStatusSyncer(ctx context.Context, mgr ctrl.Manager, agent
 		syncInterval,
 		[]generic.ObjectEmitter{
 			emitter,
-		})
+		},
+	)
 }

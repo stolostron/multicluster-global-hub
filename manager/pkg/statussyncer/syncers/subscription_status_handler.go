@@ -15,5 +15,6 @@ func NewSubscriptionStatusHandler() conflator.Handler {
 		string(enum.SubscriptionStatusType),
 		conflator.SubscriptionStatusPriority,
 		enum.CompleteStateMode,
-		fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionStatusesTableName))
+		fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionStatusesTableName),
+	)
 }

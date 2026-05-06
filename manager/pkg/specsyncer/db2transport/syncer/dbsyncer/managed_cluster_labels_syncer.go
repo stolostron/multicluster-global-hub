@@ -146,7 +146,8 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCl
 
 			err = updateDeletedKeysToLabelTable(
 				managedClusterLabelsSpec.Version, managedClusterLabelsSpecBundle.LeafHubName,
-				managedClusterLabelsSpec.ClusterName, deletedLabelKeysStillInStatus)
+				managedClusterLabelsSpec.ClusterName, deletedLabelKeysStillInStatus,
+			)
 			if err != nil {
 				watcher.log.Error(err, "failed to sync deleted_label_keys to label tables")
 				result = false

@@ -105,7 +105,8 @@ func ListManagedClusters() gin.HandlerFunc {
 		LastResourceCompareCondition := fmt.Sprintf(
 			"(payload -> 'metadata' ->> 'name', cluster_id) > ('%s', '%s') ",
 			lastManagedClusterName,
-			lastManagedClusterUID)
+			lastManagedClusterUID,
+		)
 
 		// managed cluster list query order by name and uid with limit if set
 		managedClusterListQuery := "SELECT payload FROM status.managed_clusters WHERE deleted_at is NULL AND " +

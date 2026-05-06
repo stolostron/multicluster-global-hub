@@ -25,7 +25,8 @@ func LaunchPlacementSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *c
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
 
 	// emitter config
-	globalPlacementEmitter := generic.ObjectEmitterWrapper(enum.PlacementSpecType,
+	globalPlacementEmitter := generic.ObjectEmitterWrapper(
+		enum.PlacementSpecType,
 		func(obj client.Object) bool {
 			return utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // global resource
 		},
@@ -46,5 +47,6 @@ func LaunchPlacementSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *c
 		syncInterval,
 		[]generic.ObjectEmitter{
 			globalPlacementEmitter,
-		})
+		},
+	)
 }

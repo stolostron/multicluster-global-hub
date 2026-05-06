@@ -214,7 +214,8 @@ func createManager(ctx context.Context,
 	}
 
 	// TODO: refactor the manager to start the conflation manager so that it can handle the events from restful API
-	err = controller.NewTransportCtrl(managerConfig.ManagerNamespace, constants.GHTransportConfigSecret,
+	err = controller.NewTransportCtrl(
+		managerConfig.ManagerNamespace, constants.GHTransportConfigSecret,
 		transportCallback(mgr, managerConfig),
 		managerConfig.TransportConfig,
 	).SetupWithManager(mgr)

@@ -197,7 +197,8 @@ func queryPolicyStatus(policyID, policyQuery, policyMappingQuery,
 	}
 
 	compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(
-		policyComplianceQuery, policyID)
+		policyComplianceQuery, policyID,
+	)
 	if err != nil {
 		fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
 		return &unstructured.Unstructured{}, err

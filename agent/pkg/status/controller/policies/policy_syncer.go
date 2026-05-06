@@ -49,7 +49,8 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 	)
 
 	// 3. local policy event
-	localStatusEventEmitter := StatusEventEmitter(ctx, enum.LocalReplicatedPolicyEventType,
+	localStatusEventEmitter := StatusEventEmitter(
+		ctx, enum.LocalReplicatedPolicyEventType,
 		func(obj client.Object) bool {
 			return statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue &&
 				!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
@@ -60,7 +61,8 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 	)
 
 	// 4. local policy spec
-	localPolicySpecEmitter := generic.ObjectEmitterWrapper(enum.LocalPolicySpecType,
+	localPolicySpecEmitter := generic.ObjectEmitterWrapper(
+		enum.LocalPolicySpecType,
 		func(obj client.Object) bool {
 			return statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue && // enable local policy
 				!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
@@ -105,7 +107,8 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 			// global compliance
 			complianceEmitter,
 			completeEmitter,
-		})
+		},
+	)
 }
 
 func cleanPolicy(object client.Object) {

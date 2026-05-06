@@ -15,5 +15,6 @@ func NewPlacementHandler() conflator.Handler {
 		string(enum.PlacementSpecType),
 		conflator.PlacementPriority,
 		enum.CompleteStateMode,
-		fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementsTableName))
+		fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementsTableName),
+	)
 }

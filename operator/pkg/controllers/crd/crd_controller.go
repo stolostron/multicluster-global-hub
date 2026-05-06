@@ -216,7 +216,8 @@ func (r *CrdController) watchACMRelatedResources() error {
 					{NamespacedName: config.GetMGHNamespacedName()},
 				}
 			}), watchClusterManagementAddOnPredict(),
-		)); err != nil {
+		),
+	); err != nil {
 		return err
 	}
 	if err := r.globalHubController.Watch(
@@ -226,7 +227,8 @@ func (r *CrdController) watchACMRelatedResources() error {
 			) []reconcile.Request {
 				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
 			}), watchManagedClusterAddOnPredict(),
-		)); err != nil {
+		),
+	); err != nil {
 		return err
 	}
 	if err := r.globalHubController.Watch(
@@ -240,7 +242,8 @@ func (r *CrdController) watchACMRelatedResources() error {
 					{NamespacedName: config.GetMGHNamespacedName()},
 				}
 			}), watchManagedClusterPredict(),
-		)); err != nil {
+		),
+	); err != nil {
 		return err
 	}
 	return nil
