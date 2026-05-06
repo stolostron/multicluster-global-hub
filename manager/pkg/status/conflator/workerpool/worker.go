@@ -84,7 +84,8 @@ func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJo
 
 	// based on the handle result, update the element state
 	startTime := time.Now()
-	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 1*time.Minute, true,
+	err = wait.PollUntilContextTimeout(
+		ctx, 5*time.Second, 1*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
 			err := job.Handle(ctx, job.Event)
 			if err != nil {

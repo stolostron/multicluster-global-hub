@@ -206,7 +206,8 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	isResourceRemoved = false
 	var reconcileErr error
 	defer func() {
-		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+		err = config.UpdateMGHComponent(
+			ctx, r.GetClient(),
 			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
 				mgh.Namespace, config.COMPONENTS_MANAGER_NAME, reconcileErr),
 			false,
@@ -311,7 +312,8 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			ImagePullPolicy:    string(imagePullPolicy),
 			ProxySessionSecret: proxySessionSecret,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
-				[]byte(storageConn.SuperuserDatabaseURI)),
+				[]byte(storageConn.SuperuserDatabaseURI),
+			),
 			PostgresCACert:            base64.StdEncoding.EncodeToString(storageConn.CACert),
 			TransportType:             string(transport.Kafka),
 			TransportConfigSecret:     constants.GHTransportConfigSecret,

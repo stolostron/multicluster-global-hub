@@ -44,7 +44,8 @@ func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager, enable
 		string(enum.LocalPlacementRuleSpecType),
 		conflator.LocalPlacementRulesSpecPriority,
 		enum.CompleteStateMode,
-		fmt.Sprintf("%s.%s", database.LocalSpecSchema, database.PlacementRulesTableName))
+		fmt.Sprintf("%s.%s", database.LocalSpecSchema, database.PlacementRulesTableName),
+	)
 
 	// security
 	security.RegisterSecurityAlertCountsHandler(cmr)
@@ -62,34 +63,39 @@ func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager, enable
 			string(enum.PlacementRuleSpecType),
 			conflator.PlacementRulePriority,
 			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementRulesTableName))
+			fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementRulesTableName),
+		)
 
 		generic.RegisterGenericHandler[*clustersv1beta1.Placement](
 			cmr,
 			string(enum.PlacementSpecType),
 			conflator.PlacementPriority,
 			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementsTableName))
+			fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementsTableName),
+		)
 
 		generic.RegisterGenericHandler[*clustersv1beta1.PlacementDecision](
 			cmr,
 			string(enum.PlacementDecisionType),
 			conflator.PlacementDecisionPriority,
 			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementDecisionsTableName))
+			fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementDecisionsTableName),
+		)
 
 		generic.RegisterGenericHandler[*appsv1alpha1.SubscriptionReport](
 			cmr,
 			string(enum.SubscriptionReportType),
 			conflator.SubscriptionReportPriority,
 			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionReportsTableName))
+			fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionReportsTableName),
+		)
 
 		generic.RegisterGenericHandler[*appsv1alpha1.SubscriptionStatus](
 			cmr,
 			string(enum.SubscriptionStatusType),
 			conflator.SubscriptionStatusPriority,
 			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionStatusesTableName))
+			fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionStatusesTableName),
+		)
 	}
 }

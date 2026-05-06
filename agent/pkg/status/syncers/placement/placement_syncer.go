@@ -23,8 +23,9 @@ func LaunchPlacementSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *c
 		"status.placement",
 		mgr,
 		generic.NewGenericController(
-			func() client.Object { return &clustersv1beta1.Placement{} },                  // instance
-			predicate.NewPredicateFuncs(func(object client.Object) bool { return true })), // predicate
+			func() client.Object { return &clustersv1beta1.Placement{} }, // instance
+			predicate.NewPredicateFuncs(func(object client.Object) bool { return true }),
+		), // predicate
 		producer,
 		configmap.GetPolicyDuration,
 		[]*generic.EmitterHandler{
@@ -34,5 +35,6 @@ func LaunchPlacementSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *c
 					generic.WithShouldUpdate(globalResource)),
 				Emitter: generic.NewGenericEmitter(enum.PlacementSpecType),
 			},
-		})
+		},
+	)
 }

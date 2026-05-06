@@ -110,12 +110,14 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 		By("Placement")
 		err = db.Exec(
-			"INSERT INTO spec.placements (id,payload) VALUES(?, ?)", placementUID, &placementJSONBytes).Error
+			"INSERT INTO spec.placements (id,payload) VALUES(?, ?)", placementUID, &placementJSONBytes,
+		).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Application")
 		err = db.Exec(
-			"INSERT INTO spec.applications (id,payload) VALUES(?, ?)", applicationUID, &applicationJSONBytes).Error
+			"INSERT INTO spec.applications (id,payload) VALUES(?, ?)", applicationUID, &applicationJSONBytes,
+		).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Subscription")

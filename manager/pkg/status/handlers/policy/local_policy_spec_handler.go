@@ -226,7 +226,8 @@ func (h *localPolicySpecHandler) postPolicyToInventoryApi(
 		for _, policy := range bundle.Create {
 			k8sPolicy := generateK8SPolicy(&policy, leafHubName, clusterInfo.MchVersion)
 			if resp, err := h.requester.GetHttpClient().PolicyServiceClient.CreateK8SPolicy(
-				ctx, &kessel.CreateK8SPolicyRequest{K8SPolicy: k8sPolicy}); err != nil && !errors.IsAlreadyExists(err) {
+				ctx, &kessel.CreateK8SPolicyRequest{K8SPolicy: k8sPolicy},
+			); err != nil && !errors.IsAlreadyExists(err) {
 				return fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
 			}
 		}
@@ -235,7 +236,8 @@ func (h *localPolicySpecHandler) postPolicyToInventoryApi(
 		for _, policy := range bundle.Update {
 			k8sPolicy := generateK8SPolicy(&policy, leafHubName, clusterInfo.MchVersion)
 			if resp, err := h.requester.GetHttpClient().PolicyServiceClient.UpdateK8SPolicy(
-				ctx, &kessel.UpdateK8SPolicyRequest{K8SPolicy: k8sPolicy}); err != nil {
+				ctx, &kessel.UpdateK8SPolicyRequest{K8SPolicy: k8sPolicy},
+			); err != nil {
 				return fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
 			}
 		}
@@ -250,7 +252,8 @@ func (h *localPolicySpecHandler) postPolicyToInventoryApi(
 						ReporterVersion:    clusterInfo.MchVersion,
 						LocalResourceId:    policy.Name,
 					},
-				}); err != nil && !errors.IsNotFound(err) {
+				},
+			); err != nil && !errors.IsNotFound(err) {
 				return fmt.Errorf("failed to delete k8sCluster %v: %w", resp, err)
 			}
 			// delete the policy related compliance data in inventory when policy is deleted
