@@ -89,7 +89,8 @@ func StartGlobalHubAddonManager(ctx context.Context, kubeConfig *rest.Config, cl
 	}
 
 	factory := addonfactory.NewAgentAddonFactory(
-		constants.GHManagedClusterAddonName, FS, "manifests").
+		constants.GHManagedClusterAddonName, FS, "manifests",
+	).
 		WithScheme(addonAgentConfig.addonScheme).
 		WithAgentHealthProber(&addonframeworkagent.HealthProber{
 			Type: addonframeworkagent.HealthProberTypeLease,

@@ -149,7 +149,7 @@ func TestSetMulticlusterGlobalHubConfig(t *testing.T) {
 		t.Fatalf("oauth proxy image is not expected one")
 	}
 
-	imageClient := fakeimagev1client.FakeImageV1{Fake: &(fakeimageclient.NewSimpleClientset().Fake)}
+	imageClient := fakeimagev1client.FakeImageV1{Fake: &fakeimageclient.NewSimpleClientset().Fake}
 	err = SetMulticlusterGlobalHubConfig(context.Background(), mghInstance, nil, &imageClient)
 	if err != nil {
 		t.Fatal(err)

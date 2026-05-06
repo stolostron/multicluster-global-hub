@@ -85,7 +85,8 @@ func convertColumnsToColumnsV1(columns []apiextensions.CustomResourceColumnDefin
 
 		// nolint:lll
 		err := apiextensionsv1.Convert_apiextensions_CustomResourceColumnDefinition_To_v1_CustomResourceColumnDefinition(
-			columnCopy, &columnv1, nil)
+			columnCopy, &columnv1, nil,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("unable to convert column: %w", err)
 		}

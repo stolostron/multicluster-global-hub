@@ -39,7 +39,8 @@ func LaunchPlacementDecisionSyncer(ctx context.Context, mgr ctrl.Manager, agentC
 				),
 				Emitter: generic.NewGenericEmitter(enum.PlacementDecisionType),
 			},
-		})
+		},
+	)
 }
 
 func cleanupManagedFields(obj client.Object) {

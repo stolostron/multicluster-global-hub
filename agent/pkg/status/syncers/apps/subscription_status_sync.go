@@ -37,5 +37,6 @@ func LaunchSubscriptionStatusSyncer(ctx context.Context, mgr ctrl.Manager, agent
 				Handler: generic.NewGenericHandler(&eventData),
 				Emitter: generic.NewGenericEmitter(enum.SubscriptionStatusType),
 			},
-		})
+		},
+	)
 }

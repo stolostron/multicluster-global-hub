@@ -371,7 +371,8 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 		LabelSelector: labels.SelectorFromSet(
 			labels.Set{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-			}),
+			},
+		),
 	}); err != nil {
 		return err
 	}

@@ -259,7 +259,8 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	var reconcileErr error
 	defer func() {
-		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+		err = config.UpdateMGHComponent(
+			ctx, r.GetClient(),
 			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
 				mgh.Namespace, config.COMPONENTS_GRAFANA_NAME, reconcileErr),
 			false,
@@ -619,7 +620,8 @@ func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.Con
 
 	mergedAlertYaml, err := mergeAlertYaml(
 		[]byte(defaultAlertConfigMap.Data[AlertConfigMapKey]),
-		[]byte(customAlertConfigMap.Data[AlertConfigMapKey]))
+		[]byte(customAlertConfigMap.Data[AlertConfigMapKey]),
+	)
 	if err != nil {
 		return nil, err
 	}

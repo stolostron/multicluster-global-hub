@@ -142,7 +142,8 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	var reconcileErr error
 
 	defer func() {
-		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+		err = config.UpdateMGHComponent(
+			ctx, r.GetClient(),
 			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
 				mgh.Namespace, config.COMPONENTS_INVENTORY_API_NAME, reconcileErr),
 			false,
