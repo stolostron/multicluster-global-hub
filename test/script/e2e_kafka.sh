@@ -31,7 +31,11 @@ fi
 kubectl create namespace "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" --dry-run=client -o yaml | kubectl apply -f - --kubeconfig "$KAFKA_KUBECONFIG"
 
 # deploy kafka operator
-kubectl -n "$kafka_namespace" create -f "https://strimzi.io/install/latest?namespace=$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG"
+# Pin to 0.45.2 - strimzi 1.0.0 (released 2026-04-28) breaks Kafka cluster startup with v1beta2 manifests
+STRIMZI_VERSION=${STRIMZI_VERSION:-"0.45.2"}
+curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${STRIMZI_VERSION}/strimzi-cluster-operator-${STRIMZI_VERSION}.yaml" | \
+  sed "s/namespace: myproject/namespace: $kafka_namespace/g" | \
+  kubectl -n "$kafka_namespace" create -f - --kubeconfig "$KAFKA_KUBECONFIG"
 retry "(kubectl get pods -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -l name=strimzi-cluster-operator | grep Running)" 60
 
 echo "Kafka operator is ready"
