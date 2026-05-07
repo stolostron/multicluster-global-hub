@@ -36,12 +36,14 @@ func (c *versionClusterClaimController) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	if mch != nil && mch.Status.CurrentVersion != "" {
-		return ctrl.Result{}, updateClusterClaim(ctx, c.client,
-			constants.VersionClusterClaimName, mch.Status.CurrentVersion)
+	if mch != nil {
+		if mch.Status.CurrentVersion != "" {
+			return ctrl.Result{}, updateClusterClaim(ctx, c.client,
+				constants.VersionClusterClaimName, mch.Status.CurrentVersion)
+		}
+		configs.SetMCHVersion(mch.Status.CurrentVersion)
 	}
 
-	configs.SetMCHVersion(mch.Status.CurrentVersion)
 	// requeue to wait the acm version is available
 	return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 }
