@@ -87,7 +87,8 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 
 	return mgr.Add(NewGlobalHubScheduler(
 		scheduler,
-		strings.Split(managerConfig.LaunchJobNames, ",")))
+		strings.Split(managerConfig.LaunchJobNames, ","),
+	))
 }
 
 func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {

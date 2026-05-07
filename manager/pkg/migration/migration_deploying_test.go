@@ -266,7 +266,8 @@ func TestDeploying(t *testing.T) {
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
 				deployedCondition := migrationv1alpha1.FindMigrationCondition(
-					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed,
+				)
 				assert.NotNil(t, deployedCondition, "ResourceDeployed condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, deployedCondition.Status, "Expected condition status should match")
 			}
@@ -274,7 +275,8 @@ func TestDeploying(t *testing.T) {
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
 				deployedCondition := migrationv1alpha1.FindMigrationCondition(
-					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed)
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed,
+				)
 				assert.NotNil(t, deployedCondition, "ResourceDeployed condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, deployedCondition.Reason, "Expected condition reason should match")
 			}
