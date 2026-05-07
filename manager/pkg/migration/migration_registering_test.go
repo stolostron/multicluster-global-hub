@@ -222,7 +222,8 @@ func TestRegistering(t *testing.T) {
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
 				registeredCondition := migrationv1alpha1.FindMigrationCondition(
-					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered,
+				)
 				assert.NotNil(t, registeredCondition, "ClusterRegistered condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, registeredCondition.Status, "Expected condition status should match")
 			}
@@ -230,7 +231,8 @@ func TestRegistering(t *testing.T) {
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
 				registeredCondition := migrationv1alpha1.FindMigrationCondition(
-					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered,
+				)
 				assert.NotNil(t, registeredCondition, "ClusterRegistered condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, registeredCondition.Reason, "Expected condition reason should match")
 			}

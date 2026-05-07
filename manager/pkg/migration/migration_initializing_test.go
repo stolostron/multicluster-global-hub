@@ -383,7 +383,8 @@ func TestInitializing(t *testing.T) {
 			// Verify the condition status if expected
 			if tt.expectedConditionStatus != "" {
 				initializedCondition := migrationv1alpha1.FindMigrationCondition(
-					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized,
+				)
 				assert.NotNil(t, initializedCondition, "ResourceInitialized condition should exist")
 				assert.Equal(t, tt.expectedConditionStatus, initializedCondition.Status, "Expected condition status should match")
 			}
@@ -391,7 +392,8 @@ func TestInitializing(t *testing.T) {
 			// Verify the condition reason if expected
 			if tt.expectedConditionReason != "" {
 				initializedCondition := migrationv1alpha1.FindMigrationCondition(
-					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+					tt.migration.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized,
+				)
 				assert.NotNil(t, initializedCondition, "ResourceInitialized condition should exist")
 				assert.Equal(t, tt.expectedConditionReason, initializedCondition.Reason, "Expected condition reason should match")
 			}
