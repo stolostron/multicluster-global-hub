@@ -95,7 +95,8 @@ var _ = Describe("none addon", func() {
 
 		By("By preparing an OCP with no deploy mode label")
 		clusterName3 := fmt.Sprintf("hub-ocp-no-deploy-mode-%s", rand.String(6))
-		prepareCluster(clusterName3,
+		prepareCluster(
+			clusterName3,
 			map[string]string{
 				"vendor": "OpenShift",
 				// No deploy mode label - should NOT create addon
