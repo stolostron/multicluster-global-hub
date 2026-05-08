@@ -36,12 +36,17 @@ func (c *versionClusterClaimController) Reconcile(ctx context.Context, request c
 		return ctrl.Result{}, err
 	}
 
-	if mch != nil && mch.Status.CurrentVersion != "" {
-		return ctrl.Result{}, updateClusterClaim(ctx, c.client,
-			constants.VersionClusterClaimName, mch.Status.CurrentVersion)
+	// Guard against nil mch: updateHubClusterClaim returns nil when the MCH resource
+	// is not found yet. Without this check, accessing mch.Status.CurrentVersion below
+	// causes a nil pointer dereference and crashes the integration test suite.
+	if mch != nil {
+		if mch.Status.CurrentVersion != "" {
+			return ctrl.Result{}, updateClusterClaim(ctx, c.client,
+				constants.VersionClusterClaimName, mch.Status.CurrentVersion)
+		}
+		configs.SetMCHVersion(mch.Status.CurrentVersion)
 	}
 
-	configs.SetMCHVersion(mch.Status.CurrentVersion)
 	// requeue to wait the acm version is available
 	return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 }

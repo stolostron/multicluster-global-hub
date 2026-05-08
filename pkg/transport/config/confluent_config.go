@@ -23,6 +23,16 @@ import (
 
 var log = logger.DefaultZapLogger()
 
+var kafkaOwnerIdentity string
+
+func SetKafkaOwnerIdentity(identity string) {
+	kafkaOwnerIdentity = identity
+}
+
+func GetKafkaOwnerIdentity() string {
+	return kafkaOwnerIdentity
+}
+
 func GetBasicConfigMap() *kafkav2.ConfigMap {
 	return &kafkav2.ConfigMap{
 		"socket.keepalive.enable": "true",
