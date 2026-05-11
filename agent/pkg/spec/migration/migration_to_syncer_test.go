@@ -1220,7 +1220,8 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(
-				c.initObjects...).Build()
+				c.initObjects...,
+			).Build()
 
 			producer := ProducerMock{}
 			transportClient := &controller.TransportClient{}

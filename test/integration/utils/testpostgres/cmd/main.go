@@ -52,7 +52,8 @@ func main() {
 	postgresConfig = postgresConfig.BinariesPath(postgresDataPath)
 	postgresConfig = postgresConfig.DataPath(filepath.Join(postgresDataPath, "data"))
 	database := embeddedpostgres.NewDatabase(
-		postgresConfig.Database("hoh"))
+		postgresConfig.Database("hoh"),
+	)
 	if err := database.Start(); err != nil {
 		fmt.Printf("failed to start embedded postgres: %v", err)
 		os.Exit(1)

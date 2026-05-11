@@ -103,7 +103,8 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	err = allResourcesBackup[req.Namespace].AddLabelToOneObj(
 		ctx, r.Client,
-		config.GetMGHNamespacedName().Namespace, req.Name)
+		config.GetMGHNamespacedName().Namespace, req.Name,
+	)
 	return addBackupCondition(ctx, r.Client, mgh, err)
 }
 

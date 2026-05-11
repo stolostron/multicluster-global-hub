@@ -599,7 +599,8 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(
-				c.initObjects...).Build()
+				c.initObjects...,
+			).Build()
 
 			producer := ProducerMock{}
 			transportClient := &controller.TransportClient{}
@@ -747,7 +748,8 @@ func TestGenerateKlusterletConfig(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(
-				c.initObjects...).Build()
+				c.initObjects...,
+			).Build()
 			obj, err := generateKlusterletConfig(fakeClient, c.targetHub, c.bootstrapSecretName)
 			if c.expectedError {
 				assert.NotNil(t, err)
@@ -1606,7 +1608,8 @@ func TestPrepareUnstructuredResourceForMigration(t *testing.T) {
 			}
 
 			resources, err := prepareUnstructuredResourceForMigration(
-				ctx, fakeClient, c.clusterName, c.migrateResource)
+				ctx, fakeClient, c.clusterName, c.migrateResource,
+			)
 
 			// Clean resources after collection
 			for i := range resources {

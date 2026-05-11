@@ -262,7 +262,8 @@ var _ = Describe("Render", func() {
 			nginxObjects, err := render.RenderWithFilter("testdata/app", profile,
 				filter, func(profile string) (interface{}, error) {
 					inputvalues, err := fs.ReadFile(fmt.Sprintf(
-						"testdata/input/%s-%s.yaml", profile, filter))
+						"testdata/input/%s-%s.yaml", profile, filter,
+					))
 					if err != nil {
 						return struct{}{}, err
 					}

@@ -201,7 +201,8 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	var reconcileErr error
 	defer func() {
-		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+		err = config.UpdateMGHComponent(
+			ctx, r.GetClient(),
 			getDatabaseComponentStatus(ctx, r.GetClient(), mgh.Namespace, config.COMPONENTS_POSTGRES_NAME, reconcileErr),
 			updateConnection,
 		)
