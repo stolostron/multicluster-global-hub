@@ -173,7 +173,8 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to add configmap controller to manager: %w", err)
 	}
 	configs.SetEnableInventoryAPI(managerConfig.EnableInventoryAPI)
-	err = controller.NewTransportCtrl(managerConfig.ManagerNamespace, constants.GHTransportConfigSecret,
+	err = controller.NewTransportCtrl(
+		managerConfig.ManagerNamespace, constants.GHTransportConfigSecret,
 		transportCallback(mgr, managerConfig),
 		managerConfig.TransportConfig, true,
 	).SetupWithManager(mgr)

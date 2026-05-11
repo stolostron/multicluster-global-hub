@@ -396,7 +396,8 @@ func collectMigrationResources(
 	// collect all defined migration resources
 	for _, migrateResource := range migrateResources {
 		resources, err := prepareUnstructuredResourceForMigration(
-			ctx, c, managedCluster, migrateResource)
+			ctx, c, managedCluster, migrateResource,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare %s %s for migration: %w", migrateResource.gvk.Kind, managedCluster, err)
 		}

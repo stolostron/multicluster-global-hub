@@ -167,7 +167,8 @@ func LoadConfig(url, kubeconfig, context string) (*rest.Config, error) {
 				&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig},
 				&clientcmd.ConfigOverrides{
 					CurrentContext: context,
-				}).ClientConfig()
+				},
+			).ClientConfig()
 		}
 	}
 	// If not, try the in-cluster config.
