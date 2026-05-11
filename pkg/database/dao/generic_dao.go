@@ -30,7 +30,8 @@ func (dao *GenericDao) GetIdToVersionByHub(hubName string) (map[string]string, e
 		FROM 
 			%s 
 		WHERE 
-			leaf_hub_name = ?`, dao.table)
+			leaf_hub_name = ?`, dao.table,
+	)
 
 	var resourceVersions []models.ResourceVersion
 	err := dao.tx.Raw(sqlTemplate, hubName).Scan(&resourceVersions).Error
@@ -47,7 +48,8 @@ func (dao *GenericDao) GetIdToVersionByHub(hubName string) (map[string]string, e
 
 func (dao *GenericDao) Insert(hubName, id string, obj interface{}) error {
 	sqlTemplate := fmt.Sprintf(
-		`INSERT INTO %s (id, leaf_hub_name, payload) VALUES ($1::uuid, $2, $3::jsonb)`, dao.table)
+		`INSERT INTO %s (id, leaf_hub_name, payload) VALUES ($1::uuid, $2, $3::jsonb)`, dao.table,
+	)
 
 	payload, err := json.Marshal(obj)
 	if err != nil {
@@ -58,7 +60,8 @@ func (dao *GenericDao) Insert(hubName, id string, obj interface{}) error {
 
 func (dao *GenericDao) Update(hubName, id string, obj interface{}) error {
 	sqlTemplate := fmt.Sprintf(
-		`UPDATE %s SET payload = $1::jsonb WHERE leaf_hub_name = $2 AND id = $3::uuid`, dao.table)
+		`UPDATE %s SET payload = $1::jsonb WHERE leaf_hub_name = $2 AND id = $3::uuid`, dao.table,
+	)
 
 	payload, err := json.Marshal(obj)
 	if err != nil {
@@ -69,6 +72,7 @@ func (dao *GenericDao) Update(hubName, id string, obj interface{}) error {
 
 func (dao *GenericDao) Delete(hubName, id string) error {
 	sqlTemplate := fmt.Sprintf(
-		`DELETE FROM %s WHERE leaf_hub_name = $1 AND id = $2::uuid`, dao.table)
+		`DELETE FROM %s WHERE leaf_hub_name = $1 AND id = $2::uuid`, dao.table,
+	)
 	return dao.tx.Exec(sqlTemplate, hubName, id).Error
 }

@@ -395,7 +395,8 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 		timeout = time.Duration(event.RegisteringTimeoutMinutes) * time.Minute
 	}
 
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
+	err := wait.PollUntilContextTimeout(
+		ctx, 5*time.Second, timeout, true,
 		func(context.Context) (done bool, err error) {
 			clear(clusterErrors)
 			for _, clusterName := range event.ManagedClusters {
@@ -709,7 +710,8 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 				operatorv1.FeatureGate{
 					Feature: "ManagedClusterAutoApproval",
 					Mode:    operatorv1.FeatureGateModeTypeEnable,
-				})
+				},
+			)
 			clusterManagerChanged = true
 		}
 
@@ -722,7 +724,8 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 		if !autoApproveUserAdded {
 			registrationConfiguration.AutoApproveUsers = append(
 				registrationConfiguration.AutoApproveUsers,
-				autoApproveUser)
+				autoApproveUser,
+			)
 			clusterManagerChanged = true
 		}
 	} else {
@@ -1081,7 +1084,8 @@ func (s *MigrationTargetSyncer) reportFailedClusters(ctx context.Context,
 
 	return ReportMigrationStatus(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-		s.transportClient, migrationStatus, s.bundleVersion)
+		s.transportClient, migrationStatus, s.bundleVersion,
+	)
 }
 
 // queryFailedClusters checks which clusters failed to migrate.

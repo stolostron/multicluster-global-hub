@@ -67,7 +67,8 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 				Handler: localCompleteHandler,
 				Emitter: localCompleteEmitter,
 			},
-		})
+		},
+	)
 }
 
 func AddPolicySyncer(ctx context.Context, mgr ctrl.Manager, p transport.Producer,

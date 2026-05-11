@@ -40,7 +40,8 @@ var _ = Describe("kafka-event: inventory API", Ordered, func() {
 		relationship = generateK8SPolicyToCluster(
 			localPolicyId,
 			localClusterId,
-			"guest")
+			"guest",
+		)
 	})
 
 	It("Create a cluster", func() {
