@@ -314,7 +314,7 @@ func (m *mockManager) GetRESTMapper() meta.RESTMapper                       { re
 func (m *mockManager) GetAPIReader() client.Reader                          { return nil }
 func (m *mockManager) Start(ctx context.Context) error                      { return nil }
 func (m *mockManager) GetWebhookServer() webhook.Server                     { return nil }
-func (m *mockManager) GetLogger() logr.Logger { return logr.Discard() }
+func (m *mockManager) GetLogger() logr.Logger                               { return logr.Discard() }
 
 func (m *mockManager) GetControllerOptions() config.Controller                  { return config.Controller{} }
 func (m *mockManager) Elected() <-chan struct{}                                 { return nil }
