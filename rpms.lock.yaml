@@ -781,13 +781,13 @@ arches:
     name: readline
     evr: 8.1-4.el9
     sourcerpm: readline-8.1-4.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/r/redhat-release-9.7-0.7.el9.aarch64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/r/redhat-release-9.7-0.10.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 54139
-    checksum: sha256:2c182267c4269dd1a11542cc17a261e2a9526fd5b478f2d404bc52842b42aaa3
+    size: 61433
+    checksum: sha256:a5f015edd53d58d84ace0515e7192fc57be46233b046613cebd4eb6df0143c30
     name: redhat-release
-    evr: 9.7-0.7.el9
-    sourcerpm: redhat-release-9.7-0.7.el9.src.rpm
+    evr: 9.7-0.10.el9
+    sourcerpm: redhat-release-9.7-0.10.el9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/s/sed-4.8-9.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
     size: 314254
@@ -1660,13 +1660,13 @@ arches:
     name: readline
     evr: 8.1-4.el9
     sourcerpm: readline-8.1-4.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/r/redhat-release-9.7-0.7.el9.ppc64le.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/r/redhat-release-9.7-0.10.el9.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
-    size: 54168
-    checksum: sha256:d980bbb2550eb9921ac56fee1359ec07961ca6d177ec6e865c4aa466f2fa565d
+    size: 61500
+    checksum: sha256:f41d8ce92180a818e912654cb257db95c55bf9887a473bf40cd2980d6d9fc3a2
     name: redhat-release
-    evr: 9.7-0.7.el9
-    sourcerpm: redhat-release-9.7-0.7.el9.src.rpm
+    evr: 9.7-0.10.el9
+    sourcerpm: redhat-release-9.7-0.10.el9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/s/sed-4.8-9.el9.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
     size: 322393
@@ -2539,13 +2539,13 @@ arches:
     name: readline
     evr: 8.1-4.el9
     sourcerpm: readline-8.1-4.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/r/redhat-release-9.7-0.7.el9.s390x.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/r/redhat-release-9.7-0.10.el9.s390x.rpm
     repoid: ubi-9-for-s390x-baseos-rpms
-    size: 54148
-    checksum: sha256:97e78c277545de27297db3a24b8186f404169e232a06d55162661d0add392747
+    size: 61454
+    checksum: sha256:e7e137d3c1bb421376084e6fd5417b107fc94f163b0cfde1a14373a4bc8e7fd0
     name: redhat-release
-    evr: 9.7-0.7.el9
-    sourcerpm: redhat-release-9.7-0.7.el9.src.rpm
+    evr: 9.7-0.10.el9
+    sourcerpm: redhat-release-9.7-0.10.el9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/s/sed-4.8-9.el9.s390x.rpm
     repoid: ubi-9-for-s390x-baseos-rpms
     size: 316228
@@ -3397,13 +3397,13 @@ arches:
     name: readline
     evr: 8.1-4.el9
     sourcerpm: readline-8.1-4.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/r/redhat-release-9.7-0.7.el9.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/r/redhat-release-9.7-0.10.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
-    size: 54160
-    checksum: sha256:3327891678227a80a87f10b3e0da11cac2991311660113822008b353b8a3335f
+    size: 61504
+    checksum: sha256:62d5509e34cb0be6e1195a8c7e91915e0372526e1c98530e551eb92e8d435c3f
     name: redhat-release
-    evr: 9.7-0.7.el9
-    sourcerpm: redhat-release-9.7-0.7.el9.src.rpm
+    evr: 9.7-0.10.el9
+    sourcerpm: redhat-release-9.7-0.10.el9.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/s/sed-4.8-9.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
     size: 316395
