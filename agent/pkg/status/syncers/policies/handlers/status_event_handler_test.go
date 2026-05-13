@@ -16,7 +16,8 @@ import (
 
 func TestPostSendFunc(t *testing.T) {
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "leaf-hub-name"})
-	localStatusEventHandler := NewPolicyStatusEventHandler(context.TODO(), enum.LocalReplicatedPolicyEventType,
+	localStatusEventHandler := NewPolicyStatusEventHandler(
+		context.TODO(), enum.LocalReplicatedPolicyEventType,
 		func(obj client.Object) bool {
 			return true
 		},

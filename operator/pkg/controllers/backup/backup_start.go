@@ -82,7 +82,7 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 		Client:  initOption.Manager.GetClient(),
 		Log:     logger.ZaprLogger(),
 	}
-	err := c.SetupWithManager((initOption.Manager))
+	err := c.SetupWithManager(initOption.Manager)
 	if err != nil {
 		return nil, err
 	}

@@ -41,7 +41,8 @@ func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) e
 					func() client.Object { return &configv1.ClusterVersion{} },
 					predicate.NewPredicateFuncs(func(object client.Object) bool {
 						return object.GetName() == "version"
-					})),
+					}),
+				),
 				Handler: &infoClusterVersionHandler{eventData},
 			},
 			{
@@ -57,7 +58,8 @@ func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) e
 							return true
 						}
 						return false
-					})),
+					}),
+				),
 				Handler: &infoRouteHandler{eventData},
 			},
 		},
