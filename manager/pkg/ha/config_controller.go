@@ -67,7 +67,8 @@ func AddToManager(mgr ctrl.Manager, producer transport.Producer) error {
 
 func (c *ConfigController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("ha-config-ctrl").
-		Watches(&clusterv1.ManagedCluster{},
+		Watches(
+			&clusterv1.ManagedCluster{},
 			&handler.EnqueueRequestForObject{},
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
@@ -83,7 +84,8 @@ func (c *ConfigController) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			}),
 		).
-		Watches(&corev1.Secret{},
+		Watches(
+			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				name := obj.GetName()
 				if !strings.HasPrefix(name, msaPrefix) {

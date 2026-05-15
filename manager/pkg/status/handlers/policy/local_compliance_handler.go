@@ -139,7 +139,8 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 
 		if configs.IsInventoryAPIEnabled() {
 			log.Debugf("sync to inventory api - %s", policyID)
-			err = syncInventory(h.requester, leafHub,
+			err = syncInventory(
+				h.requester, leafHub,
 				models.ResourceVersion{
 					Key:  policyID,
 					Name: policyNamespacedName,
@@ -241,7 +242,8 @@ func postCompliancesToInventoryApi(
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
 				UpdateK8SPolicyIsPropagatedToK8SCluster(context.Background(), updateK8SPolicyIsPropagatedToK8SCluster(
 					policyNamespacedName, createCompliance.ClusterName, string(createCompliance.Compliance),
-					leafHub, mchVersion)); err != nil {
+					leafHub, mchVersion,
+				)); err != nil {
 				log.Errorf("failed to create k8s policy is propagated to k8s cluster -%v: %v", resp, err)
 			}
 		}
@@ -251,7 +253,8 @@ func postCompliancesToInventoryApi(
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
 				UpdateK8SPolicyIsPropagatedToK8SCluster(context.Background(), updateK8SPolicyIsPropagatedToK8SCluster(
 					policyNamespacedName, updateCompliance.ClusterName, string(updateCompliance.Compliance),
-					leafHub, mchVersion)); err != nil {
+					leafHub, mchVersion,
+				)); err != nil {
 				log.Errorf("failed to update k8s policy is propagated to k8s cluster -%v: %v", resp, err)
 			}
 		}
@@ -260,7 +263,8 @@ func postCompliancesToInventoryApi(
 		for _, deleteCompliance := range deleteCompliances {
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
 				DeleteK8SPolicyIsPropagatedToK8SCluster(context.Background(), deleteK8SPolicyIsPropagatedToK8SCluster(
-					policyNamespacedName, deleteCompliance.ClusterName, leafHub, mchVersion)); err != nil && !errors.IsNotFound(err) {
+					policyNamespacedName, deleteCompliance.ClusterName, leafHub, mchVersion,
+				)); err != nil && !errors.IsNotFound(err) {
 				log.Warnf("failed to delete k8s policy is propagated to k8s cluster -%v: %v", resp, err)
 			}
 		}
@@ -413,7 +417,8 @@ func getLocalComplianceClusterSets(db *gorm.DB, query interface{}, args ...inter
 			allPolicyComplianceRowsFromDB[compliance.PolicyID] = NewPolicyClusterSets()
 		}
 		allPolicyComplianceRowsFromDB[compliance.PolicyID].AddCluster(
-			compliance.ClusterName, compliance.Compliance)
+			compliance.ClusterName, compliance.Compliance,
+		)
 	}
 	return allPolicyComplianceRowsFromDB, nil
 }
@@ -425,7 +430,8 @@ func getPolicyNamespacedName(db *gorm.DB, policyID string) (string, error) {
 		return "", fmt.Errorf("db is nil")
 	}
 	err := db.Select(
-		"policy_id AS key, concat(payload->'metadata'->>'namespace', '/', payload->'metadata'->>'name') AS name").
+		"policy_id AS key, concat(payload->'metadata'->>'namespace', '/', payload->'metadata'->>'name') AS name",
+	).
 		Where(&models.LocalSpecPolicy{
 			PolicyID: policyID,
 		}).Find(&policyFromDB).Scan(&resourceVersions).Error

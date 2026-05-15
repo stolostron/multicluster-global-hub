@@ -325,7 +325,8 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 	for _, managedCluster := range source.ManagedClusters {
 		// Prepare resources for this cluster
 		resourcesList, err := collectMigrationResources(
-			ctx, s.client, managedCluster, migrateResources, s.cleanObjectMetadata, s.processResourceByType)
+			ctx, s.client, managedCluster, migrateResources, s.cleanObjectMetadata, s.processResourceByType,
+		)
 		if err != nil {
 			return err
 		}
@@ -406,7 +407,8 @@ func (s *MigrationSourceSyncer) sendMigrationBundle(
 		s.processingMigrationId, migrationv1alpha1.PhaseDeploying, expireAfter, payloadBytes)
 
 	if err := s.transportClient.GetProducer().SendEvent(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e,
+	); err != nil {
 		return fmt.Errorf(errFailedToSendEvent, eventType, fromHub, toHub, err)
 	}
 
@@ -890,7 +892,8 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 
 	timeout := remainingExpireTime(expireTimeFromContext(ctx))
 
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
+	err := wait.PollUntilContextTimeout(
+		ctx, 5*time.Second, timeout, true,
 		func(context.Context) (done bool, err error) {
 			clusterErrors := map[string]string{}
 			defer func() {
@@ -951,7 +954,8 @@ func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migratio
 			ClusterErrors:   s.clusterErrors,
 		},
 		s.bundleVersion,
-		expireTimeFromContext(ctx))
+		expireTimeFromContext(ctx),
+	)
 
 	if reportErr != nil {
 		log.Errorf("failed to report migration status for stage %s: %v", spec.Stage, reportErr)
@@ -1140,28 +1144,32 @@ func (s *MigrationSourceSyncer) validateSingleCluster(ctx context.Context, clust
 	if s.isHostedCluster(mc) {
 		return fmt.Errorf(
 			"managed cluster %v is imported as hosted mode in managed hub %v, it cannot be migrated",
-			clusterName, s.leafHubName)
+			clusterName, s.leafHubName,
+		)
 	}
 
 	// Check if cluster is local cluster
 	if mc.Labels != nil && mc.Labels[constants.LocalClusterName] == "true" {
 		return fmt.Errorf(
 			"managed cluster %v is local cluster in managed hub %v, it cannot be migrated",
-			clusterName, s.leafHubName)
+			clusterName, s.leafHubName,
+		)
 	}
 
 	// Check if cluster is available
 	if !s.isManagedClusterAvailable(mc) {
 		return fmt.Errorf(
 			"managed cluster %v is not available in managed hub %v, it cannot be migrated",
-			clusterName, s.leafHubName)
+			clusterName, s.leafHubName,
+		)
 	}
 
 	// Check if cluster is a managed hub
 	if s.isManagedHub(mc) {
 		return fmt.Errorf(
 			"managed cluster %v is a managed hub cluster in managed hub %v, it cannot be migrated",
-			clusterName, s.leafHubName)
+			clusterName, s.leafHubName,
+		)
 	}
 
 	return nil
@@ -1212,17 +1220,20 @@ func (s *MigrationSourceSyncer) collectReferencedResources(
 		switch kind {
 		case "BareMetalHost":
 			if err := s.collectBareMetalHostSecrets(
-				ctx, clusterName, &resource, secretNames, &referencedResources); err != nil {
+				ctx, clusterName, &resource, secretNames, &referencedResources,
+			); err != nil {
 				log.Warnf("failed to collect secrets for BareMetalHost %s: %v", resource.GetName(), err)
 			}
 		case "ClusterDeployment":
 			if err := s.collectClusterDeploymentSecrets(
-				ctx, clusterName, &resource, secretNames, &referencedResources); err != nil {
+				ctx, clusterName, &resource, secretNames, &referencedResources,
+			); err != nil {
 				log.Warnf("failed to collect secrets for ClusterDeployment %s: %v", resource.GetName(), err)
 			}
 		case "ImageClusterInstall":
 			if err := s.collectImageClusterInstallConfigMaps(
-				ctx, clusterName, &resource, configMapNames, &referencedResources); err != nil {
+				ctx, clusterName, &resource, configMapNames, &referencedResources,
+			); err != nil {
 				log.Warnf("failed to collect configmaps for ImageClusterInstall %s: %v", resource.GetName(), err)
 			}
 		}
@@ -1274,7 +1285,8 @@ func (s *MigrationSourceSyncer) collectClusterDeploymentSecrets(
 	referencedResources *[]unstructured.Unstructured,
 ) error {
 	pullSecretName, found, err := unstructured.NestedString(
-		resource.Object, "spec", "pullSecretRef", "name")
+		resource.Object, "spec", "pullSecretRef", "name",
+	)
 	if err != nil {
 		return fmt.Errorf("failed to get pullSecretRef: %w", err)
 	}

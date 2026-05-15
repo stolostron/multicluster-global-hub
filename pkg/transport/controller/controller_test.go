@@ -305,16 +305,17 @@ func (m *mockManager) Add(runnable manager.Runnable) error {
 	return nil
 }
 
-func (m *mockManager) GetClient() client.Client                                 { return m.client }
-func (m *mockManager) GetScheme() *runtime.Scheme                               { return nil }
-func (m *mockManager) GetFieldIndexer() client.FieldIndexer                     { return nil }
-func (m *mockManager) GetCache() cache.Cache                                    { return nil }
-func (m *mockManager) GetEventRecorderFor(name string) record.EventRecorder     { return nil }
-func (m *mockManager) GetRESTMapper() meta.RESTMapper                           { return nil }
-func (m *mockManager) GetAPIReader() client.Reader                              { return nil }
-func (m *mockManager) Start(ctx context.Context) error                          { return nil }
-func (m *mockManager) GetWebhookServer() webhook.Server                         { return nil }
-func (m *mockManager) GetLogger() logr.Logger                                   { return logr.Discard() }
+func (m *mockManager) GetClient() client.Client                             { return m.client }
+func (m *mockManager) GetScheme() *runtime.Scheme                           { return nil }
+func (m *mockManager) GetFieldIndexer() client.FieldIndexer                 { return nil }
+func (m *mockManager) GetCache() cache.Cache                                { return nil }
+func (m *mockManager) GetEventRecorderFor(name string) record.EventRecorder { return nil }
+func (m *mockManager) GetRESTMapper() meta.RESTMapper                       { return nil }
+func (m *mockManager) GetAPIReader() client.Reader                          { return nil }
+func (m *mockManager) Start(ctx context.Context) error                      { return nil }
+func (m *mockManager) GetWebhookServer() webhook.Server                     { return nil }
+func (m *mockManager) GetLogger() logr.Logger                               { return logr.Discard() }
+
 func (m *mockManager) GetControllerOptions() config.Controller                  { return config.Controller{} }
 func (m *mockManager) Elected() <-chan struct{}                                 { return nil }
 func (m *mockManager) AddHealthzCheck(name string, check healthz.Checker) error { return nil }
