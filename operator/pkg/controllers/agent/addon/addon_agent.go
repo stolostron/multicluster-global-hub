@@ -215,7 +215,8 @@ func (a *GlobalHubAddonAgent) setImagePullSecret(mgh *globalhubv1alpha4.Multiclu
 	if len(imagePullSecret.Name) > 0 && len(imagePullSecret.Data[corev1.DockerConfigJsonKey]) > 0 {
 		manifestsConfig.ImagePullSecretName = imagePullSecret.GetName()
 		manifestsConfig.ImagePullSecretData = base64.StdEncoding.EncodeToString(
-			imagePullSecret.Data[corev1.DockerConfigJsonKey])
+			imagePullSecret.Data[corev1.DockerConfigJsonKey],
+		)
 	}
 	return nil
 }

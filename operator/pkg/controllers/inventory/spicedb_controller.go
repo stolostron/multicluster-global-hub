@@ -191,7 +191,8 @@ func (r *spiceDBClusterReconciler) reconcileStorageSecret(ctx context.Context,
 	// TODO: Currently using the 'disable' method to establish the connection.
 	// Other methods have not been validated. GH itself uses `required-ca`,
 	// so we might need to update both to support `verify-full`.
-	pgURI := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+	pgURI := fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		url.QueryEscape(pgConfig.User),
 		url.QueryEscape(pgConfig.Password),
 		pgConfig.Host,

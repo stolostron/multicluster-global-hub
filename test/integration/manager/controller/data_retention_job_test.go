@@ -240,13 +240,15 @@ func createRetentionData(tableName string, date time.Time) error {
 		result = db.Exec(
 			fmt.Sprintf(`INSERT INTO status.managed_clusters (leaf_hub_name, cluster_id, payload, error, 
 				created_at, updated_at, deleted_at) VALUES ('leafhub1', '%s', '%s', 'none', '%s', '%s', '%s')`,
-				string(cluster.UID), payload, date.Format(task.TimeFormat), date.Format(task.TimeFormat), date.Format(task.TimeFormat)))
+				string(cluster.UID), payload, date.Format(task.TimeFormat), date.Format(task.TimeFormat), date.Format(task.TimeFormat)),
+		)
 
 	case "status.leaf_hubs":
 		result = db.Exec(
 			fmt.Sprintf(`INSERT INTO status.leaf_hubs (leaf_hub_name, cluster_id, payload, created_at, updated_at, deleted_at) 
 			VALUES ('leafhub1','a71a6b5c-8361-4f50-9890-3de9e2df0b1c', '{"consoleURL": "https://leafhub1.com", "leafHubName": "leafhub1"}', '%s', '%s', '%s')`,
-				date.Format(task.TimeFormat), date.Format(task.TimeFormat), date.Format(task.TimeFormat)))
+				date.Format(task.TimeFormat), date.Format(task.TimeFormat), date.Format(task.TimeFormat)),
+		)
 
 	case "local_spec.policies":
 		policy := policyv1.Policy{
@@ -262,7 +264,8 @@ func createRetentionData(tableName string, date time.Time) error {
 		result = db.Exec(
 			fmt.Sprintf(`INSERT INTO local_spec.policies (policy_id, leaf_hub_name, payload, created_at, 
 				updated_at, deleted_at) VALUES ('%s', 'leafhub1', '%s', '%s', '%s', '%s')`, policy.UID, payload,
-				date.Format(task.TimeFormat), date.Format(task.TimeFormat), date.Format(task.TimeFormat)))
+				date.Format(task.TimeFormat), date.Format(task.TimeFormat), date.Format(task.TimeFormat)),
+		)
 	}
 	if result.Error != nil {
 		return fmt.Errorf("failed to create retention data in table %s due to: %w", tableName, result.Error)

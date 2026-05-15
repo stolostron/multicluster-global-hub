@@ -179,7 +179,8 @@ var _ = Describe("Migration E2E", Label("e2e-test-migration"), Ordered, func() {
 				klog.Infof("[DEBUG] Migration phase: %s", mcm.Status.Phase)
 				return string(mcm.Status.Phase)
 			}, 2*time.Minute, migrationPollInterval).Should(
-				Or(Equal(migrationv1alpha1.PhaseInitializing), Equal(migrationv1alpha1.PhaseDeploying), Equal(migrationv1alpha1.PhaseRegistering)))
+				Or(Equal(migrationv1alpha1.PhaseInitializing), Equal(migrationv1alpha1.PhaseDeploying), Equal(migrationv1alpha1.PhaseRegistering)),
+			)
 
 			By("Waiting for bootstrap secret to be created in multicluster-engine namespace")
 			Eventually(func() error {
