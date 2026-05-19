@@ -71,7 +71,7 @@ metadata:
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
     operatorframework.io/os.linux: supported
-  name: multicluster-global-hub-operator.v1.8.0-dev
+  name: multicluster-global-hub-operator.v1.8.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -1436,4 +1436,4 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 1.8.0-dev
+  version: 1.8.0
