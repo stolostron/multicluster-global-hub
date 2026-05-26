@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
