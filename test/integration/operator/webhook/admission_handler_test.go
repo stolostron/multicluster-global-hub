@@ -11,11 +11,15 @@ import (
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+)
+
+const (
+	webhookEventuallyTimeout  = 10 * time.Second
+	webhookEventuallyInterval = 100 * time.Millisecond
 )
 
 var testmanagedcluster = &clusterv1.ManagedCluster{
@@ -50,10 +54,8 @@ var klusterletConfig = &addonv1.KlusterletAddonConfig{
 var _ = Describe("Multicluster hub webhook", func() {
 	Context("Test managedclusters are handled by the global hub manager webhook", Ordered, func() {
 		It("managedcluster should be added the hosted annotations", func() {
+			Expect(c.Create(ctx, testmanagedcluster, &client.CreateOptions{})).To(Succeed())
 			Eventually(func() bool {
-				if err := c.Create(ctx, testmanagedcluster, &client.CreateOptions{}); err != nil {
-					return false
-				}
 				mc := &clusterv1.ManagedCluster{}
 				if err := c.Get(ctx, client.ObjectKeyFromObject(testmanagedcluster), mc); err != nil {
 					return false
@@ -65,7 +67,7 @@ var _ = Describe("Multicluster hub webhook", func() {
 					return false
 				}
 				return true
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, webhookEventuallyTimeout, webhookEventuallyInterval).Should(BeTrue())
 		})
 	})
 
@@ -77,14 +79,10 @@ var _ = Describe("Multicluster hub webhook", func() {
 				},
 			})).To(Succeed())
 
+			Expect(c.Create(ctx, klusterletConfig, &client.CreateOptions{})).To(Succeed())
 			Eventually(func() bool {
-				if err := c.Create(ctx, klusterletConfig, &client.CreateOptions{}); err != nil {
-					klog.Errorf("Failed to create klusterletAddonConfig, err:%v", err)
-					return false
-				}
 				kac := &addonv1.KlusterletAddonConfig{}
 				if err := c.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), kac); err != nil {
-					klog.Errorf("Failed to get klusterletAddonConfig, err:%v", err)
 					return false
 				}
 				if kac.Spec.PolicyController.Enabled == true {
@@ -97,7 +95,7 @@ var _ = Describe("Multicluster hub webhook", func() {
 					return false
 				}
 				return true
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, webhookEventuallyTimeout, webhookEventuallyInterval).Should(BeTrue())
 		})
 	})
 })

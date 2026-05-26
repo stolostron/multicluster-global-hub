@@ -17,6 +17,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+const (
+	webhookEventuallyTimeout  = 10 * time.Second
+	webhookEventuallyInterval = 100 * time.Millisecond
+)
+
 var _ = Describe("Multicluster hub manager webhook", func() {
 	Context("Test Placement and placementrule are handled by the global hub manager webhook", Ordered, func() {
 		It("Should add cluster.open-cluster-management.io/experimental-scheduling-disable annotation to placement", func() {
@@ -29,16 +34,14 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 				Spec: clusterv1beta1.PlacementSpec{},
 			}
 
+			Expect(c.Create(ctx, testPlacement, &client.CreateOptions{})).To(Succeed())
 			Eventually(func() bool {
-				if err := c.Create(ctx, testPlacement, &client.CreateOptions{}); err != nil {
-					return false
-				}
 				placement := &clusterv1beta1.Placement{}
 				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacement), placement); err != nil {
 					return false
 				}
 				return placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] == "true"
-			}, 5*time.Second).Should(BeTrue())
+			}, webhookEventuallyTimeout, webhookEventuallyInterval).Should(BeTrue())
 		})
 
 		It("Should not add cluster.open-cluster-management.io/experimental-scheduling-disable annotation to placement", func() {
@@ -50,16 +53,14 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 				Spec: clusterv1beta1.PlacementSpec{},
 			}
 
+			Expect(c.Create(ctx, testPlacement, &client.CreateOptions{})).To(Succeed())
 			Eventually(func() bool {
-				if err := c.Create(ctx, testPlacement, &client.CreateOptions{}); err != nil {
-					return false
-				}
 				placement := &clusterv1beta1.Placement{}
 				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacement), placement); err != nil {
 					return false
 				}
 				return placement.Annotations == nil
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, webhookEventuallyTimeout, webhookEventuallyInterval).Should(BeTrue())
 		})
 
 		It("Should set global-hub as scheduler name for the placementrule", func() {
@@ -72,16 +73,14 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 				Spec: placementrulesv1.PlacementRuleSpec{},
 			}
 
+			Expect(c.Create(ctx, testPlacementRule, &client.CreateOptions{})).To(Succeed())
 			Eventually(func() bool {
-				if err := c.Create(ctx, testPlacementRule, &client.CreateOptions{}); err != nil {
-					return false
-				}
 				placementrule := &placementrulesv1.PlacementRule{}
 				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacementRule), placementrule); err != nil {
 					return false
 				}
 				return placementrule.Spec.SchedulerName == constants.GlobalHubSchedulerName
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, webhookEventuallyTimeout, webhookEventuallyInterval).Should(BeTrue())
 		})
 
 		It("Should not set global-hub as scheduler name for the placementrule", func() {
@@ -94,16 +93,14 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 				Spec: placementrulesv1.PlacementRuleSpec{},
 			}
 
+			Expect(c.Create(ctx, testPlacementRule, &client.CreateOptions{})).To(Succeed())
 			Eventually(func() bool {
-				if err := c.Create(ctx, testPlacementRule, &client.CreateOptions{}); err != nil {
-					return false
-				}
 				placementrule := &placementrulesv1.PlacementRule{}
 				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacementRule), placementrule); err != nil {
 					return false
 				}
 				return placementrule.Spec.SchedulerName != constants.GlobalHubSchedulerName
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, webhookEventuallyTimeout, webhookEventuallyInterval).Should(BeTrue())
 		})
 	})
 })
