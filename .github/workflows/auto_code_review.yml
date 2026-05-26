@@ -32,7 +32,7 @@ jobs:
           # For manual dispatch, use the specified PR number
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || format('refs/pull/{0}/merge', env.PR_NUMBER) }}
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.14'
       - name: Install deps
