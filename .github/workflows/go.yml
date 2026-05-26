@@ -58,7 +58,7 @@ jobs:
             TARGET="${GITHUB_REF#refs/heads/}"
           fi
           echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
-          if [ "${TARGET}" = "main" ]; then
+          if [ "${TARGET}" = "main" ] || [ "${TARGET}" = "release-5.1" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
