@@ -47,15 +47,32 @@ jobs:
       - name: bundle
         run: cd operator && make bundle
 
-      - name: compare bundle with stolostron/multicluster-global-hub-operator-bundle
+      # main uses dev bundle versions (e.g. 1.8.0-dev) while release-* bundle
+      # repos carry GA z-stream versions — skip external sync on main.
+      - name: resolve bundle comparison branch
+        id: bundle-branch
         run: |
-          # This comparation ensures the bundle keeps consistent.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TARGET="${{ github.base_ref }}"
+          else
+            TARGET="${GITHUB_REF#refs/heads/}"
+          fi
+          echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
+          if [ "${TARGET}" = "main" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: compare bundle with stolostron/multicluster-global-hub-operator-bundle
+        if: steps.bundle-branch.outputs.skip != 'true'
+        run: |
+          # Ensure the committed bundle matches the release branch in the bundle repo.
           # ignore createdAt updated in csv by `make bundle`
           git checkout . -f
-          # clone multicluster-global-hub-operator-bundle repo
-          git clone https://github.com/stolostron/multicluster-global-hub-operator-bundle.git -b release-1.8
+          git clone https://github.com/stolostron/multicluster-global-hub-operator-bundle.git \
+            -b "${{ steps.bundle-branch.outputs.target }}"
 
-          # compare the bundle dir
           diff -I 'createdAt' -ruN operator/bundle multicluster-global-hub-operator-bundle/bundle
 
   scorecard-test:
