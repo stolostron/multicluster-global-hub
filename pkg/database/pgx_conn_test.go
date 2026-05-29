@@ -17,6 +17,8 @@ import (
 
 const testPostgresURI = "postgres://user:pass@localhost:5432/db"
 
+const testPostgresURIRequireSSL = "postgres://user:pass@localhost:5432/db?sslmode=require"
+
 func TestGetPostgresConfigWithoutCert(t *testing.T) {
 	cfg, err := GetPostgresConfig(testPostgresURI, nil)
 	if err != nil {
@@ -44,21 +46,24 @@ func TestGetPostgresConfigWithValidCA(t *testing.T) {
 
 func TestGetPostgresConfigSetsMinVersionWhenTLSUnset(t *testing.T) {
 	caPEM := generateTestCAPEM(t)
-	config, err := pgx.ParseConfig(testPostgresURI)
+
+	parsed, err := pgx.ParseConfig(testPostgresURI)
 	if err != nil {
 		t.Fatalf("failed to parse uri: %v", err)
 	}
-	config.TLSConfig = nil
-
-	caCertPool := x509.NewCertPool()
-	if !caCertPool.AppendCertsFromPEM(caPEM) {
-		t.Fatal("failed to parse generated CA")
+	if parsed.TLSConfig != nil {
+		t.Skip("pgx sets TLSConfig for this URI; MinVersion branch requires nil TLSConfig")
 	}
-	config.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
-	config.TLSConfig.RootCAs = caCertPool
 
-	if config.TLSConfig.MinVersion != tls.VersionTLS12 {
-		t.Fatalf("expected MinVersion TLS 1.2, got %d", config.TLSConfig.MinVersion)
+	cfg, err := GetPostgresConfig(testPostgresURI, caPEM)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.TLSConfig == nil {
+		t.Fatal("expected TLSConfig to be set when CA is provided")
+	}
+	if cfg.TLSConfig.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("expected MinVersion TLS 1.2, got %d", cfg.TLSConfig.MinVersion)
 	}
 }
 
@@ -75,26 +80,28 @@ func TestGetPostgresConfigWithInvalidCA(t *testing.T) {
 func TestGetPostgresConfigPreservesExistingTLSConfig(t *testing.T) {
 	caPEM := generateTestCAPEM(t)
 
-	config, err := pgx.ParseConfig(testPostgresURI)
+	baseline, err := pgx.ParseConfig(testPostgresURIRequireSSL)
 	if err != nil {
 		t.Fatalf("failed to parse uri: %v", err)
 	}
-	config.TLSConfig = &tls.Config{
-		MinVersion: tls.VersionTLS13,
-		ServerName: "db.example.com",
+	if baseline.TLSConfig == nil {
+		t.Fatal("expected pgx to set TLSConfig for sslmode=require")
 	}
+	expectedServerName := baseline.TLSConfig.ServerName
+	expectedMinVersion := baseline.TLSConfig.MinVersion
 
-	caCertPool := x509.NewCertPool()
-	if !caCertPool.AppendCertsFromPEM(caPEM) {
-		t.Fatal("failed to parse generated CA")
+	cfg, err := GetPostgresConfig(testPostgresURIRequireSSL, caPEM)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	config.TLSConfig.RootCAs = caCertPool
-
-	if config.TLSConfig.MinVersion != tls.VersionTLS13 {
-		t.Fatalf("expected preserved MinVersion TLS 1.3, got %d", config.TLSConfig.MinVersion)
+	if cfg.TLSConfig == nil || cfg.TLSConfig.RootCAs == nil {
+		t.Fatal("expected TLSConfig with RootCAs")
 	}
-	if config.TLSConfig.ServerName != "db.example.com" {
-		t.Fatalf("expected preserved ServerName, got %q", config.TLSConfig.ServerName)
+	if cfg.TLSConfig.ServerName != expectedServerName {
+		t.Fatalf("expected ServerName %q, got %q", expectedServerName, cfg.TLSConfig.ServerName)
+	}
+	if cfg.TLSConfig.MinVersion != expectedMinVersion {
+		t.Fatalf("expected MinVersion %d, got %d", expectedMinVersion, cfg.TLSConfig.MinVersion)
 	}
 }
 

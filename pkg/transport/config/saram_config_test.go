@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -91,6 +92,37 @@ func TestGetSaramaConfigWithoutTLS(t *testing.T) {
 	}
 	if cfg.Net.TLS.Enable {
 		t.Fatal("expected TLS to be disabled")
+	}
+}
+
+func TestGetSaramaConfigWithTLS(t *testing.T) {
+	dir := t.TempDir()
+	certPEM, keyPEM, caPEM := generateTestCertKeyAndCA(t)
+
+	certFile := filepath.Join(dir, "tls.crt")
+	keyFile := filepath.Join(dir, "tls.key")
+	caFile := filepath.Join(dir, "ca.crt")
+	writeFile(t, certFile, certPEM)
+	writeFile(t, keyFile, keyPEM)
+	writeFile(t, caFile, caPEM)
+
+	cfg, err := GetSaramaConfig(&transport.KafkaInternalConfig{
+		EnableTLS:      true,
+		CaCertPath:     caFile,
+		ClientCertPath: certFile,
+		ClientKeyPath:  keyFile,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !cfg.Net.TLS.Enable {
+		t.Fatal("expected TLS to be enabled")
+	}
+	if cfg.Net.TLS.Config == nil {
+		t.Fatal("expected TLS config to be set")
+	}
+	if cfg.Net.TLS.Config.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("expected MinVersion TLS 1.2, got %d", cfg.Net.TLS.Config.MinVersion)
 	}
 }
 

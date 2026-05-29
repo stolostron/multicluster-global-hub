@@ -657,6 +657,26 @@ func TestGetTLSConfigFromClient(t *testing.T) {
 	}
 }
 
+func TestGetTLSConfigFromClientNilProfileDefaultsIntermediate(t *testing.T) {
+	apiserver := &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec:       configv1.APIServerSpec{TLSSecurityProfile: nil},
+	}
+	scheme := runtime.NewScheme()
+	if err := configv1.Install(scheme); err != nil {
+		t.Fatalf("failed to install config scheme: %v", err)
+	}
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(apiserver).Build()
+
+	cfg, err := GetTLSConfigFromClient(context.Background(), c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("expected MinVersion TLS 1.2, got %d", cfg.MinVersion)
+	}
+}
+
 func TestGetTLSConfigFromClientMissingAPIServer(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := configv1.Install(scheme); err != nil {
