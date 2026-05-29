@@ -38,6 +38,9 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 	// Load client cert for mutual TLS (optional)
 	_, validCert := utils.Validate(clientCertFile)
 	_, validKey := utils.Validate(clientKeyFile)
+	if validCert != validKey {
+		return &tlsConfig, fmt.Errorf("client certificate and key must be provided together")
+	}
 	if validCert && validKey {
 		cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 		if err != nil {

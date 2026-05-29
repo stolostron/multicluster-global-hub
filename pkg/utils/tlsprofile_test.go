@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"crypto/tls"
 	"testing"
 
@@ -100,6 +101,13 @@ func TestResolveSpec(t *testing.T) {
 			}
 			if spec == nil {
 				t.Errorf("expected spec but got nil")
+				return
+			}
+			if tt.expectType != "" {
+				expected := configv1.TLSProfiles[tt.expectType]
+				if spec.MinTLSVersion != expected.MinTLSVersion {
+					t.Fatalf("expected MinTLSVersion %q, got %q", expected.MinTLSVersion, spec.MinTLSVersion)
+				}
 			}
 		})
 	}
@@ -212,11 +220,13 @@ func TestMapCipherSuites(t *testing.T) {
 }
 
 type tlsConfigTestCase struct {
-	name        string
-	profile     *configv1.TLSSecurityProfile
-	expectError bool
-	checkMinVer bool
-	expectedMin uint16
+	name              string
+	profile           *configv1.TLSSecurityProfile
+	expectError       bool
+	checkMinVer       bool
+	expectedMin       uint16
+	checkCipherNil    bool
+	checkCipherNonNil bool
 }
 
 func getBuildTLSConfigTestCases() []tlsConfigTestCase {
@@ -285,9 +295,10 @@ func getBuildTLSConfigTestCases() []tlsConfigTestCase {
 					},
 				},
 			},
-			expectError: false,
-			checkMinVer: true,
-			expectedMin: tls.VersionTLS12,
+			expectError:    false,
+			checkMinVer:    true,
+			expectedMin:    tls.VersionTLS12,
+			checkCipherNil: true,
 		},
 		{
 			name: "Invalid TLS version",
@@ -351,6 +362,12 @@ func TestBuildTLSConfig(t *testing.T) {
 			}
 			if tt.checkMinVer && cfg.MinVersion != tt.expectedMin {
 				t.Errorf("expected MinVersion %d but got %d", tt.expectedMin, cfg.MinVersion)
+			}
+			if tt.checkCipherNil && cfg.CipherSuites != nil {
+				t.Errorf("expected nil CipherSuites for Go defaults, got %v", cfg.CipherSuites)
+			}
+			if tt.checkCipherNonNil && len(cfg.CipherSuites) == 0 {
+				t.Error("expected non-empty CipherSuites")
 			}
 		})
 	}
@@ -435,9 +452,10 @@ func getBuildTLSConfigFuncTestCases() []tlsConfigTestCase {
 					},
 				},
 			},
-			expectError: false,
-			checkMinVer: true,
-			expectedMin: tls.VersionTLS12,
+			expectError:    false,
+			checkMinVer:    true,
+			expectedMin:    tls.VersionTLS12,
+			checkCipherNil: true,
 		},
 		{
 			name: "Old profile type",
@@ -479,6 +497,64 @@ func TestBuildTLSConfigFunc(t *testing.T) {
 			if tt.checkMinVer && cfg.MinVersion != tt.expectedMin {
 				t.Errorf("expected MinVersion %d but got %d", tt.expectedMin, cfg.MinVersion)
 			}
+			if tt.checkCipherNil && cfg.CipherSuites != nil {
+				t.Errorf("expected nil CipherSuites for Go defaults, got %v", cfg.CipherSuites)
+			}
 		})
+	}
+}
+
+func TestTLS13OnlyConfigFunc(t *testing.T) {
+	cfg := &tls.Config{}
+	TLS13OnlyConfigFunc()(cfg)
+	if cfg.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("expected MinVersion TLS 1.3, got %d", cfg.MinVersion)
+	}
+}
+
+func TestBuildTLSConfigFuncFromProfile(t *testing.T) {
+	profile := &configv1.TLSSecurityProfile{Type: configv1.TLSProfileIntermediateType}
+	tlsConfigFunc, profileType, err := buildTLSConfigFuncFromProfile(profile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if profileType != configv1.TLSProfileIntermediateType {
+		t.Fatalf("expected profile type %q, got %q", configv1.TLSProfileIntermediateType, profileType)
+	}
+	cfg := &tls.Config{}
+	tlsConfigFunc(cfg)
+	if cfg.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("expected MinVersion TLS 1.2, got %d", cfg.MinVersion)
+	}
+}
+
+func TestBuildTLSConfigFuncFromProfileUnsupportedCiphers(t *testing.T) {
+	profile := &configv1.TLSSecurityProfile{
+		Type: configv1.TLSProfileCustomType,
+		Custom: &configv1.CustomTLSProfile{
+			TLSProfileSpec: configv1.TLSProfileSpec{
+				Ciphers:       []string{"UNSUPPORTED-CIPHER"},
+				MinTLSVersion: configv1.VersionTLS12,
+			},
+		},
+	}
+	_, _, err := buildTLSConfigFuncFromProfile(profile)
+	if err == nil {
+		t.Fatal("expected error for unsupported cipher profile")
+	}
+}
+
+func TestBuildMetricsTLSConfigFuncFallback(t *testing.T) {
+	tlsConfigFunc, profileType, err := BuildMetricsTLSConfigFunc(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if profileType != "" {
+		t.Fatalf("expected empty profile type on fallback, got %q", profileType)
+	}
+	cfg := &tls.Config{}
+	tlsConfigFunc(cfg)
+	if cfg.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("expected MinVersion TLS 1.3, got %d", cfg.MinVersion)
 	}
 }

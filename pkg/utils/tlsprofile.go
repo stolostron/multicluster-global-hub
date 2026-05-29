@@ -58,6 +58,8 @@ func GetTLSConfigFromClient(ctx context.Context, c client.Client) (*tls.Config, 
 }
 
 // BuildTLSConfig builds a tls.Config from an OpenShift TLS security profile.
+// When the profile omits cipher suites for TLS versions below 1.3, CipherSuites is left nil
+// so Go applies its safe defaults.
 func BuildTLSConfig(profile *configv1.TLSSecurityProfile) (*tls.Config, error) {
 	spec, err := resolveSpec(profile)
 	if err != nil {
@@ -74,10 +76,11 @@ func BuildTLSConfig(profile *configv1.TLSSecurityProfile) (*tls.Config, error) {
 	cfg := &tls.Config{MinVersion: minVer}
 
 	// TLS 1.3 cipher suites are not configurable in Go (golang/go#29349).
-	// Only set CipherSuites for TLS 1.2 and below.
-	if minVer < tls.VersionTLS13 {
+	// Only set CipherSuites for TLS 1.2 and below when the profile lists ciphers.
+	// Leave CipherSuites nil when omitted so Go uses its safe defaults.
+	if minVer < tls.VersionTLS13 && len(spec.Ciphers) > 0 {
 		suites := mapCipherSuites(spec.Ciphers)
-		if len(suites) == 0 && len(spec.Ciphers) > 0 {
+		if len(suites) == 0 {
 			return nil, fmt.Errorf(
 				"no valid cipher suites found for TLS profile (all %d cipher(s) unsupported by Go)",
 				len(spec.Ciphers),
@@ -89,8 +92,8 @@ func BuildTLSConfig(profile *configv1.TLSSecurityProfile) (*tls.Config, error) {
 	return cfg, nil
 }
 
-// BuildTLSConfigFunc returns a function that can be used to configure tls.Config.
-// This is useful for controller-runtime's metricsserver.Options.TLSOpts.
+// BuildTLSConfigFunc returns a function that applies an OpenShift TLS security profile to tls.Config.
+// This is useful for controller-runtime metricsserver.Options.TLSOpts and webhook TLSOpts.
 func BuildTLSConfigFunc(profile *configv1.TLSSecurityProfile) (func(*tls.Config), error) {
 	spec, err := resolveSpec(profile)
 	if err != nil {
@@ -103,11 +106,11 @@ func BuildTLSConfigFunc(profile *configv1.TLSSecurityProfile) (func(*tls.Config)
 	}
 
 	// TLS 1.3 cipher suites are not configurable in Go, so validate cipher suites
-	// early for TLS < 1.3 to fail fast if the profile specifies unsupported ciphers
+	// early for TLS < 1.3 to fail fast if the profile specifies unsupported ciphers.
 	var suites []uint16
-	if minVer < tls.VersionTLS13 {
+	if minVer < tls.VersionTLS13 && len(spec.Ciphers) > 0 {
 		suites = mapCipherSuites(spec.Ciphers)
-		if len(suites) == 0 && len(spec.Ciphers) > 0 {
+		if len(suites) == 0 {
 			return nil, fmt.Errorf(
 				"no valid cipher suites found for TLS profile (all %d cipher(s) unsupported by Go)",
 				len(spec.Ciphers),
@@ -117,10 +120,9 @@ func BuildTLSConfigFunc(profile *configv1.TLSSecurityProfile) (func(*tls.Config)
 
 	return func(cfg *tls.Config) {
 		cfg.MinVersion = minVer
-		// Always set CipherSuites to ensure consistent behavior:
-		// - TLS < 1.3: use specific suites or nil for Go defaults
-		// - TLS >= 1.3: nil (cipher suites not configurable in Go)
-		cfg.CipherSuites = suites
+		if len(suites) > 0 {
+			cfg.CipherSuites = suites
+		}
 	}, nil
 }
 
@@ -170,10 +172,8 @@ func parseTLSVersion(v string) (uint16, error) {
 	return 0, fmt.Errorf("unknown TLS version: %s", v)
 }
 
-// mapCipherSuites converts OpenSSL-style cipher names (used in OpenShift TLS
-// profiles) to Go crypto/tls constants. Ciphers without a Go constant (e.g.
-// DHE-RSA-*, ECDHE-RSA-AES256-SHA384, AES256-SHA256) are silently skipped —
-// Go's crypto/tls does not support them.
+// mapCipherSuites converts OpenShift/OpenSSL cipher names to Go crypto/tls constants.
+// Ciphers without a Go constant are skipped because crypto/tls does not support them.
 func mapCipherSuites(names []string) []uint16 {
 	m := map[string]uint16{
 		"ECDHE-RSA-AES128-GCM-SHA256":   tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -207,6 +207,9 @@ func mapCipherSuites(names []string) []uint16 {
 
 // GetOpenShiftConfigClient creates a versioned config client for accessing OpenShift config resources.
 func GetOpenShiftConfigClient(restConfig *rest.Config) (configv1client.ConfigV1Interface, error) {
+	if restConfig == nil {
+		return nil, fmt.Errorf("rest config is nil")
+	}
 	configClient, err := configclientset.NewForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config client: %w", err)
@@ -232,4 +235,47 @@ func FetchAPIServerTLSProfile(
 	}
 
 	return profile, nil
+}
+
+// TLS13OnlyConfigFunc returns a function that sets the minimum TLS version to 1.3.
+func TLS13OnlyConfigFunc() func(*tls.Config) {
+	return func(cfg *tls.Config) {
+		cfg.MinVersion = tls.VersionTLS13
+	}
+}
+
+// BuildMetricsTLSConfigFunc builds a TLS applier from the cluster APIServer profile.
+// When the profile cannot be fetched (config client or APIServer get failure), it returns
+// a TLS 1.3-only applier and an empty profile type. When the profile is fetched but
+// cannot be translated, it returns an error.
+func BuildMetricsTLSConfigFunc(
+	ctx context.Context,
+	restConfig *rest.Config,
+) (func(*tls.Config), configv1.TLSProfileType, error) {
+	configClient, err := GetOpenShiftConfigClient(restConfig)
+	if err != nil {
+		return TLS13OnlyConfigFunc(), "", nil
+	}
+	return buildTLSConfigFuncFromAPIServer(ctx, configClient)
+}
+
+func buildTLSConfigFuncFromAPIServer(
+	ctx context.Context,
+	configClient configv1client.ConfigV1Interface,
+) (func(*tls.Config), configv1.TLSProfileType, error) {
+	profile, err := FetchAPIServerTLSProfile(ctx, configClient)
+	if err != nil {
+		return TLS13OnlyConfigFunc(), "", nil
+	}
+	return buildTLSConfigFuncFromProfile(profile)
+}
+
+func buildTLSConfigFuncFromProfile(
+	profile *configv1.TLSSecurityProfile,
+) (func(*tls.Config), configv1.TLSProfileType, error) {
+	tlsConfigFunc, err := BuildTLSConfigFunc(profile)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to build TLS config from APIServer profile %q: %w", profile.Type, err)
+	}
+	return tlsConfigFunc, profile.Type, nil
 }

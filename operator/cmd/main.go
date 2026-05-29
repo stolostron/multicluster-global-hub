@@ -141,13 +141,16 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 	renewDeadline := time.Duration(electionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(electionConfig.RetryPeriod) * time.Second
 
-	// Get TLS configuration from cluster APIServer profile
-	tlsConfigFunc, err := getTLSConfigFunc(restConfig)
+	tlsCtx, tlsCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer tlsCancel()
+	tlsConfigFunc, profileType, err := utils.BuildMetricsTLSConfigFunc(tlsCtx, restConfig)
 	if err != nil {
-		setupLog.Info("Failed to get cluster TLS profile, using TLS 1.3 as default", "error", err)
-		tlsConfigFunc = func(config *tls.Config) {
-			config.MinVersion = tls.VersionTLS13
-		}
+		return nil, err
+	}
+	if profileType != "" {
+		setupLog.Info("Configuring webhook server TLS from cluster APIServer profile", "profileType", profileType)
+	} else {
+		setupLog.Info("Using TLS 1.3 for webhook server (cluster APIServer profile unavailable)")
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
@@ -172,24 +175,4 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 	})
 
 	return mgr, err
-}
-
-// getTLSConfigFunc fetches the cluster TLS profile and returns a function to configure tls.Config
-func getTLSConfigFunc(restConfig *rest.Config) (func(*tls.Config), error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Fetch the TLS profile from cluster APIServer
-	configClient, err := utils.GetOpenShiftConfigClient(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create config client: %w", err)
-	}
-
-	profile, err := utils.FetchAPIServerTLSProfile(ctx, configClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch APIServer TLS profile: %w", err)
-	}
-
-	setupLog.Info("Configuring webhook server TLS from cluster APIServer profile", "profileType", profile.Type)
-	return utils.BuildTLSConfigFunc(profile)
 }
