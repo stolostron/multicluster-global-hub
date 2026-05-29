@@ -13,6 +13,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+const errClientCertKeyMismatch = "client certificate and key must be provided together"
+
 func GetSaramaConfig(kafkaConfig *transport.KafkaInternalConfig) (*sarama.Config, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Version = sarama.V2_0_0_0
@@ -39,7 +41,7 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 	_, validCert := utils.Validate(clientCertFile)
 	_, validKey := utils.Validate(clientKeyFile)
 	if validCert != validKey {
-		return &tlsConfig, fmt.Errorf("client certificate and key must be provided together")
+		return &tlsConfig, fmt.Errorf("%s", errClientCertKeyMismatch)
 	}
 	if validCert && validKey {
 		cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)

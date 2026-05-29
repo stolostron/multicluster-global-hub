@@ -3,9 +3,14 @@ package utils
 import (
 	"context"
 	"crypto/tls"
+	"errors"
+	"strings"
 	"testing"
 
 	configv1 "github.com/openshift/api/config/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const (
@@ -16,8 +21,26 @@ const (
 	testErrUnexpected        = "unexpected error: %v"
 )
 
-// TestGetTLSConfigFromAPIServer, GetTLSConfigFromClient, GetOpenShiftConfigClient,
-// and FetchAPIServerTLSProfile require real Kubernetes clients and are tested in integration tests.
+// stubAPIServerGetter implements apiserverGetter for unit tests.
+type stubAPIServerGetter struct {
+	apiserver *configv1.APIServer
+	err       error
+}
+
+func (s *stubAPIServerGetter) Get(
+	_ context.Context, name string, _ metav1.GetOptions,
+) (*configv1.APIServer, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.apiserver == nil {
+		return &configv1.APIServer{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec:       configv1.APIServerSpec{},
+		}, nil
+	}
+	return s.apiserver, nil
+}
 
 func TestResolveSpec(t *testing.T) {
 	tests := []struct {
@@ -558,3 +581,115 @@ func TestBuildMetricsTLSConfigFuncFallback(t *testing.T) {
 		t.Fatalf("expected MinVersion TLS 1.3, got %d", cfg.MinVersion)
 	}
 }
+
+func TestFetchAPIServerTLSProfileDefaultsToIntermediate(t *testing.T) {
+	getter := &stubAPIServerGetter{
+		apiserver: &configv1.APIServer{
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+			Spec:       configv1.APIServerSpec{TLSSecurityProfile: nil},
+		},
+	}
+	profile, err := FetchAPIServerTLSProfile(context.Background(), getter)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if profile.Type != configv1.TLSProfileIntermediateType {
+		t.Fatalf("expected Intermediate profile, got %q", profile.Type)
+	}
+}
+
+func TestFetchAPIServerTLSProfileGetError(t *testing.T) {
+	getter := &stubAPIServerGetter{err: errors.New("apiserver unavailable")}
+	_, err := FetchAPIServerTLSProfile(context.Background(), getter)
+	if err == nil {
+		t.Fatal("expected error when APIServer get fails")
+	}
+	if !strings.Contains(err.Error(), "failed to get APIServer config") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBuildTLSConfigFuncFromAPIServerFetchFallback(t *testing.T) {
+	getter := &stubAPIServerGetter{err: errors.New("apiserver unavailable")}
+	tlsConfigFunc, profileType, err := buildTLSConfigFuncFromAPIServer(context.Background(), getter)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if profileType != "" {
+		t.Fatalf("expected empty profile type on fallback, got %q", profileType)
+	}
+	cfg := &tls.Config{}
+	tlsConfigFunc(cfg)
+	if cfg.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("expected MinVersion TLS 1.3, got %d", cfg.MinVersion)
+	}
+}
+
+func TestGetOpenShiftConfigClientNilRestConfig(t *testing.T) {
+	_, err := GetOpenShiftConfigClient(nil)
+	if err == nil {
+		t.Fatal("expected error for nil rest config")
+	}
+	if !strings.Contains(err.Error(), "rest config is nil") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetTLSConfigFromClient(t *testing.T) {
+	apiserver := &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.APIServerSpec{
+			TLSSecurityProfile: &configv1.TLSSecurityProfile{Type: configv1.TLSProfileModernType},
+		},
+	}
+	scheme := runtime.NewScheme()
+	if err := configv1.Install(scheme); err != nil {
+		t.Fatalf("failed to install config scheme: %v", err)
+	}
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(apiserver).Build()
+
+	cfg, err := GetTLSConfigFromClient(context.Background(), c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("expected MinVersion TLS 1.3, got %d", cfg.MinVersion)
+	}
+}
+
+func TestGetTLSConfigFromClientMissingAPIServer(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := configv1.Install(scheme); err != nil {
+		t.Fatalf("failed to install config scheme: %v", err)
+	}
+	c := fakeclient.NewClientBuilder().WithScheme(scheme).Build()
+
+	_, err := GetTLSConfigFromClient(context.Background(), c)
+	if err == nil {
+		t.Fatal("expected error when APIServer is missing")
+	}
+	if !strings.Contains(err.Error(), "failed to get APIServer config") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBuildTLSConfigCustomProfileSetsCipherSuites(t *testing.T) {
+	profile := &configv1.TLSSecurityProfile{
+		Type: configv1.TLSProfileCustomType,
+		Custom: &configv1.CustomTLSProfile{
+			TLSProfileSpec: configv1.TLSProfileSpec{
+				Ciphers:       []string{testCipherECDHERSAAES128},
+				MinTLSVersion: configv1.VersionTLS12,
+			},
+		},
+	}
+	cfg, err := BuildTLSConfig(profile)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.CipherSuites) == 0 {
+		t.Fatal("expected non-empty CipherSuites")
+	}
+}
+
+var _ apiserverGetter = (*stubAPIServerGetter)(nil)

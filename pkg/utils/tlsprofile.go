@@ -26,17 +26,10 @@ func GetTLSConfigFromAPIServer(ctx context.Context, restConfig *rest.Config) (*t
 		return nil, fmt.Errorf("failed to create config client: %w", err)
 	}
 
-	apiserver, err := configClient.ConfigV1().APIServers().Get(ctx, "cluster", metav1.GetOptions{})
+	profile, err := FetchAPIServerTLSProfile(ctx, configClient.ConfigV1().APIServers())
 	if err != nil {
-		return nil, fmt.Errorf(errMsgFailedToGetAPIServer, err)
+		return nil, err
 	}
-
-	profile := apiserver.Spec.TLSSecurityProfile
-	if profile == nil {
-		// Use Intermediate profile as default when no profile is specified
-		profile = &configv1.TLSSecurityProfile{Type: configv1.TLSProfileIntermediateType}
-	}
-
 	return BuildTLSConfig(profile)
 }
 
@@ -45,7 +38,7 @@ func GetTLSConfigFromAPIServer(ctx context.Context, restConfig *rest.Config) (*t
 func GetTLSConfigFromClient(ctx context.Context, c client.Client) (*tls.Config, error) {
 	apiserver := &configv1.APIServer{}
 	if err := c.Get(ctx, client.ObjectKey{Name: "cluster"}, apiserver); err != nil {
-		return nil, fmt.Errorf("failed to get APIServer config: %w", err)
+		return nil, fmt.Errorf(errMsgFailedToGetAPIServer, err)
 	}
 
 	profile := apiserver.Spec.TLSSecurityProfile
@@ -217,15 +210,17 @@ func GetOpenShiftConfigClient(restConfig *rest.Config) (configv1client.ConfigV1I
 	return configClient.ConfigV1(), nil
 }
 
+// apiserverGetter reads the cluster APIServer singleton used for TLS profile discovery.
+type apiserverGetter interface {
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*configv1.APIServer, error)
+}
+
 // FetchAPIServerTLSProfile fetches the TLS security profile from the cluster APIServer resource.
 // Returns the Intermediate profile as default if no profile is specified.
-func FetchAPIServerTLSProfile(
-	ctx context.Context,
-	configClient configv1client.ConfigV1Interface,
-) (*configv1.TLSSecurityProfile, error) {
-	apiserver, err := configClient.APIServers().Get(ctx, "cluster", metav1.GetOptions{})
+func FetchAPIServerTLSProfile(ctx context.Context, client apiserverGetter) (*configv1.TLSSecurityProfile, error) {
+	apiserver, err := client.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get APIServer config: %w", err)
+		return nil, fmt.Errorf(errMsgFailedToGetAPIServer, err)
 	}
 
 	profile := apiserver.Spec.TLSSecurityProfile
@@ -256,14 +251,14 @@ func BuildMetricsTLSConfigFunc(
 	if err != nil {
 		return TLS13OnlyConfigFunc(), "", nil
 	}
-	return buildTLSConfigFuncFromAPIServer(ctx, configClient)
+	return buildTLSConfigFuncFromAPIServer(ctx, configClient.APIServers())
 }
 
 func buildTLSConfigFuncFromAPIServer(
 	ctx context.Context,
-	configClient configv1client.ConfigV1Interface,
+	getter apiserverGetter,
 ) (func(*tls.Config), configv1.TLSProfileType, error) {
-	profile, err := FetchAPIServerTLSProfile(ctx, configClient)
+	profile, err := FetchAPIServerTLSProfile(ctx, getter)
 	if err != nil {
 		return TLS13OnlyConfigFunc(), "", nil
 	}
