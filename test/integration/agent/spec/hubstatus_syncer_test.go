@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,6 +16,34 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+func waitForManagedClusters(names ...string) {
+	Eventually(func() error {
+		for _, name := range names {
+			mc := &clusterv1.ManagedCluster{}
+			if err := runtimeClient.Get(ctx, client.ObjectKey{Name: name}, mc); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, 5*time.Second, 50*time.Millisecond).Should(Succeed())
+}
+
+func waitForManagedClustersDeleted(names ...string) {
+	Eventually(func() error {
+		for _, name := range names {
+			mc := &clusterv1.ManagedCluster{}
+			err := runtimeClient.Get(ctx, client.ObjectKey{Name: name}, mc)
+			if err == nil {
+				return fmt.Errorf("managed cluster %s still exists", name)
+			}
+			if !errors.IsNotFound(err) {
+				return err
+			}
+		}
+		return nil
+	}, 5*time.Second, 50*time.Millisecond).Should(Succeed())
+}
 
 var _ = Describe("HubStatusSyncer", func() {
 	var (
@@ -55,30 +84,32 @@ var _ = Describe("HubStatusSyncer", func() {
 			},
 		}
 		Expect(runtimeClient.Create(ctx, cluster3)).To(Succeed())
+		waitForManagedClusters(cluster1Name, cluster2Name, cluster3Name)
 	})
 
 	AfterEach(func() {
-		// Clean up test ManagedClusters
+		// Clean up test ManagedClusters and wait for deletion so the next spec gets fresh objects in cache.
 		cluster1 := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: cluster1Name,
 			},
 		}
-		_ = runtimeClient.Delete(ctx, cluster1)
+		Expect(runtimeClient.Delete(ctx, cluster1)).To(Succeed())
 
 		cluster2 := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: cluster2Name,
 			},
 		}
-		_ = runtimeClient.Delete(ctx, cluster2)
+		Expect(runtimeClient.Delete(ctx, cluster2)).To(Succeed())
 
 		cluster3 := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: cluster3Name,
 			},
 		}
-		_ = runtimeClient.Delete(ctx, cluster3)
+		Expect(runtimeClient.Delete(ctx, cluster3)).To(Succeed())
+		waitForManagedClustersDeleted(cluster1Name, cluster2Name, cluster3Name)
 	})
 
 	It("should update hubAcceptsClient when active hub goes inactive (failover)", func() {
@@ -217,6 +248,11 @@ var _ = Describe("HubStatusSyncer", func() {
 	})
 
 	It("should handle multiple clusters in one message", func() {
+		// Confirm initial state before sending the event (cluster2 must start false).
+		mc2 := &clusterv1.ManagedCluster{}
+		Expect(runtimeClient.Get(ctx, client.ObjectKey{Name: cluster2Name}, mc2)).To(Succeed())
+		Expect(mc2.Spec.HubAcceptsClient).To(BeFalse())
+
 		// Send hub status update for all three clusters
 		update := hubha.HubStatusUpdate{
 			HubName:         activeHub,
