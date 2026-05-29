@@ -90,6 +90,14 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - apiservers
+  verbs:
+  - get
+  - list
+  - watch
 # Hub HA - Permissions for syncing all Hub HA resources to standby hub
 # Standby hub needs: create/update/delete/patch to apply resources from active hub
 - apiGroups:

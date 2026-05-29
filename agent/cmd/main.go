@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -204,9 +205,13 @@ func createManager(restConfig *rest.Config, agentConfig *configs.AgentConfig) (
 		}
 	}
 
+	// Get TLS configuration from cluster APIServer profile for metrics server
+	tlsConfigFunc := getMetricsTLSConfigFunc(restConfig)
+
 	options := ctrl.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: agentConfig.MetricsAddress,
+			TLSOpts:     []func(*tls.Config){tlsConfigFunc},
 		},
 		LeaderElection:          true,
 		Scheme:                  configs.GetRuntimeScheme(),
@@ -224,6 +229,40 @@ func createManager(restConfig *rest.Config, agentConfig *configs.AgentConfig) (
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 	return mgr, nil
+}
+
+// getMetricsTLSConfigFunc fetches the cluster TLS profile and returns a function to configure tls.Config.
+// Falls back to TLS 1.3 if unable to fetch the cluster profile.
+func getMetricsTLSConfigFunc(restConfig *rest.Config) func(*tls.Config) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	configClient, err := utils.GetOpenShiftConfigClient(restConfig)
+	if err != nil {
+		logger.DefaultZapLogger().Info("Failed to create config client, using TLS 1.3 as default", "error", err)
+		return func(config *tls.Config) {
+			config.MinVersion = tls.VersionTLS13
+		}
+	}
+
+	profile, err := utils.FetchAPIServerTLSProfile(ctx, configClient)
+	if err != nil {
+		logger.DefaultZapLogger().Info("Failed to fetch cluster TLS profile, using TLS 1.3 as default", "error", err)
+		return func(config *tls.Config) {
+			config.MinVersion = tls.VersionTLS13
+		}
+	}
+
+	tlsConfigFunc, err := utils.BuildTLSConfigFunc(profile)
+	if err != nil {
+		logger.DefaultZapLogger().Info("Failed to build TLS config from profile, using TLS 1.3 as default", "error", err)
+		return func(config *tls.Config) {
+			config.MinVersion = tls.VersionTLS13
+		}
+	}
+
+	logger.DefaultZapLogger().Info("Configuring metrics server TLS from cluster APIServer profile", "profileType", profile.Type)
+	return tlsConfigFunc
 }
 
 // if the transport consumer and producer is ready then the func will be invoked by the transport controller

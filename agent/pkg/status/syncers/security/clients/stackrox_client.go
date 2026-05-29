@@ -84,6 +84,9 @@ func (b *StackRoxClientBuilder) Build() (result *StackRoxClient, err error) {
 	}
 
 	// Create the HTTP client:
+	// For external services like StackRox, we use TLS 1.2 as minimum version
+	// to ensure compatibility while maintaining security. External services
+	// may not support TLS 1.3 yet, unlike OpenShift components.
 	var transport http.RoundTripper = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
