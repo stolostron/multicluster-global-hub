@@ -128,14 +128,14 @@ func TestNetworkPolicyPredicate_Transport(t *testing.T) {
 			wantBool: true,
 		},
 		{
-			name: "kafka network policy in any namespace should match (only checks name)",
+			name: "kafka network policy in wrong namespace should not match",
 			obj: &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      protocol.KafkaClusterName,
 					Namespace: "other-namespace",
 				},
 			},
-			wantBool: true,
+			wantBool: false,
 		},
 		{
 			name: "other network policy should not match",
@@ -201,7 +201,8 @@ func TestNetworkPolicyCond(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			obj := &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: tt.objName,
+					Name:      tt.objName,
+					Namespace: utils.GetDefaultNamespace(),
 				},
 			}
 			result := networkPolicyCond(obj)
