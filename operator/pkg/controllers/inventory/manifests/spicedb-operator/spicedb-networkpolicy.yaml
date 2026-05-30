@@ -13,8 +13,21 @@ spec:
   - Ingress
   - Egress
   ingress:
-  # Allow incoming connections to SpiceDB ports
-  - ports:
+  # Allow incoming connections from known Global Hub callers
+  - from:
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-manager
+    - podSelector:
+        matchLabels:
+          name: inventory-api
+    - podSelector:
+        matchLabels:
+          app: relations-api
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-operator
+    ports:
     - protocol: TCP
       port: 50051  # gRPC API
     - protocol: TCP
@@ -23,6 +36,14 @@ spec:
       port: 9090   # Metrics
     - protocol: TCP
       port: 50053  # Dispatch cluster
+  # Allow metrics scraping from Prometheus
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-monitoring
+    ports:
+    - protocol: TCP
+      port: 9090
   egress:
   # Allow connections to PostgreSQL
   - to:
@@ -32,6 +53,11 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
-  # Allow all other egress for external dependencies
+  # Allow access to Kubernetes API
   - to:
-    - namespaceSelector: {}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443

@@ -13,12 +13,16 @@ spec:
   - Ingress
   - Egress
   ingress:
-  # Allow health check probes from kubelet (runs on node, not in a pod)
+  # Allow health check probes from kubelet (runs on node, not in a pod — no from selector)
   - ports:
     - protocol: TCP
       port: 8081
-  # Allow webhook traffic from API server
-  - ports:
+  # Allow webhook traffic from Kubernetes API server
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
     - protocol: TCP
       port: 9443
   egress:

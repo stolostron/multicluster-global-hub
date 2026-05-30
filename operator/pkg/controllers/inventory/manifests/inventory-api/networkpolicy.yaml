@@ -13,8 +13,12 @@ spec:
   - Ingress
   - Egress
   ingress:
-  # Allow incoming connections to HTTP and gRPC ports
-  - ports:
+  # Allow incoming connections from manager to HTTP and gRPC ports
+  - from:
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-manager
+    ports:
     - protocol: TCP
       port: 8081
     - protocol: TCP

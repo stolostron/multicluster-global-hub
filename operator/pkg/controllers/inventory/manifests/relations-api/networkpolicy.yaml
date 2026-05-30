@@ -13,8 +13,15 @@ spec:
   - Ingress
   - Egress
   ingress:
-  # Allow incoming connections to HTTP and gRPC ports
-  - ports:
+  # Allow incoming connections from manager and inventory-api
+  - from:
+    - podSelector:
+        matchLabels:
+          name: multicluster-global-hub-manager
+    - podSelector:
+        matchLabels:
+          name: inventory-api
+    ports:
     - protocol: TCP
       port: 8000
     - protocol: TCP
@@ -28,6 +35,11 @@ spec:
     ports:
     - protocol: TCP
       port: 50051
-  # Allow all other egress for external dependencies
+  # Allow access to Kubernetes API
   - to:
-    - namespaceSelector: {}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443

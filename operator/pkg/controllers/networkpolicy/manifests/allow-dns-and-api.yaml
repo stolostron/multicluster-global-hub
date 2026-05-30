@@ -34,7 +34,11 @@ spec:
     - protocol: TCP
       port: 53
   # Allow access to Kubernetes API server service IP
-  - ports:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
     - protocol: TCP
       port: 443
     - protocol: TCP
