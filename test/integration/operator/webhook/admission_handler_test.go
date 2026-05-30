@@ -65,7 +65,7 @@ var _ = Describe("Multicluster hub webhook", func() {
 					return false
 				}
 				return true
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 	})
 
@@ -97,7 +97,7 @@ var _ = Describe("Multicluster hub webhook", func() {
 					return false
 				}
 				return true
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 	})
 })

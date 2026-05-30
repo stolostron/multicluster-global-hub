@@ -22,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers;kafkanodepools,verbs=get;create;list;watch;update;delete
@@ -42,9 +43,10 @@ const (
 )
 
 var (
-	log                 = logger.DefaultZapLogger()
-	isResourceRemoved   = true
-	transportReconciler *TransportReconciler
+	log                              = logger.DefaultZapLogger()
+	isResourceRemoved                = true
+	transportReconciler              *TransportReconciler
+	kafkaNetworkPolicyWatchNamespace string
 )
 
 type TransportReconciler struct {
@@ -62,6 +64,12 @@ func StartController(controllerOption config.ControllerOption) (config.Controlle
 		return transportReconciler, nil
 	}
 	log.Info("start transport controller")
+
+	if controllerOption.MulticlusterGlobalHub != nil {
+		kafkaNetworkPolicyWatchNamespace = controllerOption.MulticlusterGlobalHub.Namespace
+	} else if controllerOption.OperatorConfig != nil && controllerOption.OperatorConfig.PodNamespace != "" {
+		kafkaNetworkPolicyWatchNamespace = controllerOption.OperatorConfig.PodNamespace
+	}
 
 	transportReconciler = NewTransportReconciler(controllerOption.Manager)
 	err := transportReconciler.SetupWithManager(controllerOption.Manager)
@@ -110,7 +118,11 @@ var networkPolicyPred = predicate.Funcs{
 }
 
 func networkPolicyCond(obj client.Object) bool {
-	return obj.GetName() == protocol.KafkaClusterName
+	ns := kafkaNetworkPolicyWatchNamespace
+	if ns == "" {
+		ns = commonutils.GetDefaultNamespace()
+	}
+	return obj.GetNamespace() == ns && obj.GetName() == protocol.KafkaClusterName
 }
 
 func secretCond(obj client.Object) bool {

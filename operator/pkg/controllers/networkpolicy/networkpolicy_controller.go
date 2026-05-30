@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -44,13 +45,33 @@ type NetworkPolicyReconciler struct {
 	kubeClient kubernetes.Interface
 }
 
-var networkPolicyController *NetworkPolicyReconciler
+var (
+	networkPolicyController     *NetworkPolicyReconciler
+	networkPolicyWatchNamespace string
+)
+
+func isWatchedNetworkPolicy(obj client.Object) bool {
+	ns := networkPolicyWatchNamespace
+	if ns == "" {
+		ns = commonutils.GetDefaultNamespace()
+	}
+	return obj.GetNamespace() == ns &&
+		(obj.GetName() == NetworkPolicyDefaultDenyAll ||
+			obj.GetName() == NetworkPolicyAllowDNSAndAPI ||
+			obj.GetName() == NetworkPolicyOperator)
+}
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
 	if networkPolicyController != nil {
 		return networkPolicyController, nil
 	}
 	log.Info("start networkpolicy controller")
+
+	if initOption.MulticlusterGlobalHub != nil {
+		networkPolicyWatchNamespace = initOption.MulticlusterGlobalHub.Namespace
+	} else {
+		networkPolicyWatchNamespace = commonutils.GetDefaultNamespace()
+	}
 
 	networkPolicyController = &NetworkPolicyReconciler{
 		Manager:    initOption.Manager,
@@ -82,22 +103,13 @@ func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 var networkPolicyPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			(e.Object.GetName() == NetworkPolicyDefaultDenyAll ||
-				e.Object.GetName() == NetworkPolicyAllowDNSAndAPI ||
-				e.Object.GetName() == NetworkPolicyOperator)
+		return isWatchedNetworkPolicy(e.Object)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			(e.ObjectNew.GetName() == NetworkPolicyDefaultDenyAll ||
-				e.ObjectNew.GetName() == NetworkPolicyAllowDNSAndAPI ||
-				e.ObjectNew.GetName() == NetworkPolicyOperator)
+		return isWatchedNetworkPolicy(e.ObjectNew)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			(e.Object.GetName() == NetworkPolicyDefaultDenyAll ||
-				e.Object.GetName() == NetworkPolicyAllowDNSAndAPI ||
-				e.Object.GetName() == NetworkPolicyOperator)
+		return isWatchedNetworkPolicy(e.Object)
 	},
 }
 
