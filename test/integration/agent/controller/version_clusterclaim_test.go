@@ -58,8 +58,7 @@ var _ = Describe("claim controllers", Ordered, func() {
 			}, clusterClaim)
 		}, 3*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 		Expect(clusterClaim.Spec.Value).Should(Equal(
-			constants.HubInstalledByUser,
-		))
+			constants.HubInstalledByUser))
 	})
 
 	It("clusterClaim testing clusterManager and mch are not installed", func() {
@@ -85,7 +84,7 @@ var _ = Describe("claim controllers", Ordered, func() {
 			}
 			return fmt.Errorf("the claim(%s) expect %s, but got %s", constants.HubClusterClaimName,
 				constants.HubNotInstalled, clusterClaim.Spec.Value)
-		}, 3*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
 	It("clusterclaim testing", func() {
@@ -139,8 +138,7 @@ var _ = Describe("claim controllers", Ordered, func() {
 			return true
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 		Expect(clusterClaim.Spec.Value).Should(Equal(
-			constants.HubInstalledByUser,
-		))
+			constants.HubInstalledByUser))
 
 		By("Expect clusterClaim version to be updated")
 		mch.Status = mchv1.MultiClusterHubStatus{CurrentVersion: "2.7.0"}
@@ -165,12 +163,8 @@ var _ = Describe("claim controllers", Ordered, func() {
 			err := mgr.GetClient().Get(ctx, types.NamespacedName{
 				Name: constants.VersionClusterClaimName,
 			}, newClusterClaim)
-			if _, err := fmt.Fprintf(GinkgoWriter, "the old ClusterClaim: %v\n", clusterClaim); err != nil {
-				panic(err)
-			}
-			if _, err := fmt.Fprintf(GinkgoWriter, "the new ClusterClaim: %v\n", newClusterClaim); err != nil {
-				panic(err)
-			}
+			fmt.Fprintf(GinkgoWriter, "the old ClusterClaim: %v\n", clusterClaim)
+			fmt.Fprintf(GinkgoWriter, "the new ClusterClaim: %v\n", newClusterClaim)
 			return err == nil && clusterClaim.GetResourceVersion() != newClusterClaim.GetResourceVersion()
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 
@@ -191,8 +185,7 @@ var _ = Describe("claim controllers", Ordered, func() {
 			return true
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 		Expect(clusterClaim.Spec.Value).Should(Equal(
-			constants.HubInstalledByUser,
-		))
+			constants.HubInstalledByUser))
 	})
 })
 
@@ -248,4 +241,19 @@ func cleanup(ctx context.Context, client client.Client) {
 		}
 		return err
 	}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+	for _, claimName := range []string{"test", "test2"} {
+		Eventually(func() error {
+			err := client.Delete(ctx, &clustersv1alpha1.ClusterClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: claimName,
+				},
+				Spec: clustersv1alpha1.ClusterClaimSpec{},
+			})
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	}
 }

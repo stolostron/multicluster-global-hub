@@ -98,7 +98,9 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 
 			// Verify new records exist with correct format
 			var newRecords []models.Transport
-			err = db.Find(&newRecords).Error
+			err = db.Where("name IN ?", []string{
+				"old-topic-1@0", "old-topic-2@1", "old-topic-3@2",
+			}).Find(&newRecords).Error
 			Expect(err).NotTo(HaveOccurred())
 			Expect(newRecords).To(HaveLen(3))
 
@@ -207,8 +209,12 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 			// Verify that the topic name can be extracted from the Name field
 			db := database.GetGorm()
 			var positions []models.Transport
-			err := db.Find(&positions).Error
+			// Query only the records created by the previous test to avoid interference from other tests
+			err := db.Where("name IN ?", []string{
+				topic1 + "@0", topic1 + "@1", topic1 + "@2", topic2 + "@0",
+			}).Find(&positions).Error
 			Expect(err).NotTo(HaveOccurred())
+			Expect(positions).To(HaveLen(4), "Should have 4 records from the previous test")
 
 			for _, pos := range positions {
 				// Name should be in format "topic@partition"
@@ -266,7 +272,8 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 					return 0
 				}
 				return kafkaPos.Offset
-			}, 20*time.Second, 1*time.Second).Should(Equal(int64(150)), "Offset should be updated to 150")
+				// The committer increments processed offsets by 1 (Kafka convention: store next-to-read offset)
+			}, 20*time.Second, 1*time.Second).Should(Equal(int64(151)), "Offset should be updated to 151 (150+1 for processed messages)")
 		})
 	})
 })

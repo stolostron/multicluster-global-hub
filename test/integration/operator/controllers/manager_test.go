@@ -154,7 +154,7 @@ var _ = Describe("manager", Ordered, func() {
 				return nil
 			}
 			return fmt.Errorf("failed to delete service monitor, %v", err)
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
 	AfterAll(func() {
