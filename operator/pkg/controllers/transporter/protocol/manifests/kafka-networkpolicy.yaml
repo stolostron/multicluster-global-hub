@@ -37,11 +37,14 @@ spec:
     ports:
     - protocol: TCP
       port: 9093
-  # Allow metrics scraping from Prometheus
+  # Allow metrics scraping from Prometheus (JMX exporter tcp-prometheus)
   - from:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: openshift-monitoring
+    ports:
+    - protocol: TCP
+      port: 9404
   egress:
   # Allow DNS resolution
   - to:
