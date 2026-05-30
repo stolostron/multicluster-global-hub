@@ -97,6 +97,14 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		}
 		Expect(runtimeClient.Create(testCtx, addonConfig)).Should(Succeed())
 
+		// Delete any existing configmap to ensure clean state before each test suite
+		_ = runtimeClient.Delete(ctx, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      configs.AGENT_SYNC_STATE_CONFIG_MAP_NAME,
+				Namespace: utils.GetDefaultNamespace(),
+			},
+		})
+
 		_, err := configs.GetSyncStateConfigMap(ctx, runtimeClient)
 		Expect(err).Should(Succeed())
 	})
@@ -110,11 +118,11 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}},
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.GetDefaultNamespace()}},
 		}
-		// delete the configmap
+		// delete the configmap using the test's namespace (not global config which may have changed)
 		_ = runtimeClient.Delete(testCtx, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      configs.AGENT_SYNC_STATE_CONFIG_MAP_NAME,
-				Namespace: configs.GetAgentConfig().PodNamespace,
+				Namespace: utils.GetDefaultNamespace(),
 			},
 		})
 		for _, resource := range resources {
