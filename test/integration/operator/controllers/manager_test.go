@@ -130,8 +130,17 @@ var _ = Describe("manager", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		mgh.Finalizers = []string{"fz"}
-		err = runtimeClient.Update(ctx, mgh)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			latest := &v1alpha4.MulticlusterGlobalHub{}
+			if err := runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      mgh.Name,
+			}, latest); err != nil {
+				return err
+			}
+			latest.Finalizers = []string{"fz"}
+			return runtimeClient.Update(ctx, latest)
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		err = runtimeClient.Delete(ctx, mgh)
 		Expect(err).To(Succeed())

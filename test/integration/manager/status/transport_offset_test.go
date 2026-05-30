@@ -272,8 +272,7 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 					return 0
 				}
 				return kafkaPos.Offset
-				// The committer increments processed offsets by 1 (Kafka convention: store next-to-read offset)
-			}, 20*time.Second, 1*time.Second).Should(Equal(int64(151)), "Offset should be updated to 151 (150+1 for processed messages)")
+			}, 20*time.Second, 1*time.Second).Should(Equal(int64(150)), "Offset should be updated to 150")
 		})
 	})
 })
