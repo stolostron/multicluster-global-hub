@@ -7,6 +7,7 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -43,6 +44,7 @@ func NewHoHDeployer(client client.Client) Deployer {
 		"ClusterRole":        deployer.deployClusterRole,
 		"ClusterRoleBinding": deployer.deployClusterRoleBinding,
 		"PodMonitor":         deployer.deployPodMonitor,
+		"NetworkPolicy":      deployer.deployNetworkPolicy,
 	}
 	return deployer
 }
@@ -322,6 +324,31 @@ func (d *HoHDeployer) deployClusterRoleBinding(desiredObj, existingObj *unstruct
 		!apiequality.Semantic.DeepDerivative(desiredCRB.GetLabels(), existingCRB.GetLabels()) ||
 		!apiequality.Semantic.DeepDerivative(desiredCRB.GetAnnotations(), existingCRB.GetAnnotations()) {
 		return d.client.Update(context.TODO(), desiredCRB)
+	}
+
+	return nil
+}
+
+func (d *HoHDeployer) deployNetworkPolicy(desiredObj, existingObj *unstructured.Unstructured) error {
+	existingJSON, _ := existingObj.MarshalJSON()
+	existingNP := &networkingv1.NetworkPolicy{}
+	err := json.Unmarshal(existingJSON, existingNP)
+	if err != nil {
+		return err
+	}
+
+	desiredJSON, _ := desiredObj.MarshalJSON()
+	desiredNP := &networkingv1.NetworkPolicy{}
+	err = json.Unmarshal(desiredJSON, desiredNP)
+	if err != nil {
+		return err
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredNP.Spec, existingNP.Spec) ||
+		!apiequality.Semantic.DeepDerivative(desiredNP.GetLabels(), existingNP.GetLabels()) ||
+		!apiequality.Semantic.DeepDerivative(desiredNP.GetAnnotations(), existingNP.GetAnnotations()) {
+		desiredNP.ResourceVersion = existingNP.ResourceVersion
+		return d.client.Update(context.TODO(), desiredNP)
 	}
 
 	return nil

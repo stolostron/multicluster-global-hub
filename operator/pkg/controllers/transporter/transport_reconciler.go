@@ -5,6 +5,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,9 +29,16 @@ import (
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=podmonitors,verbs=get;create;delete;update;list;watch
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
 
 var WatchedSecret = sets.NewString(
 	constants.GHTransportSecretName,
+)
+
+const (
+	StrimziClusterLabel = "strimzi.io/cluster"
+	StrimziKindLabel    = "strimzi.io/kind"
+	StrimziKindUser     = "KafkaUser"
 )
 
 var (
@@ -72,6 +80,8 @@ func (r *TransportReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(config.MGHPred)).
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
+		Watches(&networkingv1.NetworkPolicy{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(networkPolicyPred)).
 		Complete(r)
 }
 
@@ -87,12 +97,28 @@ var secretPred = predicate.Funcs{
 	},
 }
 
+var networkPolicyPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return networkPolicyCond(e.Object)
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return networkPolicyCond(e.ObjectNew)
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return networkPolicyCond(e.Object)
+	},
+}
+
+func networkPolicyCond(obj client.Object) bool {
+	return obj.GetName() == protocol.KafkaClusterName
+}
+
 func secretCond(obj client.Object) bool {
 	if WatchedSecret.Has(obj.GetName()) {
 		return true
 	}
-	if obj.GetLabels()["strimzi.io/cluster"] == protocol.KafkaClusterName &&
-		obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
+	if obj.GetLabels()[StrimziClusterLabel] == protocol.KafkaClusterName &&
+		obj.GetLabels()[StrimziKindLabel] == StrimziKindUser {
 		return true
 	}
 	return false
