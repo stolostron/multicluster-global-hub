@@ -41,11 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-<<<<<<< HEAD
     createdAt: "2026-04-02T04:32:41Z"
-=======
-    createdAt: "2026-04-02T08:24:10Z"
->>>>>>> pr-2371
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"

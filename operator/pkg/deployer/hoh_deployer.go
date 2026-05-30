@@ -52,20 +52,33 @@ func NewHoHDeployer(client client.Client) Deployer {
 func (d *HoHDeployer) Deploy(unsObj *unstructured.Unstructured) error {
 	foundObj := &unstructured.Unstructured{}
 	foundObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
-	err := d.client.Get(
-		context.TODO(),
-		types.NamespacedName{Name: unsObj.GetName(), Namespace: unsObj.GetNamespace()},
-		foundObj,
-	)
+	namespacedName := types.NamespacedName{Name: unsObj.GetName(), Namespace: unsObj.GetNamespace()}
+	err := d.client.Get(context.TODO(), namespacedName, foundObj)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return d.client.Create(context.TODO(), unsObj)
+			if createErr := d.client.Create(context.TODO(), unsObj); createErr != nil {
+				if !errors.IsAlreadyExists(createErr) {
+					return createErr
+				}
+				foundObj = &unstructured.Unstructured{}
+				foundObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
+				if getErr := d.client.Get(context.TODO(), namespacedName, foundObj); getErr != nil {
+					return getErr
+				}
+			} else {
+				return nil
+			}
+		} else {
+			return err
 		}
-		return err
 	}
 
+	return d.deployExisting(unsObj, foundObj)
+}
+
+func (d *HoHDeployer) deployExisting(desiredObj, foundObj *unstructured.Unstructured) error {
 	// if resource has annotation skip-creation-if-exist: true, then it will not be updated
-	metadata, ok := unsObj.Object["metadata"].(map[string]interface{})
+	metadata, ok := desiredObj.Object["metadata"].(map[string]interface{})
 	if ok {
 		annotations, ok := metadata["annotations"].(map[string]interface{})
 		if ok && annotations != nil && annotations["skip-creation-if-exist"] != nil {
@@ -77,13 +90,13 @@ func (d *HoHDeployer) Deploy(unsObj *unstructured.Unstructured) error {
 
 	deployFunction, ok := d.deployFuncs[foundObj.GetKind()]
 	if ok {
-		return deployFunction(unsObj, foundObj)
-	} else {
-		if !apiequality.Semantic.DeepDerivative(unsObj, foundObj) {
-			unsObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
-			unsObj.SetResourceVersion(foundObj.GetResourceVersion())
-			return d.client.Update(context.TODO(), unsObj)
-		}
+		return deployFunction(desiredObj, foundObj)
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredObj, foundObj) {
+		desiredObj.SetGroupVersionKind(desiredObj.GetObjectKind().GroupVersionKind())
+		desiredObj.SetResourceVersion(foundObj.GetResourceVersion())
+		return d.client.Update(context.TODO(), desiredObj)
 	}
 
 	return nil
