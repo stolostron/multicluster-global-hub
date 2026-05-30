@@ -91,7 +91,7 @@ var _ = Describe("deploy default addon", func() {
 			}, work)
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
-		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(8))
+		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
 	})
 
 	It("Should create default addon and ACM with deploy label = Default under brownfield mode", func() {
@@ -135,7 +135,7 @@ var _ = Describe("deploy default addon", func() {
 			}, work)
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
-		// contains both the ACM and the Global Hub manifests
-		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(17))
+		// contains both the ACM and the Global Hub manifests (includes agent NetworkPolicy)
+		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(18))
 	})
 })

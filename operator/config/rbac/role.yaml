@@ -323,6 +323,12 @@ rules:
 - apiGroups:
   - config.openshift.io
   resources:
+  - apiservers
+  verbs:
+  - get
+- apiGroups:
+  - config.openshift.io
+  resources:
   - clusterversions
   - infrastructures
   verbs:
@@ -450,6 +456,17 @@ rules:
   - create
   - get
   - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
 - apiGroups:
   - observability.open-cluster-management.io
   resources:

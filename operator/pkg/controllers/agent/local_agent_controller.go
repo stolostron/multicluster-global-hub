@@ -47,11 +47,6 @@ func StartLocalAgentController(initOption config.ControllerOption) (config.Contr
 
 	log.Info("start local agent controller")
 
-	if !config.IsTransportConfigReady(initOption.Ctx, initOption.MulticlusterGlobalHub.Namespace,
-		initOption.Manager.GetClient()) {
-		return nil, nil
-	}
-
 	localAgentReconciler = &LocalAgentController{
 		Manager: initOption.Manager,
 	}
@@ -117,6 +112,7 @@ func (s *LocalAgentController) IsResourceRemoved() bool {
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=clusterclaims,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=list;watch;get
 // +kubebuilder:rbac:groups=platform.stackrox.io,resources=centrals,verbs=get;list;watch
+// +kubebuilder:rbac:groups=config.openshift.io,resources=apiservers,verbs=get
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=internal.open-cluster-management.io,resources=managedclusterinfos,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=config.open-cluster-management.io,resources=klusterletconfigs,verbs=create;delete;get;list;patch;update;watch
@@ -145,6 +141,12 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 		err = utils.HandleMghDelete(ctx, &isResourceRemoved, mgh.Namespace, s.pruneAgentResources)
 		log.Debugf("deleted local agent resources, isResourceRemoved:%v", isResourceRemoved)
 		return ctrl.Result{}, err
+	}
+	if !config.IsACMResourceReady() {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+	if !config.IsTransportConfigReady(ctx, mgh.Namespace, s.GetClient()) {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	currentClusterName, err := getCurrentClusterName(ctx, s.GetClient(), mgh.Namespace)
 	if err != nil {
@@ -257,12 +259,11 @@ func (s *LocalAgentController) pruneAgentResources(ctx context.Context, namespac
 	}
 
 	trans := config.GetTransporter()
-	if trans == nil {
-		return fmt.Errorf("failed to get the transporter")
-	}
-	err = trans.Prune(clusterName)
-	if err != nil {
-		return err
+	if trans != nil {
+		err = trans.Prune(clusterName)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
