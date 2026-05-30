@@ -1,7 +1,9 @@
-# NetworkPolicy Proposal for Multicluster Global Hub
+# NetworkPolicy Guide for Multicluster Global Hub
 
 ## Overview
-This proposal introduces NetworkPolicy resources for the `multicluster-global-hub` namespace to enhance security by controlling network traffic between components and external systems.
+This document describes the NetworkPolicy resources deployed in the `multicluster-global-hub` namespace to enhance security by controlling network traffic between components and external systems.
+
+Policies are **operator-managed**: the multicluster-global-hub operator reconciles them when a `MulticlusterGlobalHub` CR is created or updated, and removes them when the CR is deleted. Entry points include `HoHDeployer.deployNetworkPolicy()` and per-component reconcilers.
 
 **Reference:** [ACM-19479](https://redhat.atlassian.net/browse/ACM-19479)
 
@@ -31,7 +33,27 @@ This proposal introduces NetworkPolicy resources for the `multicluster-global-hu
 
 5. **Kafka (Strimzi)**
    - Bootstrap: Port 9092/9093
-   - Various Kafka ports
+   - JMX Prometheus metrics: Port 9404 (`tcp-prometheus`)
+   - Needs: Internal cluster communication, Kubernetes API
+
+6. **Inventory API**
+   - HTTP/gRPC: Ports 8081, 9081
+   - Needs: PostgreSQL (5432), Kafka (9093), SpiceDB, relations-api, Kubernetes API
+
+7. **Relations API**
+   - HTTP/gRPC: Ports 8000, 9000
+   - Needs: SpiceDB (50051), Kubernetes API
+
+8. **SpiceDB**
+   - gRPC: 50051; HTTP gateway: 8443; metrics: 9090; dispatch: 50053
+   - Needs: PostgreSQL (5432), Kubernetes API
+
+9. **Strimzi Cluster Operator**
+   - Needs: Kafka pods (9090/9091/8443/9093), DNS, Kubernetes API
+
+10. **Agent (local and addon deployments)**
+    - Egress-only policy
+    - Needs: DNS, Kubernetes API (443), Kafka (9092–9095), webhooks (8443)
 
 ## Proposed NetworkPolicies
 
@@ -51,20 +73,30 @@ spec:
   - Egress
 ```
 
-### 2. Allow DNS Resolution (All Pods)
-All pods need DNS resolution.
+### 2. Allow DNS and Kubernetes API Access (All Pods)
+All pods need DNS resolution and Kubernetes API access. The deployed policy is named `allow-dns-and-api`.
 
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-dns
+  name: allow-dns-and-api
   namespace: multicluster-global-hub
 spec:
   podSelector: {}
   policyTypes:
   - Egress
   egress:
+  # Allow access to Kubernetes API server
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: default
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
   - to:
     - namespaceSelector:
         matchLabels:
@@ -383,96 +415,126 @@ spec:
       port: 443
 ```
 
+### 8. Inventory API NetworkPolicy
+
+Managed by the inventory reconciler. See `operator/pkg/controllers/inventory/manifests/inventory-api/networkpolicy.yaml`.
+
+- **Ingress:** TCP 8081, 9081
+- **Egress:** PostgreSQL (5432), Kafka (9093), SpiceDB, relations-api, Kubernetes API (443)
+
+### 9. Relations API NetworkPolicy
+
+Managed by the inventory reconciler. See `operator/pkg/controllers/inventory/manifests/relations-api/networkpolicy.yaml`.
+
+- **Ingress:** TCP 8000, 9000
+- **Egress:** SpiceDB (50051), Kubernetes API and other dependencies
+
+### 10. SpiceDB NetworkPolicy
+
+Managed by the SpiceDB reconciler. See `operator/pkg/controllers/inventory/manifests/spicedb-operator/spicedb-networkpolicy.yaml`.
+
+- **Ingress:** TCP 50051 (gRPC), 8443 (HTTP), 9090 (metrics), 50053 (dispatch)
+- **Egress:** PostgreSQL (5432), Kubernetes API
+
+### 11. Strimzi Cluster Operator NetworkPolicy
+
+Managed by the transporter reconciler. See `operator/pkg/controllers/transporter/protocol/manifests/strimzi-cluster-operator-networkpolicy.yaml`.
+
+- **Egress-only:** DNS, Kafka pods (9090/9091/8443/9093), Kubernetes API
+
+### 12. Agent NetworkPolicy (local and addon)
+
+Managed by the agent controllers. Manifests:
+
+- `operator/pkg/controllers/agent/manifests/networkpolicy.yaml` (local agent)
+- `operator/pkg/controllers/agent/addon/manifests/templates/agent/multicluster-global-hub-agent-networkpolicy.yaml` (addon)
+
+- **Egress-only:** DNS, Kubernetes API (443), in-cluster Kafka (9092–9095), external Kafka/bootstrap (9092/9093), webhooks (8443)
+
 ## Implementation Strategy
 
+**Note:** NetworkPolicies are managed automatically by the multicluster-global-hub operator. The operator reconciles policies when the `MulticlusterGlobalHub` CR is created or updated, and removes them when the CR is deleted. The phases below describe **validation and testing** — not manual `kubectl apply` deployment.
+
 ### Phase 1: Preparation
-1. **Verify Labels**: Ensure all pods have correct labels
+1. **Verify labels** on pods in the MGH namespace:
    ```bash
-   # Check operator labels
    kubectl get pods -n multicluster-global-hub -l name=multicluster-global-hub-operator
-   
-   # Check manager labels
    kubectl get pods -n multicluster-global-hub -l name=multicluster-global-hub-manager
-   
-   # Check grafana labels
    kubectl get pods -n multicluster-global-hub -l name=multicluster-global-hub-grafana
-   
-   # Check postgres labels
    kubectl get pods -n multicluster-global-hub -l name=multicluster-global-hub-postgres
-   
-   # Check kafka labels
    kubectl get pods -n multicluster-global-hub -l strimzi.io/cluster=kafka
+   kubectl get pods -n multicluster-global-hub -l authzed.com/cluster=spicedb
+   kubectl get pods -n multicluster-global-hub -l app=relations-api
    ```
 
-2. **Label Managed Hub Namespaces** (if using hosted mode for agents):
+2. **Label managed hub namespaces** (if using hosted mode for agents):
    ```bash
    kubectl label namespace <managed-hub-namespace> global-hub.open-cluster-management.io/managed-hub=true
    ```
 
+3. **Confirm operator reconciliation** — policies should appear after MGH install:
+   ```bash
+   kubectl get networkpolicies -n multicluster-global-hub
+   ```
+
 ### Phase 2: Testing in Development
-1. Deploy NetworkPolicies in a test environment
-2. Verify all components can communicate:
-   - Manager → PostgreSQL
-   - Manager → Kafka
-   - Grafana → PostgreSQL
-   - Grafana route accessibility
-   - Webhook functionality
-   - Metrics scraping
+1. Install or upgrade Global Hub and confirm the operator creates NetworkPolicies
+2. Verify component connectivity:
+   - Manager → PostgreSQL, Kafka
+   - Grafana → PostgreSQL, OAuth route
+   - Inventory → PostgreSQL, Kafka, SpiceDB
+   - Agent → Kafka, Kubernetes API
+   - Webhook and metrics scraping
 3. Monitor logs for connection failures
 
 ### Phase 3: Iterative Refinement
-1. Monitor network traffic patterns
-2. Adjust policies based on observed traffic
+1. Monitor network traffic patterns on OpenShift (OVN-Kubernetes)
+2. Adjust policy manifests in component controllers as needed
 3. Test agent connectivity from managed hubs
 4. Document any additional required traffic
 
 ### Phase 4: Production Rollout
-1. Apply policies during maintenance window
+1. Roll out via operator upgrade during a maintenance window
 2. Monitor for issues
-3. Have rollback plan ready (delete NetworkPolicies if issues arise)
+3. Rollback: delete the MGH CR or remove NetworkPolicy RBAC to stop reconciliation; delete policies manually if needed
 
 ## File Structure
 
-Create the following directory structure:
+NetworkPolicy YAML is **co-located with each component's controller manifests**, not in a single central directory:
 
+```text
+operator/pkg/controllers/
+├── networkpolicy/manifests/           # Shared baseline policies
+│   ├── default-deny-all.yaml
+│   ├── allow-dns-and-api.yaml
+│   └── operator-networkpolicy.yaml
+├── manager/manifests/networkpolicy.yaml
+├── grafana/manifests/networkpolicy.yaml
+├── storage/manifests.sts/postgres-networkpolicy.yaml
+├── transporter/protocol/manifests/
+│   ├── kafka-networkpolicy.yaml
+│   └── strimzi-cluster-operator-networkpolicy.yaml
+├── inventory/manifests/
+│   ├── inventory-api/networkpolicy.yaml
+│   ├── relations-api/networkpolicy.yaml
+│   └── spicedb-operator/spicedb-networkpolicy.yaml
+└── agent/
+    ├── manifests/networkpolicy.yaml                          # local agent
+    └── addon/manifests/templates/agent/
+        └── multicluster-global-hub-agent-networkpolicy.yaml  # addon agent
 ```
-operator/config/network-policies/
-├── kustomization.yaml
-├── default-deny-all.yaml
-├── allow-dns.yaml
-├── operator-netpol.yaml
-├── manager-netpol.yaml
-├── grafana-netpol.yaml
-├── postgres-netpol.yaml
-└── kafka-netpol.yaml
-```
 
-**kustomization.yaml:**
-```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-namespace: multicluster-global-hub
-
-resources:
-- default-deny-all.yaml
-- allow-dns.yaml
-- operator-netpol.yaml
-- manager-netpol.yaml
-- grafana-netpol.yaml
-- postgres-netpol.yaml
-- kafka-netpol.yaml
-```
+Controllers embed these manifests via `//go:embed` and reconcile them into the MGH namespace.
 
 ## Deployment
 
-```bash
-# Deploy NetworkPolicies
-kubectl apply -k operator/config/network-policies/
+NetworkPolicies are deployed automatically by the operator. No standalone `kubectl apply -k` step is required.
 
-# Or include in the main deployment
-# Add to operator/config/default/kustomization.yaml:
-# - ../network-policies
+To verify after install:
+
+```bash
+kubectl get networkpolicies -n multicluster-global-hub
+kubectl describe networkpolicy -n multicluster-global-hub default-deny-all
 ```
 
 ## Important Considerations
@@ -512,8 +574,8 @@ If using backup solutions (Velero, OADP):
 ## Testing Commands
 
 ```bash
-# Apply NetworkPolicies
-kubectl apply -k operator/config/network-policies/
+# Confirm operator created NetworkPolicies
+kubectl get networkpolicies -n multicluster-global-hub
 
 # Test manager to postgres connectivity
 kubectl exec -n multicluster-global-hub deployment/multicluster-global-hub-manager -- \
@@ -550,8 +612,8 @@ kubectl logs -n multicluster-global-hub deployment/multicluster-global-hub-grafa
 kubectl logs -n multicluster-global-hub deployment/multicluster-global-hub-operator | \
   grep -i "connection refused\|timeout"
 
-# Monitor network policy logs (OpenShift)
-kubectl logs -n openshift-sdn -l app=sdn 2>&1 | grep -i "denied"
+# Monitor network policy drops (OpenShift OVN-Kubernetes)
+kubectl logs -n openshift-ovn-kubernetes -l app=ovnkube-node --tail=100 | grep -i "drop\|reject"
 ```
 
 ## Rollback Plan
@@ -575,12 +637,10 @@ kubectl delete networkpolicy -n multicluster-global-hub <policy-name>
 
 ## Next Steps
 
-1. Review and approve this proposal
-2. Create the NetworkPolicy manifests in the operator codebase
-3. Test in development environment
-4. Update operator deployment to include NetworkPolicies
-5. Document in operator README
-6. Update E2E tests to verify NetworkPolicies don't break functionality
+1. Merge NetworkPolicy support ([ACM-19479](https://redhat.atlassian.net/browse/ACM-19479))
+2. Validate on OpenShift clusters with OVN-Kubernetes (policies are created on KinD but not enforced)
+3. Phase 2 hardening: tighten ingress/egress selectors per component (tracked separately)
+4. Extend E2E coverage for NetworkPolicy enforcement on OpenShift
 
 ## References
 - **Jira Ticket**: [ACM-19479](https://redhat.atlassian.net/browse/ACM-19479)
