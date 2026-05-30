@@ -136,17 +136,17 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
-	if !config.IsACMResourceReady() {
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-	if !config.IsTransportConfigReady(ctx, mgh.Namespace, s.GetClient()) {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
 	if mgh.DeletionTimestamp != nil || !mgh.Spec.InstallAgentOnLocal {
 		log.Debugf("deleting mgh in local agent controller")
 		err = utils.HandleMghDelete(ctx, &isResourceRemoved, mgh.Namespace, s.pruneAgentResources)
 		log.Debugf("deleted local agent resources, isResourceRemoved:%v", isResourceRemoved)
 		return ctrl.Result{}, err
+	}
+	if !config.IsACMResourceReady() {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+	if !config.IsTransportConfigReady(ctx, mgh.Namespace, s.GetClient()) {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	currentClusterName, err := getCurrentClusterName(ctx, s.GetClient(), mgh.Namespace)
 	if err != nil {
@@ -259,12 +259,11 @@ func (s *LocalAgentController) pruneAgentResources(ctx context.Context, namespac
 	}
 
 	trans := config.GetTransporter()
-	if trans == nil {
-		return fmt.Errorf("failed to get the transporter")
-	}
-	err = trans.Prune(clusterName)
-	if err != nil {
-		return err
+	if trans != nil {
+		err = trans.Prune(clusterName)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
