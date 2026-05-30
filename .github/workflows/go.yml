@@ -47,8 +47,9 @@ jobs:
       - name: bundle
         run: cd operator && make bundle
 
-      # main uses dev bundle versions (e.g. 1.8.0-dev) while release-* bundle
-      # repos carry GA z-stream versions — skip external sync on main.
+      # main and release-5.0 use dev bundle versions (e.g. 1.8.0-dev) while the
+      # matching release-* branches in multicluster-global-hub-operator-bundle
+      # carry GA z-stream versions — skip external sync on those branches.
       - name: resolve bundle comparison branch
         id: bundle-branch
         run: |
@@ -58,11 +59,14 @@ jobs:
             TARGET="${GITHUB_REF#refs/heads/}"
           fi
           echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
-          if [ "${TARGET}" = "main" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+          case "${TARGET}" in
+            main|release-5.0)
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
       - name: compare bundle with stolostron/multicluster-global-hub-operator-bundle
         if: steps.bundle-branch.outputs.skip != 'true'
