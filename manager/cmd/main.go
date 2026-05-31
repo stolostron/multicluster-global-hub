@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -134,10 +135,27 @@ func createManager(ctx context.Context,
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(managerConfig.ElectionConfig.RetryPeriod) * time.Second
+
+	tlsCtx, tlsCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer tlsCancel()
+	tlsConfigFunc, profileType, err := utils.BuildMetricsTLSConfigFunc(tlsCtx, restConfig)
+	if err != nil {
+		return nil, err
+	}
+	if profileType != "" {
+		logger.DefaultZapLogger().Info(
+			"Configuring metrics server TLS from cluster APIServer profile",
+			"profileType", profileType,
+		)
+	} else {
+		logger.DefaultZapLogger().Info("Using TLS 1.3 for metrics server (cluster APIServer profile unavailable)")
+	}
+
 	options := ctrl.Options{
 		Scheme: configs.GetRuntimeScheme(),
 		Metrics: metricsserver.Options{
 			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			TLSOpts:     []func(*tls.Config){tlsConfigFunc},
 		},
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,

@@ -355,6 +355,12 @@ spec:
           - list
           - watch
         - apiGroups:
+          - config.openshift.io
+          resources:
+          - apiservers
+          verbs:
+          - get
+        - apiGroups:
           - addon.open-cluster-management.io
           resources:
           - addondeploymentconfigs
@@ -961,6 +967,12 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - apiservers
+          verbs:
+          - get
         - apiGroups:
           - config.openshift.io
           resources:

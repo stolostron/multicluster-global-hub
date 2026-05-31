@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -204,9 +205,25 @@ func createManager(restConfig *rest.Config, agentConfig *configs.AgentConfig) (
 		}
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tlsConfigFunc, profileType, err := utils.BuildMetricsTLSConfigFunc(ctx, restConfig)
+	if err != nil {
+		return nil, err
+	}
+	if profileType != "" {
+		logger.DefaultZapLogger().Info(
+			"Configuring metrics server TLS from cluster APIServer profile",
+			"profileType", profileType,
+		)
+	} else {
+		logger.DefaultZapLogger().Info("Using TLS 1.3 for metrics server (cluster APIServer profile unavailable)")
+	}
+
 	options := ctrl.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: agentConfig.MetricsAddress,
+			TLSOpts:     []func(*tls.Config){tlsConfigFunc},
 		},
 		LeaderElection:          true,
 		Scheme:                  configs.GetRuntimeScheme(),
