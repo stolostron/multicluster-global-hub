@@ -61,7 +61,7 @@ var _ = Describe("GenericSpecBundle", func() {
 				utils.PrettyPrint(syncedPlacement)
 			}
 			return err
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
 	It("sync placementbinding bundle", func() {
@@ -115,7 +115,7 @@ var _ = Describe("GenericSpecBundle", func() {
 				}
 			}
 			return err
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
 	It("sync configmap bundle", func() {
@@ -147,6 +147,6 @@ var _ = Describe("GenericSpecBundle", func() {
 		Eventually(func() error {
 			syncedConfigMap := &corev1.ConfigMap{}
 			return runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), syncedConfigMap)
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })

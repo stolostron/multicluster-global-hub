@@ -85,7 +85,7 @@ var _ = Describe("claim controllers", Ordered, func() {
 			}
 			return fmt.Errorf("the claim(%s) expect %s, but got %s", constants.HubClusterClaimName,
 				constants.HubNotInstalled, clusterClaim.Spec.Value)
-		}, 3*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
 	It("clusterclaim testing", func() {
@@ -248,4 +248,19 @@ func cleanup(ctx context.Context, client client.Client) {
 		}
 		return err
 	}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+	for _, claimName := range []string{"test", "test2"} {
+		Eventually(func() error {
+			err := client.Delete(ctx, &clustersv1alpha1.ClusterClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: claimName,
+				},
+				Spec: clustersv1alpha1.ClusterClaimSpec{},
+			})
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	}
 }

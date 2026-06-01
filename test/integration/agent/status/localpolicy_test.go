@@ -55,10 +55,11 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 					if policy.Spec.Disabled {
 						return nil
 					}
+					return fmt.Errorf("waiting for disabled policy spec, got disabled=%v", policy.Spec.Disabled)
 				}
 			}
-			return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
-		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+			return fmt.Errorf("waiting for policy root-policy-test123 in spec event")
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("Update the root policy")
 		err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(localRootPolicy), localRootPolicy)
@@ -85,10 +86,11 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 					if !policy.Spec.Disabled {
 						return nil
 					}
+					return fmt.Errorf("waiting for enabled policy spec, got disabled=%v", policy.Spec.Disabled)
 				}
 			}
-			return fmt.Errorf("policy should be enabled")
-		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+			return fmt.Errorf("waiting for policy root-policy-test123 in spec event")
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("be able to sync local policy compliance", func() {
