@@ -10,7 +10,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -56,7 +55,7 @@ var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 		inactiveAt := time.Now().Add(-10 * time.Minute)
 		Expect(db.Exec(
 			`INSERT INTO status.leaf_hub_heartbeats (leaf_hub_name, status, last_timestamp) VALUES ($1, $2, $3)`,
-			leafHubName, constants.HubStatusInactive, inactiveAt,
+			leafHubName, "inactive", inactiveAt,
 		).Error).To(Succeed())
 
 		version := eventversion.NewVersion()
@@ -69,8 +68,8 @@ var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 			if err := db.Where("leaf_hub_name = ?", leafHubName).First(&heartbeat).Error; err != nil {
 				return err
 			}
-			if heartbeat.Status != constants.HubStatusInactive {
-				return fmt.Errorf("expected status %q, got %q", constants.HubStatusInactive, heartbeat.Status)
+			if heartbeat.Status != "inactive" {
+				return fmt.Errorf("expected status %q, got %q", "inactive", heartbeat.Status)
 			}
 			if !heartbeat.LastUpdateAt.After(inactiveAt) {
 				return fmt.Errorf("expected last_timestamp after %v, got %v", inactiveAt, heartbeat.LastUpdateAt)

@@ -8,7 +8,6 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -27,7 +26,7 @@ func handleHeartbeatEvent(ctx context.Context, evt *cloudevents.Event) error {
 	db := database.GetGorm()
 	heartbeat := models.LeafHubHeartbeat{
 		Name:         evt.Source(),
-		Status:       constants.HubStatusActive,
+		Status:       "active",
 		LastUpdateAt: time.Now(),
 	}
 	if err := heartbeat.UpInsertHeartBeat(db); err != nil {
