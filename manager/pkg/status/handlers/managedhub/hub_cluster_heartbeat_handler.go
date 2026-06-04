@@ -6,7 +6,6 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"gorm.io/gorm/clause"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -30,9 +29,8 @@ func handleHeartbeatEvent(ctx context.Context, evt *cloudevents.Event) error {
 		Status:       "active",
 		LastUpdateAt: time.Now(),
 	}
-	err := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&heartbeat).Error
-	if err != nil {
-		return fmt.Errorf("failed to update heartbeat %v", err)
+	if err := heartbeat.UpInsertHeartBeat(db); err != nil {
+		return fmt.Errorf("failed to update heartbeat %w", err)
 	}
 	return nil
 }
