@@ -57,12 +57,18 @@ var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 		Expect(db.Exec(
 			`INSERT INTO status.leaf_hub_heartbeats (leaf_hub_name, status, last_timestamp) VALUES ($1, $2, $3)`,
 			leafHubName, constants.HubStatusInactive, inactiveAt,
-		).Error).To(Succeed())
+		).Error).To(Succeed(), "failed to seed inactive heartbeat row for preservation test")
+		DeferCleanup(func() {
+			Expect(db.Exec(
+				`DELETE FROM status.leaf_hub_heartbeats WHERE leaf_hub_name = $1`,
+				leafHubName,
+			).Error).To(Succeed(), "failed to clean up seeded heartbeat row")
+		})
 
 		version := eventversion.NewVersion()
 		version.Incr()
 		evt := ToCloudEvent(leafHubName, string(enum.HubClusterHeartbeatType), version, generic.GenericObjectBundle{})
-		Expect(producer.SendEvent(ctx, *evt)).To(Succeed())
+		Expect(producer.SendEvent(ctx, *evt)).To(Succeed(), "failed to send heartbeat event for inactive-status preservation")
 
 		Eventually(func() error {
 			var heartbeat models.LeafHubHeartbeat
