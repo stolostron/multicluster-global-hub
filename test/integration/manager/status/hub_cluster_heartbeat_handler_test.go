@@ -10,6 +10,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -47,6 +48,41 @@ var _ = Describe("HubClusterHeartbeatHandler", Ordered, func() {
 			}
 			return fmt.Errorf("not found heartbeat record on the table")
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("preserves inactive status when updating heartbeat timestamp", func() {
+		leafHubName := "hub-inactive-preserve"
+		db := database.GetGorm()
+		inactiveAt := time.Now().Add(-10 * time.Minute)
+		Expect(db.Exec(
+			`INSERT INTO status.leaf_hub_heartbeats (leaf_hub_name, status, last_timestamp) VALUES ($1, $2, $3)`,
+			leafHubName, constants.HubStatusInactive, inactiveAt,
+		).Error).To(Succeed(), "failed to seed inactive heartbeat row for preservation test")
+		DeferCleanup(func() {
+			Expect(db.Exec(
+				`DELETE FROM status.leaf_hub_heartbeats WHERE leaf_hub_name = $1`,
+				leafHubName,
+			).Error).To(Succeed(), "failed to clean up seeded heartbeat row")
+		})
+
+		version := eventversion.NewVersion()
+		version.Incr()
+		evt := ToCloudEvent(leafHubName, string(enum.HubClusterHeartbeatType), version, generic.GenericObjectBundle{})
+		Expect(producer.SendEvent(ctx, *evt)).To(Succeed(), "failed to send heartbeat event for inactive-status preservation")
+
+		Eventually(func() error {
+			var heartbeat models.LeafHubHeartbeat
+			if err := db.Where("leaf_hub_name = ?", leafHubName).First(&heartbeat).Error; err != nil {
+				return err
+			}
+			if heartbeat.Status != constants.HubStatusInactive {
+				return fmt.Errorf("expected status %q, got %q", constants.HubStatusInactive, heartbeat.Status)
+			}
+			if !heartbeat.LastUpdateAt.After(inactiveAt) {
+				return fmt.Errorf("expected last_timestamp after %v, got %v", inactiveAt, heartbeat.LastUpdateAt)
+			}
+			return nil
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 })
 
