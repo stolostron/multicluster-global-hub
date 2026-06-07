@@ -2,6 +2,8 @@
 
 AI assistant context for **Multicluster Global Hub** — a Kubernetes operator-based system for managing ACM/OCM at very high scale across multiple regional hub clusters.
 
+Onboarded per [Fleet Engineering Agentic SDLC — repo onboarding](https://github.com/OpenShift-Fleet/agentic-sdlc/blob/main/practices/repo-onboarding.md). Day-to-day workflow: [ai-dev-workflow.md](https://github.com/OpenShift-Fleet/agentic-sdlc/blob/main/practices/ai-dev-workflow.md).
+
 ---
 
 ## Build, Test, and Lint Commands
@@ -125,7 +127,7 @@ Only shared code should live in `pkg/`.
 
 ## Personal Config
 
-Read `.claude/user.local.md` at the start of any task that needs an assignee, email, or project key. If the file does not exist, fall back to Claude memory (`user-config`), then placeholders.
+Read `.claude/user.local.md` at the start of any task that needs an assignee, email, or project key. If the file does not exist, fall back to Claude memory (`user-config`), then placeholders. Run `make personalize` in [OpenShift-Fleet/agentic-sdlc](https://github.com/OpenShift-Fleet/agentic-sdlc) to generate it.
 
 Repo-local skills live under `.claude/skills/` (e.g. `new-release` for z-stream cut workflows).
 
@@ -133,7 +135,7 @@ Repo-local skills live under `.claude/skills/` (e.g. `new-release` for z-stream 
 
 ## Fleet Engineering Skills
 
-Fetch and apply the relevant skill when the task matches its domain.
+Use the Fleet plugin in Claude Code (`make install-claude` in agentic-sdlc) when available. In Cursor or other agents without the plugin, fetch and apply the relevant skill URL when the task matches its domain.
 
 | Skill | When to use |
 |---|---|
