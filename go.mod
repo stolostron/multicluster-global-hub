@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/IBM/sarama v1.46.3
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
-	github.com/authzed/spicedb-operator v1.20.1
+	github.com/authzed/spicedb-operator v1.25.1
 	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20260226140218-5aa033886975
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.16.2
 	github.com/cloudevents/sdk-go/v2 v2.16.2
@@ -45,10 +45,10 @@ require (
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
-	k8s.io/api v0.35.3
+	k8s.io/api v0.36.0-alpha.0
 	k8s.io/apiextensions-apiserver v0.35.3
-	k8s.io/apimachinery v0.35.3
-	k8s.io/client-go v0.35.3
+	k8s.io/apimachinery v0.36.0-alpha.0
+	k8s.io/client-go v0.36.0-alpha.0
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.34.3
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
@@ -209,8 +209,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.6 // indirect
-	k8s.io/apiserver v0.35.3 // indirect
-	k8s.io/component-base v0.35.3 // indirect
+	k8s.io/apiserver v0.36.0-alpha.0 // indirect
+	k8s.io/component-base v0.36.0-alpha.0 // indirect
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	open-cluster-management.io/sdk-go v1.2.0 // indirect
