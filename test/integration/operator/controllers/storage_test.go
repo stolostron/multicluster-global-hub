@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
@@ -290,7 +291,22 @@ var _ = Describe("storage", Ordered, func() {
 				"postgresql.conf": "wal_level = logical\nmax_wal_size = 2GB\n",
 			},
 		}
-		Expect(runtimeClient.Create(ctx, cm)).To(Succeed())
+		// Use the manager client so the reconciler cache sees the custom config before reconcile runs.
+		managerClient := runtimeManager.GetClient()
+		Expect(managerClient.Create(ctx, cm)).To(Succeed())
+		Eventually(func() error {
+			got := &corev1.ConfigMap{}
+			if err := managerClient.Get(ctx, types.NamespacedName{
+				Namespace: namespace,
+				Name:      storage.BuiltinPostgresCustomizedConfigName,
+			}, got); err != nil {
+				return err
+			}
+			if !strings.Contains(got.Data["postgresql.conf"], "max_wal_size = 2GB") {
+				return fmt.Errorf("custom postgres config not visible in manager cache yet")
+			}
+			return nil
+		}, 5*time.Second, 50*time.Millisecond).ShouldNot(HaveOccurred())
 
 		storageReconciler := storage.NewStorageReconciler(runtimeManager, true)
 
@@ -314,12 +330,20 @@ var _ = Describe("storage", Ordered, func() {
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
-		// verify the customized configuration
-		cm = &corev1.ConfigMap{}
-		err = runtimeClient.Get(ctx, types.NamespacedName{Namespace: mgh.Namespace, Name: "multicluster-global-hub-postgresql-config"}, cm)
-		Expect(err).To(Succeed())
-		Expect(cm.Data["postgresql.conf"]).To(ContainSubstring("max_wal_size = 2GB"))
-		utils.PrettyPrint(cm.Data["postgresql.conf"])
+		// verify the customized configuration is merged into the rendered configmap
+		Eventually(func() error {
+			got := &corev1.ConfigMap{}
+			if err := runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      "multicluster-global-hub-postgresql-config",
+			}, got); err != nil {
+				return err
+			}
+			if !strings.Contains(got.Data["postgresql.conf"], "max_wal_size = 2GB") {
+				return fmt.Errorf("postgresql.conf missing customized max_wal_size: %q", got.Data["postgresql.conf"])
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// cleanup
 		Eventually(func() error {

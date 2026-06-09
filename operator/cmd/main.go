@@ -141,6 +141,18 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 	renewDeadline := time.Duration(electionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(electionConfig.RetryPeriod) * time.Second
 
+	tlsCtx, tlsCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer tlsCancel()
+	tlsConfigFunc, profileType, err := utils.BuildMetricsTLSConfigFunc(tlsCtx, restConfig)
+	if err != nil {
+		return nil, err
+	}
+	if profileType != "" {
+		setupLog.Info("Configuring webhook server TLS from cluster APIServer profile", "profileType", profileType)
+	} else {
+		setupLog.Info("Using TLS 1.3 for webhook server (cluster APIServer profile unavailable)")
+	}
+
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme: config.GetRuntimeScheme(),
 		Metrics: metricsserver.Options{
@@ -148,12 +160,8 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 		},
 		WebhookServer: &webhook.DefaultServer{
 			Options: webhook.Options{
-				Port: webhookPort,
-				TLSOpts: []func(*tls.Config){
-					func(config *tls.Config) {
-						config.MinVersion = tls.VersionTLS13
-					},
-				},
+				Port:    webhookPort,
+				TLSOpts: []func(*tls.Config){tlsConfigFunc},
 			},
 		},
 		HealthProbeBindAddress:  operatorConfig.ProbeAddress,
