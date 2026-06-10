@@ -1,198 +1,116 @@
+# CLAUDE.md — multicluster-global-hub
 
-# CLAUDE.md
+AI assistant context for **Multicluster Global Hub** — a Kubernetes operator-based system for managing ACM/OCM at very high scale across multiple regional hub clusters.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Onboarded per [Fleet Engineering Agentic SDLC — repo onboarding](https://github.com/OpenShift-Fleet/agentic-sdlc/blob/main/practices/repo-onboarding.md). Day-to-day workflow: [ai-dev-workflow.md](https://github.com/OpenShift-Fleet/agentic-sdlc/blob/main/practices/ai-dev-workflow.md).
 
-## Overview
+---
 
-Multicluster Global Hub is a Kubernetes operator-based system for managing ACM/OCM at very high scale. The repository contains three main components:
-
-- **operator**: Deploys and manages the Global Hub infrastructure
-- **manager**: Runs on the global hub cluster to sync data to/from PostgreSQL and Kafka
-- **agent**: Runs on managed hub clusters to sync data between global hub and managed hubs
-
-Shared code lives in `pkg/`.
-
-## Architecture
-
-### Component Responsibilities
-
-**Operator** (`operator/`):
-
-- Deploys manager (global hub cluster) and agent (managed hub clusters)
-- Manages CRD lifecycle and custom resources
-- API definitions in `operator/api/`
-
-**Manager** (`manager/`):
-
-- `pkg/spec/`: Syncs resources FROM database TO managed hubs via Kafka
-  - `specdb/`: Database operations for spec resources
-  - `controllers/`: Watches and persists resources to database
-  - `syncers/`: Retrieves from database and sends via transport
-- `pkg/status/`: Syncs resource status FROM managed hubs TO database
-  - `conflator/`: Merges bundles from transport before database insertion
-  - `dispatcher/`: Routes bundles between transport, conflator, and database
-  - `handlers/`: Persists transferred bundles to database
-- `pkg/controllers/`: Common controllers (migration, backup)
-- `pkg/processes/`: Periodic jobs (policy compliance cronjob, managed hub management)
-- `pkg/restapis/`: REST APIs for managed clusters, policies, subscriptions
-- `pkg/webhook/`: Webhooks for global resources
-
-**Agent** (`agent/`):
-
-- `pkg/spec/`: Applies resources FROM global hub TO managed hub cluster
-  - `rbac/`: Role-based access control
-  - `syncers/`: Syncs resources and signals from manager
-  - `workers/`: Backend goroutines executing spec syncer tasks
-- `pkg/status/`: Reports resource status FROM managed hub TO manager via Kafka/Inventory API
-  - `filter/`: Deduplicates events
-  - `generic/`: Templates for status syncers
-    - `controller/`: Specifies resource types to sync
-    - `handler/`: Updates bundles for watched resources
-    - `emitter/`: Sends bundles via transport (CloudEvents)
-    - `multi-event syncer`: Template for multiple events per object (policy syncer)
-    - `multi-object syncer`: Template for one event per multiple objects (managedhub info syncer)
-  - `syncers/`: Specific resource syncers using generic templates
-- `pkg/controllers/inventory/`: Controllers reporting via Inventory API
-
-**Shared** (`pkg/`):
-
-- `transport/`: Kafka integration (Sarama and Confluent)
-- `database/`: PostgreSQL operations (GORM and pgx)
-- `bundle/`: Data bundling and compression
-- `constants/`, `enum/`, `utils/`: Common utilities
-
-## Build and Development Commands
-
-### Building Images
+## Build, Test, and Lint Commands
 
 ```bash
-
-# Build and push all component images
+# Vendor dependencies (required before image builds)
 make vendor
-make build-operator-image push-operator-image IMG=<registry>/multicluster-global-hub-operator:<tag>
-make build-manager-image push-manager-image IMG=<registry>/multicluster-global-hub-manager:<tag>
-make build-agent-image push-agent-image IMG=<registry>/multicluster-global-hub-agent:<tag>
 
-# Individual component builds
-cd operator && make docker-build docker-push IMG=<registry>/multicluster-global-hub-operator:<tag>
-cd manager && make
-cd agent && make
-```
-
-### Deploying
-
-```bash
-
-# Deploy operator to cluster
-make deploy-operator  # or: cd operator && make deploy IMG=<registry>/...:tag
-
-# Install Global Hub instance
-kubectl apply -k operator/config/samples/
-
-# Undeploy
-make undeploy-operator  # or: cd operator && make undeploy
-```
-
-### Code Quality
-
-```bash
-
-# Format code (standard Go formatting)
+# Format and lint
 make fmt
-
-# Strict formatting (gci + gofumpt)
-make strict-fmt
+make strict-fmt          # gci + gofumpt (CI format job)
 
 # Update dependencies
 make tidy
 make vendor
-```
 
-### Testing
+# Build component binaries
+cd operator && make
+cd manager && make
+cd agent && make
 
-**Unit Tests:**
+# Build and push container images
+make build-operator-image push-operator-image REGISTRY=<registry> IMAGE_TAG=<tag>
+make build-manager-image push-manager-image REGISTRY=<registry> IMAGE_TAG=<tag>
+make build-agent-image push-agent-image REGISTRY=<registry> IMAGE_TAG=<tag>
 
-```bash
+# Deploy operator and install a Global Hub instance
+make deploy-operator
+kubectl apply -k operator/config/samples/
+make undeploy-operator
 
-# Run all unit tests (requires setup-envtest)
+# Unit tests (downloads envtest binaries to /tmp/cr-tests-bin on first run)
 make unit-tests
-
-# Run component-specific unit tests
 make unit-tests-operator
 make unit-tests-manager
 make unit-tests-agent
 make unit-tests-pkg
-```
 
-**Integration Tests:**
-
-```bash
-
-make integration-test                # All integration tests
+# Integration tests
+make integration-test
 make integration-test/operator
 make integration-test/manager
 make integration-test/agent
-```
 
-**E2E Tests:**
-
-```bash
-
-# Setup E2E environment (creates KinD clusters)
+# E2E tests (creates KinD clusters)
 make e2e-setup
-
-# Run specific E2E test suites
 make e2e-test-cluster
 make e2e-test-local-agent
 make e2e-test-localpolicy
 make e2e-test-grafana
-
-# Run all E2E tests
 make e2e-test-all
-
-# Cleanup E2E environment
 make e2e-cleanup
+make e2e-test-localpolicy VERBOSE=9   # verbose E2E output
 
-# E2E test with verbose output
-make e2e-test-localpolicy VERBOSE=9
-```
-
-**Running Single Tests:**
-
-To run a single test file or function:
-
-```bash
-# Unit test - single package
-cd operator && KUBEBUILDER_ASSETS="$(setup-envtest use --use-env -p path)" go test -v ./pkg/path/to/package -run TestFunctionName
-
-# Integration test - single test
-KUBEBUILDER_ASSETS="$(setup-envtest use --use-env -p path)" go test -v ./test/integration/operator/... -run TestSpecificFunction
-```
-
-### Operator-Specific Commands
-
-When modifying operator API definitions:
-
-
-```bash
+# Operator API / bundle generation
 cd operator
-make generate    # Generate code (DeepCopy, etc.)
-make manifests   # Generate CRDs, RBAC, etc.
-make bundle      # Generate operator bundle
-```
+make generate    # DeepCopy, etc.
+make manifests   # CRDs, RBAC
+make bundle      # OLM bundle
 
-### Logs
-
-Fetch logs from E2E test environment:
-
-
-```bash
+# E2E log collection
 make e2e-log/operator
 make e2e-log/manager
 make e2e-log/grafana
 make e2e-log/agent
 ```
+
+> Unit and integration tests use controller-runtime's envtest harness. `KUBEBUILDER_ASSETS` is set automatically by the Makefile via `setup-envtest`.
+>
+> `make fmt` enforces import boundaries between `pkg/`, `operator/`, `manager/`, and `agent/` — see [Code Formatting Rules](#code-formatting-rules) below.
+
+---
+
+## Repo Layout
+
+```text
+operator/             OLM operator — deploys manager, agent, Kafka, Postgres, Grafana
+  api/                CRD type definitions (MulticlusterGlobalHub, Agent, Migration)
+  pkg/controllers/    Operator reconcilers (storage, kafka, grafana, agent, migration)
+  config/             Kustomize manifests (CRDs, RBAC, manager, samples)
+manager/              Runs on global hub — syncs spec/status via PostgreSQL and Kafka
+  pkg/spec/           Spec sync: controllers → DB → Kafka → managed hubs
+  pkg/status/         Status sync: Kafka → conflator → DB
+  pkg/controllers/    Migration, backup controllers
+  pkg/processes/      Cronjobs (compliance summarization, managed hub management)
+  pkg/restapis/       REST APIs (clusters, policies, subscriptions)
+agent/                Runs on managed hub clusters — applies spec, reports status
+  pkg/spec/           Applies resources from global hub to managed hub
+  pkg/status/         Reports managed-hub status to global hub via Kafka/Inventory API
+  pkg/controllers/    Inventory API controllers
+pkg/                  Shared code (transport, database, bundle, constants, utils)
+test/                 Integration and E2E test scripts and configs
+  script/             KinD E2E setup/run/cleanup scripts
+doc/                  Human-facing product documentation and architecture diagrams
+samples/              Example CRs and deployment manifests
+tools/                Helper scripts (kafka config generation, etc.)
+```
+
+---
+
+## Architecture
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for CRDs, spec/status data flow, PostgreSQL schema layout, Kafka topics, controller reconciliation, namespace layout, and migration/DR patterns.
+
+Additional product docs: [doc/README.md](doc/README.md), [doc/how_global_hub_works.md](doc/how_global_hub_works.md).
+
+---
 
 ## Code Formatting Rules
 
@@ -203,40 +121,64 @@ The `make fmt` target enforces import dependency rules:
 - `agent/` must NOT import from `manager/` or `operator/` (except `operator/api`)
 - `manager/` must NOT import from `agent/` or `operator/` (except `operator/api`)
 
-This maintains clean separation between components. Only shared code should live in `pkg/`.
+Only shared code should live in `pkg/`.
 
-## Testing Guidelines
+---
 
-- Integration tests use envtest and require KUBEBUILDER_ASSETS
+## Personal Config
 
-- E2E tests create real KinD clusters (configured via MH_NUM, MC_NUM environment variables)
-- Test scripts are in `test/script/`
-- E2E test configuration is stored in a temporary `CONFIG_DIR`
-- When debugging test failures, run tests individually with verbose flags (`-v` for go test, `VERBOSE=9` for E2E scripts)
+Read `.claude/user.local.md` at the start of any task that needs an assignee, email, or project key. If the file does not exist, fall back to Claude memory (`user-config`), then placeholders. Run `make personalize` in [OpenShift-Fleet/agentic-sdlc](https://github.com/OpenShift-Fleet/agentic-sdlc) to generate it.
+
+Repo-local skills live under `.claude/skills/` (e.g. `new-release` for z-stream cut workflows).
+
+---
+
+## Fleet Engineering Skills
+
+Use the Fleet plugin in Claude Code (`make install-claude` in agentic-sdlc) when available. In Cursor or other agents without the plugin, fetch and apply the relevant skill URL when the task matches its domain.
+
+| Skill | When to use |
+|---|---|
+| [start-work](https://raw.githubusercontent.com/OpenShift-Fleet/agentic-sdlc/main/skills/sdlc/start-work/SKILL.md) | Begin work on a Jira ticket — creates sub-task, transitions status |
+| [finish-work](https://raw.githubusercontent.com/OpenShift-Fleet/agentic-sdlc/main/skills/sdlc/finish-work/SKILL.md) | Commit, push, open PR, update Jira |
+| [pr-review](https://raw.githubusercontent.com/OpenShift-Fleet/agentic-sdlc/main/skills/sdlc/pr-review/SKILL.md) | Review a GitHub PR with worktree isolation and inline comments |
+| [pr-fix](https://raw.githubusercontent.com/OpenShift-Fleet/agentic-sdlc/main/skills/sdlc/pr-fix/SKILL.md) | Fix blocked PRs: merge conflicts, CI failures, review comments |
+| [jira-specialist](https://raw.githubusercontent.com/OpenShift-Fleet/agentic-sdlc/main/skills/jira/jira-specialist/SKILL.md) | Triage, search, link, or transition Jira issues |
+| [bug-specialist](https://raw.githubusercontent.com/OpenShift-Fleet/agentic-sdlc/main/skills/jira/bug-specialist/SKILL.md) | Create a well-structured bug report with reproduction steps |
+| [story-specialist](https://raw.githubusercontent.com/OpenShift-Fleet/agentic-sdlc/main/skills/jira/story-specialist/SKILL.md) | Create a user story with acceptance criteria |
+| [spike-specialist](https://raw.githubusercontent.com/OpenShift-Fleet/agentic-sdlc/main/skills/jira/spike-specialist/SKILL.md) | Time-boxed research and PoC tickets |
+
+---
 
 ## Key Dependencies
 
-- **Kubernetes**: v0.33.x (client-go, api, apimachinery)
+| Dependency | Version | Purpose |
+|---|---|---|
+| Go | 1.25.7 | Toolchain |
+| Kubernetes | v0.33.x | client-go, api, apimachinery |
+| controller-runtime | v0.21.x | Operator framework |
+| IBM Sarama | v1.46.x | Kafka client |
+| Confluent Kafka Go | v2.14.x | Kafka client (alternative) |
+| CloudEvents SDK | v2.16.x | Status transport bundles |
+| GORM / pgx | v1.30.x / v5.7.x | PostgreSQL access |
 
-- **Controller Runtime**: v0.21.x
-- **Kafka**: IBM Sarama v1.45.x, Confluent Kafka v2.12.x
-- **Database**: GORM v1.30.x, pgx v5.7.x
-- **CloudEvents**: v2.16.x
-- **ACM/OCM**: Multiple stolostron and open-cluster-management.io dependencies
-- **Go Version**: 1.25.7
+---
 
 ## Environment Variables
 
-E2E testing:
+**E2E testing:**
 
+| Variable | Default | Purpose |
+|---|---|---|
+| `MH_NUM` | 2 | Managed hub KinD clusters |
+| `MC_NUM` | 1 | Managed clusters per hub |
+| `GH_NAMESPACE` | `multicluster-global-hub` | Global hub namespace |
+| `VERBOSE` | 5 | E2E script log level |
 
-- `MH_NUM`: Number of managed hub clusters (default: 2)
-- `MC_NUM`: Number of managed clusters (default: 1)
-- `GH_NAMESPACE`: Global hub namespace (default: multicluster-global-hub)
-- `VERBOSE`: Log verbosity level for E2E tests (default: 5)
+**Build:**
 
-Build:
-
-- `REGISTRY`: Container registry (default: quay.io/stolostron)
-- `IMAGE_TAG`: Image tag (default: latest)
-- `GO_TEST`: Go test command override
+| Variable | Default | Purpose |
+|---|---|---|
+| `REGISTRY` | `quay.io/stolostron` | Container registry |
+| `IMAGE_TAG` | `latest` | Image tag |
+| `GO_TEST` | `go test -v` | Go test command override |
