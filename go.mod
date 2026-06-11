@@ -24,7 +24,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/homeport/dyff v1.10.5
 	github.com/lib/pq v1.12.3
-	github.com/onsi/ginkgo/v2 v2.28.1
+	github.com/onsi/ginkgo/v2 v2.30.0
 	github.com/onsi/gomega v1.41.0
 	github.com/openshift/api v0.0.0-20251124235416-c11dd82e305c
 	github.com/openshift/client-go v0.0.0-20251125141819-b6281947c285
@@ -133,7 +133,7 @@ require (
 	github.com/gonvenience/text v1.0.10 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20260202012954-cb029daf43ef // indirect
+	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
