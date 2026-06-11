@@ -172,9 +172,11 @@ func TestHubStatusSyncer_Sync_ClusterNotFound(t *testing.T) {
 	err := evt.SetData(cloudevents.ApplicationJSON, payload)
 	assert.NoError(t, err)
 
-	// Sync should not error even if cluster doesn't exist (it's logged and skipped)
+	// Sync should return error so the message is retried (cache sync delay)
 	err = syncer.Sync(context.TODO(), &evt)
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent-cluster")
+	assert.Contains(t, err.Error(), "not found")
 }
 
 func TestHubStatusSyncer_Sync_NoUpdateNeeded(t *testing.T) {
@@ -265,11 +267,12 @@ func TestHubStatusSyncer_Sync_PartialFailure(t *testing.T) {
 	err := evt.SetData(cloudevents.ApplicationJSON, payload)
 	assert.NoError(t, err)
 
-	// Sync should succeed - NotFound errors are ignored
+	// Sync should return error for missing cluster2, triggering message retry
 	err = syncer.Sync(context.TODO(), &evt)
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cluster2")
 
-	// Verify cluster1 was updated
+	// cluster1 should still have been updated before the aggregate error is returned
 	result := &clusterv1.ManagedCluster{}
 	err = fakeClient.Get(context.TODO(), client.ObjectKey{Name: "cluster1"}, result)
 	assert.NoError(t, err)
