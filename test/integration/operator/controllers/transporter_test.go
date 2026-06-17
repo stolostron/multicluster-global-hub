@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -194,6 +195,23 @@ var _ = Describe("transporter", Ordered, func() {
 				return err
 			}
 			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		// NetworkPolicies are rendered alongside the kafka manifests; verify both are created
+		Eventually(func() error {
+			np := &networkingv1.NetworkPolicy{}
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      protocol.KafkaClusterName,
+				Namespace: mgh.Namespace,
+			}, np)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		Eventually(func() error {
+			np := &networkingv1.NetworkPolicy{}
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      "strimzi-cluster-operator",
+				Namespace: mgh.Namespace,
+			}, np)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// update the kafka resource to make it ready

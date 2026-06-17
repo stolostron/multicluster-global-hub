@@ -9,6 +9,7 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -111,6 +112,15 @@ var _ = Describe("manager", Ordered, func() {
 				Name:      operatorconstants.GHServiceMonitorName,
 			}, serviceMonitor)
 			return err
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		// NetworkPolicy is rendered alongside other manager manifests; verify it is created
+		Eventually(func() error {
+			np := &networkingv1.NetworkPolicy{}
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      "multicluster-global-hub-manager",
+				Namespace: mgh.Namespace,
+			}, np)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
