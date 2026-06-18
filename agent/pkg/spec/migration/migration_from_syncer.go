@@ -62,6 +62,9 @@ const (
 	// imageclusterinstall_controller.go#L118
 	VeleroRestoreNameLabel = "velero.io/restore-name"
 
+	// VeleroRestoreStatusAnnotation marks ImageClusterInstall as restored by velero during migration.
+	VeleroRestoreStatusAnnotation = "velero.io/restore-status"
+
 	GlobalHubRestoreName = "globalhub"
 )
 
@@ -442,23 +445,50 @@ func (s *MigrationSourceSyncer) processResourceByType(
 			delete(annotations, HivePauseAnnotation)
 		}
 		resource.SetAnnotations(annotations)
-	case "BareMetalHost", "DataImage":
-		// Remove pause annotation from BareMetalHost and DataImage
+	case "BareMetalHost":
+		// Remove pause annotation from BareMetalHost
+		annotations := resource.GetAnnotations()
+		if annotations != nil {
+			delete(annotations, Metal3PauseAnnotation)
+		}
+		resource.SetAnnotations(annotations)
+
+		// Add cluster backup label with correct value
+		labels := resource.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		if labels[constants.BackupKey] != constants.BackupActivationValue {
+			labels[constants.BackupKey] = constants.BackupActivationValue
+		}
+		resource.SetLabels(labels)
+	case "DataImage":
+		// Remove pause annotation from DataImage
 		annotations := resource.GetAnnotations()
 		if annotations != nil {
 			delete(annotations, Metal3PauseAnnotation)
 		}
 		resource.SetAnnotations(annotations)
 	case "ImageClusterInstall":
-		// Add velero restore label if not present
+		// Add velero restore label with correct value
 		labels := resource.GetLabels()
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		if _, exists := labels[VeleroRestoreNameLabel]; !exists {
+		if labels[VeleroRestoreNameLabel] != GlobalHubRestoreName {
 			labels[VeleroRestoreNameLabel] = GlobalHubRestoreName
 		}
 		resource.SetLabels(labels)
+
+		// Add velero restore status annotation with correct value
+		annotations := resource.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		if annotations[VeleroRestoreStatusAnnotation] != "true" {
+			annotations[VeleroRestoreStatusAnnotation] = "true"
+		}
+		resource.SetAnnotations(annotations)
 	}
 }
 

@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/IBM/sarama v1.46.3
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
-	github.com/authzed/spicedb-operator v1.20.1
+	github.com/authzed/spicedb-operator v1.25.1
 	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20260226140218-5aa033886975
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.16.2
 	github.com/cloudevents/sdk-go/v2 v2.16.2
@@ -19,10 +19,10 @@ require (
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
-	github.com/gonvenience/ytbx v1.4.9
+	github.com/gonvenience/ytbx v1.5.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
-	github.com/homeport/dyff v1.10.5
+	github.com/homeport/dyff v1.12.0
 	github.com/lib/pq v1.12.3
 	github.com/onsi/ginkgo/v2 v2.31.0
 	github.com/onsi/gomega v1.41.0
@@ -45,15 +45,15 @@ require (
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
-	k8s.io/api v0.35.3
+	k8s.io/api v0.36.0-alpha.0
 	k8s.io/apiextensions-apiserver v0.35.3
-	k8s.io/apimachinery v0.35.3
-	k8s.io/client-go v0.35.3
+	k8s.io/apimachinery v0.36.0-alpha.0
+	k8s.io/client-go v0.36.0-alpha.0
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.34.3
 	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
 	open-cluster-management.io/addon-framework v1.2.0
-	open-cluster-management.io/api v1.2.0
+	open-cluster-management.io/api v1.3.0
 	open-cluster-management.io/governance-policy-propagator v0.18.0
 	open-cluster-management.io/managed-serviceaccount v0.10.0
 	sigs.k8s.io/controller-runtime v0.23.3
@@ -67,6 +67,7 @@ require (
 	github.com/containerd/containerd/api v1.8.0 // indirect
 	github.com/containerd/continuity v0.4.4 // indirect
 	github.com/containerd/ttrpc v1.2.7 // indirect
+	github.com/daixiang0/gci v0.14.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-openapi/swag/cmdutils v0.25.4 // indirect
 	github.com/go-openapi/swag/conv v0.25.4 // indirect
@@ -81,12 +82,17 @@ require (
 	github.com/go-openapi/swag/yamlutils v0.25.4 // indirect
 	github.com/go-playground/assert/v2 v2.2.0 // indirect
 	github.com/gonvenience/idem v0.0.3 // indirect
+	github.com/hexops/gotextdiff v1.0.3 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/moby/sys/user v0.3.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
+	github.com/spf13/cobra v1.10.2 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	helm.sh/helm/v3 v3.19.4 // indirect
+	mvdan.cc/gofumpt v0.10.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 	tags.cncf.io/container-device-interface v0.8.1 // indirect
@@ -128,7 +134,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/gonvenience/bunt v1.4.3 // indirect
-	github.com/gonvenience/neat v1.3.18 // indirect
+	github.com/gonvenience/neat v1.3.20 // indirect
 	github.com/gonvenience/term v1.0.5 // indirect
 	github.com/gonvenience/text v1.0.10 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
@@ -152,12 +158,11 @@ require (
 	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.1 // indirect
-	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
+	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-ciede2000 v0.0.0-20170301095244-782e8c62fec3 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.21 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
-	github.com/mitchellh/hashstructure v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
@@ -186,8 +191,8 @@ require (
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/zmap/zcrypto v0.0.0-20230310154051-c8b263fd8300 // indirect
 	github.com/zmap/zlint/v3 v3.5.0 // indirect
-	go.opentelemetry.io/otel v1.38.0 // indirect
-	go.opentelemetry.io/otel/trace v1.38.0 // indirect
+	go.opentelemetry.io/otel v1.41.0 // indirect
+	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
@@ -209,8 +214,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.6 // indirect
-	k8s.io/apiserver v0.35.3 // indirect
-	k8s.io/component-base v0.35.3 // indirect
+	k8s.io/apiserver v0.36.0-alpha.0 // indirect
+	k8s.io/component-base v0.36.0-alpha.0 // indirect
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
 	open-cluster-management.io/sdk-go v1.2.0 // indirect
@@ -228,3 +233,8 @@ replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726
 // the multiclusterhub-operator uses controller-runtime under v0.20.*
 // issue: https://github.com/stolostron/multiclusterhub-operator/issues/2186
 replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.19.1
+
+tool (
+	github.com/daixiang0/gci
+	mvdan.cc/gofumpt
+)
