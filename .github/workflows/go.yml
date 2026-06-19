@@ -47,7 +47,7 @@ jobs:
       - name: bundle
         run: cd operator && make bundle
 
-      # main and release-5.0 use dev bundle versions (e.g. 1.8.0-dev) while the
+      # main and release-5.0 use dev bundle versions (e.g. 5.0.0-dev) while the
       # matching release-* branches in multicluster-global-hub-operator-bundle
       # carry GA z-stream versions — skip external sync on those branches.
       - name: resolve bundle comparison branch
