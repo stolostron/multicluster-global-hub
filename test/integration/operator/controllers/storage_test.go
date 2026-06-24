@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -328,6 +329,15 @@ var _ = Describe("storage", Ordered, func() {
 				return err
 			}
 			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		// NetworkPolicy is rendered alongside the postgres StatefulSet manifests; verify it is created
+		Eventually(func() error {
+			np := &networkingv1.NetworkPolicy{}
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      storage.BuiltinPostgresName,
+				Namespace: mgh.Namespace,
+			}, np)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// verify the customized configuration is merged into the rendered configmap
