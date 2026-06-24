@@ -100,6 +100,6 @@ jobs:
         run: make -C operator operator-sdk
 
       - name: scorecard
-        env:
-          PATH: ${{ github.workspace }}/operator/bin:${{ env.PATH }}
-        run: cd operator && operator-sdk scorecard ./bundle/
+        run: |
+          export PATH="${{ github.workspace }}/operator/bin:${PATH}"
+          cd operator && operator-sdk scorecard ./bundle/
