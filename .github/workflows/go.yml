@@ -90,9 +90,9 @@ jobs:
         uses: helm/kind-action@0b5c88445f37b7e12a2ce1ecca7805b9046a74db # v1
 
       - name: Download operator-sdk
-        uses: drmendes/setup-k8s-operator-sdk@576d2bf133e6b89a808063375f56c892475627aa # v1.1.5
-        with:
-          version: "^1.34.1"
-      
+        run: make -C operator operator-sdk
+
       - name: scorecard
+        env:
+          PATH: ${{ github.workspace }}/operator/bin:${{ env.PATH }}
         run: cd operator && operator-sdk scorecard ./bundle/
