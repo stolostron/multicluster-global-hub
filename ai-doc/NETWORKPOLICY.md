@@ -352,6 +352,11 @@ spec:
 
 ### 7. Kafka NetworkPolicy
 
+Allows in-cluster clients (manager, Strimzi, managed-hub agents) and **external**
+TLS bootstrap access via the OpenShift router on TCP 9093. The latter is required
+for Jenkins `globalhub-e2e` kafka tests, which connect to `kafka-kafka-tls-bootstrap`
+Route (`transport-config` bootstrap.server) from outside the cluster.
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -543,12 +548,13 @@ For agents in managed hub clusters:
   ```
   global-hub.open-cluster-management.io/managed-hub: "true"
   ```
-- If agents are in remote clusters, Kafka needs external exposure (not covered by these policies)
+- If agents are in remote clusters, Kafka bootstrap Routes need external exposure via the OpenShift router (see Kafka NetworkPolicy ingress on TCP 9093)
 
 ### 4. External Kafka Access
 If using external Kafka bootstrap servers:
 - Add egress rules to allow manager to connect to external Kafka
 - Configure appropriate authentication/TLS
+- Built-in Strimzi Kafka TLS bootstrap Routes are allowed via `network.openshift.io/policy-group: ingress` on TCP 9093
 
 ### 5. Backup Considerations
 If using backup solutions (Velero, OADP):

@@ -37,6 +37,14 @@ spec:
     ports:
     - protocol: TCP
       port: 9093
+  # Allow external access via OpenShift router (Kafka TLS bootstrap Route)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          network.openshift.io/policy-group: ingress
+    ports:
+    - protocol: TCP
+      port: 9093
   # Allow metrics scraping from Prometheus (JMX exporter tcp-prometheus)
   - from:
     - namespaceSelector:
