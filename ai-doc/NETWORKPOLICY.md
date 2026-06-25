@@ -363,6 +363,8 @@ kind: NetworkPolicy
 metadata:
   name: kafka
   namespace: multicluster-global-hub
+  labels:
+    strimzi.io/cluster: kafka
 spec:
   podSelector:
     matchLabels:
@@ -378,33 +380,50 @@ spec:
           name: multicluster-global-hub-manager
     ports:
     - protocol: TCP
-      port: 9092
-    - protocol: TCP
       port: 9093
-    - protocol: TCP
-      port: 9094
-  # Allow Kafka internal communication (between brokers, ZooKeeper, etc.)
+  # Allow Kafka internal communication (between brokers, controllers)
   - from:
     - podSelector:
         matchLabels:
           strimzi.io/cluster: kafka
-  # Allow from agents in managed hub namespaces
+  # Allow from agents in managed hub namespaces (hosted mode)
   - from:
     - namespaceSelector:
         matchLabels:
           global-hub.open-cluster-management.io/managed-hub: "true"
-    podSelector:
-      matchLabels:
-        name: multicluster-global-hub-agent
+      podSelector:
+        matchLabels:
+          name: multicluster-global-hub-agent
     ports:
     - protocol: TCP
       port: 9093
-  # Allow metrics scraping
+  # Allow external access via OpenShift router (Kafka TLS bootstrap Route)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          network.openshift.io/policy-group: ingress
+    ports:
+    - protocol: TCP
+      port: 9093
+  # Allow metrics scraping from Prometheus (JMX exporter tcp-prometheus)
   - from:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: openshift-monitoring
+    ports:
+    - protocol: TCP
+      port: 9404
   egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+    ports:
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
   # Allow Kafka internal communication
   - to:
     - podSelector:
