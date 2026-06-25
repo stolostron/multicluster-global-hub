@@ -33,14 +33,12 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow access to Kubernetes API server
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: default
-    ports:
+  # Allow access to Kubernetes API server service IP
+  - ports:
     - protocol: TCP
       port: 443
+    - protocol: TCP
+      port: 6443
   # Allow connections to Kafka (Strimzi)
   - to:
     - namespaceSelector: {}
