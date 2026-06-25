@@ -45,6 +45,10 @@ spec:
     ports:
     - protocol: TCP
       port: 9093
+  # Allow external connections via Route/LoadBalancer/NodePort (e2e CI, remote agents)
+  - ports:
+    - protocol: TCP
+      port: 9093
   # Allow metrics scraping from Prometheus (JMX exporter tcp-prometheus)
   - from:
     - namespaceSelector:
