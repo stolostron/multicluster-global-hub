@@ -299,6 +299,18 @@ spec:
 
 ### 6. PostgreSQL NetworkPolicy
 
+Allows in-cluster clients (manager, grafana, inventory-api, spicedb, etc.) on TCP 5432 via
+pod selectors. A separate **ports-only** ingress rule (no `from` selector) also allows TCP 5432
+from any source that can reach the pod — including out-of-cluster clients via NodePort.
+
+The ports-only rule is required for Jenkins `globalhub-e2e` BeforeSuite, which creates a
+temporary NodePort Service `multicluster-global-hub-postgresql-external` (fixed NodePort
+**32433**) and connects from outside the cluster to the hub node IP over TLS
+(`test/e2e/suite_test.go`).
+
+> **Follow-up (ACM-31409):** tighten external access with `ipBlock` CIDRs — tracked from
+> [PR #2561](https://github.com/stolostron/multicluster-global-hub/pull/2561).
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -327,6 +339,12 @@ spec:
         matchLabels:
           name: multicluster-global-hub-grafana
     ports:
+    - protocol: TCP
+      port: 5432
+  # Allow TCP 5432 from any source (no `from` selector). Required for globalhub-e2e
+  # NodePort access (multicluster-global-hub-postgresql-external:32433) and backup tools.
+  # Follow-up: scope with ipBlock CIDRs (ACM-31409).
+  - ports:
     - protocol: TCP
       port: 5432
   # Allow Prometheus exporter scraping
@@ -578,7 +596,10 @@ If using external Kafka bootstrap servers:
 ### 5. Backup Considerations
 If using backup solutions (Velero, OADP):
 - Add egress rules for manager/postgres to access backup namespace
-- Allow backup namespace ingress to postgres for data backup
+- The ports-only postgres ingress rule (no `from` selector) allows TCP 5432 from any source;
+  backup or restore tools connecting via NodePort or from outside the cluster rely on this rule.
+  Prefer explicit namespace selectors for in-cluster backup workloads where possible (see
+  PostgreSQL NetworkPolicy; follow-up hardening tracked in ACM-31409).
 
 ## Testing Commands
 
