@@ -299,6 +299,11 @@ spec:
 
 ### 6. PostgreSQL NetworkPolicy
 
+Allows in-cluster clients (manager, grafana, inventory-api, spicedb, etc.) and **external**
+LoadBalancer/NodePort clients on TCP 5432. The latter is required for Jenkins `globalhub-e2e`
+BeforeSuite, which creates a temporary `multicluster-global-hub-postgres-lb` Service and connects
+from outside the cluster over TLS.
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -578,7 +583,7 @@ If using external Kafka bootstrap servers:
 ### 5. Backup Considerations
 If using backup solutions (Velero, OADP):
 - Add egress rules for manager/postgres to access backup namespace
-- Allow backup namespace ingress to postgres for data backup
+- Postgres ingress on TCP 5432 already allows external LoadBalancer/NodePort clients (see PostgreSQL NetworkPolicy)
 
 ## Testing Commands
 

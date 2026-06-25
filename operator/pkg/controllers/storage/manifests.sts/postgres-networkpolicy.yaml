@@ -61,6 +61,10 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
+  # Allow external connections via LoadBalancer/NodePort (e2e CI, backup tools)
+  - ports:
+    - protocol: TCP
+      port: 5432
   # Allow Prometheus exporter scraping
   - from:
     - namespaceSelector:
