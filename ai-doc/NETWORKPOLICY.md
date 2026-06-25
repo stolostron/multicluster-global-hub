@@ -353,9 +353,10 @@ spec:
 ### 7. Kafka NetworkPolicy
 
 Allows in-cluster clients (manager, Strimzi, managed-hub agents) and **external**
-TLS bootstrap access via the OpenShift router on TCP 9093. The latter is required
-for Jenkins `globalhub-e2e` kafka tests, which connect to `kafka-kafka-tls-bootstrap`
-Route (`transport-config` bootstrap.server) from outside the cluster.
+TLS bootstrap access on TCP 9093 (OpenShift router and unrestricted external clients).
+Jenkins `globalhub-e2e` connects to `kafka-kafka-tls-bootstrap` Route
+(`transport-config` bootstrap.server on `:443` passthrough) from outside the cluster;
+router-scoped ingress alone (#2562) was insufficient on vbirsan--gh-777 / globalhub-e2e #1838.
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -403,6 +404,10 @@ spec:
         matchLabels:
           network.openshift.io/policy-group: ingress
     ports:
+    - protocol: TCP
+      port: 9093
+  # Allow external connections via Route/LoadBalancer/NodePort (e2e CI)
+  - ports:
     - protocol: TCP
       port: 9093
   # Allow metrics scraping from Prometheus (JMX exporter tcp-prometheus)
@@ -567,13 +572,13 @@ For agents in managed hub clusters:
   ```
   global-hub.open-cluster-management.io/managed-hub: "true"
   ```
-- If agents are in remote clusters, Kafka bootstrap Routes need external exposure via the OpenShift router (see Kafka NetworkPolicy ingress on TCP 9093)
+- If agents are in remote clusters, Kafka bootstrap Routes need external exposure on TCP 9093 (router + unrestricted ingress; see Kafka NetworkPolicy)
 
 ### 4. External Kafka Access
 If using external Kafka bootstrap servers:
 - Add egress rules to allow manager to connect to external Kafka
 - Configure appropriate authentication/TLS
-- Built-in Strimzi Kafka TLS bootstrap Routes are allowed via `network.openshift.io/policy-group: ingress` on TCP 9093
+- Built-in Strimzi Kafka TLS bootstrap Routes require unrestricted TCP 9093 ingress on the GH `kafka` NetworkPolicy for Jenkins e2e and other external clients (router-only ingress from #2562 is not sufficient)
 
 ### 5. Backup Considerations
 If using backup solutions (Velero, OADP):
