@@ -61,7 +61,11 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
-  # Allow external connections via LoadBalancer/NodePort (e2e CI, backup tools)
+  # Allow TCP 5432 from any source (no `from` selector). Required for Jenkins globalhub-e2e
+  # BeforeSuite, which exposes postgres via NodePort Service
+  # multicluster-global-hub-postgresql-external (port 32433) and connects from outside the
+  # cluster. Also used by backup tools on NodePort. Cannot scope with pod/namespace selectors
+  # for external clients. Follow-up: ipBlock CIDR hardening (ACM-31409, PR #2561).
   - ports:
     - protocol: TCP
       port: 5432
