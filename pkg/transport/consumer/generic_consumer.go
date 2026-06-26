@@ -27,6 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/identity"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/utils"
 )
 
@@ -40,6 +41,7 @@ type GenericConsumer struct {
 	transportConfigChan  chan *transport.TransportInternalConfig
 	enableDatabaseOffset bool
 	isManager            bool
+	statusTopicPattern   string
 
 	// internal variables
 	eventChan chan *cloudevents.Event
@@ -161,6 +163,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig) (cloudevents.Client, error) {
 	topics := []string{tranConfig.KafkaCredential.SpecTopic}
 	if c.isManager {
+		c.statusTopicPattern = tranConfig.KafkaCredential.StatusTopic
 		topics = []string{tranConfig.KafkaCredential.StatusTopic}
 	}
 
@@ -223,14 +226,14 @@ func (c *GenericConsumer) receive(client cloudevents.Client, ctx context.Context
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
-			c.eventChan <- &event
+			c.publishReceivedEvent(&event)
 			return ceprotocol.ResultACK
 		}
 		if payload := c.assembler.assemble(chunk); payload != nil {
 			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {
 				log.Errorw("failed the set the assembled data to event", "error", err)
 			} else {
-				c.eventChan <- &event
+				c.publishReceivedEvent(&event)
 			}
 		}
 		return ceprotocol.ResultACK
@@ -240,6 +243,13 @@ func (c *GenericConsumer) receive(client cloudevents.Client, ctx context.Context
 	}
 	receivedMessage = false
 	return nil
+}
+
+func (c *GenericConsumer) publishReceivedEvent(event *cloudevents.Event) {
+	if c.isManager {
+		identity.EnrichManagerStatusEvent(event, c.statusTopicPattern)
+	}
+	c.eventChan <- event
 }
 
 func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
