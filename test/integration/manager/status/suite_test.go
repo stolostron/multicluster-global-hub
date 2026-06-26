@@ -95,7 +95,7 @@ var _ = BeforeSuite(func() {
 			TransportType: string(transport.Chan),
 			KafkaCredential: &transport.KafkaConfig{
 				SpecTopic:   "spec",
-				StatusTopic: "event",
+				StatusTopic: "gh-status.*",
 			},
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{

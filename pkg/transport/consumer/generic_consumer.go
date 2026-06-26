@@ -24,6 +24,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/identity"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/utils"
 )
 
@@ -31,6 +32,8 @@ type GenericConsumer struct {
 	assembler            *messageAssembler
 	eventChan            chan *cloudevents.Event
 	enableDatabaseOffset bool
+	isManager            bool
+	statusTopicPattern   string
 
 	consumerCtx    context.Context
 	consumerCancel context.CancelFunc
@@ -89,6 +92,11 @@ func (c *GenericConsumer) KafkaConsumer() *kafka.Consumer {
 func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig, topics []string) error {
 	var err error
 	var clientProtocol interface{}
+
+	c.isManager = len(topics) > 0 && topics[0] == tranConfig.KafkaCredential.StatusTopic
+	if c.isManager {
+		c.statusTopicPattern = tranConfig.KafkaCredential.StatusTopic
+	}
 
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
@@ -183,14 +191,14 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
-			c.eventChan <- &event
+			c.publishReceivedEvent(&event)
 			return ceprotocol.ResultACK
 		}
 		if payload := c.assembler.assemble(chunk); payload != nil {
 			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {
 				log.Errorw("failed the set the assembled data to event", "error", err)
 			} else {
-				c.eventChan <- &event
+				c.publishReceivedEvent(&event)
 			}
 		}
 		return ceprotocol.ResultACK
@@ -200,6 +208,13 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	}
 	receivedMessage = false
 	return nil
+}
+
+func (c *GenericConsumer) publishReceivedEvent(event *cloudevents.Event) {
+	if c.isManager {
+		identity.EnrichManagerStatusEvent(event, c.statusTopicPattern)
+	}
+	c.eventChan <- event
 }
 
 func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
