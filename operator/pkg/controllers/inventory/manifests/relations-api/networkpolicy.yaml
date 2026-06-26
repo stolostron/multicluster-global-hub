@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: relations-api
+  namespace: {{.Namespace}}
+  labels:
+    global-hub.open-cluster-management.io/managed-by: global-hub-operator
+spec:
+  podSelector:
+    matchLabels:
+      app: relations-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow incoming connections to HTTP and gRPC ports
+  - ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 9000
+  egress:
+  # Allow connections to SpiceDB
+  - to:
+    - podSelector:
+        matchLabels:
+          authzed.com/cluster: spicedb
+    ports:
+    - protocol: TCP
+      port: 50051
+  # Allow all other egress for external dependencies
+  - to:
+    - namespaceSelector: {}

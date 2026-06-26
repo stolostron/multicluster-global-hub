@@ -10,7 +10,7 @@ require (
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.16.2
 	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/cloudflare/cfssl v1.6.5
-	github.com/confluentinc/confluent-kafka-go/v2 v2.14.1
+	github.com/confluentinc/confluent-kafka-go/v2 v2.14.2
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
@@ -63,10 +63,6 @@ require (
 )
 
 require (
-	github.com/Microsoft/hcsshim v0.11.7 // indirect
-	github.com/containerd/containerd/api v1.8.0 // indirect
-	github.com/containerd/continuity v0.4.4 // indirect
-	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/daixiang0/gci v0.14.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-openapi/swag/cmdutils v0.25.4 // indirect
@@ -85,7 +81,6 @@ require (
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
-	github.com/moby/sys/user v0.3.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
@@ -95,7 +90,6 @@ require (
 	mvdan.cc/gofumpt v0.10.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
-	tags.cncf.io/container-device-interface v0.8.1 // indirect
 )
 
 require (
@@ -122,7 +116,6 @@ require (
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-kratos/aegis v0.2.0 // indirect
-	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.22.4 // indirect
 	github.com/go-openapi/jsonreference v0.21.4 // indirect
 	github.com/go-openapi/swag v0.25.4 // indirect

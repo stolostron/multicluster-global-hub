@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -58,6 +59,7 @@ import (
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheuses/api,resourceNames=k8s,verbs=get;create;update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
 
 //go:embed manifests
 var fs embed.FS
@@ -169,7 +171,9 @@ func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&rbacv1.ClusterRoleBinding{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Watches(&routev1.Route{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate))
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&networkingv1.NetworkPolicy{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(networkPolicyPred))
 
 	if _, err := mgr.GetRESTMapper().KindFor(schema.GroupVersionResource{
 		Group:    "image.openshift.io",
@@ -186,6 +190,21 @@ func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 var deploymentPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+}
+
+var networkPolicyPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
