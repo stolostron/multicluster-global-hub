@@ -36,7 +36,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@63c23d5020da8f97005b6de340504130bdbe42c7 # v9
         with:
-          version: v2.7.2
+          version: v2.12.2
 
       - name: format
         run: make strict-fmt
