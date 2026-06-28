@@ -19,6 +19,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	haconfigbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/haconfig"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -30,6 +31,7 @@ const (
 type HAConfigSyncer struct {
 	client      client.Client
 	leafHubName string
+	standbyHub  string
 }
 
 func NewHAConfigSyncer(client client.Client,
@@ -38,6 +40,7 @@ func NewHAConfigSyncer(client client.Client,
 	return &HAConfigSyncer{
 		client:      client,
 		leafHubName: agentConfig.LeafHubName,
+		standbyHub:  agentConfig.GetStandbyHub(),
 	}
 }
 
@@ -48,6 +51,19 @@ func (s *HAConfigSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error
 	}
 	activeHub := evt.Subject()
 	standbyHub := evt.Source()
+	if activeHub != s.leafHubName {
+		log.Warnw("dropping HA config event for unexpected subject", "subject", activeHub, "leafHub", s.leafHubName)
+		return nil
+	}
+	if standbyHub == "" || standbyHub == activeHub {
+		log.Warnw("dropping HA config event with untrusted source", "source", standbyHub, "subject", activeHub)
+		return nil
+	}
+	if standbyHub != constants.CloudEventGlobalHubClusterName && s.standbyHub != "" && standbyHub != s.standbyHub {
+		log.Warnw("dropping HA config event from unexpected standby hub",
+			"source", standbyHub, "expectedStandby", s.standbyHub)
+		return nil
+	}
 	log.Infof("received HA config event: activeHub=%s, standbyHub=%s", activeHub, standbyHub)
 
 	if bundle.BootstrapSecret == nil {

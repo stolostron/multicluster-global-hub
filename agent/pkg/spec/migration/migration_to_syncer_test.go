@@ -37,6 +37,25 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+func deployingMigrationCR(from, to string) *migrationv1alpha1.ManagedClusterMigration {
+	return &migrationv1alpha1.ManagedClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-migration"},
+		Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+			From: from,
+			To:   to,
+		},
+		Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+			Phase: migrationv1alpha1.PhaseDeploying,
+		},
+	}
+}
+
+func migrationTestScheme() *runtime.Scheme {
+	scheme := configs.GetRuntimeScheme()
+	_ = migrationv1alpha1.AddToScheme(scheme)
+	return scheme
+}
+
 // TestFormatErrorMessages tests the formatErrorMessages function
 func TestFormatErrorMessages(t *testing.T) {
 	cases := []struct {
@@ -1334,12 +1353,13 @@ func TestDeploying(t *testing.T) {
 	evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
 	evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 
-	scheme := configs.GetRuntimeScheme()
+	scheme := migrationTestScheme()
 	ctx := context.Background()
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(
 		&clusterv1.ManagedCluster{},
 		&addonv1.KlusterletAddonConfig{},
-	).Build()
+		&migrationv1alpha1.ManagedClusterMigration{},
+	).WithObjects(deployingMigrationCR("hub1", "hub2")).Build()
 	// set agent config
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	// set tranport config
@@ -1350,7 +1370,7 @@ func TestDeploying(t *testing.T) {
 	transportClient.SetProducer(&producer)
 	agentConfig := &configs.AgentConfig{
 		TransportConfig: transportConfig,
-		LeafHubName:     "hub1",
+		LeafHubName:     "hub2",
 	}
 	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
 	syncer.processingMigrationId = migrationId
@@ -1516,7 +1536,7 @@ func TestRegistering(t *testing.T) {
 // TestDeployingBatchReceiving tests receiving multiple batches of resources during deploying stage
 func TestDeployingBatchReceiving(t *testing.T) {
 	migrationId := "test-migration-batch-456"
-	scheme := configs.GetRuntimeScheme()
+	scheme := migrationTestScheme()
 	ctx := context.Background()
 
 	cases := []struct {
@@ -1550,7 +1570,8 @@ func TestDeployingBatchReceiving(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(
 				&clusterv1.ManagedCluster{},
 				&addonv1.KlusterletAddonConfig{},
-			).Build()
+				&migrationv1alpha1.ManagedClusterMigration{},
+			).WithObjects(deployingMigrationCR("hub1", "hub2")).Build()
 			configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 
 			transportConfig := &transport.TransportInternalConfig{
@@ -1562,7 +1583,7 @@ func TestDeployingBatchReceiving(t *testing.T) {
 			transportClient.SetProducer(&producer)
 			agentConfig := &configs.AgentConfig{
 				TransportConfig: transportConfig,
-				LeafHubName:     "hub1",
+				LeafHubName:     "hub2",
 			}
 
 			syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
@@ -2644,11 +2665,13 @@ func TestInitializing(t *testing.T) {
 // TestDeployingBatchReceivingError tests error handling during batch receiving
 func TestDeployingBatchReceivingError(t *testing.T) {
 	migrationId := "test-migration-error-789"
-	scheme := configs.GetRuntimeScheme()
+	scheme := migrationTestScheme()
 	ctx := context.Background()
 
 	t.Run("Receive bundle with mismatched migration ID", func(t *testing.T) {
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
+			WithObjects(deployingMigrationCR("hub1", "hub2")).Build()
 		configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 
 		transportConfig := &transport.TransportInternalConfig{
@@ -2660,7 +2683,7 @@ func TestDeployingBatchReceivingError(t *testing.T) {
 		transportClient.SetProducer(&producer)
 		agentConfig := &configs.AgentConfig{
 			TransportConfig: transportConfig,
-			LeafHubName:     "hub1",
+			LeafHubName:     "hub2",
 		}
 
 		syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
