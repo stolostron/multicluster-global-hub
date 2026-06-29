@@ -186,4 +186,4 @@ Components must not cross-import except through `pkg/` and `operator/api/`:
 | `github.com/cloudevents/sdk-go/v2` | v2.16.x | Status bundle transport |
 | `gorm.io/gorm` / `github.com/jackc/pgx/v5` | v1.30.x / v5.7.x | PostgreSQL |
 | `github.com/stolostron/...` (ACM/OCM) | various | Policy, placement, subscription APIs |
-| Go | 1.25.7 | Toolchain |
+| Go | 1.26.3 | Toolchain |

@@ -154,7 +154,7 @@ Use the Fleet plugin in Claude Code (`make install-claude` in agentic-sdlc) when
 
 | Dependency | Version | Purpose |
 |---|---|---|
-| Go | 1.25.7 | Toolchain |
+| Go | 1.26.3 | Toolchain |
 | Kubernetes | v0.33.x | client-go, api, apimachinery |
 | controller-runtime | v0.21.x | Operator framework |
 | IBM Sarama | v1.46.x | Kafka client |
