@@ -8,7 +8,7 @@ export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=1.1.1
 export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
-export GO_VERSION=go1.25.7
+export GO_VERSION=go1.26.3
 export GINKGO_VERSION=v2.31.0
 
 # Environment Variables
@@ -714,8 +714,11 @@ check_golang() {
     sudo tar -C /usr/local/ -xvf $GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
     sudo rm $GO_VERSION.linux-amd64.tar.gz
   fi
-  if [[ $(go version) < "go version go1.24" ]]; then
-    echo "go version is less than 1.24, update to $GO_VERSION"
+  installed_version=$(go version | awk '{print $3}' | sed 's/^go//')
+  required_version=${GO_VERSION#go}
+  version_compare "$installed_version" "$required_version"
+  if [[ $? -eq 2 ]]; then
+    echo "go version is less than ${required_version}, update to $GO_VERSION"
     sudo rm -rf /usr/local/go
     wget https://dl.google.com/go/$GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
     sudo tar -C /usr/local/ -xvf $GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
