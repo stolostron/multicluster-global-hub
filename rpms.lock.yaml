@@ -904,20 +904,20 @@ arches:
     name: gcc-c++
     evr: 11.5.0-14.el9
     sourcerpm: gcc-11.5.0-14.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/g/glibc-devel-2.34-270.el9_8.ppc64le.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/g/glibc-devel-2.34-272.el9_8.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-appstream-rpms
-    size: 588949
-    checksum: sha256:d9f77ee546f6fb00410aba8f6211df271515f3601de604ce38ba5e57c8c0944d
+    size: 588129
+    checksum: sha256:19a625949ac3232453854b777adfcf18e1c895c48246b1026f28e7ca53c8104c
     name: glibc-devel
-    evr: 2.34-270.el9_8
-    sourcerpm: glibc-2.34-270.el9_8.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/k/kernel-headers-5.14.0-687.19.1.el9_8.ppc64le.rpm
+    evr: 2.34-272.el9_8
+    sourcerpm: glibc-2.34-272.el9_8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/k/kernel-headers-5.14.0-687.20.1.el9_8.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-appstream-rpms
-    size: 2869573
-    checksum: sha256:290db5b27dc80169cee5ca8b1d6737c0ecbcde698af267e8ce2065dd4a2dbe58
+    size: 2871145
+    checksum: sha256:f616fc5b97db6b1e654006fb85628aea7fd0f4733dce597b8a9451dc9e7ef8d4
     name: kernel-headers
-    evr: 5.14.0-687.19.1.el9_8
-    sourcerpm: kernel-5.14.0-687.19.1.el9_8.src.rpm
+    evr: 5.14.0-687.20.1.el9_8
+    sourcerpm: kernel-5.14.0-687.20.1.el9_8.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/l/libasan-11.5.0-14.el9.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-appstream-rpms
     size: 440756
@@ -1149,34 +1149,34 @@ arches:
     name: gdbm-libs
     evr: 1:1.23-1.el9
     sourcerpm: gdbm-1.23-1.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/g/glibc-2.34-270.el9_8.ppc64le.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/g/glibc-2.34-272.el9_8.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
-    size: 2911722
-    checksum: sha256:5c23883112e39d4d3fe62d6d0d6f6c5b9729fe94b62bb551ceaa868a48d880ce
+    size: 2912552
+    checksum: sha256:e40b6ac5d83ca265dc7c20052b2d7b2b6ec3a4d0afc8dca6a18c49a2102f7309
     name: glibc
-    evr: 2.34-270.el9_8
-    sourcerpm: glibc-2.34-270.el9_8.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/g/glibc-common-2.34-270.el9_8.ppc64le.rpm
+    evr: 2.34-272.el9_8
+    sourcerpm: glibc-2.34-272.el9_8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/g/glibc-common-2.34-272.el9_8.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
-    size: 340448
-    checksum: sha256:e97f806a6d88f05c0556dbe7b079647a85dea5428897ca29ed8d2c962d3e1f0c
+    size: 339682
+    checksum: sha256:a338f828b7224d8c2cadf2d7f2e820fbf3aa5fa9e2900d73417a43bd45c889ab
     name: glibc-common
-    evr: 2.34-270.el9_8
-    sourcerpm: glibc-2.34-270.el9_8.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/g/glibc-gconv-extra-2.34-270.el9_8.ppc64le.rpm
+    evr: 2.34-272.el9_8
+    sourcerpm: glibc-2.34-272.el9_8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/g/glibc-gconv-extra-2.34-272.el9_8.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
-    size: 1833932
-    checksum: sha256:7f2dd81016e098191741fd68f6a1f48de20a7049d23332887429b8f66dd47b3e
+    size: 1833589
+    checksum: sha256:28ac332492d015a42ad850ae0003d274a8311c3d5c1b7f6da407e48fe65af04d
     name: glibc-gconv-extra
-    evr: 2.34-270.el9_8
-    sourcerpm: glibc-2.34-270.el9_8.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/g/glibc-minimal-langpack-2.34-270.el9_8.ppc64le.rpm
+    evr: 2.34-272.el9_8
+    sourcerpm: glibc-2.34-272.el9_8.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/g/glibc-minimal-langpack-2.34-272.el9_8.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
-    size: 31837
-    checksum: sha256:af0afca474195ac93e468d61fa316b6dcc5b9d0270a13655fac38298bee320cf
+    size: 30993
+    checksum: sha256:f7df8a611d71e1e93ee724fa32b41351beda9567e204e962ac3407dda3bad0c6
     name: glibc-minimal-langpack
-    evr: 2.34-270.el9_8
-    sourcerpm: glibc-2.34-270.el9_8.src.rpm
+    evr: 2.34-272.el9_8
+    sourcerpm: glibc-2.34-272.el9_8.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/g/gmp-6.2.0-13.el9.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
     size: 312805
@@ -2676,13 +2676,13 @@ arches:
     name: glibc-headers
     evr: 2.34-272.el9_8
     sourcerpm: glibc-2.34-272.el9_8.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/k/kernel-headers-5.14.0-687.19.1.el9_8.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/k/kernel-headers-5.14.0-687.20.1.el9_8.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
-    size: 2885085
-    checksum: sha256:abf1c02de3fd7edded172548c889899a05ed712b842dfb719dd25768466339de
+    size: 2886649
+    checksum: sha256:15bc07a73a86aa6278eafa5d523c4de21c8a37f6178b94283845b1bfd929e7f7
     name: kernel-headers
-    evr: 5.14.0-687.19.1.el9_8
-    sourcerpm: kernel-5.14.0-687.19.1.el9_8.src.rpm
+    evr: 5.14.0-687.20.1.el9_8
+    sourcerpm: kernel-5.14.0-687.20.1.el9_8.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libmpc-1.2.1-4.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
     size: 66075
