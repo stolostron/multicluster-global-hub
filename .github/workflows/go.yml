@@ -22,7 +22,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: '1.26'
 
       - name: Setup gci
         run: go install github.com/daixiang0/gci@v0.13.7
@@ -34,6 +34,7 @@ jobs:
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
           version: v2.7.2
+          install-mode: goinstall
 
       - name: format
         run: make strict-fmt
