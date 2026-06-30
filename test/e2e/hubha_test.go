@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,8 +25,7 @@ import (
 const (
 	// With list-watch pattern + immediate send, changes are detected and sent immediately
 	// Wait time accounts for: controller event processing + Kafka transport + standby agent apply
-	hubHASyncWait       = 10 * time.Second
-	hubHAUpdateSyncWait = 2 * time.Minute // ManagedCluster updates can lag on loaded Prow e2e clusters
+	hubHASyncWait = 10 * time.Second
 )
 
 var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
@@ -782,10 +780,6 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 					_ = standbyHubClient.Delete(ctx, &clusterv1.ManagedCluster{
 						ObjectMeta: metav1.ObjectMeta{Name: testClusterName},
 					})
-					Eventually(func() bool {
-						err := standbyHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, &clusterv1.ManagedCluster{})
-						return apierrors.IsNotFound(err)
-					}, hubHAUpdateSyncWait, 5*time.Second).Should(BeTrue())
 				}
 			})
 
@@ -1092,7 +1086,7 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 
 					klog.Infof("ManagedCluster %s update synced correctly with hubAcceptsClient=false maintained", testClusterName)
 					return nil
-				}, hubHAUpdateSyncWait, 5*time.Second).Should(Succeed())
+				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
 			})
 		})
 	})
