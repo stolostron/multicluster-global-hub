@@ -1,4 +1,4 @@
-
+#!/bin/bash
 
 function limit_range_policy() {
 plicy_name=$1
@@ -123,7 +123,7 @@ kubectl patch policy $root_policy_namespace.$root_plicy_name -n $cluster_name --
 function generate_placement() {
 placement_namespace="$1"
 placement_name="$2"
-decsion="$3"
+decision="$3"
 
 cat <<EOF | kubectl apply -f -
 apiVersion: cluster.open-cluster-management.io/v1beta1
