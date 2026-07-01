@@ -1,6 +1,11 @@
 module github.com/stolostron/multicluster-global-hub
 
-go 1.25.9
+go 1.26.3
+
+tool (
+	github.com/daixiang0/gci
+	mvdan.cc/gofumpt
+)
 
 require (
 	github.com/IBM/sarama v1.44.0
@@ -68,11 +73,14 @@ require (
 
 require (
 	github.com/containerd/containerd v1.7.29 // indirect
+	github.com/daixiang0/gci v0.14.0 // indirect
 	github.com/gonvenience/idem v0.0.3 // indirect
+	github.com/hexops/gotextdiff v1.0.3 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/mod v0.35.0 // indirect
+	mvdan.cc/gofumpt v0.7.0 // indirect
 )
 
 require (

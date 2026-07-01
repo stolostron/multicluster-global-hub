@@ -165,6 +165,8 @@ github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d h1
 github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d/go.mod h1:rofwFoq0O85c9lyj3xC2Hl7SG9jo63c/NwXX85JjVVA=
 github.com/cyphar/filepath-securejoin v0.3.6 h1:4d9N5ykBnSp5Xn2JkhocYDkOpURL/18CYMpo6xB9uWM=
 github.com/cyphar/filepath-securejoin v0.3.6/go.mod h1:Sdj7gXlvMcPZsbhwhQ33GguGLDGQL7h7bg04C/+u9jI=
+github.com/daixiang0/gci v0.14.0 h1:h6AcLqmjIOBgojhtzY2CvBnA6RawPTkBHgtMvYD5YZ8=
+github.com/daixiang0/gci v0.14.0/go.mod h1:w9E+SWQ4aPQ+xYPUdqitGDoXpT4mayqOfk7Szz2U6wQ=
 github.com/davecgh/go-spew v0.0.0-20151105211317-5215b55f46b2/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -468,6 +470,8 @@ github.com/hashicorp/go-version v1.7.0/go.mod h1:fltr4n8CU8Ke44wwGCBoEymUuxUHl09
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
+github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
+github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/homeport/dyff v1.10.4 h1:l1Y7TF5+bvmZ4sZbo/78RnjrPGoUj5q6O8Qoxxsx/Xs=
 github.com/homeport/dyff v1.10.4/go.mod h1:i5C9VJj2SDS7m8Z3ULwk1Araou05Dg+5mb0WsYVmxhY=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
@@ -1308,6 +1312,8 @@ modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
 modernc.org/strutil v1.0.0/go.mod h1:lstksw84oURvj9y3tn8lGvRxyRC1S2+g5uuIzNfIOBs=
 modernc.org/xc v1.0.0/go.mod h1:mRNCo0bvLjGhHO9WsyuKVU4q0ceiDDDoEeWDJHrNx8I=
+mvdan.cc/gofumpt v0.7.0 h1:bg91ttqXmi9y2xawvkuMXyvAA/1ZGJqYAEGjXuP0JXU=
+mvdan.cc/gofumpt v0.7.0/go.mod h1:txVFJy/Sc/mvaycET54pV8SW8gWxTlUuGHVEcncmNUo=
 nullprogram.com/x/optparse v1.0.0/go.mod h1:KdyPE+Igbe0jQUrVfMqDMeJQIJZEuyV7pjYmp6pbG50=
 open-cluster-management.io/addon-framework v0.11.0 h1:ZJxphgHQ36VUJF0RIag+nzcEn5PNyep2rsEPdz6wT7o=
 open-cluster-management.io/addon-framework v0.11.0/go.mod h1:ruMU8i/dciz3qCv2CQ46Cu1b7rkK7TpvB+W4bRwHf+I=
