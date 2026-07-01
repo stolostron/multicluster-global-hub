@@ -180,10 +180,10 @@ Components must not cross-import except through `pkg/` and `operator/api/`:
 
 | Dependency | Version | Purpose |
 |---|---|---|
-| `sigs.k8s.io/controller-runtime` | v0.21.x | Operator and controller framework |
+| `sigs.k8s.io/controller-runtime` | v0.23.3 | Operator and controller framework |
 | `github.com/IBM/sarama` | v1.46.x | Kafka (Sarama transport) |
 | `github.com/confluentinc/confluent-kafka-go/v2` | v2.14.x | Kafka (Confluent transport) |
 | `github.com/cloudevents/sdk-go/v2` | v2.16.x | Status bundle transport |
-| `gorm.io/gorm` / `github.com/jackc/pgx/v5` | v1.30.x / v5.7.x | PostgreSQL |
+| `gorm.io/gorm` / `github.com/jackc/pgx/v5` | v1.31.1 / v5.9.2 | PostgreSQL |
 | `github.com/stolostron/...` (ACM/OCM) | various | Policy, placement, subscription APIs |
 | Go | 1.26.3 | Toolchain |

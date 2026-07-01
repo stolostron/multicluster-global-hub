@@ -156,11 +156,11 @@ Use the Fleet plugin in Claude Code (`make install-claude` in agentic-sdlc) when
 |---|---|---|
 | Go | 1.26.3 | Toolchain |
 | Kubernetes | v0.33.x | client-go, api, apimachinery |
-| controller-runtime | v0.21.x | Operator framework |
+| controller-runtime | v0.23.3 | Operator framework |
 | IBM Sarama | v1.46.x | Kafka client |
 | Confluent Kafka Go | v2.14.x | Kafka client (alternative) |
 | CloudEvents SDK | v2.16.x | Status transport bundles |
-| GORM / pgx | v1.30.x / v5.7.x | PostgreSQL access |
+| GORM / pgx | v1.31.1 / v5.9.2 | PostgreSQL access |
 
 ---
 

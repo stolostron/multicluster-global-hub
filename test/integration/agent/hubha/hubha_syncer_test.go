@@ -83,10 +83,14 @@ var _ = Describe("Hub HA Active Syncer Integration", Ordered, func() {
 		agentConfig.SetStandbyHub("hub2")
 		agentconfigs.SetAgentConfig(agentConfig)
 
-		// Start the syncer once for all tests
-		syncCtx := context.Background()
-		syncErr := hubha.StartHubHAActiveSyncer(syncCtx, mgr, producer)
+		// Build an emitter for this test suite and start the resource-watching controller.
+		emitter := hubha.NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+		emitter.SetEnabled(true)
+		emitter.SetClient(mgr.GetClient())
+		allGVKs := hubha.GetHubHAResourcesToSync()
+		activeGVKs, syncErr := hubha.StartHubHAResourceSyncer(mgr, allGVKs, emitter)
 		Expect(syncErr).NotTo(HaveOccurred())
+		emitter.SetActiveResources(activeGVKs)
 	})
 
 	BeforeEach(func() {
