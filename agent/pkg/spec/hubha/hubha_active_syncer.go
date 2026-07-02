@@ -17,18 +17,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var log = logger.DefaultZapLogger()
 
 const (
-	// Full resync every 30 minutes as a safety net for consistency
-	// This handles edge cases like missed events during network issues or agent restarts
-	hubhaResyncInterval = 30 * time.Minute
 	// API Groups - constants to avoid string literal duplication
 	groupAddonOCM                 = "addon.open-cluster-management.io"
 	groupAgentOCM                 = "agent.open-cluster-management.io"
@@ -55,62 +49,19 @@ const (
 	groupCAPIProviderAgentInstall = "capi-provider.agent-install.openshift.io"
 )
 
-// hubHAController implements reconciliation for all Hub HA resources using list-watch pattern
+// hubHAController implements reconciliation for all Hub HA resources using list-watch pattern.
+// It is started once via StartHubHAResourceSyncer and runs for the lifetime of the agent.
+// Whether events are actually forwarded is controlled by HubHAEmitter.SetEnabled.
 type hubHAController struct {
 	client  client.Client
 	emitter *HubHAEmitter
 }
 
-// StartHubHAActiveSyncer starts the active hub syncer using controller-based list-watch pattern
-func StartHubHAActiveSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Producer) error {
-	// Only start if this is an active hub with a configured standby
-	agentConfig := configs.GetAgentConfig()
-	if agentConfig == nil {
-		log.Info("Hub HA active syncer not started - agent config is nil")
-		return nil
-	}
-
-	// Get hub role and standby hub atomically
-	hubRole, standbyHub := agentConfig.GetHubRoleAndStandbyHub()
-	if hubRole != constants.GHHubRoleActive {
-		log.Info("Hub HA active syncer not started - this is not an active hub")
-		return nil
-	}
-
-	if standbyHub == "" {
-		log.Warn("Hub HA active syncer not started - no standby hub configured")
-		return nil
-	}
-
-	log.Infof("starting Hub HA active syncer with list-watch pattern: %s (active) -> %s (standby)",
-		agentConfig.LeafHubName, standbyHub)
-
-	// Create shared emitter for all Hub HA resources
-	emitter := NewHubHAEmitter(
-		producer,
-		agentConfig.TransportConfig,
-		agentConfig.LeafHubName,
-		standbyHub,
-	)
-
-	// Start a single controller that watches all resource types
-	allResources := getHubHAResourcesToSync()
-	activeResources, err := startHubHAController(mgr, allResources, emitter)
-	if err != nil {
-		return err
-	}
-
-	log.Infof("Hub HA active syncer started watching %d/%d resource types", len(activeResources), len(allResources))
-
-	// Start periodic resync as a safety net for consistency (handles edge cases like missed events)
-	// Only resync resources that have active controllers
-	go periodicResync(ctx, mgr.GetClient(), emitter, activeResources, hubhaResyncInterval)
-
-	return nil
-}
-
-// startHubHAController starts a single controller that watches all Hub HA resource types
-func startHubHAController(mgr ctrl.Manager, allGVKs []schema.GroupVersionKind,
+// StartHubHAResourceSyncer starts a single controller that watches all Hub HA resource GVKs
+// and feeds events into emitter. It returns the subset of GVKs for which CRDs are installed.
+// This should be called at most once (use sync.Once in the caller).
+// Lifecycle management (enable/disable based on hub role) is done via emitter.SetEnabled.
+func StartHubHAResourceSyncer(mgr ctrl.Manager, allGVKs []schema.GroupVersionKind,
 	emitter *HubHAEmitter,
 ) ([]schema.GroupVersionKind, error) {
 	// Create controller that handles all GVKs
@@ -129,11 +80,14 @@ func startHubHAController(mgr ctrl.Manager, allGVKs []schema.GroupVersionKind,
 
 	// Add watches for each GVK using WatchesMetadata with custom handler
 	for _, gvk := range allGVKs {
-		// Check if CRD exists
+		// Check if CRD exists; distinguish a missing CRD from a real mapper failure.
 		_, err := mgr.GetRESTMapper().RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			log.Debugf("skipped watch for %s: CRD not installed", gvk.String())
-			continue
+			if meta.IsNoMatchError(err) {
+				log.Debugf("skipped watch for %s: CRD not installed", gvk.String())
+				continue
+			}
+			return nil, fmt.Errorf("failed to resolve REST mapping for %s: %w", gvk.String(), err)
 		}
 
 		// Create instance for this GVK
@@ -237,67 +191,8 @@ func (c *hubHAController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return ctrl.Result{}, nil
 }
 
-// periodicResync performs full resyncs at regular intervals for consistency
-func periodicResync(ctx context.Context, c client.Client, emitter *HubHAEmitter,
-	resourcesToSync []schema.GroupVersionKind, interval time.Duration,
-) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Info("Hub HA periodic resync stopped")
-			return
-		case <-ticker.C:
-			log.Info("starting Hub HA full resync")
-			if err := performFullResync(ctx, c, emitter, resourcesToSync); err != nil {
-				log.Errorf("failed to perform Hub HA full resync: %v", err)
-			}
-		}
-	}
-}
-
-// performFullResync lists all resources and triggers a resync
-func performFullResync(ctx context.Context, c client.Client, emitter *HubHAEmitter,
-	resourcesToSync []schema.GroupVersionKind,
-) error {
-	allObjects := []client.Object{}
-
-	for _, gvk := range resourcesToSync {
-		list := &unstructured.UnstructuredList{}
-		list.SetGroupVersionKind(schema.GroupVersionKind{
-			Group:   gvk.Group,
-			Version: gvk.Version,
-			Kind:    gvk.Kind + "List",
-		})
-
-		if err := c.List(ctx, list); err != nil {
-			// If CRD doesn't exist, skip it
-			if meta.IsNoMatchError(err) {
-				log.Debugf("CRD not installed for %s, skipping resync", gvk.String())
-				continue
-			}
-			log.Warnf("failed to list resources for %s during resync: %v", gvk.String(), err)
-			continue
-		}
-
-		for i := range list.Items {
-			obj := &list.Items[i]
-			allObjects = append(allObjects, obj)
-		}
-	}
-
-	log.Infof("performing Hub HA full resync with %d total objects", len(allObjects))
-	if err := emitter.Resync(allObjects); err != nil {
-		return err
-	}
-	// Send the resync bundle immediately
-	return emitter.Send()
-}
-
-// getHubHAResourcesToSync returns the list of resources to sync for Hub HA
-func getHubHAResourcesToSync() []schema.GroupVersionKind {
+// GetHubHAResourcesToSync returns the canonical list of GVKs the Hub HA active syncer watches.
+func GetHubHAResourcesToSync() []schema.GroupVersionKind {
 	return []schema.GroupVersionKind{
 		// ACM/OCM Addon resources
 		{Group: groupAddonOCM, Version: "v1beta1", Kind: "AddOnDeploymentConfig"},
