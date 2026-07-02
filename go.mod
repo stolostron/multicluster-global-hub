@@ -4,6 +4,7 @@ go 1.26.3
 
 tool (
 	github.com/daixiang0/gci
+	github.com/onsi/ginkgo/v2/ginkgo
 	mvdan.cc/gofumpt
 )
 
