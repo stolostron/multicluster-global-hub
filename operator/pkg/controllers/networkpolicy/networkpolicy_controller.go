@@ -20,6 +20,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	nputils "github.com/stolostron/multicluster-global-hub/operator/pkg/networkpolicy"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -28,6 +29,9 @@ import (
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
+// +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
+// +kubebuilder:rbac:groups=config.openshift.io,resources=networks,verbs=get;list;watch
 
 //go:embed manifests
 var fs embed.FS
@@ -128,14 +132,9 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	npRenderer := renderer.NewHoHRenderer(fs)
 	npDeployer := deployer.NewHoHDeployer(r.GetClient())
 
+	npValues := nputils.BuildBaselineValues(ctx, r.GetClient(), mgh.Namespace, config.COMPONENTS_POSTGRES_NAME)
 	networkPolicyObjects, err := npRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
-		return struct {
-			Namespace    string
-			PostgresName string
-		}{
-			Namespace:    mgh.Namespace,
-			PostgresName: config.COMPONENTS_POSTGRES_NAME,
-		}, nil
+		return npValues, nil
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to render networkpolicy manifests: %w", err)

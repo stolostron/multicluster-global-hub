@@ -186,6 +186,7 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	log.Debugf("render agent resources")
 	return renderAgentManifests(
+		ctx,
 		s.Manager,
 		clusterName,
 		getTransportSecretName(),

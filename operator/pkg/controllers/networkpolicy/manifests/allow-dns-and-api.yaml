@@ -33,9 +33,22 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow access to Kubernetes API server service IP
+  # Allow access to Kubernetes API server
+  {{- if .APIServerCIDRs }}
+  - to:
+    {{- range .APIServerCIDRs }}
+    - ipBlock:
+        cidr: {{ . }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  {{- else }}
   - ports:
     - protocol: TCP
       port: 443
     - protocol: TCP
       port: 6443
+  {{- end }}

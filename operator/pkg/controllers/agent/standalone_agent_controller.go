@@ -32,6 +32,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	nputils "github.com/stolostron/multicluster-global-hub/operator/pkg/networkpolicy"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -153,6 +154,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 	clusterName := string(infra.GetUID())
 
 	return renderAgentManifests(
+		ctx,
 		s.Manager,
 		clusterName,
 		constants.GHTransportConfigSecret,
@@ -162,6 +164,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 func renderAgentManifests(
+	ctx context.Context,
 	mgr ctrl.Manager,
 	clusterName string,
 	transportConfigSecretName string,
@@ -244,6 +247,17 @@ func renderAgentManifests(
 		log.Errorw("failed to get log level", "error", err)
 		return ctrl.Result{}, err
 	}
+
+	bootstrapServer := ""
+	if trans := config.GetTransporter(); trans != nil {
+		if conn, connErr := trans.GetConnCredential(clusterName); connErr == nil {
+			bootstrapServer = conn.BootstrapServer
+		} else {
+			log.Warnw("failed to resolve kafka bootstrap for agent NetworkPolicy", "error", connErr)
+		}
+	}
+	npValues := nputils.BuildAgentValues(ctx, mgr.GetClient(), namespace, bootstrapServer)
+
 	// create the agent objects
 	agentObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
@@ -268,6 +282,9 @@ func renderAgentManifests(
 			EventSendMode             string
 			HubRole                   string
 			StandbyHub                string
+			APIServerCIDRs            []string
+			ExternalKafkaCIDRs        []string
+			WebhookEgressCIDRs        []string
 		}{
 			Image:                     config.GetImage(config.GlobalHubAgentImageKey),
 			ImagePullSecret:           imagePullSecret,
@@ -290,6 +307,9 @@ func renderAgentManifests(
 			EventSendMode:             eventSendMode,
 			HubRole:                   constants.GHHubRoleStandby, // Local agent is always standby
 			StandbyHub:                clusterName,                // Standby hub is itself
+			APIServerCIDRs:            npValues.APIServerCIDRs,
+			ExternalKafkaCIDRs:        npValues.ExternalKafkaCIDRs,
+			WebhookEgressCIDRs:        npValues.WebhookEgressCIDRs,
 		}, nil
 	})
 	if err != nil {

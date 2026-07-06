@@ -978,6 +978,7 @@ spec:
           resources:
           - clusterversions
           - infrastructures
+          - networks
           verbs:
           - get
           - list
@@ -993,6 +994,14 @@ spec:
           - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - discovery.k8s.io
+          resources:
+          - endpointslices
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - extensions.hive.openshift.io
