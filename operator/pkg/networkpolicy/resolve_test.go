@@ -157,6 +157,7 @@ func TestResolvePostgresCIDRs_UnresolvableHost(t *testing.T) {
 		"postgresql://postgres:secret@ghost-service.ghost-ns.svc:5432/hoh")
 	require.Error(t, err, "expected error for unresolvable postgres host")
 	assert.Contains(t, err.Error(), "resolve postgres host", "unexpected error message")
+	assert.Contains(t, err.Error(), "ghost-service", "expected in-cluster service lookup error")
 }
 
 func TestParseServiceHost(t *testing.T) {

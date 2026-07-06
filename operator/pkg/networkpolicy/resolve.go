@@ -160,12 +160,13 @@ func resolveHostToCIDRs(
 	svcNamespace, svcName := parseServiceHost(host, defaultNamespace)
 	if svcName != "" {
 		svcCIDRs, err := resolveServiceCIDRs(ctx, c, svcNamespace, svcName)
-		if err == nil && len(svcCIDRs) > 0 {
-			for _, cidr := range svcCIDRs {
-				cidrs[cidr] = struct{}{}
-			}
-			return nil
+		if err != nil {
+			return err
 		}
+		for _, cidr := range svcCIDRs {
+			cidrs[cidr] = struct{}{}
+		}
+		return nil
 	}
 
 	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
