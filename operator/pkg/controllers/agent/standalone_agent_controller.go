@@ -213,12 +213,21 @@ func renderAgentManifests(
 	npValues := nputils.BuildAgentValues(ctx, mgr.GetClient(), src.namespace, bootstrapServer)
 
 	agentObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
-		return buildStandaloneAgentManifestTemplate(
-			src, clusterName, transportConfigSecretName, deployMode,
-			imagePullPolicy, resourceReq,
-			electionConfig.LeaseDuration, electionConfig.RenewDeadline, electionConfig.RetryPeriod,
-			agentQPS, agentBurst, logLevel, npValues,
-		), nil
+		return buildStandaloneAgentManifestTemplate(standaloneAgentRenderInput{
+			src:                       src,
+			clusterName:               clusterName,
+			transportConfigSecretName: transportConfigSecretName,
+			deployMode:                deployMode,
+			imagePullPolicy:           imagePullPolicy,
+			resourceReq:               resourceReq,
+			leaseDuration:             electionConfig.LeaseDuration,
+			renewDeadline:             electionConfig.RenewDeadline,
+			retryPeriod:               electionConfig.RetryPeriod,
+			agentQPS:                  agentQPS,
+			agentBurst:                agentBurst,
+			logLevel:                  logLevel,
+			npValues:                  npValues,
+		}), nil
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to render standalone agent objects: %v", err)
@@ -289,21 +298,23 @@ func standaloneAgentBootstrapServer(clusterName string) string {
 	return conn.BootstrapServer
 }
 
-func buildStandaloneAgentManifestTemplate(
-	src agentManifestSource,
-	clusterName string,
-	transportConfigSecretName string,
-	deployMode string,
-	imagePullPolicy corev1.PullPolicy,
-	resourceReq corev1.ResourceRequirements,
-	leaseDuration int,
-	renewDeadline int,
-	retryPeriod int,
-	agentQPS float32,
-	agentBurst int,
-	logLevel string,
-	npValues nputils.AgentManifestValues,
-) interface{} {
+type standaloneAgentRenderInput struct {
+	src                       agentManifestSource
+	clusterName               string
+	transportConfigSecretName string
+	deployMode                string
+	imagePullPolicy           corev1.PullPolicy
+	resourceReq               corev1.ResourceRequirements
+	leaseDuration             int
+	renewDeadline             int
+	retryPeriod               int
+	agentQPS                  float32
+	agentBurst                int
+	logLevel                  string
+	npValues                  nputils.AgentManifestValues
+}
+
+func buildStandaloneAgentManifestTemplate(in standaloneAgentRenderInput) interface{} {
 	return struct {
 		Image                     string
 		ImagePullSecret           string
@@ -331,29 +342,29 @@ func buildStandaloneAgentManifestTemplate(
 		WebhookEgressCIDRs        []string
 	}{
 		Image:                     config.GetImage(config.GlobalHubAgentImageKey),
-		ImagePullSecret:           src.imagePullSecret,
-		ImagePullPolicy:           string(imagePullPolicy),
-		Namespace:                 src.namespace,
-		NodeSelector:              src.nodeSelector,
-		Tolerations:               src.tolerations,
-		LeaseDuration:             strconv.Itoa(leaseDuration),
-		RenewDeadline:             strconv.Itoa(renewDeadline),
-		RetryPeriod:               strconv.Itoa(retryPeriod),
-		AgentQPS:                  agentQPS,
-		AgentBurst:                agentBurst,
-		LogLevel:                  logLevel,
-		ClusterId:                 clusterName,
-		Resources:                 &resourceReq,
-		TransportConfigSecretName: transportConfigSecretName,
-		EnableStackroxIntegration: src.enableStackroxIntegration,
-		StackroxPollInterval:      src.stackroxPollInterval,
-		DeployMode:                deployMode,
-		EventSendMode:             src.eventSendMode,
+		ImagePullSecret:           in.src.imagePullSecret,
+		ImagePullPolicy:           string(in.imagePullPolicy),
+		Namespace:                 in.src.namespace,
+		NodeSelector:              in.src.nodeSelector,
+		Tolerations:               in.src.tolerations,
+		LeaseDuration:             strconv.Itoa(in.leaseDuration),
+		RenewDeadline:             strconv.Itoa(in.renewDeadline),
+		RetryPeriod:               strconv.Itoa(in.retryPeriod),
+		AgentQPS:                  in.agentQPS,
+		AgentBurst:                in.agentBurst,
+		LogLevel:                  in.logLevel,
+		ClusterId:                 in.clusterName,
+		Resources:                 &in.resourceReq,
+		TransportConfigSecretName: in.transportConfigSecretName,
+		EnableStackroxIntegration: in.src.enableStackroxIntegration,
+		StackroxPollInterval:      in.src.stackroxPollInterval,
+		DeployMode:                in.deployMode,
+		EventSendMode:             in.src.eventSendMode,
 		HubRole:                   constants.GHHubRoleStandby,
-		StandbyHub:                clusterName,
-		APIServerCIDRs:            npValues.APIServerCIDRs,
-		ExternalKafkaCIDRs:        npValues.ExternalKafkaCIDRs,
-		WebhookEgressCIDRs:        npValues.WebhookEgressCIDRs,
+		StandbyHub:                in.clusterName,
+		APIServerCIDRs:            in.npValues.APIServerCIDRs,
+		ExternalKafkaCIDRs:        in.npValues.ExternalKafkaCIDRs,
+		WebhookEgressCIDRs:        in.npValues.WebhookEgressCIDRs,
 	}
 }
 
