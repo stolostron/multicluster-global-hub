@@ -92,7 +92,8 @@ func TestBuildBaselineValues_BYO(t *testing.T) {
 				Namespace: "gh-ns",
 			},
 			Data: map[string][]byte{
-				"database_uri": []byte("postgresql://postgres:secret@hoh-rw.multicluster-global-hub-postgres.svc:5432/hoh"),
+				"database_uri": testPostgresDatabaseURIBytes(
+					"hoh-rw.multicluster-global-hub-postgres.svc", testPostgresPassword()),
 			},
 		},
 		&corev1.Secret{
@@ -122,7 +123,7 @@ func TestBuildBaselineValues_BYOPostgresFallback(t *testing.T) {
 			Namespace: "gh-ns",
 		},
 		Data: map[string][]byte{
-			"database_uri": []byte("postgresql://postgres:secret@missing-postgres.ghost-ns.svc:5432/hoh"),
+			"database_uri": testPostgresDatabaseURIBytes("missing-postgres.ghost-ns.svc", testPostgresPassword()),
 		},
 	})
 	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
@@ -193,7 +194,8 @@ func TestBuildBaselineValues_BYOPostgresOnly(t *testing.T) {
 				Name: "multicluster-global-hub-storage", Namespace: "gh-ns",
 			},
 			Data: map[string][]byte{
-				"database_uri": []byte("postgresql://postgres:secret@hoh-rw.multicluster-global-hub-postgres.svc:5432/hoh"),
+				"database_uri": testPostgresDatabaseURIBytes(
+					"hoh-rw.multicluster-global-hub-postgres.svc", testPostgresPassword()),
 			},
 		},
 	)

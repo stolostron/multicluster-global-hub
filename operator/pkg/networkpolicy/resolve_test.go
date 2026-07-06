@@ -90,7 +90,7 @@ func TestResolvePostgresCIDRs_Service(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
 
 	cidrs, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns",
-		"postgresql://postgres:secret@hoh-rw.multicluster-global-hub-postgres.svc:5432/hoh")
+		testPostgresDatabaseURI("hoh-rw.multicluster-global-hub-postgres.svc", testPostgresPassword()))
 	require.NoError(t, err, "resolve postgres CIDRs")
 	assert.Equal(t, []string{"172.30.5.56/32"}, cidrs, "unexpected postgres CIDRs")
 }
@@ -106,14 +106,16 @@ func TestResolvePostgresCIDRs_InvalidURIDoesNotLeakCredentials(t *testing.T) {
 	scheme := newTestScheme(t)
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	_, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns", "://postgres:supersecret@bad-uri")
+	credentialPassword := testPostgresCredentialPassword()
+	_, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns",
+		"://"+testPostgresUser+":"+credentialPassword+"@bad-uri")
 	require.Error(t, err, "expected error for invalid postgres URI")
-	assert.NotContains(t, err.Error(), "supersecret", "parse error must not contain database credentials")
+	assert.NotContains(t, err.Error(), credentialPassword, "parse error must not contain database credentials")
 
 	_, err = ResolvePostgresCIDRs(t.Context(), c, "gh-ns",
-		"postgresql://postgres:supersecret@missing-postgres.ghost-ns.svc:5432/hoh")
+		testPostgresDatabaseURI("missing-postgres.ghost-ns.svc", credentialPassword))
 	require.Error(t, err, "expected error for unresolvable postgres host")
-	assert.NotContains(t, err.Error(), "supersecret", "host resolution error must not contain database credentials")
+	assert.NotContains(t, err.Error(), credentialPassword, "host resolution error must not contain database credentials")
 }
 
 func TestResolvePostgresCIDRs_EmptyHost(t *testing.T) {
@@ -145,7 +147,7 @@ func TestResolvePostgresCIDRs_WithEndpointSlice(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
 
 	cidrs, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns",
-		"postgresql://postgres:secret@hoh-rw.multicluster-global-hub-postgres.svc:5432/hoh")
+		testPostgresDatabaseURI("hoh-rw.multicluster-global-hub-postgres.svc", testPostgresPassword()))
 	require.NoError(t, err, "resolve postgres CIDRs with endpoint slice")
 	assert.ElementsMatch(t, []string{"10.131.1.85/32", "172.30.5.56/32"}, cidrs, "unexpected postgres CIDRs")
 }
@@ -154,7 +156,7 @@ func TestResolvePostgresCIDRs_UnresolvableHost(t *testing.T) {
 	scheme := newTestScheme(t)
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	_, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns",
-		"postgresql://postgres:secret@ghost-service.ghost-ns.svc:5432/hoh")
+		testPostgresDatabaseURI("ghost-service.ghost-ns.svc", testPostgresPassword()))
 	require.Error(t, err, "expected error for unresolvable postgres host")
 	assert.Contains(t, err.Error(), "resolve postgres host", "unexpected error message")
 	assert.Contains(t, err.Error(), "ghost-service", "expected in-cluster service lookup error")
