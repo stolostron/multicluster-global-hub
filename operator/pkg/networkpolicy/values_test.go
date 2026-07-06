@@ -75,7 +75,8 @@ func TestBuildBaselineValues_Fallback(t *testing.T) {
 
 func TestBuildAgentValues(t *testing.T) {
 	scheme := newTestScheme(t)
-	objs := append(kubernetesServiceObjects(),
+	objs := append(
+		kubernetesServiceObjects(),
 		&corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kafka-kafka-bootstrap",
