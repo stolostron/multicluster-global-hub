@@ -48,7 +48,12 @@ func ResolveAPIServerCIDRs(ctx context.Context, c client.Client) ([]string, erro
 
 // ResolveBootstrapServerCIDRs resolves Kafka bootstrap broker hostnames/IPs to ipBlock CIDR strings.
 // clusterNamespace is used to resolve unqualified in-cluster service names.
-func ResolveBootstrapServerCIDRs(ctx context.Context, c client.Client, bootstrapServer, clusterNamespace string) ([]string, error) {
+func ResolveBootstrapServerCIDRs(
+	ctx context.Context,
+	c client.Client,
+	bootstrapServer string,
+	clusterNamespace string,
+) ([]string, error) {
 	bootstrapServer = strings.TrimSpace(bootstrapServer)
 	if bootstrapServer == "" {
 		return nil, fmt.Errorf("empty bootstrap server")
@@ -103,7 +108,13 @@ func ResolveServiceNetworkCIDRs(ctx context.Context, c client.Client) ([]string,
 	return cidrs, nil
 }
 
-func resolveHostToCIDRs(ctx context.Context, c client.Client, host, defaultNamespace string, cidrs map[string]struct{}) error {
+func resolveHostToCIDRs(
+	ctx context.Context,
+	c client.Client,
+	host string,
+	defaultNamespace string,
+	cidrs map[string]struct{},
+) error {
 	host = strings.Trim(host, "[]")
 	if ip := net.ParseIP(host); ip != nil {
 		addHostCIDR(cidrs, ip)
@@ -163,21 +174,25 @@ func resolveServiceCIDRs(ctx context.Context, c client.Client, namespace, name s
 		log.Warnw("failed to list EndpointSlices for service",
 			"namespace", namespace, "name", name, "error", err)
 	} else {
-		for i := range sliceList.Items {
-			for _, endpoint := range sliceList.Items[i].Endpoints {
-				for _, addr := range endpoint.Addresses {
-					if ip := net.ParseIP(addr); ip != nil {
-						addHostCIDR(cidrs, ip)
-					}
-				}
-			}
-		}
+		addEndpointSliceCIDRs(sliceList, cidrs)
 	}
 
 	if len(cidrs) == 0 {
 		return nil, fmt.Errorf("no addresses found for service %s/%s", namespace, name)
 	}
 	return sortedCIDRs(cidrs), nil
+}
+
+func addEndpointSliceCIDRs(sliceList *discoveryv1.EndpointSliceList, cidrs map[string]struct{}) {
+	for i := range sliceList.Items {
+		for _, endpoint := range sliceList.Items[i].Endpoints {
+			for _, addr := range endpoint.Addresses {
+				if ip := net.ParseIP(addr); ip != nil {
+					addHostCIDR(cidrs, ip)
+				}
+			}
+		}
+	}
 }
 
 func brokerHost(broker string) string {

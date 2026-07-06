@@ -172,65 +172,27 @@ func renderAgentManifests(
 	mgh *v1alpha4.MulticlusterGlobalHub,
 	deployMode string,
 ) (ctrl.Result, error) {
-	var namespace string
-	var agentImagePullPolicy corev1.PullPolicy
-	var resources *shared.ResourceRequirements
-	var imagePullSecret string
-	var nodeSelector map[string]string
-	var tolerations []corev1.Toleration
-	var owner metav1.Object
-	var enableStackroxIntegration bool
-	var stackroxPollInterval time.Duration
-	var eventSendMode string
+	src := agentManifestSourceFromCR(mgha, mgh)
 
-	if mgh != nil {
-		namespace = mgh.Namespace
-		agentImagePullPolicy = mgh.Spec.ImagePullPolicy
-		if mgh.Spec.AdvancedSpec != nil &&
-			mgh.Spec.AdvancedSpec.Agent != nil &&
-			mgh.Spec.AdvancedSpec.Agent.Resources != nil {
-			resources = mgh.Spec.AdvancedSpec.Agent.Resources
-		}
-		imagePullSecret = mgh.Spec.ImagePullSecret
-		nodeSelector = mgh.Spec.NodeSelector
-		tolerations = mgh.Spec.Tolerations
-		owner = mgh
-		enableStackroxIntegration = config.WithStackroxIntegration(mgh)
-		stackroxPollInterval = config.GetStackroxPollInterval(mgh)
-		eventSendMode = config.GetEventSendMode(mgh)
-	}
-	if mgha != nil {
-		namespace = mgha.Namespace
-		agentImagePullPolicy = mgha.Spec.ImagePullPolicy
-		resources = mgha.Spec.Resources
-		imagePullSecret = mgha.Spec.ImagePullSecret
-		nodeSelector = mgha.Spec.NodeSelector
-		tolerations = mgha.Spec.Tolerations
-		owner = mgha
-		eventSendMode = config.GetEventSendMode(mgha)
-	}
-	// create new HoHRenderer and HoHDeployer
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(mgr.GetClient())
 
-	// create discovery client
 	dc, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	imagePullPolicy := corev1.PullAlways
-	if agentImagePullPolicy != "" {
-		imagePullPolicy = agentImagePullPolicy
+	if src.agentImagePullPolicy != "" {
+		imagePullPolicy = src.agentImagePullPolicy
 	}
 	agentQPS, agentBurst := config.GetAgentRestConfig()
 
-	// set resource requirements
 	resourceReq := corev1.ResourceRequirements{}
 	requests := corev1.ResourceList{
 		corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(operatorconstants.AgentMemoryRequest),
 		corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(operatorconstants.AgentCPURequest),
 	}
-	utils.SetResourcesFromCR(resources, requests)
+	utils.SetResourcesFromCR(src.resources, requests)
 	resourceReq.Requests = requests
 
 	electionConfig, err := config.GetElectionConfig()
@@ -239,7 +201,6 @@ func renderAgentManifests(
 		return ctrl.Result{}, err
 	}
 
-	// create restmapper for deployer to find GVR
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
 	logLevel, err := getLogLevel(mgr.GetClient())
@@ -248,77 +209,152 @@ func renderAgentManifests(
 		return ctrl.Result{}, err
 	}
 
-	bootstrapServer := ""
-	if trans := config.GetTransporter(); trans != nil {
-		if conn, connErr := trans.GetConnCredential(clusterName); connErr == nil {
-			bootstrapServer = conn.BootstrapServer
-		} else {
-			log.Warnw("failed to resolve kafka bootstrap for agent NetworkPolicy", "error", connErr)
-		}
-	}
-	npValues := nputils.BuildAgentValues(ctx, mgr.GetClient(), namespace, bootstrapServer)
+	bootstrapServer := standaloneAgentBootstrapServer(clusterName)
+	npValues := nputils.BuildAgentValues(ctx, mgr.GetClient(), src.namespace, bootstrapServer)
 
-	// create the agent objects
 	agentObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
-		return struct {
-			Image                     string
-			ImagePullSecret           string
-			ImagePullPolicy           string
-			Namespace                 string
-			NodeSelector              map[string]string
-			Tolerations               []corev1.Toleration
-			LeaseDuration             string
-			RenewDeadline             string
-			RetryPeriod               string
-			AgentQPS                  float32
-			AgentBurst                int
-			LogLevel                  string
-			ClusterId                 string
-			Resources                 *corev1.ResourceRequirements
-			TransportConfigSecretName string
-			EnableStackroxIntegration bool
-			StackroxPollInterval      time.Duration
-			DeployMode                string
-			EventSendMode             string
-			HubRole                   string
-			StandbyHub                string
-			APIServerCIDRs            []string
-			ExternalKafkaCIDRs        []string
-			WebhookEgressCIDRs        []string
-		}{
-			Image:                     config.GetImage(config.GlobalHubAgentImageKey),
-			ImagePullSecret:           imagePullSecret,
-			ImagePullPolicy:           string(imagePullPolicy),
-			Namespace:                 namespace,
-			NodeSelector:              nodeSelector,
-			Tolerations:               tolerations,
-			LeaseDuration:             strconv.Itoa(electionConfig.LeaseDuration),
-			RenewDeadline:             strconv.Itoa(electionConfig.RenewDeadline),
-			RetryPeriod:               strconv.Itoa(electionConfig.RetryPeriod),
-			AgentQPS:                  agentQPS,
-			AgentBurst:                agentBurst,
-			LogLevel:                  logLevel,
-			ClusterId:                 clusterName,
-			Resources:                 &resourceReq,
-			TransportConfigSecretName: transportConfigSecretName,
-			EnableStackroxIntegration: enableStackroxIntegration,
-			StackroxPollInterval:      stackroxPollInterval,
-			DeployMode:                deployMode,
-			EventSendMode:             eventSendMode,
-			HubRole:                   constants.GHHubRoleStandby, // Local agent is always standby
-			StandbyHub:                clusterName,                // Standby hub is itself
-			APIServerCIDRs:            npValues.APIServerCIDRs,
-			ExternalKafkaCIDRs:        npValues.ExternalKafkaCIDRs,
-			WebhookEgressCIDRs:        npValues.WebhookEgressCIDRs,
-		}, nil
+		return buildStandaloneAgentManifestTemplate(
+			src, clusterName, transportConfigSecretName, deployMode,
+			imagePullPolicy, resourceReq,
+			electionConfig.LeaseDuration, electionConfig.RenewDeadline, electionConfig.RetryPeriod,
+			agentQPS, agentBurst, logLevel, npValues,
+		), nil
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to render standalone agent objects: %v", err)
 	}
-	if err = utils.ManipulateGlobalHubObjects(agentObjects, owner, hohDeployer, mapper, mgr.GetScheme()); err != nil {
+	if err = utils.ManipulateGlobalHubObjects(agentObjects, src.owner, hohDeployer, mapper, mgr.GetScheme()); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create/update standalone agent objects: %v", err)
 	}
 	return ctrl.Result{}, nil
+}
+
+type agentManifestSource struct {
+	namespace                 string
+	agentImagePullPolicy      corev1.PullPolicy
+	resources                 *shared.ResourceRequirements
+	imagePullSecret           string
+	nodeSelector              map[string]string
+	tolerations               []corev1.Toleration
+	owner                     metav1.Object
+	enableStackroxIntegration bool
+	stackroxPollInterval      time.Duration
+	eventSendMode             string
+}
+
+func agentManifestSourceFromCR(
+	mgha *v1alpha1.MulticlusterGlobalHubAgent,
+	mgh *v1alpha4.MulticlusterGlobalHub,
+) agentManifestSource {
+	var src agentManifestSource
+	if mgh != nil {
+		src.namespace = mgh.Namespace
+		src.agentImagePullPolicy = mgh.Spec.ImagePullPolicy
+		if mgh.Spec.AdvancedSpec != nil &&
+			mgh.Spec.AdvancedSpec.Agent != nil &&
+			mgh.Spec.AdvancedSpec.Agent.Resources != nil {
+			src.resources = mgh.Spec.AdvancedSpec.Agent.Resources
+		}
+		src.imagePullSecret = mgh.Spec.ImagePullSecret
+		src.nodeSelector = mgh.Spec.NodeSelector
+		src.tolerations = mgh.Spec.Tolerations
+		src.owner = mgh
+		src.enableStackroxIntegration = config.WithStackroxIntegration(mgh)
+		src.stackroxPollInterval = config.GetStackroxPollInterval(mgh)
+		src.eventSendMode = config.GetEventSendMode(mgh)
+	}
+	if mgha != nil {
+		src.namespace = mgha.Namespace
+		src.agentImagePullPolicy = mgha.Spec.ImagePullPolicy
+		src.resources = mgha.Spec.Resources
+		src.imagePullSecret = mgha.Spec.ImagePullSecret
+		src.nodeSelector = mgha.Spec.NodeSelector
+		src.tolerations = mgha.Spec.Tolerations
+		src.owner = mgha
+		src.eventSendMode = config.GetEventSendMode(mgha)
+	}
+	return src
+}
+
+func standaloneAgentBootstrapServer(clusterName string) string {
+	trans := config.GetTransporter()
+	if trans == nil {
+		return ""
+	}
+	conn, err := trans.GetConnCredential(clusterName)
+	if err != nil {
+		log.Warnw("failed to resolve kafka bootstrap for agent NetworkPolicy", "error", err)
+		return ""
+	}
+	return conn.BootstrapServer
+}
+
+func buildStandaloneAgentManifestTemplate(
+	src agentManifestSource,
+	clusterName string,
+	transportConfigSecretName string,
+	deployMode string,
+	imagePullPolicy corev1.PullPolicy,
+	resourceReq corev1.ResourceRequirements,
+	leaseDuration int,
+	renewDeadline int,
+	retryPeriod int,
+	agentQPS float32,
+	agentBurst int,
+	logLevel string,
+	npValues nputils.AgentManifestValues,
+) interface{} {
+	return struct {
+		Image                     string
+		ImagePullSecret           string
+		ImagePullPolicy           string
+		Namespace                 string
+		NodeSelector              map[string]string
+		Tolerations               []corev1.Toleration
+		LeaseDuration             string
+		RenewDeadline             string
+		RetryPeriod               string
+		AgentQPS                  float32
+		AgentBurst                int
+		LogLevel                  string
+		ClusterId                 string
+		Resources                 *corev1.ResourceRequirements
+		TransportConfigSecretName string
+		EnableStackroxIntegration bool
+		StackroxPollInterval      time.Duration
+		DeployMode                string
+		EventSendMode             string
+		HubRole                   string
+		StandbyHub                string
+		APIServerCIDRs            []string
+		ExternalKafkaCIDRs        []string
+		WebhookEgressCIDRs        []string
+	}{
+		Image:                     config.GetImage(config.GlobalHubAgentImageKey),
+		ImagePullSecret:           src.imagePullSecret,
+		ImagePullPolicy:           string(imagePullPolicy),
+		Namespace:                 src.namespace,
+		NodeSelector:              src.nodeSelector,
+		Tolerations:               src.tolerations,
+		LeaseDuration:             strconv.Itoa(leaseDuration),
+		RenewDeadline:             strconv.Itoa(renewDeadline),
+		RetryPeriod:               strconv.Itoa(retryPeriod),
+		AgentQPS:                  agentQPS,
+		AgentBurst:                agentBurst,
+		LogLevel:                  logLevel,
+		ClusterId:                 clusterName,
+		Resources:                 &resourceReq,
+		TransportConfigSecretName: transportConfigSecretName,
+		EnableStackroxIntegration: src.enableStackroxIntegration,
+		StackroxPollInterval:      src.stackroxPollInterval,
+		DeployMode:                deployMode,
+		EventSendMode:             src.eventSendMode,
+		HubRole:                   constants.GHHubRoleStandby,
+		StandbyHub:                clusterName,
+		APIServerCIDRs:            npValues.APIServerCIDRs,
+		ExternalKafkaCIDRs:        npValues.ExternalKafkaCIDRs,
+		WebhookEgressCIDRs:        npValues.WebhookEgressCIDRs,
+	}
 }
 
 func getLogLevel(c client.Client) (string, error) {
