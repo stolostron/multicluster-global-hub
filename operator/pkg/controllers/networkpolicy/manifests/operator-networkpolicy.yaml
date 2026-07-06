@@ -41,7 +41,7 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow connections to PostgreSQL
+  # Allow connections to PostgreSQL in the hub namespace
   - to:
     - podSelector:
         matchLabels:
@@ -49,7 +49,65 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
-  # Allow connections to Kafka
+  {{- if .BYOPostgres }}
+  # Allow connections to PostgreSQL in external namespaces (BYO)
+  {{- if .ExternalPostgresCIDRs }}
+  - to:
+    {{- range .ExternalPostgresCIDRs }}
+    - ipBlock:
+        cidr: {{ . }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 5432
+  {{- else }}
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchExpressions:
+        - key: cnpg.io/cluster
+          operator: Exists
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchExpressions:
+        - key: postgres-operator.crunchydata.com/cluster
+          operator: Exists
+    ports:
+    - protocol: TCP
+      port: 5432
+  {{- end }}
+  {{- end }}
+  {{- if .BYOKafka }}
+  # Allow connections to Kafka in external namespaces (BYO Strimzi)
+  {{- if .ExternalKafkaCIDRs }}
+  - to:
+    {{- range .ExternalKafkaCIDRs }}
+    - ipBlock:
+        cidr: {{ . }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 9093
+    - protocol: TCP
+      port: 9091
+  {{- else }}
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          strimzi.io/cluster: kafka
+    ports:
+    - protocol: TCP
+      port: 9093
+    - protocol: TCP
+      port: 9091
+  {{- end }}
+  {{- else }}
+  # Allow connections to Kafka in the hub namespace
   - to:
     - podSelector:
         matchLabels:
@@ -59,6 +117,7 @@ spec:
       port: 9093
     - protocol: TCP
       port: 9091
+  {{- end }}
   # Allow connections to SpiceDB
   - to:
     - podSelector:

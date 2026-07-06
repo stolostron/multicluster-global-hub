@@ -19,8 +19,12 @@ package networkpolicy
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -28,9 +32,13 @@ var log = logger.DefaultZapLogger()
 
 // BaselineManifestValues is passed to baseline NetworkPolicy templates (allow-dns-and-api, operator NP).
 type BaselineManifestValues struct {
-	Namespace      string
-	PostgresName   string
-	APIServerCIDRs []string
+	Namespace             string
+	PostgresName          string
+	APIServerCIDRs        []string
+	BYOPostgres           bool
+	ExternalPostgresCIDRs []string
+	BYOKafka              bool
+	ExternalKafkaCIDRs    []string
 }
 
 // AgentManifestValues is passed to agent NetworkPolicy templates.
@@ -41,7 +49,7 @@ type AgentManifestValues struct {
 	WebhookEgressCIDRs []string
 }
 
-// BuildBaselineValues resolves API server CIDRs for hub-namespace baseline policies.
+// BuildBaselineValues resolves API server and BYO Postgres/Kafka CIDRs for hub-namespace baseline policies.
 func BuildBaselineValues(ctx context.Context, c client.Client, namespace, postgresName string) BaselineManifestValues {
 	values := BaselineManifestValues{
 		Namespace:    namespace,
@@ -51,9 +59,46 @@ func BuildBaselineValues(ctx context.Context, c client.Client, namespace, postgr
 	if err != nil {
 		log.Infow("using ports-only API egress fallback for baseline NetworkPolicy",
 			"namespace", namespace, "error", err)
-		return values
+	} else {
+		values.APIServerCIDRs = cidrs
 	}
-	values.APIServerCIDRs = cidrs
+
+	pgSecret := &corev1.Secret{}
+	if err := c.Get(ctx, types.NamespacedName{
+		Name: constants.GHStorageSecretName, Namespace: namespace,
+	}, pgSecret); err == nil {
+		values.BYOPostgres = true
+		if uri := string(pgSecret.Data["database_uri"]); uri != "" {
+			postgresCIDRs, resolveErr := ResolvePostgresCIDRs(ctx, c, namespace, uri)
+			if resolveErr != nil {
+				log.Infow("using CNPG/Crunchy pod selector fallback for BYO Postgres egress",
+					"namespace", namespace)
+			} else {
+				values.ExternalPostgresCIDRs = postgresCIDRs
+			}
+		}
+	} else if !apierrors.IsNotFound(err) {
+		log.Warnw("failed to read BYO postgres secret for NetworkPolicy egress", "namespace", namespace, "error", err)
+	}
+
+	kafkaSecret := &corev1.Secret{}
+	if err := c.Get(ctx, types.NamespacedName{
+		Name: constants.GHTransportSecretName, Namespace: namespace,
+	}, kafkaSecret); err == nil {
+		values.BYOKafka = true
+		if bootstrap := string(kafkaSecret.Data["bootstrap_server"]); bootstrap != "" {
+			kafkaCIDRs, resolveErr := ResolveBootstrapServerCIDRs(ctx, c, bootstrap, namespace)
+			if resolveErr != nil {
+				log.Infow("using cross-namespace Strimzi pod selector fallback for BYO Kafka egress",
+					"namespace", namespace)
+			} else {
+				values.ExternalKafkaCIDRs = kafkaCIDRs
+			}
+		}
+	} else if !apierrors.IsNotFound(err) {
+		log.Warnw("failed to read BYO kafka secret for NetworkPolicy egress", "namespace", namespace, "error", err)
+	}
+
 	return values
 }
 
