@@ -110,6 +110,49 @@ func TestResolvePostgresCIDRs_InvalidURIDoesNotLeakCredentials(t *testing.T) {
 	assert.NotContains(t, err.Error(), "supersecret", "error must not contain database credentials")
 }
 
+func TestResolvePostgresCIDRs_EmptyHost(t *testing.T) {
+	scheme := newTestScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	_, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns", "postgresql:///hoh")
+	require.Error(t, err, "expected error for empty postgres host")
+	assert.Contains(t, err.Error(), "empty postgres host in database URI", "unexpected error message")
+}
+
+func TestResolvePostgresCIDRs_WithEndpointSlice(t *testing.T) {
+	scheme := newTestScheme(t)
+	objs := []runtime.Object{
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "hoh-rw", Namespace: "multicluster-global-hub-postgres",
+			},
+			Spec: corev1.ServiceSpec{ClusterIP: "172.30.5.56"},
+		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "hoh-rw-endpoints", Namespace: "multicluster-global-hub-postgres",
+				Labels: map[string]string{discoveryv1.LabelServiceName: "hoh-rw"},
+			},
+			AddressType: discoveryv1.AddressTypeIPv4,
+			Endpoints:   []discoveryv1.Endpoint{{Addresses: []string{"10.131.1.85"}}},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+	cidrs, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns",
+		"postgresql://postgres:secret@hoh-rw.multicluster-global-hub-postgres.svc:5432/hoh")
+	require.NoError(t, err, "resolve postgres CIDRs with endpoint slice")
+	assert.ElementsMatch(t, []string{"10.131.1.85/32", "172.30.5.56/32"}, cidrs, "unexpected postgres CIDRs")
+}
+
+func TestResolvePostgresCIDRs_UnresolvableHost(t *testing.T) {
+	scheme := newTestScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	_, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns",
+		"postgresql://postgres:secret@ghost-service.ghost-ns.svc:5432/hoh")
+	require.Error(t, err, "expected error for unresolvable postgres host")
+	assert.Contains(t, err.Error(), "resolve postgres host", "unexpected error message")
+}
+
 func TestParseServiceHost(t *testing.T) {
 	tests := []struct {
 		host     string

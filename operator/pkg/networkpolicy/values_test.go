@@ -114,6 +114,95 @@ func TestBuildBaselineValues_BYO(t *testing.T) {
 	assert.Equal(t, []string{"203.0.113.10/32"}, values.ExternalKafkaCIDRs, "BYO kafka CIDRs")
 }
 
+func TestBuildBaselineValues_BYOPostgresFallback(t *testing.T) {
+	scheme := newTestScheme(t)
+	objs := append(kubernetesServiceObjects(), &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "multicluster-global-hub-storage",
+			Namespace: "gh-ns",
+		},
+		Data: map[string][]byte{
+			"database_uri": []byte("postgresql://postgres:secret@missing-postgres.example.com:5432/hoh"),
+		},
+	})
+	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+	values := BuildBaselineValues(t.Context(), c, "gh-ns", "postgres")
+	assert.True(t, values.BYOPostgres, "expected BYO postgres mode")
+	assert.Empty(t, values.ExternalPostgresCIDRs, "expected postgres CIDR fallback")
+	assert.False(t, values.BYOKafka, "expected built-in kafka mode")
+}
+
+func TestBuildBaselineValues_BYOKafkaFallback(t *testing.T) {
+	scheme := newTestScheme(t)
+	objs := append(kubernetesServiceObjects(), &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "multicluster-global-hub-transport",
+			Namespace: "gh-ns",
+		},
+		Data: map[string][]byte{
+			"bootstrap_server": []byte("missing-kafka.example.com:9093"),
+		},
+	})
+	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+	values := BuildBaselineValues(t.Context(), c, "gh-ns", "postgres")
+	assert.False(t, values.BYOPostgres, "expected built-in postgres mode")
+	assert.True(t, values.BYOKafka, "expected BYO kafka mode")
+	assert.Empty(t, values.ExternalKafkaCIDRs, "expected kafka CIDR fallback")
+}
+
+func TestBuildBaselineValues_BYOEmptySecretFields(t *testing.T) {
+	scheme := newTestScheme(t)
+	objs := append(kubernetesServiceObjects(),
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "multicluster-global-hub-storage", Namespace: "gh-ns",
+			},
+			Data: map[string][]byte{"database_uri": {}},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "multicluster-global-hub-transport", Namespace: "gh-ns",
+			},
+			Data: map[string][]byte{"bootstrap_server": {}},
+		},
+	)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+	values := BuildBaselineValues(t.Context(), c, "gh-ns", "postgres")
+	assert.True(t, values.BYOPostgres, "expected BYO postgres secret present")
+	assert.True(t, values.BYOKafka, "expected BYO kafka secret present")
+	assert.Empty(t, values.ExternalPostgresCIDRs, "empty database_uri should not resolve CIDRs")
+	assert.Empty(t, values.ExternalKafkaCIDRs, "empty bootstrap_server should not resolve CIDRs")
+}
+
+func TestBuildBaselineValues_BYOPostgresOnly(t *testing.T) {
+	scheme := newTestScheme(t)
+	objs := append(kubernetesServiceObjects(),
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "hoh-rw", Namespace: "multicluster-global-hub-postgres",
+			},
+			Spec: corev1.ServiceSpec{ClusterIP: "172.30.5.56"},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "multicluster-global-hub-storage", Namespace: "gh-ns",
+			},
+			Data: map[string][]byte{
+				"database_uri": []byte("postgresql://postgres:secret@hoh-rw.multicluster-global-hub-postgres.svc:5432/hoh"),
+			},
+		},
+	)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+	values := BuildBaselineValues(t.Context(), c, "gh-ns", "postgres")
+	assert.True(t, values.BYOPostgres)
+	assert.False(t, values.BYOKafka)
+	assert.Equal(t, []string{"172.30.5.56/32"}, values.ExternalPostgresCIDRs)
+}
+
 func TestBuildAgentValues(t *testing.T) {
 	scheme := newTestScheme(t)
 	objs := append(
