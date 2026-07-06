@@ -93,7 +93,8 @@ func TestBuildBaselineValues_BYO(t *testing.T) {
 			},
 			Data: map[string][]byte{
 				"database_uri": testPostgresDatabaseURIBytes(
-					"hoh-rw.multicluster-global-hub-postgres.svc", testPostgresPassword()),
+					"hoh-rw.multicluster-global-hub-postgres.svc", testPostgresPassword(),
+				),
 			},
 		},
 		&corev1.Secret{
@@ -195,7 +196,8 @@ func TestBuildBaselineValues_BYOPostgresOnly(t *testing.T) {
 			},
 			Data: map[string][]byte{
 				"database_uri": testPostgresDatabaseURIBytes(
-					"hoh-rw.multicluster-global-hub-postgres.svc", testPostgresPassword()),
+					"hoh-rw.multicluster-global-hub-postgres.svc", testPostgresPassword(),
+				),
 			},
 		},
 	)
