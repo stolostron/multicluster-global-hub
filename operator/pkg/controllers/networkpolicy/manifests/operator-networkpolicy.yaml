@@ -41,7 +41,7 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow connections to PostgreSQL
+  # Allow connections to PostgreSQL in the hub namespace
   - to:
     - podSelector:
         matchLabels:
@@ -49,12 +49,22 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
-  # Allow connections to Kafka
+  # Allow connections to PostgreSQL in external namespaces (BYO)
+  - ports:
+    - protocol: TCP
+      port: 5432
+  # Allow connections to Kafka in the hub namespace
   - to:
     - podSelector:
         matchLabels:
           strimzi.io/cluster: kafka
     ports:
+    - protocol: TCP
+      port: 9093
+    - protocol: TCP
+      port: 9091
+  # Allow connections to Kafka in external namespaces (BYO)
+  - ports:
     - protocol: TCP
       port: 9093
     - protocol: TCP
