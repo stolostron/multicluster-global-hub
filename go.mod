@@ -229,5 +229,6 @@ replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.19.1
 
 tool (
 	github.com/daixiang0/gci
+	github.com/onsi/ginkgo/v2/ginkgo
 	mvdan.cc/gofumpt
 )
