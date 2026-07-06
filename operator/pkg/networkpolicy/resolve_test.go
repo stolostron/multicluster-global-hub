@@ -1,5 +1,5 @@
 /*
-Copyright 2023
+Copyright 2023 Red Hat, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,32 +41,7 @@ func newTestScheme(t *testing.T) *runtime.Scheme {
 
 func TestResolveAPIServerCIDRs(t *testing.T) {
 	scheme := newTestScheme(t)
-	objs := []runtime.Object{
-		&corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kubernetesServiceName,
-				Namespace: kubernetesDefaultNamespace,
-			},
-			Spec: corev1.ServiceSpec{
-				ClusterIP: "10.96.0.1",
-			},
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kubernetes-endpoints",
-				Namespace: kubernetesDefaultNamespace,
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: kubernetesServiceName,
-				},
-			},
-			AddressType: discoveryv1.AddressTypeIPv4,
-			Endpoints: []discoveryv1.Endpoint{
-				{Addresses: []string{"192.168.1.10"}},
-			},
-		},
-	}
-
-	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(kubernetesServiceObjects()...).Build()
 	cidrs, err := ResolveAPIServerCIDRs(t.Context(), c)
 	require.NoError(t, err, "resolve kubernetes API server CIDRs")
 	assert.ElementsMatch(t, []string{"10.96.0.1/32", "192.168.1.10/32"}, cidrs, "unexpected API server CIDRs")
@@ -109,6 +84,7 @@ func TestParseServiceHost(t *testing.T) {
 	}{
 		{"kafka-kafka-bootstrap.gh-ns.svc", "gh-ns", "kafka-kafka-bootstrap"},
 		{"kafka-kafka-bootstrap.gh-ns.svc.cluster.local", "gh-ns", "kafka-kafka-bootstrap"},
+		{"kafka-kafka-bootstrap.svc", "gh-ns", "kafka-kafka-bootstrap"},
 		{"example.com", "", ""},
 	}
 
