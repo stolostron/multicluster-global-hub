@@ -72,7 +72,7 @@ func BuildBaselineValues(ctx context.Context, c client.Client, namespace, postgr
 			postgresCIDRs, resolveErr := ResolvePostgresCIDRs(ctx, c, namespace, uri)
 			if resolveErr != nil {
 				log.Infow("using CNPG/Crunchy pod selector fallback for BYO Postgres egress",
-					"namespace", namespace, "error", resolveErr)
+					"namespace", namespace, "error", resolveErr.Error())
 			} else {
 				values.ExternalPostgresCIDRs = postgresCIDRs
 			}

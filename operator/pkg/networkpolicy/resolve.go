@@ -56,7 +56,7 @@ func ResolvePostgresCIDRs(ctx context.Context, c client.Client, namespace, datab
 
 	objURI, err := url.Parse(databaseURI)
 	if err != nil {
-		return nil, fmt.Errorf("parse postgres database URI: %w", err)
+		return nil, fmt.Errorf("invalid postgres database URI host")
 	}
 	host := strings.TrimSpace(objURI.Hostname())
 	if host == "" {
@@ -65,7 +65,7 @@ func ResolvePostgresCIDRs(ctx context.Context, c client.Client, namespace, datab
 
 	cidrs := map[string]struct{}{}
 	if err := resolveHostToCIDRs(ctx, c, host, namespace, cidrs); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve postgres host %q: %w", host, err)
 	}
 	if len(cidrs) == 0 {
 		return nil, fmt.Errorf("no postgres addresses resolved for %q", host)
