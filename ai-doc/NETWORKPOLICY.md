@@ -672,11 +672,12 @@ kubectl delete networkpolicy -n multicluster-global-hub <policy-name>
 
 ## Known Limitations and Follow-ups
 
-Remaining items are tracked in [ACM-32313](https://redhat.atlassian.net/browse/ACM-32313) (child story of epic [ACM-31409](https://redhat.atlassian.net/browse/ACM-31409)).
+Remaining items are tracked under [ACM-32313](https://redhat.atlassian.net/browse/ACM-32313) (child story of epic [ACM-31409](https://redhat.atlassian.net/browse/ACM-31409)).
 
 - **OVN-Kubernetes enforcement:** Policies are created on KinD (used in product CI) but are only enforced on clusters running OVN-Kubernetes (e.g. OpenShift). Manual soak testing on OVN is tracked in [ACM-32494](https://redhat.atlassian.net/browse/ACM-32494); HoH automation in [ACM-32495](https://redhat.atlassian.net/browse/ACM-32495).
-- **Kafka `ipBlock` egress:** Agent egress to external Kafka bootstrap currently uses a broad `namespaceSelector`. Tightening to a specific CIDR `ipBlock` requires the operator to resolve the broker address at runtime — follow-up in [ACM-32313](https://redhat.atlassian.net/browse/ACM-32313).
-- **API server `ipBlock`:** The `allow-dns-and-api` policy allows egress to the `default` namespace broadly. Narrowing to the exact API server IP requires runtime address resolution — follow-up in [ACM-32313](https://redhat.atlassian.net/browse/ACM-32313).
+- **Kafka `ipBlock` egress:** The operator resolves Kafka bootstrap broker hostnames/IPs at reconcile time and templates `ipBlock` rules for agent external Kafka egress (local agent and addon agent). When bootstrap resolution fails, the prior broad `namespaceSelector` fallback is retained.
+- **API server `ipBlock`:** The operator resolves the `kubernetes` Service and endpoint addresses at reconcile time and templates `ipBlock` rules in `allow-dns-and-api` and the local agent NetworkPolicy. When resolution fails, ports-only egress (443/6443) is used as fallback. Addon agent manifests are rendered on the hub; managed-hub API server CIDRs are not available at render time, so addon agent API egress keeps the ports-only fallback until spoke-side resolution exists.
+- **Webhook egress (8443):** When the OpenShift cluster `Network` CR exposes `spec.serviceNetwork`, agent policies use that CIDR for TCP 8443; otherwise the broad in-cluster fallback remains.
 
 ## References
 - **Jira Ticket**: [ACM-19479](https://redhat.atlassian.net/browse/ACM-19479)

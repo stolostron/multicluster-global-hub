@@ -33,12 +33,25 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow access to Kubernetes API server service IP
+  # Allow access to Kubernetes API server
+  {{- if .APIServerCIDRs }}
+  - to:
+    {{- range .APIServerCIDRs }}
+    - ipBlock:
+        cidr: {{ . }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  {{- else }}
   - ports:
     - protocol: TCP
       port: 443
     - protocol: TCP
       port: 6443
+  {{- end }}
   # Allow connections to Kafka (Strimzi)
   - to:
     - namespaceSelector: {}
@@ -53,6 +66,18 @@ spec:
     - protocol: TCP
       port: 9095
   # Allow connections to external Kafka via LoadBalancer/NodePort
+  {{- if .ExternalKafkaCIDRs }}
+  - to:
+    {{- range .ExternalKafkaCIDRs }}
+    - ipBlock:
+        cidr: {{ . }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 9092
+    - protocol: TCP
+      port: 9093
+  {{- else }}
   - to:
     - namespaceSelector: {}
     ports:
@@ -60,9 +85,21 @@ spec:
       port: 9092
     - protocol: TCP
       port: 9093
+  {{- end }}
   # Allow HTTPS egress for internal Kubernetes services (webhooks, admission controllers)
+  {{- if .WebhookEgressCIDRs }}
+  - to:
+    {{- range .WebhookEgressCIDRs }}
+    - ipBlock:
+        cidr: {{ . }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 8443
+  {{- else }}
   - to:
     - namespaceSelector: {}
     ports:
     - protocol: TCP
       port: 8443
+  {{- end }}

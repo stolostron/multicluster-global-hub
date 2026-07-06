@@ -130,6 +130,11 @@ type ManifestsConfig struct {
 	HubRole string
 	// StandbyHub is the standby hub name (only populated for active hubs)
 	StandbyHub string
+
+	// NetworkPolicy ipBlock CIDRs (addon agent manifests; managed-hub API/webhook use template fallback when empty)
+	APIServerCIDRs     []string
+	ExternalKafkaCIDRs []string
+	WebhookEgressCIDRs []string
 }
 
 type Resources struct {
