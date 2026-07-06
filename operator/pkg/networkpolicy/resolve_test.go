@@ -76,6 +76,32 @@ func TestResolveBootstrapServerCIDRs_Empty(t *testing.T) {
 	require.Error(t, err, "expected error for empty bootstrap server")
 }
 
+func TestResolvePostgresCIDRs_Service(t *testing.T) {
+	scheme := newTestScheme(t)
+	objs := []runtime.Object{
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "hoh-rw",
+				Namespace: "multicluster-global-hub-postgres",
+			},
+			Spec: corev1.ServiceSpec{ClusterIP: "172.30.5.56"},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+	cidrs, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns",
+		"postgresql://postgres:secret@hoh-rw.multicluster-global-hub-postgres.svc:5432/hoh")
+	require.NoError(t, err, "resolve postgres CIDRs")
+	assert.Equal(t, []string{"172.30.5.56/32"}, cidrs, "unexpected postgres CIDRs")
+}
+
+func TestResolvePostgresCIDRs_EmptyURI(t *testing.T) {
+	scheme := newTestScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	_, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns", "  ")
+	require.Error(t, err, "expected error for empty postgres URI")
+}
+
 func TestParseServiceHost(t *testing.T) {
 	tests := []struct {
 		host     string

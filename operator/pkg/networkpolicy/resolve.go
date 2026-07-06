@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -44,6 +45,32 @@ func ResolveAPIServerCIDRs(ctx context.Context, c client.Client) ([]string, erro
 		return nil, fmt.Errorf("no kubernetes API server addresses found: %w", err)
 	}
 	return cidrs, nil
+}
+
+// ResolvePostgresCIDRs resolves a BYO Postgres database URI host to ipBlock CIDR strings.
+func ResolvePostgresCIDRs(ctx context.Context, c client.Client, namespace, databaseURI string) ([]string, error) {
+	databaseURI = strings.TrimSpace(databaseURI)
+	if databaseURI == "" {
+		return nil, fmt.Errorf("empty postgres database URI")
+	}
+
+	objURI, err := url.Parse(databaseURI)
+	if err != nil {
+		return nil, fmt.Errorf("parse postgres database URI: %w", err)
+	}
+	host := strings.TrimSpace(objURI.Hostname())
+	if host == "" {
+		return nil, fmt.Errorf("empty postgres host in database URI")
+	}
+
+	cidrs := map[string]struct{}{}
+	if err := resolveHostToCIDRs(ctx, c, host, namespace, cidrs); err != nil {
+		return nil, err
+	}
+	if len(cidrs) == 0 {
+		return nil, fmt.Errorf("no postgres addresses resolved for %q", host)
+	}
+	return sortedCIDRs(cidrs), nil
 }
 
 // ResolveBootstrapServerCIDRs resolves Kafka bootstrap broker hostnames/IPs to ipBlock CIDR strings.

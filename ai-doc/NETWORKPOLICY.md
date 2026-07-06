@@ -611,14 +611,18 @@ When Postgres (CNPG/Crunchy) or Kafka (Strimzi) run in separate namespaces from 
 operator namespace, the operator must reach them during database initialization and transport
 configuration.
 
-- **Operator:** `multicluster-global-hub-operator` NetworkPolicy includes ports-only egress on
-  TCP 5432 (Postgres) and TCP 9091/9093 (Kafka) for external/BYO endpoints, in addition to
-  in-namespace pod selectors for built-in deployments. This mirrors the Grafana policy pattern.
+- **Operator:** When the BYO storage or transport secret is present, the operator NetworkPolicy
+  adds scoped BYO egress rules:
+  - **Postgres:** `ipBlock` CIDRs resolved from the `database_uri` host when available; otherwise
+    cross-namespace pod selectors for CNPG (`cnpg.io/cluster`) and Crunchy
+    (`postgres-operator.crunchydata.com/cluster`) pods on TCP 5432.
+  - **Kafka:** Cross-namespace Strimzi pod selector (`strimzi.io/cluster: kafka`) on TCP 9091/9093,
+    plus optional `ipBlock` CIDRs resolved from the BYO `bootstrap_server` when available.
 - **Grafana:** Already allows ports-only TCP 5432 egress for in-cluster or external Postgres.
 - **Manager:** Includes a broad `namespaceSelector: {}` egress rule (all ports) for cross-namespace
   operations; BYO Postgres/Kafka connectivity is covered once the manager deploys.
-- **Follow-up hardening:** Prefer `ipBlock` or namespace-scoped selectors for BYO endpoints where
-  bootstrap/service CIDRs can be resolved at reconcile time (see ACM-32313).
+- **Follow-up hardening:** Prefer namespace-scoped selectors or tighter `ipBlock` rules when BYO
+  bootstrap/service CIDRs cannot be resolved (see ACM-32313).
 
 ## Testing Commands
 
@@ -692,7 +696,10 @@ Remaining items are tracked under [ACM-32313](https://redhat.atlassian.net/brows
 - **Kafka `ipBlock` egress:** The operator resolves Kafka bootstrap broker hostnames/IPs at reconcile time and templates `ipBlock` rules for agent external Kafka egress (local agent and addon agent). When bootstrap resolution fails, the prior broad `namespaceSelector` fallback is retained.
 - **API server `ipBlock`:** The operator resolves the `kubernetes` Service and endpoint addresses at reconcile time and templates `ipBlock` rules in `allow-dns-and-api` and the local agent NetworkPolicy. When resolution fails, ports-only egress (443/6443) is used as fallback. Addon agent manifests are rendered on the hub; managed-hub API server CIDRs are not available at render time, so addon agent API egress keeps the ports-only fallback until spoke-side resolution exists.
 - **Webhook egress (8443):** When the OpenShift cluster `Network` CR exposes `spec.serviceNetwork`, agent policies use that CIDR for TCP 8443; otherwise the broad in-cluster fallback remains.
-- **BYO Postgres/Kafka egress (ACM-37165):** Operator NP now includes ports-only egress for external Postgres (5432) and Kafka (9091/9093). Prior to this fix, BYO installs blocked at database init because operator egress only targeted in-namespace pod selectors. Follow-up: tighten with `ipBlock`/namespace selectors when BYO bootstrap CIDRs are resolvable.
+- **BYO Postgres/Kafka egress (ACM-37165):** Operator NP adds BYO egress only when the storage or
+  transport secret is present. Postgres uses resolved `ipBlock` CIDRs from `database_uri` when
+  available, otherwise CNPG/Crunchy pod selectors. Kafka uses cross-namespace Strimzi pod selectors
+  plus optional `ipBlock` CIDRs from `bootstrap_server`.
 
 ## References
 - **Jira Ticket**: [ACM-19479](https://redhat.atlassian.net/browse/ACM-19479)
