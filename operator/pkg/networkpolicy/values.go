@@ -72,7 +72,7 @@ func BuildBaselineValues(ctx context.Context, c client.Client, namespace, postgr
 			postgresCIDRs, resolveErr := ResolvePostgresCIDRs(ctx, c, namespace, uri)
 			if resolveErr != nil {
 				log.Infow("using CNPG/Crunchy pod selector fallback for BYO Postgres egress",
-					"namespace", namespace, "error", resolveErr.Error())
+					"namespace", namespace)
 			} else {
 				values.ExternalPostgresCIDRs = postgresCIDRs
 			}
@@ -90,7 +90,7 @@ func BuildBaselineValues(ctx context.Context, c client.Client, namespace, postgr
 			kafkaCIDRs, resolveErr := ResolveBootstrapServerCIDRs(ctx, c, bootstrap, namespace)
 			if resolveErr != nil {
 				log.Infow("using cross-namespace Strimzi pod selector fallback for BYO Kafka egress",
-					"namespace", namespace, "error", resolveErr)
+					"namespace", namespace)
 			} else {
 				values.ExternalKafkaCIDRs = kafkaCIDRs
 			}

@@ -105,9 +105,15 @@ func TestResolvePostgresCIDRs_EmptyURI(t *testing.T) {
 func TestResolvePostgresCIDRs_InvalidURIDoesNotLeakCredentials(t *testing.T) {
 	scheme := newTestScheme(t)
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+
 	_, err := ResolvePostgresCIDRs(t.Context(), c, "gh-ns", "://postgres:supersecret@bad-uri")
 	require.Error(t, err, "expected error for invalid postgres URI")
-	assert.NotContains(t, err.Error(), "supersecret", "error must not contain database credentials")
+	assert.NotContains(t, err.Error(), "supersecret", "parse error must not contain database credentials")
+
+	_, err = ResolvePostgresCIDRs(t.Context(), c, "gh-ns",
+		"postgresql://postgres:supersecret@missing-postgres.ghost-ns.svc:5432/hoh")
+	require.Error(t, err, "expected error for unresolvable postgres host")
+	assert.NotContains(t, err.Error(), "supersecret", "host resolution error must not contain database credentials")
 }
 
 func TestResolvePostgresCIDRs_EmptyHost(t *testing.T) {

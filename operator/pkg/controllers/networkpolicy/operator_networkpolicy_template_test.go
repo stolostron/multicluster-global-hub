@@ -16,13 +16,13 @@ import (
 func TestRenderOperatorNetworkPolicy_BYOWithCIDRs(t *testing.T) {
 	npRenderer := renderer.NewHoHRenderer(fs)
 	values := nputils.BaselineManifestValues{
-		Namespace:           "multicluster-global-hub",
-		PostgresName:        "multicluster-global-hub-postgresql",
-		BYOPostgres:         true,
+		Namespace:             "multicluster-global-hub",
+		PostgresName:          "multicluster-global-hub-postgresql",
+		BYOPostgres:           true,
 		ExternalPostgresCIDRs: []string{"172.30.5.56/32", "10.131.1.85/32"},
-		BYOKafka:            true,
-		ExternalKafkaCIDRs:  []string{"172.30.85.220/32"},
-		APIServerCIDRs:      []string{"10.96.0.1/32"},
+		BYOKafka:              true,
+		ExternalKafkaCIDRs:    []string{"172.30.85.220/32"},
+		APIServerCIDRs:        []string{"10.96.0.1/32"},
 	}
 	objects, err := npRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return values, nil
