@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -11,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -85,6 +87,104 @@ func TestNetworkPolicyPredicate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assertPredicateAllEvents(t, networkPolicyPred, tt.obj, tt.wantBool)
+		})
+	}
+}
+
+func TestByoSecretPredicate(t *testing.T) {
+	namespace := utils.GetDefaultNamespace()
+
+	tests := []struct {
+		name     string
+		obj      *corev1.Secret
+		wantBool bool
+	}{
+		{
+			name: "BYO storage secret should match",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.GHStorageSecretName,
+					Namespace: namespace,
+				},
+			},
+			wantBool: true,
+		},
+		{
+			name: "BYO transport secret should match",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.GHTransportSecretName,
+					Namespace: namespace,
+				},
+			},
+			wantBool: true,
+		},
+		{
+			name: "unrelated secret should not match",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "other-secret",
+					Namespace: namespace,
+				},
+			},
+			wantBool: false,
+		},
+		{
+			name: "BYO storage secret in wrong namespace should not match",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.GHStorageSecretName,
+					Namespace: "wrong-namespace",
+				},
+			},
+			wantBool: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assertPredicateAllEvents(t, byoSecretPred, tt.obj, tt.wantBool)
+		})
+	}
+}
+
+func TestIsWatchedByoSecretCustomNamespace(t *testing.T) {
+	originalNS := networkPolicyWatchNamespace
+	t.Cleanup(func() { networkPolicyWatchNamespace = originalNS })
+
+	customNamespace := "custom-namespace"
+	networkPolicyWatchNamespace = customNamespace
+
+	tests := []struct {
+		name     string
+		obj      *corev1.Secret
+		wantBool bool
+	}{
+		{
+			name: "BYO secret in custom namespace should match",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.GHStorageSecretName,
+					Namespace: customNamespace,
+				},
+			},
+			wantBool: true,
+		},
+		{
+			name: "BYO secret in default namespace should NOT match when custom namespace is set",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.GHStorageSecretName,
+					Namespace: utils.GetDefaultNamespace(),
+				},
+			},
+			wantBool: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantBool, isWatchedByoSecret(tt.obj))
 		})
 	}
 }

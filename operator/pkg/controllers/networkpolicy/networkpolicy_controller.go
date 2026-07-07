@@ -5,7 +5,9 @@ import (
 	"embed"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
@@ -23,12 +25,14 @@ import (
 	nputils "github.com/stolostron/multicluster-global-hub/operator/pkg/networkpolicy"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
 // +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
 // +kubebuilder:rbac:groups=config.openshift.io,resources=networks,verbs=get;list;watch
@@ -42,6 +46,11 @@ const (
 	NetworkPolicyDefaultDenyAll = "default-deny-all"
 	NetworkPolicyAllowDNSAndAPI = "allow-dns-and-api"
 	NetworkPolicyOperator       = "multicluster-global-hub-operator"
+)
+
+var watchedByoSecrets = sets.NewString(
+	constants.GHStorageSecretName,
+	constants.GHTransportSecretName,
 )
 
 type NetworkPolicyReconciler struct {
@@ -100,9 +109,31 @@ func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("networkpolicyController").
 		For(&v1alpha4.MulticlusterGlobalHub{},
 			builder.WithPredicates(config.MGHPred)).
+		Watches(&corev1.Secret{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(byoSecretPred)).
 		Watches(&networkingv1.NetworkPolicy{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(networkPolicyPred)).
 		Complete(r)
+}
+
+func isWatchedByoSecret(obj client.Object) bool {
+	ns := networkPolicyWatchNamespace
+	if ns == "" {
+		ns = commonutils.GetDefaultNamespace()
+	}
+	return obj.GetNamespace() == ns && watchedByoSecrets.Has(obj.GetName())
+}
+
+var byoSecretPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return isWatchedByoSecret(e.Object)
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return isWatchedByoSecret(e.ObjectNew)
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return isWatchedByoSecret(e.Object)
+	},
 }
 
 var networkPolicyPred = predicate.Funcs{
