@@ -151,6 +151,9 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	if receivedStage == "" {
 		return fmt.Errorf("migrationstage is required but not provided in event extensions")
 	}
+	if !MigrationSourceAllowed(ctx, s.client, evt.Source(), s.leafHubName) {
+		return fmt.Errorf("untrusted migration event source %q for target hub %q", evt.Source(), s.leafHubName)
+	}
 	if evt.Source() != constants.CloudEventGlobalHubClusterName && receivedStage != migrationv1alpha1.PhaseDeploying {
 		err = fmt.Errorf("source-hub migration event must use stage %q, got %q",
 			migrationv1alpha1.PhaseDeploying, receivedStage)
@@ -395,6 +398,10 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 		return fmt.Errorf("cleaning failed with %d error(s): %s", len(clusterErrors), formatErrorMessages(clusterErrors))
 	}
 
+	if err := DeleteLocalMigrationCR(ctx, s.client, msaName); err != nil {
+		return err
+	}
+
 	log.Infof("successfully completed cleaning stage")
 	return nil
 }
@@ -412,6 +419,10 @@ func (s *MigrationTargetSyncer) validating(
 		log.Infof("validated %d clusters for migration %s", len(source.ManagedClusters), source.MigrationId)
 	} else {
 		log.Infof("no clusters to validate for migration %s", source.MigrationId)
+	}
+
+	if err := EnsureLocalMigrationCR(ctx, s.client, s.leafHubName, source, migrationv1alpha1.PhaseInitializing); err != nil {
+		return fmt.Errorf("failed to record local migration state: %w", err)
 	}
 
 	return nil
@@ -503,6 +514,10 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 	if isOCM, _ := s.isOCMEnvironment(ctx); isOCM {
 		log.Infof("OCM environment detected, delaying 1 minute after initializing to allow manual resource mocking")
 		time.Sleep(1 * time.Minute)
+	}
+
+	if err := EnsureLocalMigrationCR(ctx, s.client, s.leafHubName, event, migrationv1alpha1.PhaseDeploying); err != nil {
+		return fmt.Errorf("failed to record local migration state: %w", err)
 	}
 
 	return nil
@@ -615,7 +630,7 @@ func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 				clusterName, resIdx+1, len(clusterResource.ResourceList),
 				resource.GetKind(), resource.GetName(), resource.GetNamespace())
 
-			if err := s.syncResource(ctx, &resource); err != nil {
+			if err := s.syncResource(ctx, clusterName, &resource); err != nil {
 				return fmt.Errorf("failed to sync resource %s/%s for cluster %s: %w",
 					resource.GetKind(), resource.GetName(), clusterName, err)
 			}
@@ -637,9 +652,19 @@ func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 
 // syncResource handles syncing individual resources from the migration bundle
 // Works directly with unstructured resources without type conversion
-func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unstructured.Unstructured) error {
+func (s *MigrationTargetSyncer) syncResource(
+	ctx context.Context,
+	clusterName string,
+	resource *unstructured.Unstructured,
+) error {
 	resourceKey := fmt.Sprintf("%s/%s/%s", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 	log.Debugf("deploying: syncResource started for resource=%s", resourceKey)
+
+	if !IsMigrationDeployResourceAllowed(resource, clusterName) {
+		log.Warnf("deploying: rejecting disallowed resource kind=%s namespace=%s name=%s",
+			resource.GetKind(), resource.GetNamespace(), resource.GetName())
+		return fmt.Errorf("migration deploying resource %s is not allowed", resourceKey)
+	}
 
 	// Store the source resource data that needs to be applied
 	sourceLabels := resource.GetLabels()

@@ -239,8 +239,34 @@ func TestNewHAConfigSyncer(t *testing.T) {
 		LeafHubName:     "hub1",
 		TransportConfig: &transport.TransportInternalConfig{},
 	}
+	agentConfig.SetStandbyHub("hub2")
 	syncer := NewHAConfigSyncer(nil, agentConfig)
 	assert.Equal(t, "hub1", syncer.leafHubName)
+	assert.Equal(t, "hub2", syncer.standbyHub)
+}
+
+func TestSync_RejectsUntrustedSource(t *testing.T) {
+	scheme := newHAConfigTestScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	syncer := &HAConfigSyncer{
+		client:      fakeClient,
+		leafHubName: "hub1",
+		standbyHub:  "hub2",
+	}
+	bundle := newHAConfigTestBundle()
+	ctx := context.Background()
+
+	wrongSubject := newHAConfigTestEvent(t, bundle)
+	wrongSubject.SetSubject("other-hub")
+	assert.NoError(t, syncer.Sync(ctx, wrongSubject))
+
+	selfSource := newHAConfigTestEvent(t, bundle)
+	selfSource.SetSource("hub1")
+	assert.NoError(t, syncer.Sync(ctx, selfSource))
+
+	unexpectedPeer := newHAConfigTestEvent(t, bundle)
+	unexpectedPeer.SetSource("hub3")
+	assert.NoError(t, syncer.Sync(ctx, unexpectedPeer))
 }
 
 func TestAnnotateSkipsAlreadyAnnotated(t *testing.T) {

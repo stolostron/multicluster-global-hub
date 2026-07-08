@@ -63,6 +63,27 @@ func TestHubHAStandbySyncer_Sync_WrongEventType(t *testing.T) {
 	}
 }
 
+func TestHubHAStandbySyncer_Sync_RejectsUntrustedSource(t *testing.T) {
+	scheme := runtime.NewScheme()
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+	syncer := NewHubHAStandbySyncer(client)
+	ctx := context.Background()
+
+	emptySource := cloudevents.NewEvent()
+	emptySource.SetType(constants.HubHAResourcesMsgKey)
+	emptySource.SetSource("")
+	if err := syncer.Sync(ctx, &emptySource); err != nil {
+		t.Fatalf("Sync() with empty source should drop event without error, got: %v", err)
+	}
+
+	managerSource := cloudevents.NewEvent()
+	managerSource.SetType(constants.HubHAResourcesMsgKey)
+	managerSource.SetSource(constants.CloudEventGlobalHubClusterName)
+	if err := syncer.Sync(ctx, &managerSource); err != nil {
+		t.Fatalf("Sync() with global-hub source should drop event without error, got: %v", err)
+	}
+}
+
 func TestHubHAStandbySyncer_CreateResource(t *testing.T) {
 	scheme := runtime.NewScheme()
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
