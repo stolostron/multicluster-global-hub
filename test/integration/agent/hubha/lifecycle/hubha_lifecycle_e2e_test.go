@@ -121,6 +121,34 @@ func waitForAgentHubRole(hubRole, standbyHub string) {
 	}, 10*time.Second, 200*time.Millisecond).Should(Succeed())
 }
 
+func deleteAgentConfigCM(ctx context.Context) {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHAgentConfigCMName,
+			Namespace: constants.GHAgentNamespace,
+		},
+	}
+	Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
+	Eventually(func() bool {
+		err := k8sClient.Get(ctx, types.NamespacedName{
+			Name:      constants.GHAgentConfigCMName,
+			Namespace: constants.GHAgentNamespace,
+		}, &corev1.ConfigMap{})
+		return err != nil
+	}, 10*time.Second, 200*time.Millisecond).Should(BeTrue(), "agent ConfigMap should be deleted")
+}
+
+func assertNoHubHAEvents(producer *mockProducer, reason string) {
+	Consistently(func() bool {
+		select {
+		case <-producer.events:
+			return false
+		default:
+			return true
+		}
+	}, 3*time.Second, 200*time.Millisecond).Should(BeTrue(), reason)
+}
+
 func createSyncableConfigMap(ctx context.Context, name string) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -197,14 +225,7 @@ var _ = Describe("Hub HA Lifecycle E2E Integration", Ordered, func() {
 
 		createSyncableConfigMap(testCtx, "lifecycle-e2e-standby-cm")
 
-		Consistently(func() bool {
-			select {
-			case <-suiteProducer.events:
-				return false
-			default:
-				return true
-			}
-		}, 3*time.Second, 200*time.Millisecond).Should(BeTrue(), "active syncer should not emit events in standby role")
+		assertNoHubHAEvents(suiteProducer, "active syncer should not emit events in standby role")
 	})
 
 	It("should route events to the updated standby hub without restarting the agent", func() {
@@ -221,5 +242,22 @@ var _ = Describe("Hub HA Lifecycle E2E Integration", Ordered, func() {
 		createSyncableConfigMap(testCtx, "lifecycle-e2e-new-standby-cm")
 		evt := waitForHubHAEvent(suiteProducer, "lifecycle-e2e-new-standby-cm")
 		Expect(evt.Subject()).To(Equal("hub3"))
+	})
+
+	It("should stop sending events when the agent ConfigMap is deleted", func() {
+		testCtx := context.Background()
+
+		// Prior spec leaves active/hub3; confirm syncer is still emitting before delete.
+		drainProducerEvents(suiteProducer)
+		createSyncableConfigMap(testCtx, "lifecycle-e2e-pre-delete-cm")
+		waitForHubHAEvent(suiteProducer, "lifecycle-e2e-pre-delete-cm")
+
+		deleteAgentConfigCM(testCtx)
+		waitForAgentHubRole("", "")
+		drainProducerEvents(suiteProducer)
+
+		createSyncableConfigMap(testCtx, "lifecycle-e2e-after-delete-cm")
+
+		assertNoHubHAEvents(suiteProducer, "active syncer should not emit events after agent ConfigMap deletion")
 	})
 })
