@@ -5,6 +5,7 @@ package lifecycle
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -24,8 +25,9 @@ import (
 )
 
 type mockProducer struct {
+	mu      sync.RWMutex
 	events  chan cloudevents.Event
-	closed  atomic.Bool
+	closed  bool
 	dropped atomic.Int64
 }
 
@@ -36,7 +38,9 @@ func newMockProducer() *mockProducer {
 }
 
 func (m *mockProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
-	if m.closed.Load() {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.closed {
 		return nil
 	}
 
@@ -53,7 +57,12 @@ func (m *mockProducer) SendEvent(ctx context.Context, evt cloudevents.Event) err
 }
 
 func (m *mockProducer) Stop() {
-	m.closed.Store(true)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed {
+		return
+	}
+	m.closed = true
 	close(m.events)
 }
 
@@ -84,7 +93,7 @@ func upsertAgentConfigCM(ctx context.Context, hubRole, standbyHub string) {
 	}, cm)
 	if err != nil {
 		cm.Data = map[string]string{}
-		Expect(k8sClient.Create(ctx, cm)).To(Succeed())
+		Expect(k8sClient.Create(ctx, cm)).To(Succeed(), "failed to create agent ConfigMap %s/%s", constants.GHAgentNamespace, constants.GHAgentConfigCMName)
 	}
 
 	Eventually(func() error {
@@ -109,7 +118,7 @@ func upsertAgentConfigCM(ctx context.Context, hubRole, standbyHub string) {
 			current.Data["standbyHub"] = standbyHub
 		}
 		return k8sClient.Update(ctx, current)
-	}, 5*time.Second, 200*time.Millisecond).Should(Succeed())
+	}, 5*time.Second, 200*time.Millisecond).Should(Succeed(), "failed to upsert agent ConfigMap with hubRole=%q standbyHub=%q", hubRole, standbyHub)
 }
 
 func waitForAgentHubRole(hubRole, standbyHub string) {
@@ -118,7 +127,7 @@ func waitForAgentHubRole(hubRole, standbyHub string) {
 		g.Expect(config).NotTo(BeNil())
 		g.Expect(config.GetHubRole()).To(Equal(hubRole))
 		g.Expect(config.GetStandbyHub()).To(Equal(standbyHub))
-	}, 10*time.Second, 200*time.Millisecond).Should(Succeed())
+	}, 10*time.Second, 200*time.Millisecond).Should(Succeed(), "agent config hubRole/standbyHub did not reach %q/%q", hubRole, standbyHub)
 }
 
 func deleteAgentConfigCM(ctx context.Context) {
@@ -128,7 +137,7 @@ func deleteAgentConfigCM(ctx context.Context) {
 			Namespace: constants.GHAgentNamespace,
 		},
 	}
-	Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
+	Expect(k8sClient.Delete(ctx, cm)).To(Succeed(), "failed to delete agent ConfigMap %s/%s", constants.GHAgentNamespace, constants.GHAgentConfigCMName)
 	Eventually(func() bool {
 		err := k8sClient.Get(ctx, types.NamespacedName{
 			Name:      constants.GHAgentConfigCMName,
@@ -149,6 +158,12 @@ func assertNoHubHAEvents(producer *mockProducer, reason string) {
 	}, 3*time.Second, 200*time.Millisecond).Should(BeTrue(), reason)
 }
 
+func assertSyncerDisabledFor(ctx context.Context, producer *mockProducer, cmName, reason string) {
+	drainProducerEvents(producer)
+	createSyncableConfigMap(ctx, cmName)
+	assertNoHubHAEvents(producer, reason)
+}
+
 func createSyncableConfigMap(ctx context.Context, name string) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -162,7 +177,7 @@ func createSyncableConfigMap(ctx context.Context, name string) {
 			"key": "value",
 		},
 	}
-	Expect(k8sClient.Create(ctx, cm)).To(Succeed())
+	Expect(k8sClient.Create(ctx, cm)).To(Succeed(), "failed to create syncable ConfigMap %s", name)
 }
 
 func waitForHubHAEvent(producer *mockProducer, name string) cloudevents.Event {
@@ -221,11 +236,12 @@ var _ = Describe("Hub HA Lifecycle E2E Integration", Ordered, func() {
 
 		upsertAgentConfigCM(testCtx, constants.GHHubRoleStandby, "hub2")
 		waitForAgentHubRole(constants.GHHubRoleStandby, "hub2")
-		drainProducerEvents(suiteProducer)
-
-		createSyncableConfigMap(testCtx, "lifecycle-e2e-standby-cm")
-
-		assertNoHubHAEvents(suiteProducer, "active syncer should not emit events in standby role")
+		assertSyncerDisabledFor(
+			testCtx,
+			suiteProducer,
+			"lifecycle-e2e-standby-cm",
+			"active syncer should not emit events in standby role",
+		)
 	})
 
 	It("should route events to the updated standby hub without restarting the agent", func() {
@@ -241,7 +257,7 @@ var _ = Describe("Hub HA Lifecycle E2E Integration", Ordered, func() {
 
 		createSyncableConfigMap(testCtx, "lifecycle-e2e-new-standby-cm")
 		evt := waitForHubHAEvent(suiteProducer, "lifecycle-e2e-new-standby-cm")
-		Expect(evt.Subject()).To(Equal("hub3"))
+		Expect(evt.Subject()).To(Equal("hub3"), "emitter should route events to updated standby hub")
 	})
 
 	It("should stop sending events when the agent ConfigMap is deleted", func() {
@@ -254,10 +270,11 @@ var _ = Describe("Hub HA Lifecycle E2E Integration", Ordered, func() {
 
 		deleteAgentConfigCM(testCtx)
 		waitForAgentHubRole("", "")
-		drainProducerEvents(suiteProducer)
-
-		createSyncableConfigMap(testCtx, "lifecycle-e2e-after-delete-cm")
-
-		assertNoHubHAEvents(suiteProducer, "active syncer should not emit events after agent ConfigMap deletion")
+		assertSyncerDisabledFor(
+			testCtx,
+			suiteProducer,
+			"lifecycle-e2e-after-delete-cm",
+			"active syncer should not emit events after agent ConfigMap deletion",
+		)
 	})
 })

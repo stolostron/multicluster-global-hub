@@ -76,12 +76,12 @@ var _ = BeforeSuite(func() {
 	}
 
 	cfg, err = testenv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
+	Expect(err).NotTo(HaveOccurred(), "failed to start envtest")
+	Expect(cfg).NotTo(BeNil(), "envtest config should not be nil")
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: configs.GetRuntimeScheme()})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+	Expect(err).NotTo(HaveOccurred(), "failed to create kubernetes client")
+	Expect(k8sClient).NotTo(BeNil(), "kubernetes client should not be nil")
 
 	testNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -90,7 +90,7 @@ var _ = BeforeSuite(func() {
 	}
 	err = k8sClient.Create(ctx, testNamespace)
 	if err != nil {
-		Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred())
+		Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred(), "failed to create default namespace")
 	}
 
 	agentNamespace := &corev1.Namespace{
@@ -100,7 +100,7 @@ var _ = BeforeSuite(func() {
 	}
 	err = k8sClient.Create(ctx, agentNamespace)
 	if err != nil {
-		Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred())
+		Expect(client.IgnoreAlreadyExists(err)).NotTo(HaveOccurred(), "failed to create agent namespace")
 	}
 
 	By("Setting up controller manager")
@@ -110,7 +110,7 @@ var _ = BeforeSuite(func() {
 		},
 		Scheme: configs.GetRuntimeScheme(),
 	})
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), "failed to create controller manager")
 
 	agentConfig := &configs.AgentConfig{
 		LeafHubName:     "hub1",
@@ -120,7 +120,7 @@ var _ = BeforeSuite(func() {
 	configs.SetAgentConfig(agentConfig)
 
 	err = configmap.AddConfigMapController(mgr, agentConfig)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), "failed to register configmap controller")
 
 	By("Setting up Hub HA lifecycle controller with real resource syncer")
 	suiteProducer = newMockProducer()
@@ -136,16 +136,18 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
 
-	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+	syncCtx, syncCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer syncCancel()
+	Expect(mgr.GetCache().WaitForCacheSync(syncCtx)).To(BeTrue(), "controller cache should sync before lifecycle tests")
 })
 
 var _ = AfterSuite(func() {
 	By("Tearing down the test environment")
-	if suiteProducer != nil {
-		suiteProducer.Stop()
-	}
 	if cancel != nil {
 		cancel()
+	}
+	if suiteProducer != nil {
+		suiteProducer.Stop()
 	}
 	if testenv != nil {
 		err := testenv.Stop()
