@@ -122,7 +122,6 @@ spec:
           - name: public
             containerPort: 8080
             protocol: TCP
-        imagePullPolicy: IfNotPresent
         volumeMounts:
           - mountPath: /etc/proxy/secrets
             name: cookie-secret

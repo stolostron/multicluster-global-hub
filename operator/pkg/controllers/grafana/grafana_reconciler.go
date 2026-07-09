@@ -290,8 +290,14 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}()
 	// Log the IngressController TLS profile that owns Grafana Route edge TLS (ACM-30175).
-	if ingressSpec, err := commonutils.FetchIngressControllerTLSProfileSpec(ctx, r.GetClient()); err != nil {
-		log.Debugf("unable to read IngressController TLS profile: %v", err)
+	ingressCtx, ingressCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer ingressCancel()
+	if ingressSpec, err := commonutils.FetchIngressControllerTLSProfileSpec(ingressCtx, r.GetClient()); err != nil {
+		if errors.IsNotFound(err) {
+			log.Debugf("unable to read IngressController TLS profile: %v", err)
+		} else {
+			log.Warnf("unable to read IngressController TLS profile: %v", err)
+		}
 	} else {
 		log.Infof("Grafana Route edge TLS uses IngressController profile minTLSVersion=%s ciphers=%d",
 			ingressSpec.MinTLSVersion, len(ingressSpec.Ciphers))
