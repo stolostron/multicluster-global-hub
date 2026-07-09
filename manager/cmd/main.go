@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -21,7 +20,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
@@ -153,14 +151,10 @@ func createManager(ctx context.Context,
 
 	options := ctrl.Options{
 		Scheme: configs.GetRuntimeScheme(),
-		Metrics: metricsserver.Options{
-			BindAddress:   fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-			SecureServing: true,
-			// TLSOpts applies APIServer profile min version/ciphers. Without
-			// SecureServing, controller-runtime serves metrics over plain HTTP
-			// and TLSOpts are ignored (ACM-30175 follow-up to #2487).
-			TLSOpts: []func(*tls.Config){tlsConfigFunc},
-		},
+		Metrics: utils.NewSecureMetricsServerOptions(
+			fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			tlsConfigFunc,
+		),
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
 		LeaderElectionID:        leaderElectionLockID,

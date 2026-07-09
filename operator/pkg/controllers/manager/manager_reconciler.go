@@ -424,19 +424,7 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 				},
 			},
 			Endpoints: []promv1.Endpoint{
-				{
-					Port:     "metrics",
-					Path:     "/metrics",
-					Scheme:   "https",
-					Interval: promv1.Duration(config.GetMetricsScrapeInterval(mgh)),
-					// Manager metrics use a controller-runtime self-signed cert
-					// (SecureServing); skip verify until a serving-cert secret is wired.
-					TLSConfig: &promv1.TLSConfig{
-						SafeTLSConfig: promv1.SafeTLSConfig{
-							InsecureSkipVerify: ptr.To(true),
-						},
-					},
-				},
+				managerMetricsEndpoint(config.GetMetricsScrapeInterval(mgh)),
 			},
 		},
 	}
@@ -456,6 +444,23 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// managerMetricsEndpoint builds the ServiceMonitor scrape endpoint for manager
+// metrics. SecureServing uses a controller-runtime self-signed cert, so scrape
+// skips verify until a serving-cert secret is wired (ACM-30175).
+func managerMetricsEndpoint(interval string) promv1.Endpoint {
+	return promv1.Endpoint{
+		Port:     "metrics",
+		Path:     "/metrics",
+		Scheme:   "https",
+		Interval: promv1.Duration(interval),
+		TLSConfig: &promv1.TLSConfig{
+			SafeTLSConfig: promv1.SafeTLSConfig{
+				InsecureSkipVerify: ptr.To(true),
+			},
+		},
+	}
 }
 
 func storageConnectionUpdated(storageConn *config.PostgresConnection) bool {
