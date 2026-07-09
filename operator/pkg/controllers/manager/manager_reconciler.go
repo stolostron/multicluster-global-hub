@@ -448,7 +448,8 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 
 // managerMetricsEndpoint builds the ServiceMonitor scrape endpoint for manager
 // metrics. SecureServing uses a controller-runtime self-signed cert, so scrape
-// skips verify until a serving-cert secret is wired (ACM-30175).
+// uses InsecureSkipVerify until a serving-cert secret is wired (ACM-30175
+// follow-up: replace skip-verify with CA-backed scrape TLS).
 func managerMetricsEndpoint(interval string) promv1.Endpoint {
 	return promv1.Endpoint{
 		Port:     "metrics",

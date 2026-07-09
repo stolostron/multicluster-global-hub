@@ -1,3 +1,7 @@
+/*
+Copyright Contributors to the Open Cluster Management project.
+*/
+
 package manager
 
 import (
@@ -16,6 +20,8 @@ func TestManagerMetricsEndpoint(t *testing.T) {
 	assert.Equal(t, promv1.Duration("30s"), ep.Interval)
 	require.NotNil(t, ep.TLSConfig)
 	require.NotNil(t, ep.TLSConfig.InsecureSkipVerify)
+	// Interim: controller-runtime self-signed metrics cert. Remove skip-verify
+	// when a serving-cert secret is wired (tracked under ACM-30175 follow-up).
 	assert.True(t, *ep.TLSConfig.InsecureSkipVerify)
 }
 
@@ -24,5 +30,6 @@ func TestManagerMetricsEndpointCustomInterval(t *testing.T) {
 	assert.Equal(t, promv1.Duration("1m"), ep.Interval)
 	assert.Equal(t, "https", ep.Scheme)
 	require.NotNil(t, ep.TLSConfig.InsecureSkipVerify)
+	// Same interim skip-verify as TestManagerMetricsEndpoint (ACM-30175).
 	assert.True(t, *ep.TLSConfig.InsecureSkipVerify)
 }
