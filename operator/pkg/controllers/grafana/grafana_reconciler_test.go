@@ -9,6 +9,10 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -17,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	fakekube "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -940,9 +943,9 @@ func TestNetworkPolicyPred_Grafana(t *testing.T) {
 func ingressGrafanaTestScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
 	s := runtime.NewScheme()
-	assert.Nil(t, clientgoscheme.AddToScheme(s))
-	assert.Nil(t, configv1.AddToScheme(s))
-	assert.Nil(t, operatorv1.Install(s))
+	require.NoError(t, scheme.AddToScheme(s), "client-go scheme registration must succeed for ingress TLS tests")
+	require.NoError(t, configv1.AddToScheme(s), "configv1 scheme registration must succeed for ingress TLS tests")
+	require.NoError(t, operatorv1.Install(s), "operatorv1 scheme registration must succeed for ingress TLS tests")
 	return s
 }
 
@@ -959,10 +962,13 @@ func TestLogGrafanaIngressTLSProfile(t *testing.T) {
 			},
 		},
 	}
+	intermediateProfile := configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
 
 	tests := []struct {
-		name   string
-		client client.Client
+		name          string
+		client        client.Client
+		wantLevel     zapcore.Level
+		wantSubstring string
 	}{
 		{
 			name: "reads IngressController status TLS profile",
@@ -970,12 +976,16 @@ func TestLogGrafanaIngressTLSProfile(t *testing.T) {
 				WithScheme(ingressGrafanaTestScheme(t)).
 				WithObjects(ingressController).
 				Build(),
+			wantLevel:     zap.InfoLevel,
+			wantSubstring: "minTLSVersion=" + string(configv1.VersionTLS12),
 		},
 		{
 			name: "falls back when IngressController is absent",
 			client: fake.NewClientBuilder().
 				WithScheme(ingressGrafanaTestScheme(t)).
 				Build(),
+			wantLevel:     zap.InfoLevel,
+			wantSubstring: "minTLSVersion=" + string(intermediateProfile.MinTLSVersion),
 		},
 		{
 			name: "warns when IngressController lookup fails",
@@ -996,12 +1006,26 @@ func TestLogGrafanaIngressTLSProfile(t *testing.T) {
 					},
 				}).
 				Build(),
+			wantLevel:     zap.WarnLevel,
+			wantSubstring: "unable to read IngressController TLS profile",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			core, recorded := observer.New(zap.DebugLevel)
+			oldLog := log
+			log = zap.New(core).Sugar()
+			t.Cleanup(func() { log = oldLog })
+
 			r := &GrafanaReconciler{client: tt.client}
 			r.logGrafanaIngressTLSProfile(context.Background())
+
+			entries := recorded.All()
+			require.Len(t, entries, 1, "expected exactly one log entry for %s", tt.name)
+			require.Equal(t, tt.wantLevel, entries[0].Level,
+				"unexpected log level for %s", tt.name)
+			require.Contains(t, entries[0].Message, tt.wantSubstring,
+				"log message should include expected ingress TLS details for %s", tt.name)
 		})
 	}
 }
