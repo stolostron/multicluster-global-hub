@@ -327,14 +327,6 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - operator.openshift.io
-  resources:
-  - ingresscontrollers
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - config.openshift.io
   resources:
   - clusterversions
@@ -533,6 +525,14 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - ingresscontrollers
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - operators.coreos.com
   resources:
