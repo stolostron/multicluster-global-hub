@@ -151,8 +151,8 @@ func createManager(ctx context.Context,
 
 	metricsBindAddress := fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	options := ctrl.Options{
-		Scheme: configs.GetRuntimeScheme(),
-		Metrics: utils.NewSecureMetricsServerOptions(metricsBindAddress, tlsConfigFunc),
+		Scheme:                  configs.GetRuntimeScheme(),
+		Metrics:                 utils.NewSecureMetricsServerOptions(metricsBindAddress, tlsConfigFunc),
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
 		LeaderElectionID:        leaderElectionLockID,
