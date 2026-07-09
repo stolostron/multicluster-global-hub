@@ -434,7 +434,7 @@ func TestEnsureLocalMigrationCR_InvalidInputs(t *testing.T) {
 			wantErr: "invalid migration CR inputs",
 		},
 		{
-			name: "missing managed service account name",
+			name:   "missing managed service account name",
 			client: c,
 			target: "hub2",
 			event: &migrationbundle.MigrationTargetBundle{
