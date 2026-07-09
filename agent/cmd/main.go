@@ -219,10 +219,8 @@ func createManager(restConfig *rest.Config, agentConfig *configs.AgentConfig) (
 	}
 
 	options := ctrl.Options{
-		Metrics: utils.NewSecureMetricsServerOptions(
-			agentConfig.MetricsAddress,
-			tlsConfigFunc,
-		),
+		// SecureServing + TLSOpts via helper (covered in pkg/utils); cmd wiring is one line.
+		Metrics:                 utils.NewSecureMetricsServerOptions(agentConfig.MetricsAddress, tlsConfigFunc),
 		LeaderElection:          true,
 		Scheme:                  configs.GetRuntimeScheme(),
 		LeaderElectionConfig:    leaderElectionConfig,

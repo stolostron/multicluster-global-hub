@@ -151,10 +151,8 @@ func createManager(ctx context.Context,
 
 	options := ctrl.Options{
 		Scheme: configs.GetRuntimeScheme(),
-		Metrics: utils.NewSecureMetricsServerOptions(
-			fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-			tlsConfigFunc,
-		),
+		// SecureServing + TLSOpts via helper (covered in pkg/utils); cmd wiring is one line.
+		Metrics:                 utils.NewSecureMetricsServerOptions(fmt.Sprintf("%s:%d", metricsHost, metricsPort), tlsConfigFunc),
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
 		LeaderElectionID:        leaderElectionLockID,
