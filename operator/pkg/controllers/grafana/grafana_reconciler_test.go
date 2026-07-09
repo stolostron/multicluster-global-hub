@@ -2,8 +2,11 @@ package grafana
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/ini.v1"
@@ -14,9 +17,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	fakekube "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -930,6 +935,75 @@ func TestNetworkPolicyPred_Grafana(t *testing.T) {
 	assert.False(t, networkPolicyPred.Update(event.UpdateEvent{ObjectNew: otherNP}), "Update: other NP should not match")
 	assert.True(t, networkPolicyPred.Delete(event.DeleteEvent{Object: np}), "Delete: grafana NP should match")
 	assert.False(t, networkPolicyPred.Delete(event.DeleteEvent{Object: otherNP}), "Delete: other NP should not match")
+}
+
+func ingressGrafanaTestScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+	s := runtime.NewScheme()
+	assert.Nil(t, clientgoscheme.AddToScheme(s))
+	assert.Nil(t, configv1.AddToScheme(s))
+	assert.Nil(t, operatorv1.Install(s))
+	return s
+}
+
+func TestLogGrafanaIngressTLSProfile(t *testing.T) {
+	ingressController := &operatorv1.IngressController{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: "openshift-ingress-operator",
+		},
+		Status: operatorv1.IngressControllerStatus{
+			TLSProfile: &configv1.TLSProfileSpec{
+				Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+				MinTLSVersion: configv1.VersionTLS12,
+			},
+		},
+	}
+
+	tests := []struct {
+		name   string
+		client client.Client
+	}{
+		{
+			name: "reads IngressController status TLS profile",
+			client: fake.NewClientBuilder().
+				WithScheme(ingressGrafanaTestScheme(t)).
+				WithObjects(ingressController).
+				Build(),
+		},
+		{
+			name: "falls back when IngressController is absent",
+			client: fake.NewClientBuilder().
+				WithScheme(ingressGrafanaTestScheme(t)).
+				Build(),
+		},
+		{
+			name: "warns when IngressController lookup fails",
+			client: fake.NewClientBuilder().
+				WithScheme(ingressGrafanaTestScheme(t)).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(
+						ctx context.Context,
+						c client.WithWatch,
+						key client.ObjectKey,
+						obj client.Object,
+						opts ...client.GetOption,
+					) error {
+						if _, ok := obj.(*operatorv1.IngressController); ok {
+							return fmt.Errorf("simulated ingress lookup failure")
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+				}).
+				Build(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &GrafanaReconciler{client: tt.client}
+			r.logGrafanaIngressTLSProfile(context.Background())
+		})
+	}
 }
 
 func sectionCount(a []byte) int {
