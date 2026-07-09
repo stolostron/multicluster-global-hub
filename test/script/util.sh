@@ -87,6 +87,8 @@ install_clusteradm() {
   local os arch artifact url tmp_root artifact_file cli_file
   local max_retries=5
   local attempt=0
+  local curl_connect_timeout=30
+  local curl_max_time=300
 
   os=$(uname | tr '[:upper:]' '[:lower:]')
   arch=$(uname -m)
@@ -106,7 +108,8 @@ install_clusteradm() {
     artifact_file="${tmp_root}/${artifact}"
 
     echo "Downloading clusteradm ${version} (attempt ${attempt}/${max_retries})..."
-    if ! curl -fSL --retry 3 --retry-delay 2 "$url" -o "$artifact_file"; then
+    if ! curl -fSL --connect-timeout "${curl_connect_timeout}" --max-time "${curl_max_time}" \
+      --retry 3 --retry-delay 2 "$url" -o "$artifact_file"; then
       echo "clusteradm download failed (curl error)"
       rm -rf "$tmp_root"
       sleep 5
@@ -129,14 +132,14 @@ install_clusteradm() {
 
     chmod +x "${tmp_root}/clusteradm"
     if [ -w "$INSTALL_DIR" ]; then
-      if ! cp "${tmp_root}/clusteradm" "$cli_file"; then
-        echo "failed to copy clusteradm to ${INSTALL_DIR}"
+      if ! install -m 0755 "${tmp_root}/clusteradm" "$cli_file"; then
+        echo "failed to install clusteradm to ${INSTALL_DIR}"
         rm -rf "$tmp_root"
         sleep 5
         continue
       fi
-    elif ! sudo cp "${tmp_root}/clusteradm" "$cli_file"; then
-      echo "failed to copy clusteradm to ${INSTALL_DIR} (sudo)"
+    elif ! sudo install -m 0755 "${tmp_root}/clusteradm" "$cli_file"; then
+      echo "failed to install clusteradm to ${INSTALL_DIR} (sudo)"
       rm -rf "$tmp_root"
       sleep 5
       continue
