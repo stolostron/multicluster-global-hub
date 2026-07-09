@@ -222,8 +222,12 @@ func createManager(restConfig *rest.Config, agentConfig *configs.AgentConfig) (
 
 	options := ctrl.Options{
 		Metrics: metricsserver.Options{
-			BindAddress: agentConfig.MetricsAddress,
-			TLSOpts:     []func(*tls.Config){tlsConfigFunc},
+			BindAddress:   agentConfig.MetricsAddress,
+			SecureServing: true,
+			// TLSOpts applies APIServer profile min version/ciphers. Without
+			// SecureServing, controller-runtime serves metrics over plain HTTP
+			// and TLSOpts are ignored (ACM-30175 follow-up to #2487).
+			TLSOpts: []func(*tls.Config){tlsConfigFunc},
 		},
 		LeaderElection:          true,
 		Scheme:                  configs.GetRuntimeScheme(),

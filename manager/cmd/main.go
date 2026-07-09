@@ -154,8 +154,12 @@ func createManager(ctx context.Context,
 	options := ctrl.Options{
 		Scheme: configs.GetRuntimeScheme(),
 		Metrics: metricsserver.Options{
-			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-			TLSOpts:     []func(*tls.Config){tlsConfigFunc},
+			BindAddress:   fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			SecureServing: true,
+			// TLSOpts applies APIServer profile min version/ciphers. Without
+			// SecureServing, controller-runtime serves metrics over plain HTTP
+			// and TLSOpts are ignored (ACM-30175 follow-up to #2487).
+			TLSOpts: []func(*tls.Config){tlsConfigFunc},
 		},
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,

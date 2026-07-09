@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/utils/ptr"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -426,7 +427,15 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 				{
 					Port:     "metrics",
 					Path:     "/metrics",
+					Scheme:   "https",
 					Interval: promv1.Duration(config.GetMetricsScrapeInterval(mgh)),
+					// Manager metrics use a controller-runtime self-signed cert
+					// (SecureServing); skip verify until a serving-cert secret is wired.
+					TLSConfig: &promv1.TLSConfig{
+						SafeTLSConfig: promv1.SafeTLSConfig{
+							InsecureSkipVerify: ptr.To(true),
+						},
+					},
 				},
 			},
 		},
