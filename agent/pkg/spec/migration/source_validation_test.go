@@ -5,6 +5,7 @@ package migration
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -285,10 +286,23 @@ func TestIsMigrationDeployResourceAllowed(t *testing.T) {
 	}
 }
 
-func TestEnsureLocalMigrationCR(t *testing.T) {
+func migrationValidationScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = migrationv1alpha1.AddToScheme(scheme)
+	return scheme
+}
+
+func sampleMigrationTargetBundle() *migrationbundle.MigrationTargetBundle {
+	return &migrationbundle.MigrationTargetBundle{
+		FromHub:                   "hub1",
+		ManagedServiceAccountName: "migration-hub1-cluster1",
+		ManagedClusters:           []string{"cluster1"},
+	}
+}
+
+func TestEnsureLocalMigrationCR(t *testing.T) {
+	scheme := migrationValidationScheme()
 	ctx := context.Background()
 
 	c := fake.NewClientBuilder().
@@ -296,11 +310,7 @@ func TestEnsureLocalMigrationCR(t *testing.T) {
 		WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
 		Build()
 
-	event := &migrationbundle.MigrationTargetBundle{
-		FromHub:                   "hub1",
-		ManagedServiceAccountName: "migration-hub1-cluster1",
-		ManagedClusters:           []string{"cluster1"},
-	}
+	event := sampleMigrationTargetBundle()
 	if err := EnsureLocalMigrationCR(ctx, c, "hub2", event, migrationv1alpha1.PhaseDeploying); err != nil {
 		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
 	}
@@ -317,5 +327,213 @@ func TestEnsureLocalMigrationCR(t *testing.T) {
 	}
 	if got.Status.Phase != migrationv1alpha1.PhaseDeploying {
 		t.Fatalf("expected phase %q, got %q", migrationv1alpha1.PhaseDeploying, got.Status.Phase)
+	}
+}
+
+func TestEnsureLocalMigrationCR_UpdatesExistingCR(t *testing.T) {
+	scheme := migrationValidationScheme()
+	ctx := context.Background()
+	event := sampleMigrationTargetBundle()
+
+	existing := &migrationv1alpha1.ManagedClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      event.ManagedServiceAccountName,
+			Namespace: constants.GHDefaultNamespace,
+		},
+		Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+			From:                    "old-hub",
+			To:                      "hub2",
+			IncludedManagedClusters: []string{"old-cluster"},
+		},
+		Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+			Phase: migrationv1alpha1.PhaseInitializing,
+		},
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existing).
+		WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
+		Build()
+
+	if err := EnsureLocalMigrationCR(ctx, c, "hub2", event, migrationv1alpha1.PhaseDeploying); err != nil {
+		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
+	}
+
+	got := &migrationv1alpha1.ManagedClusterMigration{}
+	if err := c.Get(ctx, types.NamespacedName{
+		Name:      event.ManagedServiceAccountName,
+		Namespace: constants.GHDefaultNamespace,
+	}, got); err != nil {
+		t.Fatalf("failed to get updated migration CR: %v", err)
+	}
+	if got.Spec.From != "hub1" {
+		t.Fatalf("expected from hub1, got %q", got.Spec.From)
+	}
+	if len(got.Spec.IncludedManagedClusters) != 1 || got.Spec.IncludedManagedClusters[0] != "cluster1" {
+		t.Fatalf("unexpected included clusters: %v", got.Spec.IncludedManagedClusters)
+	}
+	if got.Status.Phase != migrationv1alpha1.PhaseDeploying {
+		t.Fatalf("expected phase %q, got %q", migrationv1alpha1.PhaseDeploying, got.Status.Phase)
+	}
+}
+
+func TestEnsureLocalMigrationCR_ReusesExistingNamespace(t *testing.T) {
+	scheme := migrationValidationScheme()
+	ctx := context.Background()
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(ns).
+		WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
+		Build()
+
+	if err := EnsureLocalMigrationCR(ctx, c, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseInitializing); err != nil {
+		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
+	}
+
+	got := &migrationv1alpha1.ManagedClusterMigration{}
+	if err := c.Get(ctx, types.NamespacedName{
+		Name:      "migration-hub1-cluster1",
+		Namespace: constants.GHDefaultNamespace,
+	}, got); err != nil {
+		t.Fatalf("failed to get local migration CR: %v", err)
+	}
+}
+
+func TestEnsureLocalMigrationCR_InvalidInputs(t *testing.T) {
+	ctx := context.Background()
+	event := sampleMigrationTargetBundle()
+	c := fake.NewClientBuilder().WithScheme(migrationValidationScheme()).Build()
+
+	cases := []struct {
+		name    string
+		client  client.Client
+		target  string
+		event   *migrationbundle.MigrationTargetBundle
+		wantErr string
+	}{
+		{
+			name:    "nil client",
+			client:  nil,
+			target:  "hub2",
+			event:   event,
+			wantErr: "invalid migration CR inputs",
+		},
+		{
+			name:    "nil event",
+			client:  c,
+			target:  "hub2",
+			event:   nil,
+			wantErr: "invalid migration CR inputs",
+		},
+		{
+			name:    "empty target hub",
+			client:  c,
+			target:  "",
+			event:   event,
+			wantErr: "invalid migration CR inputs",
+		},
+		{
+			name: "missing managed service account name",
+			client: c,
+			target: "hub2",
+			event: &migrationbundle.MigrationTargetBundle{
+				FromHub:         "hub1",
+				ManagedClusters: []string{"cluster1"},
+			},
+			wantErr: "managedServiceAccountName is required",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := EnsureLocalMigrationCR(ctx, tc.client, tc.target, tc.event, migrationv1alpha1.PhaseDeploying)
+			if err == nil || err.Error() == "" {
+				t.Fatal("expected error")
+			}
+			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("error = %q, want substring %q", err.Error(), tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestEnsureLocalMigrationCR_NoOpWithoutFromHubOrClusters(t *testing.T) {
+	ctx := context.Background()
+	c := fake.NewClientBuilder().WithScheme(migrationValidationScheme()).Build()
+
+	cases := []*migrationbundle.MigrationTargetBundle{
+		{
+			ManagedServiceAccountName: "migration-hub1-cluster1",
+			ManagedClusters:           []string{"cluster1"},
+		},
+		{
+			FromHub:                   "hub1",
+			ManagedServiceAccountName: "migration-hub1-cluster1",
+		},
+	}
+
+	for i, event := range cases {
+		if err := EnsureLocalMigrationCR(ctx, c, "hub2", event, migrationv1alpha1.PhaseDeploying); err != nil {
+			t.Fatalf("case %d: expected no-op, got error %v", i, err)
+		}
+	}
+
+	list := &migrationv1alpha1.ManagedClusterMigrationList{}
+	if err := c.List(ctx, list); err != nil {
+		t.Fatalf("list migration CRs: %v", err)
+	}
+	if len(list.Items) != 0 {
+		t.Fatalf("expected no migration CRs to be created, got %d", len(list.Items))
+	}
+}
+
+func TestDeleteLocalMigrationCR(t *testing.T) {
+	scheme := migrationValidationScheme()
+	ctx := context.Background()
+	migrationCR := &migrationv1alpha1.ManagedClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "migration-hub1-cluster1",
+			Namespace: constants.GHDefaultNamespace,
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(migrationCR).Build()
+
+	if err := DeleteLocalMigrationCR(ctx, c, migrationCR.Name); err != nil {
+		t.Fatalf("DeleteLocalMigrationCR() error = %v", err)
+	}
+	if err := c.Get(ctx, types.NamespacedName{
+		Name:      migrationCR.Name,
+		Namespace: constants.GHDefaultNamespace,
+	}, &migrationv1alpha1.ManagedClusterMigration{}); err == nil {
+		t.Fatal("expected migration CR to be deleted")
+	}
+
+	if err := DeleteLocalMigrationCR(ctx, c, "missing-migration"); err != nil {
+		t.Fatalf("deleting missing migration CR should succeed, got %v", err)
+	}
+	if err := DeleteLocalMigrationCR(ctx, nil, migrationCR.Name); err != nil {
+		t.Fatalf("nil client should be ignored, got %v", err)
+	}
+	if err := DeleteLocalMigrationCR(ctx, c, ""); err != nil {
+		t.Fatalf("empty migration name should be ignored, got %v", err)
+	}
+}
+
+func TestMigrationSourceAllowed_ListError(t *testing.T) {
+	ctx := context.Background()
+	clientWithoutScheme := fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()
+	if MigrationSourceAllowed(ctx, clientWithoutScheme, "hub1", "hub2") {
+		t.Fatal("expected list failure to reject migration source")
+	}
+}
+
+func TestIsMigrationDeployResourceAllowed_EmptyClusterName(t *testing.T) {
+	secret := &unstructured.Unstructured{}
+	secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+	secret.SetNamespace("cluster1")
+	secret.SetName("bootstrap")
+	if IsMigrationDeployResourceAllowed(secret, "") {
+		t.Fatal("expected empty cluster name to be rejected")
 	}
 }

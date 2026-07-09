@@ -269,6 +269,54 @@ func TestSync_RejectsUntrustedSource(t *testing.T) {
 	assert.NoError(t, syncer.Sync(ctx, unexpectedPeer))
 }
 
+func TestSync_AllowsManagerSource(t *testing.T) {
+	scheme := newHAConfigTestScheme()
+	mch := &mchv1.MultiClusterHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"},
+		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: testMCHVersion214},
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(mch).
+		WithStatusSubresource(mch).
+		Build()
+
+	syncer := &HAConfigSyncer{
+		client:      fakeClient,
+		leafHubName: "hub1",
+		standbyHub:  "hub2",
+	}
+	bundle := newHAConfigTestBundle()
+	evt := newHAConfigTestEvent(t, bundle)
+	evt.SetSource(constants.CloudEventGlobalHubClusterName)
+
+	assert.NoError(t, syncer.Sync(context.Background(), evt))
+
+	secret := &corev1.Secret{}
+	err := fakeClient.Get(context.Background(), types.NamespacedName{
+		Name:      testBootstrapSecretName,
+		Namespace: "multicluster-engine",
+	}, secret)
+	require.NoError(t, err)
+}
+
+func TestSync_InvalidBundleData(t *testing.T) {
+	scheme := newHAConfigTestScheme()
+	syncer := &HAConfigSyncer{
+		client:      fake.NewClientBuilder().WithScheme(scheme).Build(),
+		leafHubName: "hub1",
+	}
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HAConfigMsgKey)
+	evt.SetSource("hub2")
+	evt.SetSubject("hub1")
+	_ = evt.SetData(cloudevents.ApplicationJSON, []byte("not-json"))
+
+	err := syncer.Sync(context.Background(), &evt)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to unmarshal HA config bundle")
+}
+
 func TestAnnotateSkipsAlreadyAnnotated(t *testing.T) {
 	scheme := newHAConfigTestScheme()
 	cluster1 := &clusterv1.ManagedCluster{

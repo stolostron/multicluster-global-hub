@@ -174,6 +174,53 @@ func TestHubHAResourceSourceAllowed(t *testing.T) {
 	}
 }
 
+func TestExpectedActiveHubName(t *testing.T) {
+	ctx := context.Background()
+
+	if name, ok := expectedActiveHubName(ctx, nil); ok || name != "" {
+		t.Fatal("expected nil client to fail lookup")
+	}
+
+	scheme := runtime.NewScheme()
+	_ = clusterv1.Install(scheme)
+	clientWithoutScheme := fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()
+	if _, ok := expectedActiveHubName(ctx, clientWithoutScheme); ok {
+		t.Fatal("expected list failure without cluster scheme")
+	}
+
+	clientWithoutActiveHub := fake.NewClientBuilder().WithScheme(scheme).Build()
+	if _, ok := expectedActiveHubName(ctx, clientWithoutActiveHub); ok {
+		t.Fatal("expected missing active hub to fail lookup")
+	}
+
+	multipleActiveHubs := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(activeHubManagedCluster("hub1"), activeHubManagedCluster("hub2")).
+		Build()
+	if _, ok := expectedActiveHubName(ctx, multipleActiveHubs); ok {
+		t.Fatal("expected multiple active hubs to fail lookup")
+	}
+
+	singleActiveHub := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(activeHubManagedCluster("hub1")).
+		Build()
+	name, ok := expectedActiveHubName(ctx, singleActiveHub)
+	if !ok || name != "hub1" {
+		t.Fatalf("expected active hub hub1, got name=%q ok=%v", name, ok)
+	}
+}
+
+func TestSpecEventSourceAllowed_GlobalHubSourceBypassesTypeChecks(t *testing.T) {
+	ctx := context.Background()
+	agentConfig := &configs.AgentConfig{LeafHubName: "hub2"}
+
+	unknownType := utils.ToCloudEvent("UnknownType", constants.CloudEventGlobalHubClusterName, "hub2", nil)
+	if !specEventSourceAllowed(ctx, nil, agentConfig, &unknownType, "hub2") {
+		t.Fatal("expected global-hub source to be allowed regardless of event type")
+	}
+}
+
 func TestHaConfigSourceAllowed(t *testing.T) {
 	cfg := &configs.AgentConfig{LeafHubName: "hub2"}
 	cfg.SetStandbyHub("hub1")

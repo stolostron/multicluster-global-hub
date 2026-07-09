@@ -63,6 +63,53 @@ func TestHubHAStandbySyncer_Sync_WrongEventType(t *testing.T) {
 	}
 }
 
+func TestHubHAStandbySyncer_Sync_RejectsInvalidBundle(t *testing.T) {
+	scheme := runtime.NewScheme()
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+	syncer := NewHubHAStandbySyncer(client)
+	ctx := context.Background()
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubHAResourcesMsgKey)
+	evt.SetSource("hub1")
+	_ = evt.SetData(cloudevents.ApplicationJSON, []byte("not-json"))
+
+	if err := syncer.Sync(ctx, &evt); err == nil {
+		t.Fatal("expected invalid bundle data to return an error")
+	}
+}
+
+func TestHubHAStandbySyncer_DeleteResource_MissingKind(t *testing.T) {
+	scheme := runtime.NewScheme()
+	syncer := NewHubHAStandbySyncer(fake.NewClientBuilder().WithScheme(scheme).Build())
+
+	meta := &generic.ObjectMetadata{
+		Name:      testCMName,
+		Namespace: "default",
+	}
+	err := syncer.deleteResource(context.Background(), meta, "hub1")
+	if err == nil {
+		t.Fatal("expected missing kind to return an error")
+	}
+}
+
+func TestHubHAStandbySyncer_DeleteResource_NotFound(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	syncer := NewHubHAStandbySyncer(fake.NewClientBuilder().WithScheme(scheme).Build())
+
+	meta := &generic.ObjectMetadata{
+		Name:      "missing-cm",
+		Namespace: "default",
+		Group:     "",
+		Version:   "v1",
+		Kind:      "ConfigMap",
+	}
+	if err := syncer.deleteResource(context.Background(), meta, "hub1"); err != nil {
+		t.Fatalf("deleting missing resource should succeed, got %v", err)
+	}
+}
+
 func TestHubHAStandbySyncer_Sync_RejectsUntrustedSource(t *testing.T) {
 	scheme := runtime.NewScheme()
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
