@@ -149,10 +149,10 @@ func createManager(ctx context.Context,
 		logger.DefaultZapLogger().Info("Using TLS 1.3 for metrics server (cluster APIServer profile unavailable)")
 	}
 
+	metricsBindAddress := fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	options := ctrl.Options{
 		Scheme: configs.GetRuntimeScheme(),
-		// SecureServing + TLSOpts via helper (covered in pkg/utils); cmd wiring is one line.
-		Metrics:                 utils.NewSecureMetricsServerOptions(fmt.Sprintf("%s:%d", metricsHost, metricsPort), tlsConfigFunc),
+		Metrics: utils.NewSecureMetricsServerOptions(metricsBindAddress, tlsConfigFunc),
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
 		LeaderElectionID:        leaderElectionLockID,
