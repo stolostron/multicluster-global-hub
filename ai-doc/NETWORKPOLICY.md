@@ -24,7 +24,7 @@ Policies are **operator-managed**: the multicluster-global-hub operator reconcil
 3. **multicluster-global-hub-grafana**
    - Grafana: Port 3001 (internal)
    - Grafana alerts: Port 9094
-   - OAuth proxy: Port 9443 (external)
+   - OAuth proxy: Port 8080 (HTTP behind Route edge TLS; IngressController owns client TLS)
    - Needs: PostgreSQL (5432), Kubernetes API
 
 4. **PostgreSQL StatefulSet**
@@ -258,7 +258,7 @@ spec:
           network.openshift.io/policy-group: ingress
     ports:
     - protocol: TCP
-      port: 9443
+      port: 8080
   # Allow metrics scraping
   - from:
     - namespaceSelector:
@@ -268,7 +268,7 @@ spec:
     - protocol: TCP
       port: 3001
     - protocol: TCP
-      port: 9443
+      port: 8080
   egress:
   # Allow access to PostgreSQL
   - to:

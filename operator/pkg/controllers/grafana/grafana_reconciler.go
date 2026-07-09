@@ -49,6 +49,7 @@ import (
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
 // +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=operator.openshift.io,resources=ingresscontrollers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
@@ -288,6 +289,13 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
+	// Log the IngressController TLS profile that owns Grafana Route edge TLS (ACM-30175).
+	if ingressSpec, err := commonutils.FetchIngressControllerTLSProfileSpec(ctx, r.GetClient()); err != nil {
+		log.Debugf("unable to read IngressController TLS profile: %v", err)
+	} else {
+		log.Infof("Grafana Route edge TLS uses IngressController profile minTLSVersion=%s ciphers=%d",
+			ingressSpec.MinTLSVersion, len(ingressSpec.Ciphers))
+	}
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
 	if err != nil {

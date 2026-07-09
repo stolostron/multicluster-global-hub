@@ -111,8 +111,8 @@ spec:
       - readinessProbe:
           httpGet:
             path: /oauth/healthz
-            port: 9443
-            scheme: HTTPS
+            port: 8080
+            scheme: HTTP
           timeoutSeconds: 1
           periodSeconds: 10
           successThreshold: 1
@@ -120,12 +120,10 @@ spec:
         name: grafana-proxy
         ports:
           - name: public
-            containerPort: 9443
+            containerPort: 8080
             protocol: TCP
         imagePullPolicy: IfNotPresent
         volumeMounts:
-          - name: tls-secret
-            mountPath: /etc/tls/private
           - mountPath: /etc/proxy/secrets
             name: cookie-secret
         image: {{.ProxyImage}}
@@ -133,13 +131,13 @@ spec:
         args:
           - '--provider=openshift'
           - '--upstream=http://localhost:3001'
-          - '--https-address=:9443'
+          # HTTP behind Route edge TLS so IngressController owns client TLS (ACM-30175).
+          - '--http-address=:8080'
+          - '--https-address='
           - '--cookie-secret-file=/etc/proxy/secrets/session_secret'
           - '--cookie-expire=12h0m0s'
           - '--cookie-refresh=8h0m0s'
           - '--openshift-delegate-urls={"/": {"resource": "projects", "verb": "list"}}'
-          - '--tls-cert=/etc/tls/private/tls.crt'
-          - '--tls-key=/etc/tls/private/tls.key'
           - '--openshift-service-account=multicluster-global-hub-grafana'
           - '--pass-user-bearer-token=true'
           - '--pass-access-token=true'
@@ -256,10 +254,6 @@ spec:
         secret:
           defaultMode: 420
           secretName: multicluster-global-hub-grafana-config
-      - name: tls-secret
-        secret:
-          defaultMode: 420
-          secretName: multicluster-global-hub-grafana-tls
       - name: cookie-secret
         secret:
           defaultMode: 420

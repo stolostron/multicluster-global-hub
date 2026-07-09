@@ -9,8 +9,12 @@ spec:
   port:
     targetPort: "oauth-proxy"
   tls:
+    # Edge termination so the OpenShift IngressController (status.tlsProfile)
+    # owns client-facing TLS. OpenShift oauth-proxy has no --tls-min-version /
+    # --tls-cipher-suite flags, so reencrypt cannot inherit Ingress/APIServer
+    # profiles on the router→proxy hop (ACM-30175).
     insecureEdgeTerminationPolicy: Redirect
-    termination: reencrypt
+    termination: edge
   to:
     kind: Service
     name: multicluster-global-hub-grafana
