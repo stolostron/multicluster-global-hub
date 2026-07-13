@@ -105,13 +105,27 @@ var _ = Describe("manager", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			// service monitor
+			// ServiceMonitor must scrape manager metrics over HTTPS with
+			// skip-verify for the controller-runtime self-signed cert (ACM-30175).
 			serviceMonitor := &promv1.ServiceMonitor{}
 			err = runtimeClient.Get(ctx, types.NamespacedName{
 				Namespace: mgh.Namespace,
 				Name:      operatorconstants.GHServiceMonitorName,
 			}, serviceMonitor)
-			return err
+			if err != nil {
+				return err
+			}
+			if len(serviceMonitor.Spec.Endpoints) == 0 {
+				return fmt.Errorf("ServiceMonitor has no endpoints")
+			}
+			ep := serviceMonitor.Spec.Endpoints[0]
+			if ep.Scheme != "https" {
+				return fmt.Errorf("expected ServiceMonitor scheme https, got %q", ep.Scheme)
+			}
+			if ep.TLSConfig == nil || ep.TLSConfig.InsecureSkipVerify == nil || !*ep.TLSConfig.InsecureSkipVerify {
+				return fmt.Errorf("expected ServiceMonitor insecureSkipVerify=true for SecureServing metrics")
+			}
+			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// NetworkPolicy is rendered alongside other manager manifests; verify it is created

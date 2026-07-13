@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/utils/ptr"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -423,11 +424,7 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 				},
 			},
 			Endpoints: []promv1.Endpoint{
-				{
-					Port:     "metrics",
-					Path:     "/metrics",
-					Interval: promv1.Duration(config.GetMetricsScrapeInterval(mgh)),
-				},
+				managerMetricsEndpoint(config.GetMetricsScrapeInterval(mgh)),
 			},
 		},
 	}
@@ -447,6 +444,24 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// managerMetricsEndpoint builds the ServiceMonitor scrape endpoint for manager
+// metrics. SecureServing uses a controller-runtime self-signed cert, so scrape
+// uses InsecureSkipVerify until a serving-cert secret is wired (ACM-30175
+// follow-up: replace skip-verify with CA-backed scrape TLS).
+func managerMetricsEndpoint(interval string) promv1.Endpoint {
+	return promv1.Endpoint{
+		Port:     "metrics",
+		Path:     "/metrics",
+		Scheme:   "https",
+		Interval: promv1.Duration(interval),
+		TLSConfig: &promv1.TLSConfig{
+			SafeTLSConfig: promv1.SafeTLSConfig{
+				InsecureSkipVerify: ptr.To(true),
+			},
+		},
+	}
 }
 
 func storageConnectionUpdated(storageConn *config.PostgresConnection) bool {

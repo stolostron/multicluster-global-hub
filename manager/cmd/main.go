@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -21,7 +20,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
@@ -151,12 +149,10 @@ func createManager(ctx context.Context,
 		logger.DefaultZapLogger().Info("Using TLS 1.3 for metrics server (cluster APIServer profile unavailable)")
 	}
 
+	metricsBindAddress := fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	options := ctrl.Options{
-		Scheme: configs.GetRuntimeScheme(),
-		Metrics: metricsserver.Options{
-			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-			TLSOpts:     []func(*tls.Config){tlsConfigFunc},
-		},
+		Scheme:                  configs.GetRuntimeScheme(),
+		Metrics:                 utils.NewSecureMetricsServerOptions(metricsBindAddress, tlsConfigFunc),
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
 		LeaderElectionID:        leaderElectionLockID,

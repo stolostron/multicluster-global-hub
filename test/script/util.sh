@@ -82,14 +82,83 @@ check_kustomize() {
   echo "kustomize version: $(kustomize version)"
 }
 
+install_clusteradm() {
+  local version="v${CLUSTERADM_VERSION}"
+  local os arch artifact url tmp_root artifact_file cli_file
+  local max_retries=5
+  local attempt=0
+  local curl_connect_timeout=30
+  local curl_max_time=300
+
+  os=$(uname | tr '[:upper:]' '[:lower:]')
+  arch=$(uname -m)
+  case $arch in
+    armv7*) arch="arm" ;;
+    aarch64) arch="arm64" ;;
+    x86_64) arch="amd64" ;;
+  esac
+
+  artifact="clusteradm_${os}_${arch}.tar.gz"
+  url="https://github.com/open-cluster-management-io/clusteradm/releases/download/${version}/${artifact}"
+  cli_file="${INSTALL_DIR}/clusteradm"
+
+  while [ $attempt -lt $max_retries ]; do
+    attempt=$((attempt + 1))
+    tmp_root=$(mktemp -dt clusteradm-install-XXXXXX)
+    artifact_file="${tmp_root}/${artifact}"
+
+    echo "Downloading clusteradm ${version} (attempt ${attempt}/${max_retries})..."
+    if ! curl -fSL --connect-timeout "${curl_connect_timeout}" --max-time "${curl_max_time}" \
+      --retry 3 --retry-delay 2 "$url" -o "$artifact_file"; then
+      echo "clusteradm download failed (curl error)"
+      rm -rf "$tmp_root"
+      sleep 5
+      continue
+    fi
+
+    if ! gzip -t "$artifact_file" 2>/dev/null; then
+      echo "clusteradm download is not a valid gzip archive ($(wc -c <"$artifact_file") bytes)"
+      rm -rf "$tmp_root"
+      sleep 5
+      continue
+    fi
+
+    if ! tar -xf "$artifact_file" -C "$tmp_root" clusteradm 2>/dev/null; then
+      echo "clusteradm archive failed to unpack"
+      rm -rf "$tmp_root"
+      sleep 5
+      continue
+    fi
+
+    chmod +x "${tmp_root}/clusteradm"
+    if [ -w "$INSTALL_DIR" ]; then
+      if ! install -m 0755 "${tmp_root}/clusteradm" "$cli_file"; then
+        echo "failed to install clusteradm to ${INSTALL_DIR}"
+        rm -rf "$tmp_root"
+        sleep 5
+        continue
+      fi
+    elif ! sudo install -m 0755 "${tmp_root}/clusteradm" "$cli_file"; then
+      echo "failed to install clusteradm to ${INSTALL_DIR} (sudo)"
+      rm -rf "$tmp_root"
+      sleep 5
+      continue
+    fi
+    rm -rf "$tmp_root"
+
+    if command -v clusteradm >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
+
+  echo "Failed to install clusteradm after ${max_retries} attempts"
+  return 1
+}
+
 check_clusteradm() {
   if ! command -v clusteradm >/dev/null 2>&1; then
-    # curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash
-    curl -LO https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/v$CLUSTERADM_VERSION/install.sh
-    chmod +x ./install.sh
-    export INSTALL_DIR=$INSTALL_DIR
-    source ./install.sh $CLUSTERADM_VERSION
-    rm ./install.sh
+    install_clusteradm || exit 1
   fi
   echo "clusteradm path: $(which clusteradm)"
 }
