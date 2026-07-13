@@ -140,7 +140,10 @@ func TestMigrationSourceAllowed(t *testing.T) {
 			name:   "in-memory registered source hub during deploying",
 			client: nil,
 			setup: func() {
-				if err := EnsureLocalMigrationCR(ctx, nil, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseDeploying); err != nil {
+				err := EnsureLocalMigrationCR(
+					ctx, nil, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseDeploying,
+				)
+				if err != nil {
 					t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
 				}
 			},
@@ -354,7 +357,10 @@ func TestEnsureLocalMigrationCR_ReusesExistingNamespace(t *testing.T) {
 	t.Cleanup(resetLocalMigrationState)
 
 	ctx := context.Background()
-	if err := EnsureLocalMigrationCR(ctx, nil, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseInitializing); err != nil {
+	err := EnsureLocalMigrationCR(
+		ctx, nil, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseInitializing,
+	)
+	if err != nil {
 		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
 	}
 	if !MigrationSourceAllowed(ctx, nil, "hub1", "hub2") {
@@ -443,7 +449,10 @@ func TestDeleteLocalMigrationCR(t *testing.T) {
 	t.Cleanup(resetLocalMigrationState)
 
 	ctx := context.Background()
-	if err := EnsureLocalMigrationCR(ctx, nil, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseDeploying); err != nil {
+	err := EnsureLocalMigrationCR(
+		ctx, nil, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseDeploying,
+	)
+	if err != nil {
 		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
 	}
 

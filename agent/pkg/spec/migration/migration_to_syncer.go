@@ -421,7 +421,9 @@ func (s *MigrationTargetSyncer) validating(
 		log.Infof("no clusters to validate for migration %s", source.MigrationId)
 	}
 
-	if err := EnsureLocalMigrationCR(ctx, s.client, s.leafHubName, source, migrationv1alpha1.PhaseInitializing); err != nil {
+	if err := EnsureLocalMigrationCR(
+		ctx, s.client, s.leafHubName, source, migrationv1alpha1.PhaseInitializing,
+	); err != nil {
 		return fmt.Errorf("failed to record local migration state: %w", err)
 	}
 
