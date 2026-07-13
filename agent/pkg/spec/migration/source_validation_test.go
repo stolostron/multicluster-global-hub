@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -62,7 +61,15 @@ func TestIsMigrationDeployingEvent(t *testing.T) {
 	})
 }
 
+func resetLocalMigrationState() {
+	localMigrationMu.Lock()
+	defer localMigrationMu.Unlock()
+	localMigrations = make(map[string]localMigrationRecord)
+}
+
 func TestMigrationSourceAllowed(t *testing.T) {
+	resetLocalMigrationState()
+	t.Cleanup(resetLocalMigrationState)
 	scheme := runtime.NewScheme()
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
@@ -99,6 +106,7 @@ func TestMigrationSourceAllowed(t *testing.T) {
 		source      string
 		target      string
 		wantAllowed bool
+		setup       func()
 	}{
 		{
 			name:        "manager global-hub source",
@@ -129,7 +137,19 @@ func TestMigrationSourceAllowed(t *testing.T) {
 			wantAllowed: false,
 		},
 		{
-			name:        "nil client",
+			name:   "in-memory registered source hub during deploying",
+			client: nil,
+			setup: func() {
+				if err := EnsureLocalMigrationCR(ctx, nil, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseDeploying); err != nil {
+					t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
+				}
+			},
+			source:      "hub1",
+			target:      "hub2",
+			wantAllowed: true,
+		},
+		{
+			name:        "nil client without in-memory registration",
 			client:      nil,
 			source:      "hub1",
 			target:      "hub2",
@@ -176,6 +196,10 @@ func TestMigrationSourceAllowed(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			resetLocalMigrationState()
+			if tc.setup != nil {
+				tc.setup()
+			}
 			got := MigrationSourceAllowed(ctx, tc.client, tc.source, tc.target)
 			if got != tc.wantAllowed {
 				t.Fatalf("MigrationSourceAllowed(%q, %q) = %v, want %v", tc.source, tc.target, got, tc.wantAllowed)
@@ -286,13 +310,6 @@ func TestIsMigrationDeployResourceAllowed(t *testing.T) {
 	}
 }
 
-func migrationValidationScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-	_ = corev1.AddToScheme(scheme)
-	_ = migrationv1alpha1.AddToScheme(scheme)
-	return scheme
-}
-
 func sampleMigrationTargetBundle() *migrationbundle.MigrationTargetBundle {
 	return &migrationbundle.MigrationTargetBundle{
 		FromHub:                   "hub1",
@@ -302,140 +319,76 @@ func sampleMigrationTargetBundle() *migrationbundle.MigrationTargetBundle {
 }
 
 func TestEnsureLocalMigrationCR(t *testing.T) {
-	scheme := migrationValidationScheme()
+	resetLocalMigrationState()
+	t.Cleanup(resetLocalMigrationState)
+
 	ctx := context.Background()
-
-	c := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
-		Build()
-
 	event := sampleMigrationTargetBundle()
-	if err := EnsureLocalMigrationCR(ctx, c, "hub2", event, migrationv1alpha1.PhaseDeploying); err != nil {
+	if err := EnsureLocalMigrationCR(ctx, nil, "hub2", event, migrationv1alpha1.PhaseDeploying); err != nil {
 		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
 	}
-
-	got := &migrationv1alpha1.ManagedClusterMigration{}
-	if err := c.Get(ctx, types.NamespacedName{
-		Name:      "migration-hub1-cluster1",
-		Namespace: constants.GHDefaultNamespace,
-	}, got); err != nil {
-		t.Fatalf("failed to get local migration CR: %v", err)
-	}
-	if got.Spec.From != "hub1" || got.Spec.To != "hub2" {
-		t.Fatalf("unexpected migration spec: from=%q to=%q", got.Spec.From, got.Spec.To)
-	}
-	if got.Status.Phase != migrationv1alpha1.PhaseDeploying {
-		t.Fatalf("expected phase %q, got %q", migrationv1alpha1.PhaseDeploying, got.Status.Phase)
+	if !MigrationSourceAllowed(ctx, nil, "hub1", "hub2") {
+		t.Fatal("expected in-memory migration state to authorize source hub")
 	}
 }
 
 func TestEnsureLocalMigrationCR_UpdatesExistingCR(t *testing.T) {
-	scheme := migrationValidationScheme()
+	resetLocalMigrationState()
+	t.Cleanup(resetLocalMigrationState)
+
 	ctx := context.Background()
 	event := sampleMigrationTargetBundle()
-
-	existing := &migrationv1alpha1.ManagedClusterMigration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      event.ManagedServiceAccountName,
-			Namespace: constants.GHDefaultNamespace,
-		},
-		Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-			From:                    "old-hub",
-			To:                      "hub2",
-			IncludedManagedClusters: []string{"old-cluster"},
-		},
-		Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-			Phase: migrationv1alpha1.PhaseInitializing,
-		},
-	}
-	c := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(existing).
-		WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
-		Build()
-
-	if err := EnsureLocalMigrationCR(ctx, c, "hub2", event, migrationv1alpha1.PhaseDeploying); err != nil {
+	if err := EnsureLocalMigrationCR(ctx, nil, "hub2", event, migrationv1alpha1.PhaseInitializing); err != nil {
 		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
 	}
-
-	got := &migrationv1alpha1.ManagedClusterMigration{}
-	if err := c.Get(ctx, types.NamespacedName{
-		Name:      event.ManagedServiceAccountName,
-		Namespace: constants.GHDefaultNamespace,
-	}, got); err != nil {
-		t.Fatalf("failed to get updated migration CR: %v", err)
+	if err := EnsureLocalMigrationCR(ctx, nil, "hub2", event, migrationv1alpha1.PhaseDeploying); err != nil {
+		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
 	}
-	if got.Spec.From != "hub1" {
-		t.Fatalf("expected from hub1, got %q", got.Spec.From)
-	}
-	if len(got.Spec.IncludedManagedClusters) != 1 || got.Spec.IncludedManagedClusters[0] != "cluster1" {
-		t.Fatalf("unexpected included clusters: %v", got.Spec.IncludedManagedClusters)
-	}
-	if got.Status.Phase != migrationv1alpha1.PhaseDeploying {
-		t.Fatalf("expected phase %q, got %q", migrationv1alpha1.PhaseDeploying, got.Status.Phase)
+	if !MigrationSourceAllowed(ctx, nil, "hub1", "hub2") {
+		t.Fatal("expected updated in-memory migration state to authorize source hub")
 	}
 }
 
 func TestEnsureLocalMigrationCR_ReusesExistingNamespace(t *testing.T) {
-	scheme := migrationValidationScheme()
-	ctx := context.Background()
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}
-	c := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(ns).
-		WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
-		Build()
+	resetLocalMigrationState()
+	t.Cleanup(resetLocalMigrationState)
 
-	if err := EnsureLocalMigrationCR(ctx, c, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseInitializing); err != nil {
+	ctx := context.Background()
+	if err := EnsureLocalMigrationCR(ctx, nil, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseInitializing); err != nil {
 		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
 	}
-
-	got := &migrationv1alpha1.ManagedClusterMigration{}
-	if err := c.Get(ctx, types.NamespacedName{
-		Name:      "migration-hub1-cluster1",
-		Namespace: constants.GHDefaultNamespace,
-	}, got); err != nil {
-		t.Fatalf("failed to get local migration CR: %v", err)
+	if !MigrationSourceAllowed(ctx, nil, "hub1", "hub2") {
+		t.Fatal("expected in-memory migration state to authorize source hub")
 	}
 }
 
 func TestEnsureLocalMigrationCR_InvalidInputs(t *testing.T) {
+	resetLocalMigrationState()
+	t.Cleanup(resetLocalMigrationState)
+
 	ctx := context.Background()
 	event := sampleMigrationTargetBundle()
-	c := fake.NewClientBuilder().WithScheme(migrationValidationScheme()).Build()
 
 	cases := []struct {
 		name    string
-		client  client.Client
 		target  string
 		event   *migrationbundle.MigrationTargetBundle
 		wantErr string
 	}{
 		{
-			name:    "nil client",
-			client:  nil,
-			target:  "hub2",
-			event:   event,
-			wantErr: "invalid migration CR inputs",
-		},
-		{
 			name:    "nil event",
-			client:  c,
 			target:  "hub2",
 			event:   nil,
 			wantErr: "invalid migration CR inputs",
 		},
 		{
 			name:    "empty target hub",
-			client:  c,
 			target:  "",
 			event:   event,
 			wantErr: "invalid migration CR inputs",
 		},
 		{
 			name:   "missing managed service account name",
-			client: c,
 			target: "hub2",
 			event: &migrationbundle.MigrationTargetBundle{
 				FromHub:         "hub1",
@@ -447,7 +400,7 @@ func TestEnsureLocalMigrationCR_InvalidInputs(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := EnsureLocalMigrationCR(ctx, tc.client, tc.target, tc.event, migrationv1alpha1.PhaseDeploying)
+			err := EnsureLocalMigrationCR(ctx, nil, tc.target, tc.event, migrationv1alpha1.PhaseDeploying)
 			if err == nil || err.Error() == "" {
 				t.Fatal("expected error")
 			}
@@ -459,9 +412,10 @@ func TestEnsureLocalMigrationCR_InvalidInputs(t *testing.T) {
 }
 
 func TestEnsureLocalMigrationCR_NoOpWithoutFromHubOrClusters(t *testing.T) {
-	ctx := context.Background()
-	c := fake.NewClientBuilder().WithScheme(migrationValidationScheme()).Build()
+	resetLocalMigrationState()
+	t.Cleanup(resetLocalMigrationState)
 
+	ctx := context.Background()
 	cases := []*migrationbundle.MigrationTargetBundle{
 		{
 			ManagedServiceAccountName: "migration-hub1-cluster1",
@@ -474,53 +428,44 @@ func TestEnsureLocalMigrationCR_NoOpWithoutFromHubOrClusters(t *testing.T) {
 	}
 
 	for i, event := range cases {
-		if err := EnsureLocalMigrationCR(ctx, c, "hub2", event, migrationv1alpha1.PhaseDeploying); err != nil {
+		if err := EnsureLocalMigrationCR(ctx, nil, "hub2", event, migrationv1alpha1.PhaseDeploying); err != nil {
 			t.Fatalf("case %d: expected no-op, got error %v", i, err)
 		}
 	}
 
-	list := &migrationv1alpha1.ManagedClusterMigrationList{}
-	if err := c.List(ctx, list); err != nil {
-		t.Fatalf("list migration CRs: %v", err)
-	}
-	if len(list.Items) != 0 {
-		t.Fatalf("expected no migration CRs to be created, got %d", len(list.Items))
+	if MigrationSourceAllowed(ctx, nil, "hub1", "hub2") {
+		t.Fatal("expected no in-memory migration state to be recorded")
 	}
 }
 
 func TestDeleteLocalMigrationCR(t *testing.T) {
-	scheme := migrationValidationScheme()
-	ctx := context.Background()
-	migrationCR := &migrationv1alpha1.ManagedClusterMigration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "migration-hub1-cluster1",
-			Namespace: constants.GHDefaultNamespace,
-		},
-	}
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(migrationCR).Build()
+	resetLocalMigrationState()
+	t.Cleanup(resetLocalMigrationState)
 
-	if err := DeleteLocalMigrationCR(ctx, c, migrationCR.Name); err != nil {
+	ctx := context.Background()
+	if err := EnsureLocalMigrationCR(ctx, nil, "hub2", sampleMigrationTargetBundle(), migrationv1alpha1.PhaseDeploying); err != nil {
+		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
+	}
+
+	if err := DeleteLocalMigrationCR(ctx, nil, "migration-hub1-cluster1"); err != nil {
 		t.Fatalf("DeleteLocalMigrationCR() error = %v", err)
 	}
-	if err := c.Get(ctx, types.NamespacedName{
-		Name:      migrationCR.Name,
-		Namespace: constants.GHDefaultNamespace,
-	}, &migrationv1alpha1.ManagedClusterMigration{}); err == nil {
-		t.Fatal("expected migration CR to be deleted")
+	if MigrationSourceAllowed(ctx, nil, "hub1", "hub2") {
+		t.Fatal("expected migration state to be deleted")
 	}
 
-	if err := DeleteLocalMigrationCR(ctx, c, "missing-migration"); err != nil {
-		t.Fatalf("deleting missing migration CR should succeed, got %v", err)
+	if err := DeleteLocalMigrationCR(ctx, nil, "missing-migration"); err != nil {
+		t.Fatalf("deleting missing migration state should succeed, got %v", err)
 	}
-	if err := DeleteLocalMigrationCR(ctx, nil, migrationCR.Name); err != nil {
-		t.Fatalf("nil client should be ignored, got %v", err)
-	}
-	if err := DeleteLocalMigrationCR(ctx, c, ""); err != nil {
+	if err := DeleteLocalMigrationCR(ctx, nil, ""); err != nil {
 		t.Fatalf("empty migration name should be ignored, got %v", err)
 	}
 }
 
 func TestMigrationSourceAllowed_ListError(t *testing.T) {
+	resetLocalMigrationState()
+	t.Cleanup(resetLocalMigrationState)
+
 	ctx := context.Background()
 	clientWithoutScheme := fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()
 	if MigrationSourceAllowed(ctx, clientWithoutScheme, "hub1", "hub2") {
