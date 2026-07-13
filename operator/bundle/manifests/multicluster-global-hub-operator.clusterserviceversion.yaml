@@ -361,6 +361,14 @@ spec:
           verbs:
           - get
         - apiGroups:
+          - operator.openshift.io
+          resources:
+          - ingresscontrollers
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - addon.open-cluster-management.io
           resources:
           - addondeploymentconfigs
@@ -1172,6 +1180,14 @@ spec:
           - get
           - patch
           - update
+        - apiGroups:
+          - operator.openshift.io
+          resources:
+          - ingresscontrollers
+          verbs:
+          - get
+          - list
+          - watch
         - apiGroups:
           - operators.coreos.com
           resources:

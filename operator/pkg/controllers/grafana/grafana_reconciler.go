@@ -49,6 +49,7 @@ import (
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
 // +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=operator.openshift.io,resources=ingresscontrollers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
@@ -288,6 +289,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
+	r.logGrafanaIngressTLSProfile(ctx)
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
 	if err != nil {
@@ -303,7 +305,6 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
 		replicas = 2
 	}
-	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.GetClient())
 	grafanaObjects, err := grafanaRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
@@ -344,7 +345,6 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		reconcileErr = fmt.Errorf("failed to render grafana manifests: %w", err)
 		return ctrl.Result{}, reconcileErr
 	}
-	// create restmapper for deployer to find GVR
 	dc, err := discovery.NewDiscoveryClientForConfig(r.GetConfig())
 	if err != nil {
 		reconcileErr = err
@@ -385,6 +385,22 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *GrafanaReconciler) logGrafanaIngressTLSProfile(ctx context.Context) {
+	ingressCtx, ingressCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer ingressCancel()
+	ingressSpec, err := commonutils.FetchIngressControllerTLSProfileSpec(ingressCtx, r.client)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			log.Debugf("unable to read IngressController TLS profile: %v", err)
+		} else {
+			log.Warnf("unable to read IngressController TLS profile: %v", err)
+		}
+		return
+	}
+	log.Infof("Grafana Route edge TLS uses IngressController profile minTLSVersion=%s ciphers=%d",
+		ingressSpec.MinTLSVersion, len(ingressSpec.Ciphers))
 }
 
 // generateGranafaIni append the custom grafana.ini to default grafana.ini

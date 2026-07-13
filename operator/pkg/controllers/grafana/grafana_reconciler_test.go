@@ -2,10 +2,17 @@ package grafana
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -17,6 +24,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -930,6 +938,96 @@ func TestNetworkPolicyPred_Grafana(t *testing.T) {
 	assert.False(t, networkPolicyPred.Update(event.UpdateEvent{ObjectNew: otherNP}), "Update: other NP should not match")
 	assert.True(t, networkPolicyPred.Delete(event.DeleteEvent{Object: np}), "Delete: grafana NP should match")
 	assert.False(t, networkPolicyPred.Delete(event.DeleteEvent{Object: otherNP}), "Delete: other NP should not match")
+}
+
+func ingressGrafanaTestScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+	s := runtime.NewScheme()
+	require.NoError(t, scheme.AddToScheme(s), "client-go scheme registration must succeed for ingress TLS tests")
+	require.NoError(t, configv1.AddToScheme(s), "configv1 scheme registration must succeed for ingress TLS tests")
+	require.NoError(t, operatorv1.Install(s), "operatorv1 scheme registration must succeed for ingress TLS tests")
+	return s
+}
+
+func TestLogGrafanaIngressTLSProfile(t *testing.T) {
+	ingressController := &operatorv1.IngressController{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: "openshift-ingress-operator",
+		},
+		Status: operatorv1.IngressControllerStatus{
+			TLSProfile: &configv1.TLSProfileSpec{
+				Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+				MinTLSVersion: configv1.VersionTLS12,
+			},
+		},
+	}
+	intermediateProfile := configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+
+	tests := []struct {
+		name          string
+		client        client.Client
+		wantLevel     zapcore.Level
+		wantSubstring string
+	}{
+		{
+			name: "reads IngressController status TLS profile",
+			client: fake.NewClientBuilder().
+				WithScheme(ingressGrafanaTestScheme(t)).
+				WithObjects(ingressController).
+				Build(),
+			wantLevel:     zap.InfoLevel,
+			wantSubstring: "minTLSVersion=" + string(configv1.VersionTLS12),
+		},
+		{
+			name: "falls back when IngressController is absent",
+			client: fake.NewClientBuilder().
+				WithScheme(ingressGrafanaTestScheme(t)).
+				Build(),
+			wantLevel:     zap.InfoLevel,
+			wantSubstring: "minTLSVersion=" + string(intermediateProfile.MinTLSVersion),
+		},
+		{
+			name: "warns when IngressController lookup fails",
+			client: fake.NewClientBuilder().
+				WithScheme(ingressGrafanaTestScheme(t)).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(
+						ctx context.Context,
+						c client.WithWatch,
+						key client.ObjectKey,
+						obj client.Object,
+						opts ...client.GetOption,
+					) error {
+						if _, ok := obj.(*operatorv1.IngressController); ok {
+							return fmt.Errorf("simulated ingress lookup failure")
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+				}).
+				Build(),
+			wantLevel:     zap.WarnLevel,
+			wantSubstring: "unable to read IngressController TLS profile",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			core, recorded := observer.New(zap.DebugLevel)
+			oldLog := log
+			log = zap.New(core).Sugar()
+			t.Cleanup(func() { log = oldLog })
+
+			r := &GrafanaReconciler{client: tt.client}
+			r.logGrafanaIngressTLSProfile(context.Background())
+
+			entries := recorded.All()
+			require.Len(t, entries, 1, "expected exactly one log entry for %s", tt.name)
+			require.Equal(t, tt.wantLevel, entries[0].Level,
+				"unexpected log level for %s", tt.name)
+			require.Contains(t, entries[0].Message, tt.wantSubstring,
+				"log message should include expected ingress TLS details for %s", tt.name)
+		})
+	}
 }
 
 func sectionCount(a []byte) int {

@@ -20,7 +20,7 @@ spec:
           network.openshift.io/policy-group: ingress
     ports:
     - protocol: TCP
-      port: 9443
+      port: 8080
   # Allow metrics scraping from Prometheus
   - from:
     - namespaceSelector:
@@ -30,7 +30,7 @@ spec:
     - protocol: TCP
       port: 3001
     - protocol: TCP
-      port: 9443
+      port: 8080
   # Allow Grafana HA alerting between replicas
   - from:
     - podSelector:
