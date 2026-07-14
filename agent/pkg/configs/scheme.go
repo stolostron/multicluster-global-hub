@@ -23,6 +23,8 @@ import (
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 )
 
 func GetRuntimeScheme() *runtime.Scheme {
@@ -44,5 +46,6 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(klusterletv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(addonv1.SchemeBuilder.AddToScheme(scheme))
 	utilruntime.Must(workv1.Install(scheme))
+	utilruntime.Must(migrationv1alpha1.AddToScheme(scheme))
 	return scheme
 }
