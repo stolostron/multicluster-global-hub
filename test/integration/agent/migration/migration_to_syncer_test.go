@@ -49,7 +49,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		receivedEvents = []*cloudevents.Event{}
 		agentConfig := &configs.AgentConfig{
 			TransportConfig: transportConfig,
-			LeafHubName:     "hub1",
+			LeafHubName:     testToHub,
 			PodNamespace:    testMSANamespace, // Set PodNamespace for configmap operations
 		}
 		configs.SetAgentConfig(agentConfig)
@@ -97,11 +97,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 
 		clusterNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}}
 		Expect(runtimeClient.Create(testCtx, clusterNamespace)).Should(Succeed())
-
-		configs.SetAgentConfig(&configs.AgentConfig{
-			LeafHubName:  testToHub,
-			PodNamespace: testMSANamespace, // Set PodNamespace for configmap operations
-		})
 
 		// Delete any existing configmap to ensure clean state before each test suite
 		_ = runtimeClient.Delete(ctx, &corev1.ConfigMap{
@@ -160,7 +155,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating migration event for validating stage with no existing clusters")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				ManagedClusters: []string{"non-existing-cluster"},
+				FromHub:                   testFromHub,
+				ManagedServiceAccountName: testMSAName,
+				ManagedClusters:           []string{"non-existing-cluster"},
 			})
 
 			By("Processing the validating event")
@@ -187,7 +184,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Resetting migration state back to testMigrationID for subsequent tests")
 			resetEvent := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
 			resetEvent.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				ManagedClusters: []string{"non-existing-cluster"},
+				FromHub:                   testFromHub,
+				ManagedServiceAccountName: testMSAName,
+				ManagedClusters:           []string{"non-existing-cluster"},
 			})
 			err = migrationSyncer.Sync(testCtx, resetEvent)
 			Expect(err).NotTo(HaveOccurred())
@@ -197,8 +196,10 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating migration event for initializing stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
+				FromHub:                               testFromHub,
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
+				ManagedClusters:                       []string{testClusterName},
 			})
 
 			By("Processing the migration event")
@@ -277,6 +278,25 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		})
 
 		It("should deploy migration resources successfully", func() {
+			By("Creating migration namespace and in-flight CR for deploying source validation")
+			ghNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}
+			Expect(client.IgnoreAlreadyExists(runtimeClient.Create(testCtx, ghNamespace))).Should(Succeed())
+
+			migrationCR := &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testMigrationID,
+					Namespace: constants.GHDefaultNamespace,
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                    testFromHub,
+					To:                      testToHub,
+					IncludedManagedClusters: []string{testClusterName},
+				},
+			}
+			Expect(runtimeClient.Create(testCtx, migrationCR)).Should(Succeed())
+			migrationCR.Status.Phase = migrationv1alpha1.PhaseDeploying
+			Expect(runtimeClient.Status().Update(testCtx, migrationCR)).Should(Succeed())
+
 			By("Creating test manifest work for the cluster")
 			manifestWork := &workv1.ManifestWork{
 				ObjectMeta: metav1.ObjectMeta{
