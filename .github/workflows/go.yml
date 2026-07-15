@@ -66,4 +66,4 @@ jobs:
           version: "^1.34.1"
 
       - name: scorecard
-        run: cd operator && operator-sdk scorecard ./bundle/
+        run: cd operator && operator-sdk scorecard ./bundle/ --wait-time 120s
