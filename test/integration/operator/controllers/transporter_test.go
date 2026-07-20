@@ -428,13 +428,14 @@ var _ = Describe("transporter", Ordered, func() {
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
 		// utils.PrettyPrint(kafkaUser.Spec.Authorization)
-		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)
 		Expect(err).To(Succeed())
 		Expect("gh-spec").To(Equal(clusterTopic.SpecTopic))
 		Expect(config.GetStatusTopic(clusterName)).To(Equal(clusterTopic.StatusTopic))
+		Expect(config.GetMigrationTopic()).To(Equal(clusterTopic.MigrationTopic))
 
 		// topic: update
 		_, err = trans.EnsureTopic(clusterName)

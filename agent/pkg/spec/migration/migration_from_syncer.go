@@ -410,7 +410,7 @@ func (s *MigrationSourceSyncer) sendMigrationBundle(
 		s.processingMigrationId, migrationv1alpha1.PhaseDeploying, expireAfter, payloadBytes)
 
 	if err := s.transportClient.GetProducer().SendEvent(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e,
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.GetMigrationTopic()), e,
 	); err != nil {
 		return fmt.Errorf(errFailedToSendEvent, eventType, fromHub, toHub, err)
 	}

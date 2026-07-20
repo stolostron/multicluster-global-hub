@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");

@@ -135,6 +135,7 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 	}
 
 	transporter.mgh = mgh
+	transporter.manager = mgr
 	transporter.kafkaClusterNamespace = mgh.Namespace
 	// apply options
 	for _, opt := range opts {
@@ -268,6 +269,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				KafkaCluster           string
 				GlobalHubKafkaUser     string
 				SpecTopic              string
+				MigrationTopic         string
 				StatusTopic            string
 				StatusTopicPattern     string
 				StatusPlaceholderTopic string
@@ -283,6 +285,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				KafkaCluster:           KafkaClusterName,
 				GlobalHubKafkaUser:     DefaultGlobalHubKafkaUserName,
 				SpecTopic:              config.GetSpecTopic(),
+				MigrationTopic:         config.GetMigrationTopic(),
 				StatusTopic:            statusTopic,
 				StatusTopicPattern:     string(topicPattern),
 				StatusPlaceholderTopic: statusPlaceholderTopic,
@@ -357,6 +360,11 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		}),
+		// consume migration deploying bundles from the dedicated migration topic
+		utils.GetTopicACL(clusterTopic.MigrationTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
 		}),
 		// report status into gh: allow the current hub to write messages to the specific status topic
 		utils.GetTopicACL(clusterTopic.StatusTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
@@ -443,7 +451,7 @@ func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
-	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.StatusTopic}
+	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.MigrationTopic, clusterTopic.StatusTopic}
 	for _, topicName := range topicNames {
 		if err := k.ensureTopic(topicName, nil); err != nil {
 			return nil, err
@@ -530,8 +538,9 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 
 func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.ClusterTopic {
 	topic := &transport.ClusterTopic{
-		SpecTopic:   config.GetSpecTopic(),
-		StatusTopic: config.GetStatusTopic(clusterName),
+		SpecTopic:      config.GetSpecTopic(),
+		MigrationTopic: config.GetMigrationTopic(),
+		StatusTopic:    config.GetStatusTopic(clusterName),
 	}
 	return topic
 }
@@ -551,6 +560,7 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	// topics
 	credential.StatusTopic = config.GetStatusTopic(clusterName)
 	credential.SpecTopic = config.GetSpecTopic()
+	credential.MigrationTopic = config.GetMigrationTopic()
 
 	// consumer group id
 	credential.ConsumerGroupID = config.GetConsumerGroupID(k.mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix,

@@ -1,21 +1,40 @@
 package transporter
 
 import (
+	"context"
+	"errors"
+	"net/http"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	crconfig "sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+var errMigrationACLSetup = errors.New("migration ACL controller registration failed")
 
 // Predicate Tests - These test critical watch logic for Kafka-related resources
 
@@ -286,15 +305,126 @@ func TestTransportReconcilerIsResourceRemoved(t *testing.T) {
 func TestStartControllerSingleton(t *testing.T) {
 	// Save and restore the singleton so we don't affect other tests.
 	original := transportReconciler
-	t.Cleanup(func() { transportReconciler = original })
+	originalMigrationACL := migrationACLControllerStarted
+	t.Cleanup(func() {
+		transportReconciler = original
+		migrationACLControllerStarted = originalMigrationACL
+	})
 
 	existing := &TransportReconciler{}
 	transportReconciler = existing
+	migrationACLControllerStarted = true
 
 	// Second call must return the pre-existing instance without error.
 	controller, err := StartController(config.ControllerOption{})
-	assert.NoError(t, err)
-	assert.Equal(t, existing, controller)
+	assert.NoError(t, err, "StartController should succeed when transport singleton is already initialized")
+	assert.Equal(t, existing, controller, "StartController should reuse the existing transport controller instance")
+}
+
+func TestStartControllerRetriesMigrationACLSetup(t *testing.T) {
+	originalTransport := transportReconciler
+	originalMigrationACL := migrationACLControllerStarted
+	originalSetup := migrationACLReconcilerSetup
+	t.Cleanup(func() {
+		transportReconciler = originalTransport
+		migrationACLControllerStarted = originalMigrationACL
+		migrationACLReconcilerSetup = originalSetup
+	})
+
+	scheme := runtime.NewScheme()
+	if err := migrationv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(ManagedClusterMigration) error = %v", err)
+	}
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{migrationv1alpha1.GroupVersion})
+	mapper.Add(migrationv1alpha1.GroupVersion.WithKind("ManagedClusterMigration"), meta.RESTScopeNamespace)
+
+	transportReconciler = &TransportReconciler{}
+	migrationACLControllerStarted = false
+	migrationACLReconcilerSetup = func(ctrl.Manager) error { return errMigrationACLSetup }
+
+	mgr := &migrationACLSetupFailManager{
+		client:     fake.NewClientBuilder().WithScheme(scheme).Build(),
+		scheme:     scheme,
+		restMapper: mapper,
+	}
+
+	controller, err := StartController(config.ControllerOption{Manager: mgr})
+	assert.ErrorIs(t, err, errMigrationACLSetup, "StartController should return migration ACL setup error")
+	assert.Nil(t, controller, "StartController should not return a controller when migration ACL setup fails")
+	assert.False(
+		t,
+		migrationACLControllerStarted,
+		"migration ACL controller must not be marked started after setup failure",
+	)
+}
+
+type migrationACLSetupFailManager struct {
+	client     client.Client
+	scheme     *runtime.Scheme
+	restMapper meta.RESTMapper
+	addErr     error
+}
+
+func (m *migrationACLSetupFailManager) Add(manager.Runnable) error { return m.addErr }
+func (m *migrationACLSetupFailManager) GetClient() client.Client   { return m.client }
+func (m *migrationACLSetupFailManager) GetScheme() *runtime.Scheme { return m.scheme }
+func (m *migrationACLSetupFailManager) GetFieldIndexer() client.FieldIndexer {
+	return nil
+}
+func (m *migrationACLSetupFailManager) GetCache() cache.Cache { return nil }
+func (m *migrationACLSetupFailManager) GetEventRecorderFor(string) record.EventRecorder {
+	return nil
+}
+func (m *migrationACLSetupFailManager) GetRESTMapper() meta.RESTMapper { return m.restMapper }
+func (m *migrationACLSetupFailManager) GetAPIReader() client.Reader    { return m.client }
+func (m *migrationACLSetupFailManager) Start(context.Context) error    { return nil }
+func (m *migrationACLSetupFailManager) GetWebhookServer() webhook.Server {
+	return nil
+}
+func (m *migrationACLSetupFailManager) GetLogger() logr.Logger { return logr.Discard() }
+func (m *migrationACLSetupFailManager) GetControllerOptions() crconfig.Controller {
+	return crconfig.Controller{}
+}
+func (m *migrationACLSetupFailManager) Elected() <-chan struct{} { return nil }
+func (m *migrationACLSetupFailManager) AddHealthzCheck(string, healthz.Checker) error {
+	return nil
+}
+
+func (m *migrationACLSetupFailManager) AddReadyzCheck(string, healthz.Checker) error {
+	return nil
+}
+func (m *migrationACLSetupFailManager) GetHTTPClient() *http.Client { return nil }
+func (m *migrationACLSetupFailManager) AddMetricsServerExtraHandler(string, http.Handler) error {
+	return nil
+}
+func (m *migrationACLSetupFailManager) GetConfig() *rest.Config { return nil }
+
+var _ ctrl.Manager = (*migrationACLSetupFailManager)(nil)
+
+func TestAMigrationACLReconcilerSetupSuccess(t *testing.T) {
+	original := migrationACLControllerStarted
+	migrationACLControllerStarted = false
+	t.Cleanup(func() { migrationACLControllerStarted = original })
+
+	scheme := runtime.NewScheme()
+	if err := migrationv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(ManagedClusterMigration) error = %v", err)
+	}
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{migrationv1alpha1.GroupVersion})
+	mapper.Add(migrationv1alpha1.GroupVersion.WithKind("ManagedClusterMigration"), meta.RESTScopeNamespace)
+
+	mgr := &migrationACLSetupFailManager{
+		client:     fake.NewClientBuilder().WithScheme(scheme).Build(),
+		scheme:     scheme,
+		restMapper: mapper,
+	}
+
+	if err := setupMigrationACLReconciler(mgr); err != nil {
+		t.Fatalf("setupMigrationACLReconciler() error = %v", err)
+	}
+	if !migrationACLControllerStarted {
+		t.Fatal("expected migration ACL controller to be marked started")
+	}
 }
 
 func TestNetworkPolicyCondCustomNamespace(t *testing.T) {

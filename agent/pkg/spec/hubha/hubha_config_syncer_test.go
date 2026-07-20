@@ -341,3 +341,31 @@ func TestAnnotateSkipsAlreadyAnnotated(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, testKlusterletConfigName, mc.GetAnnotations()[klusterletConfigAnnotation])
 }
+
+func TestSync_AllowsBootstrapSourceWhenStandbyHubNotConfigured(t *testing.T) {
+	scheme := newHAConfigTestScheme()
+	mch := &mchv1.MultiClusterHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"},
+		Status:     mchv1.MultiClusterHubStatus{CurrentVersion: testMCHVersion214},
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(mch).
+		WithStatusSubresource(mch).
+		Build()
+	syncer := &HAConfigSyncer{
+		client:      fakeClient,
+		leafHubName: "hub1",
+	}
+	evt := newHAConfigTestEvent(t, newHAConfigTestBundle())
+	evt.SetSource("hub2")
+
+	require.NoError(t, syncer.Sync(context.Background(), evt))
+
+	secret := &corev1.Secret{}
+	err := fakeClient.Get(context.Background(), types.NamespacedName{
+		Name:      testBootstrapSecretName,
+		Namespace: "multicluster-engine",
+	}, secret)
+	require.NoError(t, err)
+}

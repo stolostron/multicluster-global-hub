@@ -8,6 +8,7 @@ type KafkaConfig struct {
 	BootstrapServer  string `yaml:"bootstrap.server"`
 	StatusTopic      string `yaml:"topic.status,omitempty"`
 	SpecTopic        string `yaml:"topic.spec,omitempty"`
+	MigrationTopic   string `yaml:"topic.migration,omitempty"`
 	ClusterID        string `yaml:"cluster.id,omitempty"`
 	CACert           string `yaml:"ca.crt,omitempty"`
 	ClientCert       string `yaml:"client.crt,omitempty"`
@@ -38,6 +39,7 @@ func (k *KafkaConfig) DeepCopy() *KafkaConfig {
 		BootstrapServer:  k.BootstrapServer,
 		StatusTopic:      k.StatusTopic,
 		SpecTopic:        k.SpecTopic,
+		MigrationTopic:   k.MigrationTopic,
 		ClusterID:        k.ClusterID,
 		ConsumerGroupID:  k.ConsumerGroupID,
 		CACert:           k.CACert,
@@ -78,4 +80,16 @@ func (k *KafkaConfig) GetCASecretName() string {
 
 func (k *KafkaConfig) GetClientSecretName() string {
 	return k.ClientSecretName
+}
+
+// GetMigrationTopic returns the dedicated migration topic, falling back to the spec topic
+// when the credential has not yet been refreshed (upgrade window).
+func (k *KafkaConfig) GetMigrationTopic() string {
+	if k == nil {
+		return ""
+	}
+	if k.MigrationTopic != "" {
+		return k.MigrationTopic
+	}
+	return k.SpecTopic
 }
