@@ -106,13 +106,6 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				d.log.Infow("event dropped due to expiry", "type", evt.Type())
 				continue
 			}
-			validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			allowed := specEventSourceAllowed(validationCtx, d.client, d.agentConfig, evt, subject)
-			cancel()
-			if !allowed {
-				d.log.Warnw("event dropped due to untrusted source", "type", evt.Type())
-				continue
-			}
 			d.mu.RLock()
 			syncer, found := d.syncers[evt.Type()]
 			if !found {
@@ -125,16 +118,23 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 					"syncer", syncer, "event", evt)
 				continue
 			}
-			// Async call - don't block dispatcher for long-running syncers (e.g., migration)
+			// Async validation and sync - don't block the dispatch loop on K8s API calls.
 			d.wg.Add(1)
-			go func(ctx context.Context, evt *cloudevents.Event, syncer Syncer) {
+			go func(ctx context.Context, evt *cloudevents.Event, syncer Syncer, subject string) {
 				defer d.wg.Done()
+				validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				allowed := specEventSourceAllowed(validationCtx, d.client, d.agentConfig, evt, subject)
+				cancel()
+				if !allowed {
+					d.log.Warnw("event dropped due to untrusted source", "type", evt.Type())
+					return
+				}
 				if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 					return syncer.Sync(ctx, evt)
 				}); err != nil {
 					d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
 				}
-			}(ctx, evt, syncer)
+			}(ctx, evt, syncer, subject)
 		}
 	}
 }

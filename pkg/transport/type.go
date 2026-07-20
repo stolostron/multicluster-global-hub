@@ -67,8 +67,9 @@ type KafkaConsumerConfig struct {
 
 // topics
 type ClusterTopic struct {
-	SpecTopic   string
-	StatusTopic string
+	SpecTopic      string
+	MigrationTopic string
+	StatusTopic    string
 }
 
 type EventPosition struct {

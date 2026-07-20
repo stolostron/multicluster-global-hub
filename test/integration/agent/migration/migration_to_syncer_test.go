@@ -403,6 +403,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Cleaning up manifest work")
 			_ = runtimeClient.Delete(testCtx, manifestWork)
 
+			By("Cleaning up migration CR")
+			_ = runtimeClient.Delete(testCtx, migrationCR)
+
 			By("Verifying the deploying event is sent to global hub")
 			Eventually(func() error {
 				return verifyMigrationEvent(testToHub, string(enum.ManagedClusterMigrationType),
