@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	addonoperatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -28,6 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // GlobalHubAddonAgent defines the manifests of agent deployed on managed cluster
@@ -223,7 +225,7 @@ func (a *GlobalHubAddonAgent) setImagePullSecret(mgh *globalhubv1alpha4.Multiclu
 
 // findStandbyHub returns the standby hub name
 // If a ManagedCluster has the standby label, return that cluster name
-// If no ManagedCluster has the standby label, return "local-cluster" (local agent is standby)
+// If no ManagedCluster has the standby label, resolve the local cluster MC name
 func (a *GlobalHubAddonAgent) findStandbyHub() (string, error) {
 	managedClusterList := &clusterv1.ManagedClusterList{}
 	err := a.client.List(a.ctx, managedClusterList, client.MatchingLabels{
@@ -238,9 +240,14 @@ func (a *GlobalHubAddonAgent) findStandbyHub() (string, error) {
 		return managedClusterList.Items[0].Name, nil
 	}
 
-	// If no standby hub found, local-cluster is the standby
+	// If no standby hub found, resolve the local cluster MC name (may differ from
+	// constants.LocalClusterName when hub self-managed uses e.g. acm-local-cluster).
 	if len(managedClusterList.Items) == 0 {
-		return constants.LocalClusterName, nil
+		name, err := commonutils.ResolveLocalClusterManagedClusterName(a.ctx, a.client)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve local ManagedCluster name: %w", err)
+		}
+		return name, nil
 	}
 
 	// More than one standby hub found - this is a configuration error

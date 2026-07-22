@@ -77,6 +77,29 @@ func TestFindStandbyHub(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "no standby hub - returns labeled local cluster MC name",
+			clusters: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "acm-local-cluster",
+						Labels: map[string]string{
+							constants.LocalClusterName: "true",
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hub1",
+						Labels: map[string]string{
+							constants.GHHubRoleLabelKey: constants.GHHubRoleActive,
+						},
+					},
+				},
+			},
+			expectedHub:   "acm-local-cluster",
+			expectedError: false,
+		},
+		{
 			name: "multiple standby hubs - returns first one",
 			clusters: []client.Object{
 				&clusterv1.ManagedCluster{
