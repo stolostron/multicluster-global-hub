@@ -46,13 +46,14 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	tests := []struct {
-		name                    string
-		migration               *migrationv1alpha1.ManagedClusterMigration
-		condition               metav1.Condition
-		phase                   string
-		expectedPhase           string
-		expectedConditionStatus metav1.ConditionStatus
-		expectedConditionReason string
+		name                     string
+		migration                *migrationv1alpha1.ManagedClusterMigration
+		condition                metav1.Condition
+		phase                    string
+		expectedPhase            string
+		expectedConditionStatus  metav1.ConditionStatus
+		expectedConditionReason  string
+		expectedConditionMessage string
 	}{
 		{
 			name: "Should update condition and phase successfully",
@@ -72,10 +73,11 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				Reason:  ConditionReasonStarted,
 				Message: "Migration instance is started",
 			},
-			phase:                   migrationv1alpha1.PhaseValidating,
-			expectedPhase:           migrationv1alpha1.PhaseValidating,
-			expectedConditionStatus: metav1.ConditionTrue,
-			expectedConditionReason: ConditionReasonStarted,
+			phase:                    migrationv1alpha1.PhaseValidating,
+			expectedPhase:            migrationv1alpha1.PhaseValidating,
+			expectedConditionStatus:  metav1.ConditionTrue,
+			expectedConditionReason:  ConditionReasonStarted,
+			expectedConditionMessage: "Migration instance is started",
 		},
 		{
 			name: "Should update waiting condition",
@@ -95,10 +97,11 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				Reason:  ConditionReasonWaiting,
 				Message: "Waiting for validation to complete",
 			},
-			phase:                   migrationv1alpha1.PhaseValidating,
-			expectedPhase:           migrationv1alpha1.PhaseValidating,
-			expectedConditionStatus: metav1.ConditionFalse,
-			expectedConditionReason: ConditionReasonWaiting,
+			phase:                    migrationv1alpha1.PhaseValidating,
+			expectedPhase:            migrationv1alpha1.PhaseValidating,
+			expectedConditionStatus:  metav1.ConditionFalse,
+			expectedConditionReason:  ConditionReasonWaiting,
+			expectedConditionMessage: "Waiting for validation to complete",
 		},
 		{
 			name: "Should update rollback condition successfully",
@@ -125,10 +128,11 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				Reason:  ConditionReasonResourceRolledBack,
 				Message: "Migration rollback completed successfully",
 			},
-			phase:                   migrationv1alpha1.PhaseFailed,
-			expectedPhase:           migrationv1alpha1.PhaseFailed,
-			expectedConditionStatus: metav1.ConditionTrue,
-			expectedConditionReason: ConditionReasonResourceRolledBack,
+			phase:                    migrationv1alpha1.PhaseFailed,
+			expectedPhase:            migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus:  metav1.ConditionTrue,
+			expectedConditionReason:  ConditionReasonResourceRolledBack,
+			expectedConditionMessage: "Migration rollback completed successfully",
 		},
 		{
 			name: "Should update rollback failure condition",
@@ -155,10 +159,11 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				Reason:  ConditionReasonError,
 				Message: "Migration rollback failed due to timeout",
 			},
-			phase:                   migrationv1alpha1.PhaseFailed,
-			expectedPhase:           migrationv1alpha1.PhaseFailed,
-			expectedConditionStatus: metav1.ConditionFalse,
-			expectedConditionReason: ConditionReasonError,
+			phase:                    migrationv1alpha1.PhaseFailed,
+			expectedPhase:            migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus:  metav1.ConditionFalse,
+			expectedConditionReason:  ConditionReasonError,
+			expectedConditionMessage: "Migration rollback failed due to timeout",
 		},
 		{
 			name: "Should not regress Completed phase from stale reconcile",
@@ -186,10 +191,11 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				Reason:  ConditionReasonWaiting,
 				Message: "Waiting for the resources to be cleaned up from the both source and target hub clusters",
 			},
-			phase:                   migrationv1alpha1.PhaseCleaning,
-			expectedPhase:           migrationv1alpha1.PhaseCompleted,
-			expectedConditionStatus: metav1.ConditionTrue,
-			expectedConditionReason: ConditionReasonResourceCleaned,
+			phase:                    migrationv1alpha1.PhaseCleaning,
+			expectedPhase:            migrationv1alpha1.PhaseCompleted,
+			expectedConditionStatus:  metav1.ConditionTrue,
+			expectedConditionReason:  ConditionReasonResourceCleaned,
+			expectedConditionMessage: "Resources have been successfully cleaned up from the hub clusters",
 		},
 		{
 			name: "Should not regress Failed phase from stale reconcile",
@@ -217,10 +223,11 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				Reason:  ConditionReasonWaiting,
 				Message: "Waiting for validation to complete",
 			},
-			phase:                   migrationv1alpha1.PhaseValidating,
-			expectedPhase:           migrationv1alpha1.PhaseFailed,
-			expectedConditionStatus: metav1.ConditionFalse,
-			expectedConditionReason: ConditionReasonError,
+			phase:                    migrationv1alpha1.PhaseValidating,
+			expectedPhase:            migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus:  metav1.ConditionFalse,
+			expectedConditionReason:  ConditionReasonError,
+			expectedConditionMessage: "Hub cluster invalid",
 		},
 	}
 
@@ -250,13 +257,7 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 			assert.NotNil(t, condition, "Condition should exist")
 			assert.Equal(t, tt.expectedConditionStatus, condition.Status, "Expected condition status should match")
 			assert.Equal(t, tt.expectedConditionReason, condition.Reason, "Expected condition reason should match")
-			if tt.name == "Should not regress Completed phase from stale reconcile" {
-				assert.Equal(t, "Resources have been successfully cleaned up from the hub clusters", condition.Message)
-			} else if tt.name == "Should not regress Failed phase from stale reconcile" {
-				assert.Equal(t, "Hub cluster invalid", condition.Message)
-			} else {
-				assert.Equal(t, tt.condition.Message, condition.Message, "Expected condition message should match")
-			}
+			assert.Equal(t, tt.expectedConditionMessage, condition.Message, "Expected condition message should match")
 		})
 	}
 }
