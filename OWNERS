@@ -2,11 +2,13 @@ approvers:
 - nirrozenbaum
 - bjoydeep
 - birsanv
+- rohit-bharmal
 
 reviewers:
 - nirrozenbaum
 - bjoydeep
 - birsanv
+- rohit-bharmal
 - github-actions[bot]
 
 emeritus_approvers:
