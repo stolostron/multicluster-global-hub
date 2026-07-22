@@ -100,6 +100,28 @@ func TestFindStandbyHub(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "no standby hub - multiple local clusters returns wrapped error",
+			clusters: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "local-a",
+						Labels: map[string]string{
+							constants.LocalClusterName: "true",
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "local-b",
+						Labels: map[string]string{
+							constants.LocalClusterName: "true",
+						},
+					},
+				},
+			},
+			expectedError: true,
+		},
+		{
 			name: "multiple standby hubs - returns first one",
 			clusters: []client.Object{
 				&clusterv1.ManagedCluster{
@@ -144,6 +166,7 @@ func TestFindStandbyHub(t *testing.T) {
 			hub, err := hm.findStandbyHub(context.Background())
 			if tt.expectedError {
 				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "failed to resolve local ManagedCluster name")
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedHub, hub)

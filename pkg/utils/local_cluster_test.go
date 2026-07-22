@@ -30,6 +30,16 @@ func localClusterTestScheme(t *testing.T) *runtime.Scheme {
 func TestResolveLocalClusterManagedClusterName(t *testing.T) {
 	t.Parallel()
 
+	t.Run("nil client returns error", func(t *testing.T) {
+		t.Parallel()
+
+		name, err := ResolveLocalClusterManagedClusterName(context.Background(), nil)
+		require.Error(t, err, "ResolveLocalClusterManagedClusterName with nil client should return error")
+		assert.Empty(t, name, "ResolveLocalClusterManagedClusterName with nil client should return empty name")
+		assert.Contains(t, err.Error(), "client is required",
+			"ResolveLocalClusterManagedClusterName(nil client) should report missing client")
+	})
+
 	tests := []struct {
 		name        string
 		clusters    []clusterv1.ManagedCluster
