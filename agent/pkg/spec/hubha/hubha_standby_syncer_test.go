@@ -5,9 +5,7 @@ package hubha
 
 import (
 	"context"
-	stderrors "errors"
 	"fmt"
-	"strings"
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -677,36 +675,5 @@ func TestHubHAStandbySyncer_Sync_ReturnsAggregateErrors(t *testing.T) {
 	}
 
 	err := syncer.Sync(context.Background(), &evt)
-	if err == nil {
-		t.Fatal("expected aggregate sync error when bundle apply fails")
-	}
-
-	joined := stderrors.Unwrap(err)
-	if joined == nil {
-		t.Fatalf("expected wrapped aggregate error, got: %v", err)
-	}
-
-	unwrapMulti, ok := joined.(interface{ Unwrap() []error })
-	if !ok {
-		t.Fatalf("expected errors.Join aggregate, got: %v", joined)
-	}
-
-	syncErrs := unwrapMulti.Unwrap()
-	if len(syncErrs) != 2 {
-		t.Fatalf("expected 2 aggregated errors, got %d: %v", len(syncErrs), syncErrs)
-	}
-
-	gotOne, gotTwo := false, false
-	for _, syncErr := range syncErrs {
-		msg := syncErr.Error()
-		if strings.Contains(msg, "delete failure one") {
-			gotOne = true
-		}
-		if strings.Contains(msg, "delete failure two") {
-			gotTwo = true
-		}
-	}
-	if !gotOne || !gotTwo {
-		t.Fatalf("expected both delete failures in aggregate, got: %v", syncErrs)
-	}
+	assertSyncAggregateErrors(t, err, 2, "delete failure one", "delete failure two")
 }
