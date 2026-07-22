@@ -160,6 +160,68 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 			expectedConditionStatus: metav1.ConditionFalse,
 			expectedConditionReason: ConditionReasonError,
 		},
+		{
+			name: "Should not regress Completed phase from stale reconcile",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-completed",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-completed"),
+				},
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Phase: migrationv1alpha1.PhaseCompleted,
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
+							Type:    migrationv1alpha1.ConditionTypeCleaned,
+							Status:  metav1.ConditionTrue,
+							Reason:  ConditionReasonResourceCleaned,
+							Message: "Resources have been successfully cleaned up from the hub clusters",
+						}},
+					},
+				},
+			},
+			condition: metav1.Condition{
+				Type:    migrationv1alpha1.ConditionTypeCleaned,
+				Status:  metav1.ConditionFalse,
+				Reason:  ConditionReasonWaiting,
+				Message: "Waiting for the resources to be cleaned up from the both source and target hub clusters",
+			},
+			phase:                   migrationv1alpha1.PhaseCleaning,
+			expectedPhase:           migrationv1alpha1.PhaseCompleted,
+			expectedConditionStatus: metav1.ConditionTrue,
+			expectedConditionReason: ConditionReasonResourceCleaned,
+		},
+		{
+			name: "Should not regress Failed phase from stale reconcile",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-failed",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-failed"),
+				},
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Phase: migrationv1alpha1.PhaseFailed,
+					Conditions: []migrationv1alpha1.MigrationCondition{
+						{Condition: metav1.Condition{
+							Type:    migrationv1alpha1.ConditionTypeValidated,
+							Status:  metav1.ConditionFalse,
+							Reason:  ConditionReasonError,
+							Message: "Hub cluster invalid",
+						}},
+					},
+				},
+			},
+			condition: metav1.Condition{
+				Type:    migrationv1alpha1.ConditionTypeValidated,
+				Status:  metav1.ConditionFalse,
+				Reason:  ConditionReasonWaiting,
+				Message: "Waiting for validation to complete",
+			},
+			phase:                   migrationv1alpha1.PhaseValidating,
+			expectedPhase:           migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus: metav1.ConditionFalse,
+			expectedConditionReason: ConditionReasonError,
+		},
 	}
 
 	for _, tt := range tests {
@@ -188,7 +250,13 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 			assert.NotNil(t, condition, "Condition should exist")
 			assert.Equal(t, tt.expectedConditionStatus, condition.Status, "Expected condition status should match")
 			assert.Equal(t, tt.expectedConditionReason, condition.Reason, "Expected condition reason should match")
-			assert.Equal(t, tt.condition.Message, condition.Message, "Expected condition message should match")
+			if tt.name == "Should not regress Completed phase from stale reconcile" {
+				assert.Equal(t, "Resources have been successfully cleaned up from the hub clusters", condition.Message)
+			} else if tt.name == "Should not regress Failed phase from stale reconcile" {
+				assert.Equal(t, "Hub cluster invalid", condition.Message)
+			} else {
+				assert.Equal(t, tt.condition.Message, condition.Message, "Expected condition message should match")
+			}
 		})
 	}
 }
