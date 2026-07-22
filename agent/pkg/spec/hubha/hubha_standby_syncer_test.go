@@ -5,6 +5,9 @@ package hubha
 
 import (
 	"context"
+	stderrors "errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -14,7 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -616,14 +621,51 @@ func TestHubHAStandbySyncer_UpdateManagedCluster_SetsHubAcceptsClient(t *testing
 
 func TestHubHAStandbySyncer_Sync_ReturnsAggregateErrors(t *testing.T) {
 	scheme := runtime.NewScheme()
-	client := fake.NewClientBuilder().WithScheme(scheme).Build()
-	syncer := NewHubHAStandbySyncer(client)
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	cmOne := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "cm-one", Namespace: "default"},
+	}
+	cmTwo := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "cm-two", Namespace: "default"},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(cmOne, cmTwo).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+				switch obj.GetName() {
+				case "cm-one":
+					return fmt.Errorf("delete failure one")
+				case "cm-two":
+					return fmt.Errorf("delete failure two")
+				default:
+					return c.Delete(ctx, obj, opts...)
+				}
+			},
+		}).
+		Build()
+
+	syncer := NewHubHAStandbySyncer(fakeClient)
 
 	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
 	bundle.Delete = []generic.ObjectMetadata{
 		{
-			Name:      testCMName,
+			Name:      "cm-one",
 			Namespace: "default",
+			Group:     "",
+			Version:   "v1",
+			Kind:      "ConfigMap",
+		},
+		{
+			Name:      "cm-two",
+			Namespace: "default",
+			Group:     "",
+			Version:   "v1",
+			Kind:      "ConfigMap",
 		},
 	}
 
@@ -637,5 +679,34 @@ func TestHubHAStandbySyncer_Sync_ReturnsAggregateErrors(t *testing.T) {
 	err := syncer.Sync(context.Background(), &evt)
 	if err == nil {
 		t.Fatal("expected aggregate sync error when bundle apply fails")
+	}
+
+	joined := stderrors.Unwrap(err)
+	if joined == nil {
+		t.Fatalf("expected wrapped aggregate error, got: %v", err)
+	}
+
+	unwrapMulti, ok := joined.(interface{ Unwrap() []error })
+	if !ok {
+		t.Fatalf("expected errors.Join aggregate, got: %v", joined)
+	}
+
+	syncErrs := unwrapMulti.Unwrap()
+	if len(syncErrs) != 2 {
+		t.Fatalf("expected 2 aggregated errors, got %d: %v", len(syncErrs), syncErrs)
+	}
+
+	gotOne, gotTwo := false, false
+	for _, syncErr := range syncErrs {
+		msg := syncErr.Error()
+		if strings.Contains(msg, "delete failure one") {
+			gotOne = true
+		}
+		if strings.Contains(msg, "delete failure two") {
+			gotTwo = true
+		}
+	}
+	if !gotOne || !gotTwo {
+		t.Fatalf("expected both delete failures in aggregate, got: %v", syncErrs)
 	}
 }
