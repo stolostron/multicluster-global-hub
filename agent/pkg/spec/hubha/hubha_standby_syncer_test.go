@@ -613,3 +613,29 @@ func TestHubHAStandbySyncer_UpdateManagedCluster_SetsHubAcceptsClient(t *testing
 		t.Errorf("Labels not updated correctly, got %v", labels)
 	}
 }
+
+func TestHubHAStandbySyncer_Sync_ReturnsAggregateErrors(t *testing.T) {
+	scheme := runtime.NewScheme()
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+	syncer := NewHubHAStandbySyncer(client)
+
+	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+	bundle.Delete = []generic.ObjectMetadata{
+		{
+			Name:      testCMName,
+			Namespace: "default",
+		},
+	}
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubHAResourcesMsgKey)
+	evt.SetSource("hub1")
+	if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+
+	err := syncer.Sync(context.Background(), &evt)
+	if err == nil {
+		t.Fatal("expected aggregate sync error when bundle apply fails")
+	}
+}
