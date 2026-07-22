@@ -5,6 +5,7 @@ package hubha
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -53,13 +54,14 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 	}
 
 	sourceHub := source
+	var syncErrs []error
 
 	// Apply created resources
 	for _, obj := range bundle.Create {
 		if err := s.createResource(ctx, obj, sourceHub); err != nil {
 			log.Errorf("failed to create resource %s/%s from active hub %s: %v",
 				obj.GetNamespace(), obj.GetName(), sourceHub, err)
-			// Continue with other resources instead of failing entirely
+			syncErrs = append(syncErrs, err)
 		}
 	}
 
@@ -68,6 +70,7 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 		if err := s.updateResource(ctx, obj, sourceHub); err != nil {
 			log.Errorf("failed to update resource %s/%s from active hub %s: %v",
 				obj.GetNamespace(), obj.GetName(), sourceHub, err)
+			syncErrs = append(syncErrs, err)
 		}
 	}
 
@@ -76,6 +79,7 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 		if err := s.updateResource(ctx, obj, sourceHub); err != nil {
 			log.Errorf("failed to resync resource %s/%s from active hub %s: %v",
 				obj.GetNamespace(), obj.GetName(), sourceHub, err)
+			syncErrs = append(syncErrs, err)
 		}
 	}
 
@@ -84,11 +88,16 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 		if err := s.deleteResource(ctx, &meta, sourceHub); err != nil {
 			log.Errorf("failed to delete resource %s/%s from active hub %s: %v",
 				meta.Namespace, meta.Name, sourceHub, err)
+			syncErrs = append(syncErrs, err)
 		}
 	}
 
 	log.Infof("standby hub processed Hub HA bundle from %s: created=%d, updated=%d, resynced=%d, deleted=%d",
 		sourceHub, len(bundle.Create), len(bundle.Update), len(bundle.Resync), len(bundle.Delete))
+
+	if len(syncErrs) > 0 {
+		return fmt.Errorf("failed to apply Hub HA bundle from %s: %w", sourceHub, stderrors.Join(syncErrs...))
+	}
 
 	return nil
 }

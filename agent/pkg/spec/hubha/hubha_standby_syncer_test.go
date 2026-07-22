@@ -5,6 +5,7 @@ package hubha
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -14,7 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -612,4 +615,65 @@ func TestHubHAStandbySyncer_UpdateManagedCluster_SetsHubAcceptsClient(t *testing
 	if labels["new-label"] != newValue {
 		t.Errorf("Labels not updated correctly, got %v", labels)
 	}
+}
+
+func TestHubHAStandbySyncer_Sync_ReturnsAggregateErrors(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	cmOne := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "cm-one", Namespace: "default"},
+	}
+	cmTwo := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "cm-two", Namespace: "default"},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(cmOne, cmTwo).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+				switch obj.GetName() {
+				case "cm-one":
+					return fmt.Errorf("delete failure one")
+				case "cm-two":
+					return fmt.Errorf("delete failure two")
+				default:
+					return c.Delete(ctx, obj, opts...)
+				}
+			},
+		}).
+		Build()
+
+	syncer := NewHubHAStandbySyncer(fakeClient)
+
+	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+	bundle.Delete = []generic.ObjectMetadata{
+		{
+			Name:      "cm-one",
+			Namespace: "default",
+			Group:     "",
+			Version:   "v1",
+			Kind:      "ConfigMap",
+		},
+		{
+			Name:      "cm-two",
+			Namespace: "default",
+			Group:     "",
+			Version:   "v1",
+			Kind:      "ConfigMap",
+		},
+	}
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubHAResourcesMsgKey)
+	evt.SetSource("hub1")
+	if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+
+	err := syncer.Sync(context.Background(), &evt)
+	assertSyncAggregateErrors(t, err, 2, "delete failure one", "delete failure two")
 }
