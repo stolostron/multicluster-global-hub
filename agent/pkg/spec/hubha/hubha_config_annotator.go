@@ -131,6 +131,10 @@ func annotateManagedCluster(ctx context.Context, c client.Client,
 		if err := c.Get(ctx, client.ObjectKeyFromObject(mc), current); err != nil {
 			return err
 		}
+		// Re-check after reload: another controller may have marked this as local-cluster.
+		if isLocalManagedCluster(current) {
+			return nil
+		}
 		annotations := current.GetAnnotations()
 		if annotations == nil {
 			annotations = make(map[string]string)
