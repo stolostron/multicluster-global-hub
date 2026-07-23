@@ -63,6 +63,11 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 	dispatcher.RegisterSyncer(constants.HAConfigMsgKey,
 		hubha.NewHAConfigSyncer(mgr.GetClient(), agentConfig))
 
+	// Annotate ManagedClusters imported after the initial HAConfig CloudEvent.
+	if err := hubha.AddHAConfigAnnotator(mgr); err != nil {
+		return fmt.Errorf("failed to add HA config annotator: %w", err)
+	}
+
 	log.Info("added the spec controllers to manager")
 	return nil
 }

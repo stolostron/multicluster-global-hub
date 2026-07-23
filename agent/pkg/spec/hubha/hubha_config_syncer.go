@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+
 package hubha
 
 import (
@@ -190,29 +193,11 @@ func (s *HAConfigSyncer) annotateAllManagedClusters(ctx context.Context, kluster
 
 	for i := range mcList.Items {
 		mc := &mcList.Items[i]
-		if mc.Name == "local-cluster" {
+		if isLocalManagedCluster(mc) {
 			continue
 		}
 
-		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := s.client.Get(ctx, client.ObjectKeyFromObject(mc), mc); err != nil {
-				return err
-			}
-			annotations := mc.GetAnnotations()
-			if annotations == nil {
-				annotations = make(map[string]string)
-			}
-			if annotations[klusterletConfigAnnotation] == klusterletConfigName {
-				return nil
-			}
-			annotations[klusterletConfigAnnotation] = klusterletConfigName
-			mc.SetAnnotations(annotations)
-			if err := s.client.Update(ctx, mc); err != nil {
-				return err
-			}
-			log.Infof("annotated managed cluster %s with klusterlet-config=%s", mc.Name, klusterletConfigName)
-			return nil
-		}); err != nil {
+		if err := annotateManagedCluster(ctx, s.client, mc, klusterletConfigName); err != nil {
 			return fmt.Errorf("failed to annotate managed cluster %s: %w", mc.Name, err)
 		}
 	}
