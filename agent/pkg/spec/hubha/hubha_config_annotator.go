@@ -1,5 +1,19 @@
-// Copyright (c) 2025 Red Hat, Inc.
-// Copyright Contributors to the Open Cluster Management project
+/*
+Copyright (c) 2026 Red Hat, Inc.
+Copyright Contributors to the Open Cluster Management project
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package hubha
 
@@ -129,7 +143,7 @@ func annotateManagedCluster(ctx context.Context, c client.Client,
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		current := &clusterv1.ManagedCluster{}
 		if err := c.Get(ctx, client.ObjectKeyFromObject(mc), current); err != nil {
-			return err
+			return fmt.Errorf("failed to get ManagedCluster %s: %w", mc.Name, err)
 		}
 		// Re-check after reload: another controller may have marked this as local-cluster.
 		if isLocalManagedCluster(current) {
@@ -145,10 +159,11 @@ func annotateManagedCluster(ctx context.Context, c client.Client,
 		annotations[klusterletConfigAnnotation] = klusterletConfigName
 		current.SetAnnotations(annotations)
 		if err := c.Update(ctx, current); err != nil {
-			return err
+			return fmt.Errorf("failed to update ManagedCluster %s with klusterlet-config annotation: %w",
+				current.Name, err)
 		}
-		log.Infof("annotated managed cluster %s with klusterlet-config=%s",
-			current.Name, klusterletConfigName)
+		log.Infow("annotated managed cluster",
+			"cluster", current.Name, "klusterlet-config", klusterletConfigName)
 		return nil
 	})
 }
