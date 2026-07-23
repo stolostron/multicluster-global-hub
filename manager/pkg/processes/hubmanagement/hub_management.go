@@ -245,8 +245,8 @@ func (h *HubManagement) resync(ctx context.Context, hubName string) error {
 	return h.producer.SendEvent(ctx, e)
 }
 
-// findStandbyHub finds the standby hub name by querying ManagedCluster resources
-// Returns the standby hub name, fallback to local-cluster
+// findStandbyHub finds the standby hub name by querying ManagedCluster resources.
+// Returns the standby hub name, or the local cluster MC name when no standby is labeled.
 func (h *HubManagement) findStandbyHub(ctx context.Context) (string, error) {
 	// List ManagedClusters with standby role label
 	managedClusterList := &clusterv1.ManagedClusterList{}
@@ -262,9 +262,14 @@ func (h *HubManagement) findStandbyHub(ctx context.Context) (string, error) {
 		return managedClusterList.Items[0].Name, nil
 	}
 
-	// If no standby hub found, fallback to local-cluster
+	// If no standby hub found, resolve the local cluster MC name (may differ from
+	// constants.LocalClusterName when hub self-managed uses e.g. acm-local-cluster).
 	if len(managedClusterList.Items) == 0 {
-		return constants.LocalClusterName, nil
+		name, err := utils.ResolveLocalClusterManagedClusterName(ctx, h.client)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve local ManagedCluster name: %w", err)
+		}
+		return name, nil
 	}
 
 	// More than one standby hub found - this is a configuration error
