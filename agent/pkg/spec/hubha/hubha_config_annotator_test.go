@@ -71,7 +71,8 @@ func TestHAConfigAnnotator_AnnotatesNewlyImportedCluster(t *testing.T) {
 	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "ks"}, mc)
 	require.NoError(t, err, "should retrieve annotated ManagedCluster ks after reconcile")
 	assert.Equal(t, testKlusterletConfigName, mc.GetAnnotations()[klusterletConfigAnnotation],
-		"newly imported ManagedCluster must get agent.open-cluster-management.io/klusterlet-config so HA standby bootstrap is applied")
+		"newly imported ManagedCluster must get "+
+			"agent.open-cluster-management.io/klusterlet-config so HA standby bootstrap is applied")
 }
 
 func TestHAConfigAnnotator_NoOpWithoutKlusterletConfig(t *testing.T) {
@@ -123,7 +124,8 @@ func TestHAConfigAnnotator_SkipsLocalClusterByLabel(t *testing.T) {
 	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "acm-local-cluster"}, mc)
 	require.NoError(t, err, "should retrieve label-local ManagedCluster to verify it remains unannotated")
 	assert.Empty(t, mc.GetAnnotations()[klusterletConfigAnnotation],
-		"local ManagedCluster with local-cluster=true must remain unannotated so the hub self-management cluster is not given HA standby klusterlet-config")
+		"local ManagedCluster with local-cluster=true must remain unannotated so the hub "+
+			"self-management cluster is not given HA standby klusterlet-config")
 }
 
 func TestHAConfigAnnotator_SkipsLocalClusterByName(t *testing.T) {
@@ -147,7 +149,8 @@ func TestHAConfigAnnotator_SkipsLocalClusterByName(t *testing.T) {
 	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: constants.LocalClusterName}, mc)
 	require.NoError(t, err, "should retrieve name-local ManagedCluster to verify it remains unannotated")
 	assert.Empty(t, mc.GetAnnotations()[klusterletConfigAnnotation],
-		"ManagedCluster named local-cluster must remain unannotated so the conventional local hub cluster is not given HA standby klusterlet-config")
+		"ManagedCluster named local-cluster must remain unannotated so the conventional "+
+			"local hub cluster is not given HA standby klusterlet-config")
 }
 
 func TestHAConfigAnnotator_IdempotentWhenAlreadyAnnotated(t *testing.T) {
@@ -243,7 +246,8 @@ func TestAnnotateManagedCluster(t *testing.T) {
 
 	updated := &clusterv1.ManagedCluster{}
 	err = fakeClient.Get(context.Background(), client.ObjectKeyFromObject(mc), updated)
-	require.NoError(t, err, "should retrieve ManagedCluster after annotateManagedCluster to verify annotation was persisted")
+	require.NoError(t, err,
+		"should retrieve ManagedCluster after annotateManagedCluster to verify annotation was persisted")
 	assert.Equal(t, testKlusterletConfigName, updated.GetAnnotations()[klusterletConfigAnnotation],
 		"annotateManagedCluster should set klusterlet-config annotation")
 }
