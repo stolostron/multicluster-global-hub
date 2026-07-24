@@ -250,6 +250,46 @@ func TestInitClientWithChanTransport(t *testing.T) {
 		assert.NotNil(t, config.Extends)
 	})
 
+	t.Run("init client aliases migration topic to spec topic for Chan transport", func(t *testing.T) {
+		consumer, err := NewGenericConsumer(false, false)
+		assert.NoError(t, err)
+
+		config := &transport.TransportInternalConfig{
+			TransportType: string(transport.Chan),
+			KafkaCredential: &transport.KafkaConfig{
+				SpecTopic:      "gh-spec",
+				MigrationTopic: "gh-migration",
+			},
+			Extends: make(map[string]any),
+		}
+
+		client, err := consumer.initClient(config)
+		assert.NoError(t, err)
+		assert.NotNil(t, client)
+		assert.NotNil(t, config.Extends["gh-spec"])
+		assert.Equal(t, config.Extends["gh-spec"], config.Extends["gh-migration"])
+	})
+
+	t.Run("init client skips migration topic when same as spec topic", func(t *testing.T) {
+		consumer, err := NewGenericConsumer(false, false)
+		assert.NoError(t, err)
+
+		config := &transport.TransportInternalConfig{
+			TransportType: string(transport.Chan),
+			KafkaCredential: &transport.KafkaConfig{
+				SpecTopic:      "gh-spec",
+				MigrationTopic: "gh-spec",
+			},
+			Extends: make(map[string]any),
+		}
+
+		client, err := consumer.initClient(config)
+		assert.NoError(t, err)
+		assert.NotNil(t, client)
+		assert.NotNil(t, config.Extends["gh-spec"])
+		assert.Len(t, config.Extends, 1)
+	})
+
 	t.Run("init client with invalid transport type", func(t *testing.T) {
 		consumer, err := NewGenericConsumer(false, false)
 		assert.NoError(t, err)
