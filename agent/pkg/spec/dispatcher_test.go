@@ -114,7 +114,8 @@ func TestDispatch_AllowsPrefixedGlobalHubStandbySubject(t *testing.T) {
 			}(),
 		},
 	})
-	assert.Equal(t, 1, recorder.called)
+	assert.Equal(t, 1, recorder.called,
+		"prefixed global-hub standby subjects must be delivered to the syncer")
 }
 
 func TestDispatch_DropsSubjectMismatch(t *testing.T) {

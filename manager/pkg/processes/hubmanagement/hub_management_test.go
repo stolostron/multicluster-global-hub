@@ -319,10 +319,11 @@ func TestSendHubStatusUpdate_NoStandbyHub(t *testing.T) {
 		producer: mockProducer,
 	}
 
-	// This should fallback to local-cluster
+	// When no standby MC exists, findStandbyHub should return the prefixed default local-cluster subject.
 	standbyHub, err := hm.findStandbyHub(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, "global-hub/local-cluster", standbyHub)
+	assert.Equal(t, "global-hub/local-cluster", standbyHub,
+		"findStandbyHub should return prefixed global-hub/local-cluster when no standby MC is labeled")
 
 	// Setup test cluster in database
 	testCluster := models.ManagedCluster{
@@ -501,11 +502,11 @@ func TestSendHubStatusUpdate_NoStandbyHubAvailable(t *testing.T) {
 		producer: mockProducer,
 	}
 
-	// findStandbyHub returns local-cluster when no standby found
-	// sendHubStatusUpdate should still work
+	// findStandbyHub should still resolve a prefixed fallback when no standby MC exists.
 	standbyHub, err := hm.findStandbyHub(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, "global-hub/local-cluster", standbyHub)
+	assert.Equal(t, "global-hub/local-cluster", standbyHub,
+		"findStandbyHub should return prefixed global-hub/local-cluster when no standby hub is available")
 }
 
 // mockProducer implements transport.Producer for testing

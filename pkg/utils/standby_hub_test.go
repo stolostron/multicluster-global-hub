@@ -1,5 +1,17 @@
 // Copyright (c) 2026 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package utils
 
@@ -20,38 +32,50 @@ import (
 
 func TestFormatGlobalHubStandbySubject(t *testing.T) {
 	t.Parallel()
-	assert.Equal(t, "global-hub/acm-local-cluster", FormatGlobalHubStandbySubject("acm-local-cluster"))
-	assert.Equal(t, "global-hub/local-cluster", FormatGlobalHubStandbySubject(constants.LocalClusterName))
-	assert.Empty(t, FormatGlobalHubStandbySubject(""))
+	assert.Equal(t, "global-hub/acm-local-cluster", FormatGlobalHubStandbySubject("acm-local-cluster"),
+		"FormatGlobalHubStandbySubject should prefix global-hub local MC names")
+	assert.Equal(t, "global-hub/local-cluster", FormatGlobalHubStandbySubject(constants.LocalClusterName),
+		"FormatGlobalHubStandbySubject should prefix the default local-cluster name")
+	assert.Empty(t, FormatGlobalHubStandbySubject(""),
+		"FormatGlobalHubStandbySubject should return empty for empty input")
 }
 
 func TestResolveGlobalHubStandbySubject(t *testing.T) {
 	t.Parallel()
 	name, ok := ResolveGlobalHubStandbySubject("global-hub/acm-local-cluster")
-	require.True(t, ok)
-	assert.Equal(t, "acm-local-cluster", name)
+	require.True(t, ok, "ResolveGlobalHubStandbySubject should accept prefixed subjects")
+	assert.Equal(t, "acm-local-cluster", name,
+		"ResolveGlobalHubStandbySubject should strip the global-hub prefix")
 
 	_, ok = ResolveGlobalHubStandbySubject("acm-local-cluster")
-	assert.False(t, ok)
+	assert.False(t, ok, "ResolveGlobalHubStandbySubject should reject unprefixed subjects")
 
 	_, ok = ResolveGlobalHubStandbySubject("global-hub/")
-	assert.False(t, ok)
+	assert.False(t, ok, "ResolveGlobalHubStandbySubject should reject empty names after prefix")
 }
 
 func TestMatchesGlobalHubStandbySubject(t *testing.T) {
 	t.Parallel()
-	assert.True(t, MatchesGlobalHubStandbySubject("acm-local-cluster", "acm-local-cluster"))
-	assert.True(t, MatchesGlobalHubStandbySubject("global-hub/acm-local-cluster", "acm-local-cluster"))
-	assert.False(t, MatchesGlobalHubStandbySubject("global-hub/other-hub", "acm-local-cluster"))
-	assert.False(t, MatchesGlobalHubStandbySubject("other-hub", "acm-local-cluster"))
+	assert.True(t, MatchesGlobalHubStandbySubject("acm-local-cluster", "acm-local-cluster"),
+		"MatchesGlobalHubStandbySubject should accept legacy unprefixed subjects")
+	assert.True(t, MatchesGlobalHubStandbySubject("global-hub/acm-local-cluster", "acm-local-cluster"),
+		"MatchesGlobalHubStandbySubject should accept prefixed global-hub subjects")
+	assert.False(t, MatchesGlobalHubStandbySubject("global-hub/other-hub", "acm-local-cluster"),
+		"MatchesGlobalHubStandbySubject should reject mismatched prefixed subjects")
+	assert.False(t, MatchesGlobalHubStandbySubject("other-hub", "acm-local-cluster"),
+		"MatchesGlobalHubStandbySubject should reject unrelated subjects")
 }
 
 func TestStandbyHubSourceMatches(t *testing.T) {
 	t.Parallel()
-	assert.True(t, StandbyHubSourceMatches("acm-local-cluster", "acm-local-cluster"))
-	assert.True(t, StandbyHubSourceMatches("acm-local-cluster", "global-hub/acm-local-cluster"))
-	assert.True(t, StandbyHubSourceMatches("global-hub/acm-local-cluster", "acm-local-cluster"))
-	assert.False(t, StandbyHubSourceMatches("regional-hub", "global-hub/acm-local-cluster"))
+	assert.True(t, StandbyHubSourceMatches("acm-local-cluster", "acm-local-cluster"),
+		"StandbyHubSourceMatches should accept identical unprefixed values")
+	assert.True(t, StandbyHubSourceMatches("acm-local-cluster", "global-hub/acm-local-cluster"),
+		"StandbyHubSourceMatches should accept unprefixed source with prefixed config")
+	assert.True(t, StandbyHubSourceMatches("global-hub/acm-local-cluster", "acm-local-cluster"),
+		"StandbyHubSourceMatches should accept prefixed source with unprefixed config")
+	assert.False(t, StandbyHubSourceMatches("regional-hub", "global-hub/acm-local-cluster"),
+		"StandbyHubSourceMatches should reject unrelated standby sources")
 }
 
 func TestFindStandbyHubTarget(t *testing.T) {
@@ -136,13 +160,13 @@ func TestFindStandbyHubTarget(t *testing.T) {
 			clusters: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "local-a",
+						Name:   "local-a",
 						Labels: map[string]string{constants.LocalClusterName: "true"},
 					},
 				},
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "local-b",
+						Name:   "local-b",
 						Labels: map[string]string{constants.LocalClusterName: "true"},
 					},
 				},
@@ -156,16 +180,18 @@ func TestFindStandbyHubTarget(t *testing.T) {
 			t.Parallel()
 
 			scheme := runtime.NewScheme()
-			require.NoError(t, clusterv1.Install(scheme))
+			require.NoError(t, clusterv1.Install(scheme),
+				"FindStandbyHubTarget test scheme should register clusterv1 types")
 			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.clusters...).Build()
 
 			got, err := FindStandbyHubTarget(context.Background(), c, tt.cachedLocal)
 			if tt.expectedError {
-				require.Error(t, err)
+				require.Error(t, err, "FindStandbyHubTarget(%q) should return error", tt.name)
 				return
 			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.expected, got)
+			require.NoError(t, err, "FindStandbyHubTarget(%q) should not return error", tt.name)
+			assert.Equal(t, tt.expected, got,
+				"FindStandbyHubTarget(%q) should resolve the expected standby target", tt.name)
 		})
 	}
 }

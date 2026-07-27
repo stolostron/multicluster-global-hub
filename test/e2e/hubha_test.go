@@ -97,10 +97,11 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 			return getAgentHubRole(ctx, activeHubClient, "multicluster-global-hub-agent")
 		}, 2*time.Minute, 5*time.Second).Should(Equal(constants.GHHubRoleActive))
 
-		By("Waiting for active hub agent to receive standby hub configuration")
+		By("Waiting for active hub agent to receive prefixed standby hub configuration")
 		Eventually(func() string {
 			return getStandByHub(ctx, activeHubClient, "multicluster-global-hub-agent")
-		}, 2*time.Minute, 5*time.Second).Should(Equal("global-hub/local-cluster"))
+		}, 2*time.Minute, 5*time.Second).Should(Equal("global-hub/local-cluster"),
+			"active hub agent must receive the prefixed standbyHub value for global-hub local standby routing")
 
 		By("Waiting for local agent on global hub to receive role configuration")
 		Eventually(func() string {
