@@ -16,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var addToMgr = false
@@ -98,7 +99,8 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				d.log.Infow("event dropped due to missing subject", "type", evt.Type())
 				continue
 			}
-			if subject != transport.Broadcast && subject != d.agentConfig.LeafHubName {
+			if subject != transport.Broadcast &&
+				!utils.MatchesGlobalHubStandbySubject(subject, d.agentConfig.LeafHubName) {
 				d.log.Infow("event dropped due to subject mismatch", "type", evt.Type(), "subject", subject)
 				continue
 			}

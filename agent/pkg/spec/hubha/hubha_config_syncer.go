@@ -78,7 +78,8 @@ func (s *HAConfigSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error
 		log.Warnw("dropping HA config event with untrusted source", "source", standbyHub, "subject", activeHub)
 		return nil
 	}
-	if standbyHub != constants.CloudEventGlobalHubClusterName && s.standbyHub != "" && standbyHub != s.standbyHub {
+	if standbyHub != constants.CloudEventGlobalHubClusterName && s.standbyHub != "" &&
+		!utils.StandbyHubSourceMatches(standbyHub, s.standbyHub) {
 		log.Warnw("dropping HA config event from unexpected standby hub",
 			"source", standbyHub, "expectedStandby", s.standbyHub)
 		return nil

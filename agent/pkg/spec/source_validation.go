@@ -24,6 +24,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func specEventSourceAllowed(
@@ -64,7 +65,7 @@ func hubHAResourceSourceAllowed(
 	if agentConfig.GetHubRole() != constants.GHHubRoleStandby {
 		return false
 	}
-	if subject != agentConfig.LeafHubName {
+	if !utils.MatchesGlobalHubStandbySubject(subject, agentConfig.LeafHubName) {
 		return false
 	}
 	if source == "" || source == constants.CloudEventGlobalHubClusterName || source == agentConfig.LeafHubName {
@@ -107,7 +108,7 @@ func haConfigSourceAllowed(agentConfig *configs.AgentConfig, source, subject str
 	}
 	standbyHub := agentConfig.GetStandbyHub()
 	if standbyHub != "" {
-		return source == standbyHub
+		return utils.StandbyHubSourceMatches(source, standbyHub)
 	}
 	return true
 }

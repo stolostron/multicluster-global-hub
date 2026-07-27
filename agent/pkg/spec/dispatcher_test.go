@@ -105,6 +105,18 @@ func TestDispatch_DropsMissingSubject(t *testing.T) {
 	assert.Equal(t, 0, recorder.called)
 }
 
+func TestDispatch_AllowsPrefixedGlobalHubStandbySubject(t *testing.T) {
+	recorder := runDispatchScenario(t, dispatchScenario{
+		events: []*cloudevents.Event{
+			func() *cloudevents.Event {
+				evt := utils.ToCloudEvent("Policy", constants.CloudEventGlobalHubClusterName, "global-hub/hub2", nil)
+				return &evt
+			}(),
+		},
+	})
+	assert.Equal(t, 1, recorder.called)
+}
+
 func TestDispatch_DropsSubjectMismatch(t *testing.T) {
 	recorder := runDispatchScenario(t, dispatchScenario{
 		events: []*cloudevents.Event{
@@ -211,7 +223,7 @@ func countTrustedEvents(events []*cloudevents.Event) int {
 			continue
 		}
 		subject := evt.Subject()
-		if subject == "" || (subject != transport.Broadcast && subject != "hub2") {
+		if subject == "" || (subject != transport.Broadcast && !utils.MatchesGlobalHubStandbySubject(subject, "hub2")) {
 			continue
 		}
 		if expired, _ := isEventExpired(evt); expired {

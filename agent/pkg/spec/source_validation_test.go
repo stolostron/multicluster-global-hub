@@ -146,6 +146,9 @@ func TestHubHAResourceSourceAllowed(t *testing.T) {
 	if !hubHAResourceSourceAllowed(ctx, fakeClient, standby, "hub1", "hub2") {
 		t.Fatal("expected peer active hub source to be allowed")
 	}
+	if !hubHAResourceSourceAllowed(ctx, fakeClient, standby, "hub1", "global-hub/hub2") {
+		t.Fatal("expected prefixed global-hub HA resource subject to be allowed")
+	}
 	if hubHAResourceSourceAllowed(ctx, fakeClient, standby, "spoofed-hub", "hub2") {
 		t.Fatal("expected unexpected leaf hub source to be rejected")
 	}
@@ -230,6 +233,11 @@ func TestHaConfigSourceAllowed(t *testing.T) {
 	}
 	if !haConfigSourceAllowed(cfg, "hub1", "hub2") {
 		t.Fatal("expected configured standby hub source to be allowed")
+	}
+	cfgPrefixed := &configs.AgentConfig{LeafHubName: "hub2"}
+	cfgPrefixed.SetStandbyHub("global-hub/hub1")
+	if !haConfigSourceAllowed(cfgPrefixed, "hub1", "hub2") {
+		t.Fatal("expected unprefixed source to match prefixed configured standby hub")
 	}
 	if haConfigSourceAllowed(cfg, "hub3", "hub2") {
 		t.Fatal("expected unexpected standby hub source to be rejected")

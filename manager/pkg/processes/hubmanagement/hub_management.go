@@ -11,7 +11,6 @@ import (
 
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/wait"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -245,54 +244,9 @@ func (h *HubManagement) resync(ctx context.Context, hubName string) error {
 	return h.producer.SendEvent(ctx, e)
 }
 
-// findStandbyHub finds the standby hub name by querying ManagedCluster resources.
-// Returns the standby hub name, or the local cluster MC name when no standby is labeled.
+// findStandbyHub resolves the global-hub standby target for Hub HA messaging.
 func (h *HubManagement) findStandbyHub(ctx context.Context) (string, error) {
-	// List ManagedClusters with standby role label
-	managedClusterList := &clusterv1.ManagedClusterList{}
-	err := h.client.List(ctx, managedClusterList, client.MatchingLabels{
-		constants.GHHubRoleLabelKey: constants.GHHubRoleStandby,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to list ManagedClusters with standby role: %w", err)
-	}
-
-	// If exactly one standby hub found, return it
-	if len(managedClusterList.Items) == 1 {
-		return managedClusterList.Items[0].Name, nil
-	}
-
-	// If no standby hub found, resolve the local cluster MC name (may differ from
-	// constants.LocalClusterName when hub self-managed uses e.g. acm-local-cluster).
-	if len(managedClusterList.Items) == 0 {
-		name, err := utils.ResolveLocalClusterManagedClusterName(ctx, h.client)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve local ManagedCluster name: %w", err)
-		}
-		return name, nil
-	}
-
-	// More than one standby hub found - this is a configuration error
-	// Choose the first one alphabetically for deterministic behavior and log a warning
-	hubNames := make([]string, len(managedClusterList.Items))
-	for i, hub := range managedClusterList.Items {
-		hubNames[i] = hub.Name
-	}
-
-	// Sort to ensure deterministic selection
-	chosen := managedClusterList.Items[0].Name
-	for _, name := range hubNames {
-		if name < chosen {
-			chosen = name
-		}
-	}
-
-	log.Warnw("multiple standby hubs found - using alphabetically first one. Only one standby hub should be configured",
-		"count", len(managedClusterList.Items),
-		"standbyHubs", hubNames,
-		"chosen", chosen)
-
-	return chosen, nil
+	return utils.FindStandbyHubTarget(ctx, h.client, "")
 }
 
 // getManagedClusterNames gets the list of managed cluster names for a given hub
