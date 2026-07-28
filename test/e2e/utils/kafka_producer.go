@@ -27,11 +27,11 @@ type KafkaEventPublisher struct {
 	kafkaConfig *transport.KafkaConfig
 }
 
-// NewKafkaEventPublisher loads multicluster-global-hub-transport from namespace and builds a producer.
+// NewKafkaEventPublisher loads transport-config from namespace and builds a producer.
 func NewKafkaEventPublisher(ctx context.Context, c client.Client, namespace string) (*KafkaEventPublisher, error) {
 	secret := &corev1.Secret{}
 	if err := c.Get(ctx, types.NamespacedName{
-		Name:      constants.GHTransportSecretName,
+		Name:      constants.GHTransportConfigSecret,
 		Namespace: namespace,
 	}, secret); err != nil {
 		return nil, fmt.Errorf("get transport secret in namespace %s: %w", namespace, err)

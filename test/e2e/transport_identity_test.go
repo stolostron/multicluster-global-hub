@@ -44,7 +44,6 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 	var (
 		sourceHubName   string
 		targetHubName   string
-		sourceHubClient client.Client
 		targetHubClient client.Client
 	)
 
@@ -55,8 +54,6 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 		targetHubName = managedHubNames[1]
 
 		var err error
-		sourceHubClient, err = testClients.RuntimeClient(sourceHubName, agentScheme)
-		Expect(err).NotTo(HaveOccurred(), "expected source hub %q kubeconfig to be valid", sourceHubName)
 		targetHubClient, err = testClients.RuntimeClient(targetHubName, agentScheme)
 		Expect(err).NotTo(HaveOccurred(), "expected target hub %q kubeconfig to be valid", targetHubName)
 	})
@@ -66,8 +63,8 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 
 		BeforeEach(func() {
 			var err error
-			publisher, err = e2eutils.NewKafkaEventPublisher(ctx, sourceHubClient, constants.GHAgentNamespace)
-			Expect(err).NotTo(HaveOccurred(), "expected Kafka publisher from source hub transport secret")
+			publisher, err = e2eutils.NewKafkaEventPublisher(ctx, globalHubClient, constants.GHDefaultNamespace)
+			Expect(err).NotTo(HaveOccurred(), "expected Kafka publisher from global hub transport-config secret")
 		})
 
 		AfterEach(func() {
@@ -148,22 +145,12 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 			testClusterName = managedClusterNames[0]
 
 			var err error
-			publisher, err = e2eutils.NewKafkaEventPublisher(ctx, sourceHubClient, constants.GHAgentNamespace)
-			Expect(err).NotTo(HaveOccurred(), "expected Kafka publisher from source hub transport secret")
+			publisher, err = e2eutils.NewKafkaEventPublisher(ctx, globalHubClient, constants.GHDefaultNamespace)
+			Expect(err).NotTo(HaveOccurred(), "expected Kafka publisher from global hub transport-config secret")
 		})
 
 		AfterEach(func() {
 			_ = targetHubClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spoofMigrationNS}})
-			_ = targetHubClient.Delete(ctx, &migrationv1alpha1.ManagedClusterMigration{
-				ObjectMeta: metav1.ObjectMeta{Name: spoofMigrationID, Namespace: constants.GHDefaultNamespace},
-			})
-			Eventually(func() bool {
-				err := targetHubClient.Get(ctx, types.NamespacedName{
-					Name: spoofMigrationID, Namespace: constants.GHDefaultNamespace,
-				}, &migrationv1alpha1.ManagedClusterMigration{})
-				return client.IgnoreNotFound(err) == nil && err != nil
-			}, 30*time.Second, 500*time.Millisecond).Should(BeTrue(),
-				"expected migration CR to be fully removed before next test")
 			Eventually(func() bool {
 				err := targetHubClient.Get(ctx, types.NamespacedName{Name: spoofMigrationNS}, &corev1.Namespace{})
 				return client.IgnoreNotFound(err) == nil && err != nil
@@ -172,8 +159,6 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 		})
 
 		It("should drop migration deploying events from an untrusted source hub", func() {
-			ensureDeployingMigrationCR(ctx, targetHubClient, sourceHubName, targetHubName, testClusterName)
-
 			evt := migrationDeployingEvent(
 				spoofMigrationSource,
 				targetHubName,
@@ -233,38 +218,6 @@ func statusCloudEvent(kafkaTopic, source, eventType string, data interface{}) *c
 	_ = evt.SetData(cloudevents.ApplicationJSON, data)
 	evt.SetExtension(kafka_confluent.KafkaTopicKey, kafkaTopic)
 	return &evt
-}
-
-func ensureDeployingMigrationCR(
-	ctx context.Context,
-	hubClient client.Client,
-	fromHub, toHub, clusterName string,
-) {
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}
-	Expect(client.IgnoreAlreadyExists(hubClient.Create(ctx, ns))).To(Succeed(),
-		"expected migration namespace %q to exist on target hub", constants.GHDefaultNamespace)
-
-	migrationCR := &migrationv1alpha1.ManagedClusterMigration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      spoofMigrationID,
-			Namespace: constants.GHDefaultNamespace,
-		},
-		Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-			From:                    fromHub,
-			To:                      toHub,
-			IncludedManagedClusters: []string{clusterName},
-		},
-	}
-	Expect(client.IgnoreAlreadyExists(hubClient.Create(ctx, migrationCR))).To(Succeed(),
-		"expected in-flight migration CR %q to be registered on target hub", spoofMigrationID)
-
-	current := &migrationv1alpha1.ManagedClusterMigration{}
-	Expect(hubClient.Get(ctx, types.NamespacedName{
-		Name: spoofMigrationID, Namespace: constants.GHDefaultNamespace,
-	}, current)).To(Succeed(), "expected migration CR %q to be readable before status update", spoofMigrationID)
-	current.Status.Phase = migrationv1alpha1.PhaseDeploying
-	Expect(hubClient.Status().Update(ctx, current)).To(Succeed(),
-		"expected migration CR %q to enter deploying phase for source validation", spoofMigrationID)
 }
 
 func migrationDeployingEvent(sourceHub, targetHub, namespaceName, clusterName string) cloudevents.Event {
