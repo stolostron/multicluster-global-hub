@@ -76,7 +76,7 @@ start_time=$(date +%s)
 # gobal-hub: hub1, hub2
 pids=()
 for i in $(seq 1 "${MH_NUM}"); do
-  bash "${CURRENT_DIR}"/ocm.sh "${GH_NAME}" "hub$i" HUB_INIT=false POLICY_INIT=false 2>&1 &
+  HUB_INIT=false POLICY_INIT=false bash "${CURRENT_DIR}"/ocm.sh "${GH_NAME}" "hub$i" 2>&1 &
   pid=$!
   pids+=($pid)
   echo "$pid" >>"$CONFIG_DIR/PID"
@@ -85,7 +85,7 @@ done
 # hub1: cluster1 | hub2: cluster1
 for i in $(seq 1 "${MH_NUM}"); do
   for j in $(seq 1 "${MC_NUM}"); do
-    bash "${CURRENT_DIR}"/ocm.sh "hub$i" "hub$i-cluster$j" HUB_INIT=false 2>&1 &
+    HUB_INIT=false bash "${CURRENT_DIR}"/ocm.sh "hub$i" "hub$i-cluster$j" 2>&1 &
     pid=$!
     pids+=($pid)
     echo "$pid" >>"$CONFIG_DIR/PID"
