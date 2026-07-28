@@ -90,30 +90,25 @@ func TestHAConfigAnnotator_AnnotatesNewlyImportedCluster(t *testing.T) {
 func TestHAConfigAnnotator_NoOpWhenNotActiveHub(t *testing.T) {
 	setAnnotatorHubRole(t, constants.GHHubRoleStandby)
 	scheme := newAnnotatorTestScheme(t)
-	regionalHub := &clusterv1.ManagedCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "regional-hub",
-			Labels: map[string]string{
-				constants.GHDeployModeLabelKey: constants.GHDeployModeHosted,
-				constants.GHHubRoleLabelKey:    constants.GHHubRoleActive,
-			},
-		},
+	// Unlabeled spoke so reconcile reaches !isActiveHub() (not shouldSkipHAAnnotation).
+	spoke := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "spoke"},
 	}
 	klusterletConfig := newHAKlusterletConfig(testKlusterletConfigName)
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(regionalHub, klusterletConfig).
+		WithObjects(spoke, klusterletConfig).
 		Build()
 
 	_, err := (&haConfigAnnotator{client: fakeClient}).Reconcile(context.Background(), reconcile.Request{
-		NamespacedName: types.NamespacedName{Name: "regional-hub"},
+		NamespacedName: types.NamespacedName{Name: "spoke"},
 	})
 	require.NoError(t, err, "standby hub annotator should no-op even if ha-standby KlusterletConfig exists")
 
 	mc := &clusterv1.ManagedCluster{}
-	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "regional-hub"}, mc)
-	require.NoError(t, err, "should retrieve regional hub ManagedCluster after standby no-op")
+	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "spoke"}, mc)
+	require.NoError(t, err, "should retrieve spoke ManagedCluster after standby no-op")
 	assert.Empty(t, mc.GetAnnotations()[klusterletConfigAnnotation],
 		"standby/global hub must not annotate ManagedClusters when ha-standby config is synced")
 }
