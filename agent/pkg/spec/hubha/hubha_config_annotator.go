@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -41,15 +42,13 @@ var klusterletConfigGVK = schema.GroupVersionKind{
 	Kind:    "KlusterletConfig",
 }
 
-// haConfigAnnotator ensures ManagedClusters created after the initial HAConfig
-// sync still receive agent.open-cluster-management.io/klusterlet-config.
-// HAConfigSyncer only annotates clusters present when the CloudEvent arrives.
+// haConfigAnnotator annotates ManagedClusters created after the initial HAConfig sync.
 type haConfigAnnotator struct {
 	client client.Client
 }
 
-// AddHAConfigAnnotator watches ManagedCluster creates/updates and applies the
-// HA KlusterletConfig annotation when an ha-standby-* KlusterletConfig exists.
+// AddHAConfigAnnotator registers a controller that applies (or clears) the HA
+// klusterlet-config annotation on ManagedCluster create/update.
 func AddHAConfigAnnotator(mgr ctrl.Manager) error {
 	r := &haConfigAnnotator{client: mgr.GetClient()}
 	return ctrl.NewControllerManagedBy(mgr).
@@ -57,13 +56,15 @@ func AddHAConfigAnnotator(mgr ctrl.Manager) error {
 		For(&clusterv1.ManagedCluster{}).
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return !isLocalManagedCluster(e.Object)
+				if shouldSkipHAAnnotation(e.Object) {
+					return hasHAKlusterletConfigAnnotation(e.Object)
+				}
+				return true
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				if isLocalManagedCluster(e.ObjectNew) {
-					return false
+				if shouldSkipHAAnnotation(e.ObjectNew) {
+					return hasHAKlusterletConfigAnnotation(e.ObjectNew)
 				}
-				// Reconcile when the annotation is missing or changed.
 				oldAnn := e.ObjectOld.GetAnnotations()[klusterletConfigAnnotation]
 				newAnn := e.ObjectNew.GetAnnotations()[klusterletConfigAnnotation]
 				return oldAnn != newAnn || newAnn == ""
@@ -75,8 +76,6 @@ func AddHAConfigAnnotator(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// Reconcile annotates a ManagedCluster with the HA KlusterletConfig name when
-// Hub HA has already been configured on this regional hub.
 func (r *haConfigAnnotator) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mc := &clusterv1.ManagedCluster{}
 	if err := r.client.Get(ctx, req.NamespacedName, mc); err != nil {
@@ -86,7 +85,15 @@ func (r *haConfigAnnotator) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("failed to get ManagedCluster %s: %w", req.Name, err)
 	}
 
-	if isLocalManagedCluster(mc) {
+	if shouldSkipHAAnnotation(mc) {
+		if err := clearHAKlusterletConfigAnnotation(ctx, r.client, mc.Name); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// Annotate spokes only on the active hub.
+	if !isActiveHub() {
 		return ctrl.Result{}, nil
 	}
 
@@ -95,7 +102,6 @@ func (r *haConfigAnnotator) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("failed to find HA KlusterletConfig: %w", err)
 	}
 	if klusterletConfigName == "" {
-		// HA config not applied yet; nothing to do until Sync creates it.
 		return ctrl.Result{}, nil
 	}
 
@@ -105,8 +111,23 @@ func (r *haConfigAnnotator) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-// isLocalManagedCluster returns true for the hub's self-managed local cluster,
-// identified by the local-cluster=true label or the conventional name.
+func isActiveHub() bool {
+	cfg := configs.GetAgentConfig()
+	return cfg != nil && cfg.GetHubRole() == constants.GHHubRoleActive
+}
+
+// shouldSkipHAAnnotation is true for local-cluster and hubs imported into Global Hub.
+func shouldSkipHAAnnotation(obj client.Object) bool {
+	if isLocalManagedCluster(obj) {
+		return true
+	}
+	return isGlobalHubManagedHub(obj)
+}
+
+func hasHAKlusterletConfigAnnotation(obj client.Object) bool {
+	return obj.GetAnnotations()[klusterletConfigAnnotation] != ""
+}
+
 func isLocalManagedCluster(obj client.Object) bool {
 	if obj.GetLabels()[constants.LocalClusterName] == "true" {
 		return true
@@ -114,8 +135,20 @@ func isLocalManagedCluster(obj client.Object) bool {
 	return obj.GetName() == constants.LocalClusterName
 }
 
-// findHAKlusterletConfigName returns the name of the first KlusterletConfig with
-// the ha-standby- prefix, or "" if none exists.
+func isGlobalHubManagedHub(obj client.Object) bool {
+	labels := obj.GetLabels()
+	if labels == nil {
+		return false
+	}
+	if _, ok := labels[constants.GHDeployModeLabelKey]; ok {
+		return true
+	}
+	if _, ok := labels[constants.GHHubRoleLabelKey]; ok {
+		return true
+	}
+	return false
+}
+
 func findHAKlusterletConfigName(ctx context.Context, c client.Client) (string, error) {
 	list := &unstructured.UnstructuredList{}
 	list.SetGroupVersionKind(schema.GroupVersionKind{
@@ -135,8 +168,6 @@ func findHAKlusterletConfigName(ctx context.Context, c client.Client) (string, e
 	return "", nil
 }
 
-// annotateManagedCluster sets the klusterlet-config annotation on mc when it
-// is missing or differs from klusterletConfigName.
 func annotateManagedCluster(ctx context.Context, c client.Client,
 	mc *clusterv1.ManagedCluster, klusterletConfigName string,
 ) error {
@@ -145,9 +176,8 @@ func annotateManagedCluster(ctx context.Context, c client.Client,
 		if err := c.Get(ctx, client.ObjectKeyFromObject(mc), current); err != nil {
 			return fmt.Errorf("failed to get ManagedCluster %s: %w", mc.Name, err)
 		}
-		// Re-check after reload: another controller may have marked this as local-cluster.
-		if isLocalManagedCluster(current) {
-			return nil
+		if shouldSkipHAAnnotation(current) {
+			return clearHAAnnotationLocked(ctx, c, current)
 		}
 		annotations := current.GetAnnotations()
 		if annotations == nil {
@@ -166,4 +196,29 @@ func annotateManagedCluster(ctx context.Context, c client.Client,
 			"cluster", current.Name, "klusterlet-config", klusterletConfigName)
 		return nil
 	})
+}
+
+func clearHAKlusterletConfigAnnotation(ctx context.Context, c client.Client, name string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &clusterv1.ManagedCluster{}
+		if err := c.Get(ctx, client.ObjectKey{Name: name}, current); err != nil {
+			return fmt.Errorf("failed to get ManagedCluster %s: %w", name, err)
+		}
+		return clearHAAnnotationLocked(ctx, c, current)
+	})
+}
+
+func clearHAAnnotationLocked(ctx context.Context, c client.Client, current *clusterv1.ManagedCluster) error {
+	annotations := current.GetAnnotations()
+	if annotations == nil || annotations[klusterletConfigAnnotation] == "" {
+		return nil
+	}
+	delete(annotations, klusterletConfigAnnotation)
+	current.SetAnnotations(annotations)
+	if err := c.Update(ctx, current); err != nil {
+		return fmt.Errorf("failed to clear klusterlet-config annotation on ManagedCluster %s: %w",
+			current.Name, err)
+	}
+	log.Infow("removed klusterlet-config annotation", "cluster", current.Name)
+	return nil
 }

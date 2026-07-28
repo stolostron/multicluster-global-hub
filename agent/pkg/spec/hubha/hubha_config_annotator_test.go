@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -40,6 +41,16 @@ func newAnnotatorTestScheme(t *testing.T) *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	require.NoError(t, clusterv1.Install(scheme), "clusterv1 scheme registration should succeed")
 	return scheme
+}
+
+func setAnnotatorHubRole(t *testing.T, role string) {
+	t.Helper()
+	cfg := &configs.AgentConfig{}
+	cfg.SetHubRole(role)
+	configs.SetAgentConfig(cfg)
+	t.Cleanup(func() {
+		configs.SetAgentConfig(nil)
+	})
 }
 
 func newHAKlusterletConfig(name string) *unstructured.Unstructured {
@@ -51,6 +62,7 @@ func newHAKlusterletConfig(name string) *unstructured.Unstructured {
 }
 
 func TestHAConfigAnnotator_AnnotatesNewlyImportedCluster(t *testing.T) {
+	setAnnotatorHubRole(t, constants.GHHubRoleActive)
 	scheme := newAnnotatorTestScheme(t)
 	ksCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "ks"},
@@ -75,7 +87,133 @@ func TestHAConfigAnnotator_AnnotatesNewlyImportedCluster(t *testing.T) {
 			"agent.open-cluster-management.io/klusterlet-config so HA standby bootstrap is applied")
 }
 
+func TestHAConfigAnnotator_NoOpWhenNotActiveHub(t *testing.T) {
+	setAnnotatorHubRole(t, constants.GHHubRoleStandby)
+	scheme := newAnnotatorTestScheme(t)
+	// Unlabeled spoke so reconcile reaches !isActiveHub() (not shouldSkipHAAnnotation).
+	spoke := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "spoke"},
+	}
+	klusterletConfig := newHAKlusterletConfig(testKlusterletConfigName)
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(spoke, klusterletConfig).
+		Build()
+
+	_, err := (&haConfigAnnotator{client: fakeClient}).Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "spoke"},
+	})
+	require.NoError(t, err, "standby hub annotator should no-op even if ha-standby KlusterletConfig exists")
+
+	mc := &clusterv1.ManagedCluster{}
+	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "spoke"}, mc)
+	require.NoError(t, err, "should retrieve spoke ManagedCluster after standby no-op")
+	assert.Empty(t, mc.GetAnnotations()[klusterletConfigAnnotation],
+		"standby/global hub must not annotate ManagedClusters when ha-standby config is synced")
+}
+
+func TestHAConfigAnnotator_SkipsImportedRegionalHub(t *testing.T) {
+	setAnnotatorHubRole(t, constants.GHHubRoleActive)
+	scheme := newAnnotatorTestScheme(t)
+	regionalHub := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "regional-hub",
+			Labels: map[string]string{
+				constants.GHDeployModeLabelKey: constants.GHDeployModeHosted,
+				constants.GHHubRoleLabelKey:    constants.GHHubRoleActive,
+			},
+		},
+	}
+	klusterletConfig := newHAKlusterletConfig(testKlusterletConfigName)
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(regionalHub, klusterletConfig).
+		Build()
+
+	_, err := (&haConfigAnnotator{client: fakeClient}).Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "regional-hub"},
+	})
+	require.NoError(t, err, "reconcile of imported regional hub should succeed without annotating")
+
+	mc := &clusterv1.ManagedCluster{}
+	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "regional-hub"}, mc)
+	require.NoError(t, err, "should retrieve imported regional hub ManagedCluster")
+	assert.Empty(t, mc.GetAnnotations()[klusterletConfigAnnotation],
+		"ManagedCluster for a regional hub imported into Global Hub must not get "+
+			"klusterlet-config annotation")
+}
+
+func TestHAConfigAnnotator_ClearsAnnotationWhenHubLabelsArriveLater(t *testing.T) {
+	// Import first (no GH labels) can annotate; labels added later must clear it.
+	setAnnotatorHubRole(t, constants.GHHubRoleActive)
+	scheme := newAnnotatorTestScheme(t)
+	regionalHub := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "regional-hub",
+			Labels: map[string]string{
+				constants.GHDeployModeLabelKey: constants.GHDeployModeHosted,
+				constants.GHHubRoleLabelKey:    constants.GHHubRoleActive,
+			},
+			Annotations: map[string]string{
+				klusterletConfigAnnotation: testKlusterletConfigName,
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(regionalHub).
+		Build()
+
+	_, err := (&haConfigAnnotator{client: fakeClient}).Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "regional-hub"},
+	})
+	require.NoError(t, err, "reconcile should clear a wrongly applied annotation after hub labels arrive")
+
+	mc := &clusterv1.ManagedCluster{}
+	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "regional-hub"}, mc)
+	require.NoError(t, err, "should retrieve regional hub after clearing annotation")
+	assert.Empty(t, mc.GetAnnotations()[klusterletConfigAnnotation],
+		"wrong klusterlet-config annotation must be removed once deploy-mode/hub-role labels are set")
+}
+
+func TestHAConfigAnnotator_ClearsAnnotationOnStandbyHub(t *testing.T) {
+	// Standby must still heal a stuck annotation on an imported regional hub.
+	setAnnotatorHubRole(t, constants.GHHubRoleStandby)
+	scheme := newAnnotatorTestScheme(t)
+	regionalHub := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "regional-hub",
+			Labels: map[string]string{
+				constants.GHDeployModeLabelKey: constants.GHDeployModeHosted,
+			},
+			Annotations: map[string]string{
+				klusterletConfigAnnotation: testKlusterletConfigName,
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(regionalHub).
+		Build()
+
+	_, err := (&haConfigAnnotator{client: fakeClient}).Reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "regional-hub"},
+	})
+	require.NoError(t, err, "standby reconcile should clear stuck annotation on skipped cluster")
+
+	mc := &clusterv1.ManagedCluster{}
+	err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "regional-hub"}, mc)
+	require.NoError(t, err, "should retrieve regional hub after standby clear")
+	assert.Empty(t, mc.GetAnnotations()[klusterletConfigAnnotation],
+		"standby agent must remove wrongly applied klusterlet-config from imported hubs")
+}
+
 func TestHAConfigAnnotator_NoOpWithoutKlusterletConfig(t *testing.T) {
+	setAnnotatorHubRole(t, constants.GHHubRoleActive)
 	scheme := newAnnotatorTestScheme(t)
 	ksCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "ks"},
@@ -99,6 +237,7 @@ func TestHAConfigAnnotator_NoOpWithoutKlusterletConfig(t *testing.T) {
 }
 
 func TestHAConfigAnnotator_SkipsLocalClusterByLabel(t *testing.T) {
+	setAnnotatorHubRole(t, constants.GHHubRoleActive)
 	scheme := newAnnotatorTestScheme(t)
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -129,6 +268,7 @@ func TestHAConfigAnnotator_SkipsLocalClusterByLabel(t *testing.T) {
 }
 
 func TestHAConfigAnnotator_SkipsLocalClusterByName(t *testing.T) {
+	setAnnotatorHubRole(t, constants.GHHubRoleActive)
 	scheme := newAnnotatorTestScheme(t)
 	localCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalClusterName},
@@ -154,6 +294,7 @@ func TestHAConfigAnnotator_SkipsLocalClusterByName(t *testing.T) {
 }
 
 func TestHAConfigAnnotator_IdempotentWhenAlreadyAnnotated(t *testing.T) {
+	setAnnotatorHubRole(t, constants.GHHubRoleActive)
 	scheme := newAnnotatorTestScheme(t)
 	ksCluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -232,6 +373,30 @@ func TestIsLocalManagedCluster(t *testing.T) {
 	assert.False(t, isLocalManagedCluster(&clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "ks"},
 	}), "regular managed cluster should not be treated as local")
+}
+
+func TestIsGlobalHubManagedHub(t *testing.T) {
+	assert.True(t, isGlobalHubManagedHub(&clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "regional-hub",
+			Labels: map[string]string{
+				constants.GHDeployModeLabelKey: constants.GHDeployModeHosted,
+			},
+		},
+	}), "deploy-mode label identifies a hub imported into Global Hub")
+
+	assert.True(t, isGlobalHubManagedHub(&clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "regional-hub",
+			Labels: map[string]string{
+				constants.GHHubRoleLabelKey: constants.GHHubRoleActive,
+			},
+		},
+	}), "hub-role label identifies a hub imported into Global Hub")
+
+	assert.False(t, isGlobalHubManagedHub(&clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "ks"},
+	}), "spoke ManagedCluster without GH hub labels should not be treated as a hub")
 }
 
 func TestAnnotateManagedCluster(t *testing.T) {

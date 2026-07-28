@@ -207,7 +207,7 @@ func (s *HAConfigSyncer) annotateAllManagedClusters(ctx context.Context, kluster
 
 	for i := range mcList.Items {
 		mc := &mcList.Items[i]
-		if isLocalManagedCluster(mc) {
+		if shouldSkipHAAnnotation(mc) {
 			continue
 		}
 
