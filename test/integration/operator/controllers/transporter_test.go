@@ -427,8 +427,34 @@ var _ = Describe("transporter", Ordered, func() {
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
-		// utils.PrettyPrint(kafkaUser.Spec.Authorization)
 		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+
+		aclByTopic := map[string][]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{}
+		for _, acl := range kafkaUser.Spec.Authorization.Acls {
+			if acl.Resource.Type != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic {
+				continue
+			}
+			Expect(acl.Resource.Name).NotTo(BeNil())
+			aclByTopic[*acl.Resource.Name] = acl.Operations
+		}
+
+		specOps := aclByTopic["gh-spec"]
+		Expect(specOps).To(ConsistOf(
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		))
+		Expect(specOps).NotTo(ContainElement(kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite))
+
+		migrationOps := aclByTopic[config.GetMigrationTopic()]
+		Expect(migrationOps).To(ConsistOf(
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		))
+
+		statusOps := aclByTopic[config.GetStatusTopic(clusterName)]
+		Expect(statusOps).To(Equal([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		}))
 
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)
