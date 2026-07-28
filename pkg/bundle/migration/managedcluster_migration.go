@@ -32,6 +32,8 @@ type ManagedClusterMigrationToEvent struct {
 	ManagedServiceAccountName             string   `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
+	// SourceHubs lists authorized source hubs for deploying-stage bundles on gh-spec.
+	SourceHubs []string `json:"sourceHubs,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub

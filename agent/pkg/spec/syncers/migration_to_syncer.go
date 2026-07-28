@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -79,6 +80,11 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			s.currentMigrationId = managedClusterMigrationToEvent.MigrationId
 			// reset the bundle version for each new migration
 			s.bundleVersion.Reset()
+			RegisterMigrationDeploySources(
+				configs.GetLeafHubName(),
+				managedClusterMigrationToEvent.MigrationId,
+				managedClusterMigrationToEvent.SourceHubs,
+			)
 			if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
 				log.Errorf("failed to initialize the migration resources %v", err)
 				return err
@@ -138,6 +144,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 				log.Errorf("failed to clean up the migration resources %v", err)
 				return nil
 			}
+			ClearMigrationDeploySources(configs.GetLeafHubName(), managedClusterMigrationToEvent.MigrationId)
 			log.Info("finished the cleaning up resources")
 		}
 	} else {
@@ -273,6 +280,10 @@ func (s *migrationTargetSyncer) initializing(ctx context.Context,
 func (s *migrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
 	// only the handle the current migration event, ignore the previous ones
 	log.Debugf("get migration event: %v", evt.Type())
+
+	if !MigrationDeploySourceAllowed(evt.Source(), configs.GetLeafHubName()) {
+		return fmt.Errorf("untrusted migration deploy source %q", evt.Source())
+	}
 
 	payload := evt.Data()
 	migrationResources := &migration.SourceClusterMigrationResources{}
