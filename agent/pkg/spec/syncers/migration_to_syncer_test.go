@@ -824,6 +824,8 @@ func TestDeploying(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	// set agent config
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
+	RegisterMigrationDeploySources("hub2", migrationId, []string{"hub1"})
+	t.Cleanup(func() { ClearMigrationDeploySources("hub2", migrationId) })
 	// set tranport config
 	transportConfig := &transport.TransportInternalConfig{KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"}}
 	syncer := NewMigrationTargetSyncer(fakeClient, nil, transportConfig)
