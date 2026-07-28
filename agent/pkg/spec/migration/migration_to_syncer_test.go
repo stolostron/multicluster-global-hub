@@ -901,28 +901,8 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		initObjects                  []client.Object
 		expectedError                error
 	}{
-		{
-			name: "Deploying resources: migrate cluster from hub1 to hub2",
-			receivedMigrationEventBundle: migration.MigrationTargetBundle{
-				MigrationId:                           "020340324302432049234023040320",
-				Stage:                                 migrationv1alpha1.PhaseDeploying,
-				ManagedServiceAccountName:             "test", // the migration cr name
-				ManagedServiceAccountInstallNamespace: "test",
-			},
-			eventSource:   "source-hub",
-			expectedError: nil,
-			initObjects: []client.Object{
-				&operatorv1.ClusterManager{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "cluster-manager",
-					},
-					Spec: operatorv1.ClusterManagerSpec{
-						RegistrationImagePullSpec: "test",
-						WorkImagePullSpec:         "test",
-					},
-				},
-			},
-		},
+		// Deploying stage receives MigrationResourceBundle from the source hub, not MigrationTargetBundle.
+		// See TestDeploying for deploying coverage.
 		{
 			name: "Cleaning up resources: migrate cluster from hub1 to hub2",
 			receivedMigrationEventBundle: migration.MigrationTargetBundle{
@@ -1074,7 +1054,7 @@ func TestDeploying(t *testing.T) {
 	addonObj.SetKind("KlusterletAddonConfig")
 	addonObj.SetAPIVersion("agent.open-cluster-management.io/v1")
 
-	evt := utils.ToCloudEvent("test", "hub1", "hub2", migration.MigrationResourceBundle{
+	evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, "hub1", "hub2", migration.MigrationResourceBundle{
 		MigrationId: migrationId,
 		MigrationClusterResources: []migration.MigrationClusterResource{
 			{
@@ -1101,8 +1081,13 @@ func TestDeploying(t *testing.T) {
 	transportClient.SetProducer(&producer)
 	agentConfig := &configs.AgentConfig{
 		TransportConfig: transportConfig,
-		LeafHubName:     "hub1",
+		LeafHubName:     "hub2",
 	}
+	assert.NoError(t, EnsureLocalMigrationCR(ctx, fakeClient, "hub2", &migration.MigrationTargetBundle{
+		FromHub:                   "hub1",
+		ManagedClusters:           []string{"cluster1"},
+		ManagedServiceAccountName: "test-msa",
+	}, migrationv1alpha1.PhaseDeploying))
 	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
 	syncer.processingMigrationId = migrationId
 	err = syncer.Sync(ctx, &evt)
