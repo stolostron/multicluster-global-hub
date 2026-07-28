@@ -303,3 +303,19 @@ func TestDispatch_SourceValidation(t *testing.T) {
 		return recorder.called == 1
 	}, time.Second, 10*time.Millisecond, "expected only trusted manager event to reach syncer")
 }
+
+func TestAddGenericDispatcherReturnsExistingInstance(t *testing.T) {
+	t.Cleanup(func() {
+		addToMgr = false
+		genericDispatcherInst = nil
+	})
+
+	existing := &genericDispatcher{syncers: make(map[string]Syncer)}
+	addToMgr = true
+	genericDispatcherInst = existing
+
+	dispatcher, err := AddGenericDispatcher(nil, &mockConsumer{eventChan: make(chan *cloudevents.Event)},
+		&configs.AgentConfig{})
+	assert.NoError(t, err)
+	assert.Same(t, existing, dispatcher)
+}

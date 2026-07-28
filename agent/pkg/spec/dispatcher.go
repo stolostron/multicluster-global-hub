@@ -18,7 +18,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var addToMgr = false
+var (
+	addToMgr              = false
+	genericDispatcherInst *genericDispatcher
+)
 
 type genericDispatcher struct {
 	log         *zap.SugaredLogger
@@ -33,7 +36,7 @@ type genericDispatcher struct {
 func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config *configs.AgentConfig,
 ) (Dispatcher, error) {
 	if addToMgr {
-		return nil, nil
+		return genericDispatcherInst, nil
 	}
 	dispatcher := &genericDispatcher{
 		log:         logger.DefaultZapLogger(),
@@ -47,6 +50,7 @@ func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config 
 	}
 
 	addToMgr = true
+	genericDispatcherInst = dispatcher
 	return dispatcher, nil
 }
 
