@@ -35,9 +35,8 @@ echo -e "${YELLOW} creating clusters:${NC} $(($(date +%s) - start_time)) seconds
 start_time=$(date +%s)
 pids=()
 
-# async install olm
-enable_olm "$GH_NAME" 2>&1 &
-pids+=($!)
+# global-hub needs OLM before clusteradm init; do not race init_hub with enable_olm
+enable_olm "$GH_NAME" 2>&1
 
 init_hub "$GH_NAME" 2>&1 &
 pids+=($!)
@@ -45,9 +44,18 @@ for i in $(seq 1 "${MH_NUM}"); do
   init_hub "hub$i" 2>&1 &
   pids+=($!)
 done
+init_failed=0
 for pid in "${pids[@]}"; do
-  wait "$pid" || true
+  if ! wait "$pid"; then
+    echo -e "${RED}Hub init process $pid failed${NC}"
+    init_failed=1
+  fi
 done
+if [ $init_failed -eq 1 ]; then
+  echo -e "${RED}One or more hub init processes failed. Exiting...${NC}"
+  exit 1
+fi
+ensure_hub_join_token "$GH_NAME"
 
 # service-ca
 # it reports `CSV "packageserver" failed to reach phase succeeded` if create service ca before enable olm

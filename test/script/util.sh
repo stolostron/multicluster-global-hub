@@ -224,15 +224,24 @@ ensure_cluster() {
   fi
 }
 
+ensure_hub_join_token() {
+  local hub=$1
+  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  join_file="$dir/join-$hub"
+  if [ ! -s "$join_file" ]; then
+    echo -e "${CYAN} Refreshing join token for hub $hub${NC}"
+    mkdir -p "$dir"
+    clusteradm get token --context "$hub" | grep "clusteradm" >"$join_file"
+  fi
+}
+
 init_hub() {
   echo -e "${CYAN} Init Hub $1 ... $NC"
   clusteradm init --wait --context "$1" >/dev/null 2>&1 # not echo the senetive information
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
-  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-  join_file="$dir/join-$1"
-  clusteradm get token --context "$1" | grep "clusteradm" >"$join_file"
+  ensure_hub_join_token "$1"
 }
 
 init_managed() {
@@ -265,6 +274,7 @@ join_cluster() {
   local hub=$1 # hub name also as the context
   local cluster=$2
   echo -e "${CYAN} Import Cluster $2 to Hub $1 ... $NC"
+  ensure_hub_join_token "$hub"
   dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
   if [[ -z $(kubectl get mcl "$cluster" --context "$hub" --ignore-not-found) ]]; then
