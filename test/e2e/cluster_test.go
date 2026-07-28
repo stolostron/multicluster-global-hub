@@ -301,6 +301,9 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 		if err != nil {
 			return err
 		}
+		if managedClusterInfo == nil {
+			return fmt.Errorf("managed cluster %s not found in global hub API", cluster.Name)
+		}
 		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
 			if labelVal == val {
 				return nil
@@ -327,6 +330,9 @@ func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal stri
 		managedClusterInfo, err := getManagedClusterByName(httpClient, cluster.Name)
 		if err != nil {
 			return err
+		}
+		if managedClusterInfo == nil {
+			return fmt.Errorf("managed cluster %s not found in global hub API", cluster.Name)
 		}
 		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
 			if val == labelVal {
