@@ -220,7 +220,6 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 			}, 45*time.Second, 500*time.Millisecond).Should(Succeed(),
 				"migration deploying event must not create resources without in-flight migration CR")
 		})
-
 	})
 })
 
