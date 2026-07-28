@@ -118,6 +118,11 @@ fi
 
 echo -e "${YELLOW} installing ocm and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
+# Local agent e2e installs the agent on the global hub cluster, whose cache
+# requires Policy CRDs even when POLICY_INIT=false for global-hub imports.
+echo -e "${YELLOW}Installing Policy CRDs on global hub for local agent e2e${NC}"
+install_policy_crds_on_hub "$GH_NAME"
+
 # Install managed-serviceaccount addon on global hub
 # This is required for migration functionality to create ServiceAccounts and collect tokens
 echo -e "${YELLOW}Installing managed-serviceaccount addon on global hub${NC}"

@@ -306,16 +306,8 @@ sync_grc_git_repo() {
   ) 200>"$lock_file"
 }
 
-init_policy() {
-  echo -e "${CYAN} Init Policy $1:$2 $NC"
+install_policy_crds_on_hub() {
   local hub=$1
-  local cluster=$2
-
-  # create namespace fist
-  HUB_NAMESPACE="open-cluster-management"
-  kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl --context $hub apply -f -
-  MANAGED_NAMESPACE="open-cluster-management-agent-addon"
-  kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
 
   # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
   PROPAGATOR_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-propagator.git"
@@ -323,7 +315,6 @@ init_policy() {
 
   sync_grc_git_repo "$propagator" "$PROPAGATOR_GIT_HTTP_PATH" || exit 1
 
-  # Verify required CRD files exist
   required_crds=(
     "$propagator/deploy/crds/policy.open-cluster-management.io_policies.yaml"
     "$propagator/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml"
@@ -339,13 +330,28 @@ init_policy() {
     fi
   done
 
+  kubectl --context "$hub" apply -f "$propagator/deploy/crds/policy.open-cluster-management.io_policies.yaml"
+  kubectl --context "$hub" apply -f "$propagator/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml"
+  kubectl --context "$hub" apply -f "$propagator/deploy/crds/policy.open-cluster-management.io_policyautomations.yaml"
+  kubectl --context "$hub" apply -f "$propagator/deploy/crds/policy.open-cluster-management.io_policysets.yaml"
+}
+
+init_policy() {
+  echo -e "${CYAN} Init Policy $1:$2 $NC"
+  local hub=$1
+  local cluster=$2
+  propagator="governance-policy-propagator"
+
+  # create namespace fist
+  HUB_NAMESPACE="open-cluster-management"
+  kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl --context $hub apply -f -
+  MANAGED_NAMESPACE="open-cluster-management-agent-addon"
+  kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
+
+  install_policy_crds_on_hub "$hub" || exit 1
+
   # On hub
   if ! kubectl --context $hub get deploy -n "$HUB_NAMESPACE" | grep -q $propagator | grep -q Running; then
-    ## Apply the CRDs
-    kubectl --context $hub apply -f $propagator/deploy/crds/policy.open-cluster-management.io_policies.yaml
-    kubectl --context $hub apply -f $propagator/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml
-    kubectl --context $hub apply -f $propagator/deploy/crds/policy.open-cluster-management.io_policyautomations.yaml
-    kubectl --context $hub apply -f $propagator/deploy/crds/policy.open-cluster-management.io_policysets.yaml
     # Deploy the policy-propagator
     kubectl --context $hub apply -f $propagator/deploy/operator.yaml -n ${HUB_NAMESPACE}
     sleep 2
