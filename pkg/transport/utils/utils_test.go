@@ -64,9 +64,33 @@ func TestFilterSensitiveKafkaConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := FilterSensitiveKafkaConfig(&tt.input)
-			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("FilterSensitiveKafkaConfig() = %v, want %v", result, tt.expected)
-			}
+			assertFilteredKafkaConfig(t, result, tt.expected)
 		})
+	}
+}
+
+func assertFilteredKafkaConfig(t *testing.T, got, want map[string]interface{}) {
+	t.Helper()
+
+	for key, wantVal := range want {
+		gotVal, ok := got[key]
+		if !ok {
+			t.Errorf("missing key %q in filtered config", key)
+			continue
+		}
+		if reflect.DeepEqual(gotVal, wantVal) {
+			continue
+		}
+		if _, sensitive := sensitiveKafkaConfigKeys[key]; sensitive {
+			t.Errorf("key %q: expected redaction marker, got unexpected value", key)
+			continue
+		}
+		t.Errorf("key %q: got %v, want %v", key, gotVal, wantVal)
+	}
+
+	for key := range got {
+		if _, ok := want[key]; !ok {
+			t.Errorf("unexpected key %q in filtered config", key)
+		}
 	}
 }
