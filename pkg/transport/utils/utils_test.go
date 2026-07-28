@@ -16,11 +16,11 @@ func TestFilterSensitiveKafkaConfig(t *testing.T) {
 		{
 			name: "No sensitive keys",
 			input: kafka.ConfigMap{
-				"bootstrap.servers": "localhost:9092",
+				"group.id":          "test-group",
 				"security.protocol": "SSL",
 			},
 			expected: map[string]interface{}{
-				"bootstrap.servers": "localhost:9092",
+				"group.id":          "test-group",
 				"security.protocol": "SSL",
 			},
 		},
@@ -31,12 +31,16 @@ func TestFilterSensitiveKafkaConfig(t *testing.T) {
 				"ssl.certificate.pem": "cert-data",
 				"ssl.key.pem":         "key-data",
 				"bootstrap.servers":   "localhost:9092",
+				"sasl.username":       "user",
+				"sasl.password":       "secret",
 			},
 			expected: map[string]interface{}{
 				"ssl.ca.pem":          "[REDACTED]",
 				"ssl.certificate.pem": "[REDACTED]",
 				"ssl.key.pem":         "[REDACTED]",
-				"bootstrap.servers":   "localhost:9092",
+				"bootstrap.servers":   "[REDACTED]",
+				"sasl.username":       "[REDACTED]",
+				"sasl.password":       "[REDACTED]",
 			},
 		},
 		{
@@ -47,7 +51,7 @@ func TestFilterSensitiveKafkaConfig(t *testing.T) {
 			},
 			expected: map[string]interface{}{
 				"ssl.ca.pem":        "[REDACTED]",
-				"bootstrap.servers": "localhost:9092",
+				"bootstrap.servers": "[REDACTED]",
 			},
 		},
 		{

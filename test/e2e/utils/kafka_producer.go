@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+
 package utils
 
 import (
@@ -5,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,9 +28,9 @@ type KafkaEventPublisher struct {
 }
 
 // NewKafkaEventPublisher loads multicluster-global-hub-transport from namespace and builds a producer.
-func NewKafkaEventPublisher(c client.Client, namespace string) (*KafkaEventPublisher, error) {
+func NewKafkaEventPublisher(ctx context.Context, c client.Client, namespace string) (*KafkaEventPublisher, error) {
 	secret := &corev1.Secret{}
-	if err := c.Get(context.Background(), types.NamespacedName{
+	if err := c.Get(ctx, types.NamespacedName{
 		Name:      constants.GHTransportSecretName,
 		Namespace: namespace,
 	}, secret); err != nil {
