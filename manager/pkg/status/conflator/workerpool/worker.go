@@ -44,19 +44,20 @@ func (worker *Worker) RunAsync(job *conflator.ConflationJob) {
 
 func (worker *Worker) start(ctx context.Context) {
 	log.Infow("started worker", "WorkerID", worker.workerID)
+	defer close(worker.jobsQueue)
+
 	for {
-		// add worker into the dbWorkerPool to mark this worker as available.
-		// this is done in each iteration after the worker finished handling a job (or at startup),
-		// for receiving a new job to handle.
-		worker.workers <- worker
-		worker.statistics.SetNumberOfAvailableDBWorkers(len(worker.workers))
+		select {
+		case <-ctx.Done():
+			return
+		case worker.workers <- worker:
+			worker.statistics.SetNumberOfAvailableDBWorkers(len(worker.workers))
+		}
 
 		select {
-		case <-ctx.Done(): // we have received a signal to stop
-			close(worker.jobsQueue)
+		case <-ctx.Done():
 			return
-
-		case job := <-worker.jobsQueue: // DBWorker received a job request.
+		case job := <-worker.jobsQueue:
 			worker.handleJob(ctx, job)
 		}
 	}

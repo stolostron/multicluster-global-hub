@@ -52,8 +52,6 @@ func (pool *DBWorkerPool) Start(ctx context.Context) error {
 
 	<-ctx.Done() // blocking wait until getting context cancel event
 
-	close(pool.workers)
-
 	return nil
 }
 
