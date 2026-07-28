@@ -49,7 +49,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		receivedEvents = []*cloudevents.Event{}
 		agentConfig := &configs.AgentConfig{
 			TransportConfig: transportConfig,
-			LeafHubName:     "hub1",
+			LeafHubName:     testToHub,
 			PodNamespace:    testMSANamespace, // Set PodNamespace for configmap operations
 		}
 		configs.SetAgentConfig(agentConfig)
@@ -194,6 +194,8 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
 				MigrationId:                           testMigrationID,
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
+				FromHub:                               testFromHub,
+				ManagedClusters:                       []string{testClusterName},
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
 			})
@@ -359,6 +361,11 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			}
 
 			By("Processing the deployment event")
+			Expect(migrationsyncer.EnsureLocalMigrationCR(testCtx, runtimeClient, testToHub, &migration.MigrationTargetBundle{
+				FromHub:                   testFromHub,
+				ManagedClusters:           []string{testClusterName},
+				ManagedServiceAccountName: testMSAName,
+			}, migrationv1alpha1.PhaseDeploying)).To(Succeed())
 			migrationSyncer.SetMigrationID(testMigrationID)
 			err = migrationSyncer.Sync(testCtx, event)
 			Expect(err).NotTo(HaveOccurred())
