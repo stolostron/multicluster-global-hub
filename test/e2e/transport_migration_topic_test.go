@@ -13,11 +13,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/kustomize/kyaml/yaml"
 
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	pkgutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	e2eutils "github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
 
@@ -59,19 +58,25 @@ var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migr
 		})
 
 		It("should include the migration topic in managed hub transport credentials", func() {
-			secret := &corev1.Secret{}
-			Expect(sourceHubClient.Get(ctx, types.NamespacedName{
-				Name:      constants.GHTransportSecretName,
-				Namespace: constants.GHAgentNamespace,
-			}, secret)).To(Succeed(), "expected transport secret on managed hub agent namespace")
+			Eventually(func() error {
+				secret := &corev1.Secret{}
+				if err := sourceHubClient.Get(ctx, types.NamespacedName{
+					Name:      constants.GHTransportSecretName,
+					Namespace: constants.GHAgentNamespace,
+				}, secret); err != nil {
+					return fmt.Errorf("get transport secret on managed hub agent namespace: %w", err)
+				}
 
-			kafkaYAML, ok := secret.Data["kafka.yaml"]
-			Expect(ok).To(BeTrue(), "transport secret must contain kafka.yaml")
-
-			kafkaConfig := &transport.KafkaConfig{}
-			Expect(yaml.Unmarshal(kafkaYAML, kafkaConfig)).To(Succeed(),
-				"expected kafka.yaml in transport secret to unmarshal")
-			Expect(kafkaConfig.MigrationTopic).To(Equal(migrationTopic),
+				kafkaConfig, err := pkgutils.GetKafkaCredentialBySecret(secret, sourceHubClient)
+				if err != nil {
+					return fmt.Errorf("parse transport secret kafka credentials: %w", err)
+				}
+				if kafkaConfig.MigrationTopic != migrationTopic {
+					return fmt.Errorf("managed hub transport credentials migration topic = %q, want %q",
+						kafkaConfig.MigrationTopic, migrationTopic)
+				}
+				return nil
+			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 				"managed hub transport credentials must include the gh-migration topic")
 		})
 	})
