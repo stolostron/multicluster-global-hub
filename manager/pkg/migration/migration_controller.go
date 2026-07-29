@@ -250,6 +250,7 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	managedClusterMigrationToEvent := &migrationbundle.MigrationTargetBundle{
 		MigrationId:               string(migration.GetUID()),
 		Stage:                     stage,
+		FromHub:                   migration.Spec.From,
 		ManagedClusters:           managedClusters,
 		RollbackStage:             rollbackStage,
 		ManagedServiceAccountName: migration.Name,

@@ -358,7 +358,7 @@ func (r *ManagerReconciler) pruneResources(ctx context.Context, namespace string
 	}
 	if len(mcms.Items) > 0 {
 		for _, mcm := range mcms.Items {
-			if err := r.GetClient().Delete(ctx, &mcm, &client.DeleteOptions{}); err != nil {
+			if err := r.GetClient().Delete(ctx, &mcm, &client.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 				return err
 			}
 		}

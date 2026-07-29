@@ -2,10 +2,12 @@ package spec
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -17,6 +19,7 @@ var addToMgr = false
 
 type genericDispatcher struct {
 	log         *zap.SugaredLogger
+	client      client.Client
 	consumer    transport.Consumer
 	agentConfig configs.AgentConfig
 	syncers     map[string]Syncer
@@ -29,6 +32,7 @@ func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config 
 	}
 	dispatcher := &genericDispatcher{
 		log:         logger.DefaultZapLogger(),
+		client:      mgr.GetClient(),
 		consumer:    consumer,
 		agentConfig: config,
 		syncers:     make(map[string]Syncer),
@@ -78,6 +82,13 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 			}
 			if clusterName != transport.Broadcast && clusterName != d.agentConfig.LeafHubName {
 				// d.log.Infow("event dropped due to cluster name mismatch", "clusterName", clusterName)
+				continue
+			}
+			validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			allowed := specEventSourceAllowed(validationCtx, d.client, d.agentConfig.LeafHubName, evt)
+			cancel()
+			if !allowed {
+				d.log.Warnw("event dropped due to untrusted source", "type", evt.Type(), "source", evt.Source())
 				continue
 			}
 			syncer, found := d.syncers[evt.Type()]

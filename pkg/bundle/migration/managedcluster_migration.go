@@ -31,6 +31,7 @@ type MigrationSourceBundle struct {
 type MigrationTargetBundle struct {
 	MigrationId                           string   `json:"migrationId"`
 	Stage                                 string   `json:"stage"`
+	FromHub                               string   `json:"fromHub,omitempty"`
 	ManagedServiceAccountName             string   `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`

@@ -108,6 +108,10 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return nil
 	}
 
+	if !MigrationSourceAllowed(ctx, s.client, evt.Source(), s.leafHubName) {
+		return fmt.Errorf("untrusted migration event source %q for target hub %q", evt.Source(), s.leafHubName)
+	}
+
 	clusterErrors := map[string]string{}
 	defer func() {
 		if s.receivedStage == "" || s.receivedMigrationId == "" {
@@ -239,6 +243,10 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 		log.Errorf("failed to cleanup migration RBAC resources: %v", err)
 		return err
 	}
+
+	if err := DeleteLocalMigrationCR(ctx, s.client, msaName); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -255,6 +263,12 @@ func (s *MigrationTargetSyncer) validating(
 		log.Infof("validated %d clusters for migration %s", len(source.ManagedClusters), source.MigrationId)
 	} else {
 		log.Infof("no clusters to validate for migration %s", source.MigrationId)
+	}
+
+	if err := EnsureLocalMigrationCR(
+		ctx, s.client, s.leafHubName, source, migrationv1alpha1.PhaseInitializing,
+	); err != nil {
+		return fmt.Errorf("failed to record local migration state: %w", err)
 	}
 
 	return nil
@@ -343,6 +357,12 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 		return err
 	}
 
+	if err := EnsureLocalMigrationCR(
+		ctx, s.client, s.leafHubName, event, migrationv1alpha1.PhaseDeploying,
+	); err != nil {
+		return fmt.Errorf("failed to record local migration state: %w", err)
+	}
+
 	return nil
 }
 
@@ -404,7 +424,7 @@ func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 
 		// Process each resource in the cluster
 		for _, resource := range clusterResource.ResouceList {
-			if err := s.syncResource(ctx, &resource); err != nil {
+			if err := s.syncResource(ctx, clusterName, &resource); err != nil {
 				return fmt.Errorf("failed to sync resource %s/%s for cluster %s: %w",
 					resource.GetKind(), resource.GetName(), clusterName, err)
 			}
@@ -417,7 +437,16 @@ func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 
 // syncResource handles syncing individual resources from the migration bundle
 // Works directly with unstructured resources without type conversion
-func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unstructured.Unstructured) error {
+func (s *MigrationTargetSyncer) syncResource(
+	ctx context.Context,
+	clusterName string,
+	resource *unstructured.Unstructured,
+) error {
+	if !IsMigrationDeployResourceAllowed(resource, clusterName) {
+		return fmt.Errorf("migration deploying resource %s/%s is not allowed for cluster %s",
+			resource.GetKind(), resource.GetName(), clusterName)
+	}
+
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		operation, err := controllerutil.CreateOrUpdate(ctx, s.client, resource,
 			func() error {
