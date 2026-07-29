@@ -18,7 +18,10 @@ import (
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var migrationValidationLog = logger.DefaultZapLogger()
 
 type localMigrationRecord struct {
 	fromHub string
@@ -68,6 +71,7 @@ func MigrationSourceAllowed(ctx context.Context, c client.Client, source, target
 
 	list := &migrationv1alpha1.ManagedClusterMigrationList{}
 	if err := c.List(ctx, list); err != nil {
+		migrationValidationLog.Warnw("failed to list ManagedClusterMigration for source validation", "error", err)
 		return false
 	}
 
@@ -131,7 +135,7 @@ func EnsureLocalMigrationCR(
 	return nil
 }
 
-// DeleteLocalMigrationCR removes recorded local migration state after cleaning completes.
+// DeleteLocalMigrationCR removes recorded local migration state after cleaning or rollback.
 func DeleteLocalMigrationCR(_ context.Context, _ client.Client, migrationName string) error {
 	if migrationName == "" {
 		return nil
