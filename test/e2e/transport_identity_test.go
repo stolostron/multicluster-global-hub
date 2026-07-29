@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	spoofVictimHubName     = "e2e-spoof-victim-hub"
-	spoofMigrationSource   = "e2e-spoof-migration-source"
+	spoofVictimHubName   = "e2e-spoof-victim-hub"
+	spoofMigrationSource = "e2e-spoof-migration-source"
 )
 
 var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"), Ordered, func() {
