@@ -1313,7 +1313,7 @@ func TestDeploying(t *testing.T) {
 	addonObj.SetKind("KlusterletAddonConfig")
 	addonObj.SetAPIVersion("agent.open-cluster-management.io/v1")
 
-	evt := utils.ToCloudEvent("test", "hub1", "hub2", migration.MigrationResourceBundle{
+	evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, "hub1", "hub2", migration.MigrationResourceBundle{
 		MigrationId: migrationId,
 		MigrationClusterResources: []migration.MigrationClusterResource{
 			{
@@ -1344,8 +1344,13 @@ func TestDeploying(t *testing.T) {
 	transportClient.SetProducer(&producer)
 	agentConfig := &configs.AgentConfig{
 		TransportConfig: transportConfig,
-		LeafHubName:     "hub1",
+		LeafHubName:     "hub2",
 	}
+	assert.NoError(t, EnsureLocalMigrationCR(ctx, fakeClient, "hub2", &migration.MigrationTargetBundle{
+		FromHub:                   "hub1",
+		ManagedClusters:           []string{"cluster1"},
+		ManagedServiceAccountName: "test-msa",
+	}, migrationv1alpha1.PhaseDeploying))
 	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
 	syncer.processingMigrationId = migrationId
 	err = syncer.Sync(ctx, &evt)
@@ -1556,8 +1561,14 @@ func TestDeployingBatchReceiving(t *testing.T) {
 			transportClient.SetProducer(&producer)
 			agentConfig := &configs.AgentConfig{
 				TransportConfig: transportConfig,
-				LeafHubName:     "hub1",
+				LeafHubName:     "hub2",
 			}
+
+			assert.NoError(t, EnsureLocalMigrationCR(ctx, fakeClient, "hub2", &migration.MigrationTargetBundle{
+				FromHub:                   "hub1",
+				ManagedClusters:           []string{"cluster-a"},
+				ManagedServiceAccountName: "test-msa",
+			}, migrationv1alpha1.PhaseDeploying))
 
 			syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
 			syncer.processingMigrationId = migrationId
@@ -2662,8 +2673,14 @@ func TestDeployingBatchReceivingError(t *testing.T) {
 		transportClient.SetProducer(&producer)
 		agentConfig := &configs.AgentConfig{
 			TransportConfig: transportConfig,
-			LeafHubName:     "hub1",
+			LeafHubName:     "hub2",
 		}
+
+		assert.NoError(t, EnsureLocalMigrationCR(ctx, fakeClient, "hub2", &migration.MigrationTargetBundle{
+			FromHub:                   "hub1",
+			ManagedClusters:           []string{"cluster1"},
+			ManagedServiceAccountName: "test-msa",
+		}, migrationv1alpha1.PhaseDeploying))
 
 		syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
 		syncer.processingMigrationId = migrationId
