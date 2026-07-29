@@ -151,8 +151,26 @@ var _ = BeforeSuite(func() {
 		healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(string(healthy)).To(Equal("ok"))
-		By("Deploy the global hub")
-		deployGlobalHub()
+
+		if isBYO != "true" {
+			_, byoErr := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).
+				Get(ctx, "multicluster-global-hub-storage", metav1.GetOptions{})
+			if byoErr == nil {
+				isBYO = "true"
+				klog.Infof("Detected BYO postgres from multicluster-global-hub-storage secret")
+			}
+		}
+
+		if isGlobalHubDeployed() {
+			klog.Infof("Global hub already deployed, skipping deployGlobalHub")
+			operatorconfig.SetMGHNamespacedName(types.NamespacedName{
+				Namespace: testOptions.GlobalHub.Namespace,
+				Name:      MghName,
+			})
+		} else {
+			By("Deploy the global hub")
+			deployGlobalHub()
+		}
 		waitGlobalhubReadyAndLeaseUpdated()
 		By("Init postgres connection")
 		if isBYO == "true" {
@@ -285,6 +303,15 @@ func findRootDir(dir string) (string, error) {
 
 		dir = filepath.Dir(dir)
 	}
+}
+
+func isGlobalHubDeployed() bool {
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+	err := globalHubClient.Get(ctx, types.NamespacedName{
+		Name:      MghName,
+		Namespace: testOptions.GlobalHub.Namespace,
+	}, mgh)
+	return err == nil
 }
 
 func deployGlobalHub() {
