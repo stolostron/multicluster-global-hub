@@ -11,6 +11,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/identity"
 )
 
 // ConflationManager implements conflation units management.
@@ -57,13 +58,25 @@ func (cm *ConflationManager) Insert(evt *cloudevents.Event) {
 		cm.log.Infow("event type hasn't been registered", "type", evt.Type())
 		return
 	}
+	leafHubName, ok := identity.LeafHubForStatusEvent(evt)
+	if !ok {
+		cm.log.Warnw(
+			"dropping event due to untrusted source",
+			"type", evt.Type(),
+			"source", evt.Source(),
+			"authedhub", evt.Extensions()[identity.ExtensionAuthedHub],
+		)
+		return
+	}
+	evt.SetSource(leafHubName)
+
 	// metadata
 	conflationMetadata := metadata.NewThresholdMetadata(consumer.TransportID(), 3, evt)
 	if conflationMetadata == nil {
 		return
 	}
 
-	cm.getConflationUnit(evt.Source()).insert(evt, conflationMetadata)
+	cm.getConflationUnit(leafHubName).insert(evt, conflationMetadata)
 }
 
 // GetTransportMetadatas provides collections of the CU's bundle transport-metadata.

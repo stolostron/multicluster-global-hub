@@ -24,6 +24,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/identity"
 )
 
 var transportID string
@@ -34,6 +35,8 @@ type GenericConsumer struct {
 	eventChan            chan *cloudevents.Event
 	enableDatabaseOffset bool
 	clusterID            string
+	isManager            bool
+	statusTopicPattern   string
 
 	consumerCtx    context.Context
 	consumerCancel context.CancelFunc
@@ -80,6 +83,10 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConf
 	var clientProtocol interface{}
 
 	c.clusterID = tranConfig.KafkaCredential.ClusterID
+	c.isManager = len(topics) > 0 && topics[0] == tranConfig.KafkaCredential.StatusTopic
+	if c.isManager {
+		c.statusTopicPattern = tranConfig.KafkaCredential.StatusTopic
+	}
 
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
@@ -165,14 +172,14 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
-			c.eventChan <- &event
+			c.publishReceivedEvent(&event)
 			return ceprotocol.ResultACK
 		}
 		if payload := c.assembler.assemble(chunk); payload != nil {
 			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {
 				c.log.Errorw("failed the set the assembled data to event", "error", err)
 			} else {
-				c.eventChan <- &event
+				c.publishReceivedEvent(&event)
 			}
 		}
 		return ceprotocol.ResultACK
@@ -181,6 +188,13 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		return fmt.Errorf("consumer receiver stopped with error: %w", err)
 	}
 	return nil
+}
+
+func (c *GenericConsumer) publishReceivedEvent(event *cloudevents.Event) {
+	if c.isManager {
+		identity.EnrichManagerStatusEvent(event, c.statusTopicPattern)
+	}
+	c.eventChan <- event
 }
 
 func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
@@ -216,20 +230,6 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 	}
 	return offsetToStart, nil
 }
-
-// func getSaramaReceiverProtocol(transportConfig *transport.TransportConfig) (interface{}, error) {
-// 	saramaConfig, err := config.GetSaramaConfig(transportConfig.KafkaConfig)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	// if set this to false, it will consume message from beginning when restart the client
-// 	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
-// 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
-// 	// set the consumer groupId = clientId
-// 	return kafka_sarama.NewConsumer([]string{transportConfig.KafkaConfig.BootstrapServer}, saramaConfig,
-// 		transportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
-// 		transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic)
-// }
 
 func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalConfig, topics []string) (
 	*kafka.Consumer, interface{}, error,

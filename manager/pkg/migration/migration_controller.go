@@ -325,6 +325,18 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 		ManagedClusters: managedClusters,
 	}
 
+	if stage == migrationv1alpha1.PhaseInitializing {
+		sourceHubToClusters, err := getSourceClusters(migration)
+		if err != nil {
+			return err
+		}
+		sourceHubs := make([]string, 0, len(sourceHubToClusters))
+		for hub := range sourceHubToClusters {
+			sourceHubs = append(sourceHubs, hub)
+		}
+		managedClusterMigrationToEvent.SourceHubs = sourceHubs
+	}
+
 	// require the msa info when initializing or cleaning
 	if stage == migrationv1alpha1.PhaseInitializing || stage == migrationv1alpha1.PhaseCleaning {
 		// get the namespace from the managedserviceaccount addon
