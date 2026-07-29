@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -134,14 +135,10 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 		var (
 			publisher        *e2eutils.KafkaEventPublisher
 			spoofMigrationNS string
-			testClusterName  string
 		)
 
 		BeforeEach(func() {
 			spoofMigrationNS = fmt.Sprintf("%s-%d", spoofMigrationNSPrefix, time.Now().UnixNano())
-			Expect(len(managedClusterNames)).To(BeNumerically(">=", 1),
-				"migration source validation e2e requires at least one managed cluster")
-			testClusterName = managedClusterNames[0]
 
 			var err error
 			publisher, err = e2eutils.NewKafkaEventPublisher(ctx, globalHubClient, constants.GHDefaultNamespace)
@@ -149,20 +146,64 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 		})
 
 		AfterEach(func() {
-			_ = targetHubClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: spoofMigrationNS}})
-			Eventually(func() bool {
-				err := targetHubClient.Get(ctx, types.NamespacedName{Name: spoofMigrationNS}, &corev1.Namespace{})
-				return client.IgnoreNotFound(err) == nil && err != nil
-			}, 30*time.Second, 500*time.Millisecond).Should(BeTrue(),
-				"expected spoof migration namespace to be fully removed before next test")
+			deleteNamespaceAndWait(targetHubClient, spoofMigrationNS)
+		})
+
+		It("should drop migration deploying events when no in-flight migration is recorded on the target hub", func() {
+			migrationID := fmt.Sprintf("%s-no-state-%d", spoofMigrationID, time.Now().UnixNano())
+			evt := migrationDeployingEvent(
+				sourceHubName,
+				targetHubName,
+				spoofMigrationNS,
+				migrationID,
+			)
+			Expect(publisher.SendToTopic(ctx, publisher.SpecTopic(), evt)).To(Succeed(),
+				"expected migration event to publish to Kafka for rejection testing")
+
+			Consistently(func() error {
+				ns := &corev1.Namespace{}
+				err := targetHubClient.Get(ctx, types.NamespacedName{Name: spoofMigrationNS}, ns)
+				if err == nil {
+					return fmt.Errorf("namespace %q must not be created without in-flight migration state", spoofMigrationNS)
+				}
+				if client.IgnoreNotFound(err) != nil {
+					return err
+				}
+				return nil
+			}, 45*time.Second, 500*time.Millisecond).Should(Succeed(),
+				"migration deploying event must not create resources without in-flight migration state")
 		})
 
 		It("should drop migration deploying events from an untrusted source hub", func() {
+			migrationID := fmt.Sprintf("%s-untrusted-%d", spoofMigrationID, time.Now().UnixNano())
+			seedClusterName := fmt.Sprintf("e2e-transport-id-seed-%d", time.Now().UnixNano())
+			seedMSAName := fmt.Sprintf("e2e-transport-id-msa-%d", time.Now().UnixNano())
+
+			seedInFlightMigrationState(
+				publisher,
+				sourceHubName,
+				targetHubName,
+				migrationID,
+				seedMSAName,
+				seedClusterName,
+			)
+
+			probeNS := fmt.Sprintf("%s-probe-%d", spoofMigrationNSPrefix, time.Now().UnixNano())
+			waitForTrustedMigrationDeploy(
+				publisher,
+				targetHubClient,
+				sourceHubName,
+				targetHubName,
+				probeNS,
+				migrationID,
+			)
+			deleteNamespaceAndWait(targetHubClient, probeNS)
+
 			evt := migrationDeployingEvent(
 				spoofMigrationSource,
 				targetHubName,
 				spoofMigrationNS,
-				testClusterName,
+				migrationID,
 			)
 			Expect(publisher.SendToTopic(ctx, publisher.SpecTopic(), evt)).To(Succeed(),
 				"expected spoofed migration event to publish to Kafka for rejection testing")
@@ -178,31 +219,7 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 				}
 				return nil
 			}, 45*time.Second, 500*time.Millisecond).Should(Succeed(),
-				"spoofed migration deploying event must not create resources on target hub")
-		})
-
-		It("should drop migration deploying events when no in-flight migration is recorded on the target hub", func() {
-			evt := migrationDeployingEvent(
-				sourceHubName,
-				targetHubName,
-				spoofMigrationNS,
-				testClusterName,
-			)
-			Expect(publisher.SendToTopic(ctx, publisher.SpecTopic(), evt)).To(Succeed(),
-				"expected migration event to publish to Kafka for rejection testing")
-
-			Consistently(func() error {
-				ns := &corev1.Namespace{}
-				err := targetHubClient.Get(ctx, types.NamespacedName{Name: spoofMigrationNS}, ns)
-				if err == nil {
-					return fmt.Errorf("namespace %q must not be created without in-flight migration CR", spoofMigrationNS)
-				}
-				if client.IgnoreNotFound(err) != nil {
-					return err
-				}
-				return nil
-			}, 45*time.Second, 500*time.Millisecond).Should(Succeed(),
-				"migration deploying event must not create resources without in-flight migration CR")
+				"spoofed migration deploying event must not create resources when in-flight migration is registered for a different source hub")
 		})
 	})
 })
@@ -219,8 +236,8 @@ func statusCloudEvent(kafkaTopic, source, eventType string, data interface{}) *c
 	return &evt
 }
 
-func migrationDeployingEvent(sourceHub, targetHub, namespaceName, clusterName string) cloudevents.Event {
-	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+func migrationDeployingEvent(sourceHub, targetHub, resourceName, migrationID string) cloudevents.Event {
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: resourceName}}
 	unstructuredNS, err := runtime.DefaultUnstructuredConverter.ToUnstructured(ns)
 	Expect(err).NotTo(HaveOccurred(), "expected namespace object conversion for migration bundle")
 	obj := unstructured.Unstructured{Object: unstructuredNS}
@@ -231,7 +248,7 @@ func migrationDeployingEvent(sourceHub, targetHub, namespaceName, clusterName st
 		TotalClusters: 1,
 		MigrationClusterResources: []migrationbundle.MigrationClusterResource{
 			{
-				ClusterName:  clusterName,
+				ClusterName:  resourceName,
 				ResourceList: []unstructured.Unstructured{obj},
 			},
 		},
@@ -241,9 +258,72 @@ func migrationDeployingEvent(sourceHub, targetHub, namespaceName, clusterName st
 		string(enum.ManagedClusterMigrationType),
 		sourceHub,
 		targetHub,
-		spoofMigrationID,
+		migrationID,
 		migrationv1alpha1.PhaseDeploying,
 		10*time.Minute,
 		bundle,
 	)
+}
+
+func migrationValidatingEvent(
+	sourceHub, targetHub, migrationID, managedServiceAccountName, clusterName string,
+) cloudevents.Event {
+	bundle := migrationbundle.MigrationTargetBundle{
+		FromHub:                   sourceHub,
+		ManagedServiceAccountName: managedServiceAccountName,
+		ManagedClusters:           []string{clusterName},
+	}
+
+	return pkgutils.ToMigrationEvent(
+		string(enum.ManagedClusterMigrationType),
+		constants.CloudEventGlobalHubClusterName,
+		targetHub,
+		migrationID,
+		migrationv1alpha1.PhaseValidating,
+		10*time.Minute,
+		bundle,
+	)
+}
+
+func seedInFlightMigrationState(
+	publisher *e2eutils.KafkaEventPublisher,
+	sourceHub, targetHub, migrationID, managedServiceAccountName, clusterName string,
+) {
+	evt := migrationValidatingEvent(sourceHub, targetHub, migrationID, managedServiceAccountName, clusterName)
+	Expect(publisher.SendToTopic(ctx, publisher.SpecTopic(), evt)).To(Succeed(),
+		"expected validating migration event to seed in-flight migration state on target hub agent")
+}
+
+func waitForTrustedMigrationDeploy(
+	publisher *e2eutils.KafkaEventPublisher,
+	targetClient client.Client,
+	sourceHub, targetHub, probeNamespace, migrationID string,
+) {
+	Eventually(func() error {
+		evt := migrationDeployingEvent(sourceHub, targetHub, probeNamespace, migrationID)
+		if err := publisher.SendToTopic(ctx, publisher.SpecTopic(), evt); err != nil {
+			return fmt.Errorf("publish trusted migration deploying probe event: %w", err)
+		}
+
+		ns := &corev1.Namespace{}
+		err := targetClient.Get(ctx, types.NamespacedName{Name: probeNamespace}, ns)
+		if err != nil {
+			return fmt.Errorf("wait for trusted migration deploy to create namespace %q: %w", probeNamespace, err)
+		}
+		return nil
+	}, 45*time.Second, 500*time.Millisecond).Should(Succeed(),
+		"trusted migration deploying event must succeed once in-flight migration state is registered for the source hub")
+}
+
+func deleteNamespaceAndWait(targetClient client.Client, namespaceName string) {
+	err := targetClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}})
+	if err != nil && !apierrors.IsNotFound(err) {
+		Expect(err).NotTo(HaveOccurred(), "expected to delete namespace %q during test cleanup", namespaceName)
+	}
+
+	Eventually(func() bool {
+		err := targetClient.Get(ctx, types.NamespacedName{Name: namespaceName}, &corev1.Namespace{})
+		return client.IgnoreNotFound(err) == nil && err != nil
+	}, 30*time.Second, 500*time.Millisecond).Should(BeTrue(),
+		"expected namespace %q to be fully removed before next test", namespaceName)
 }
