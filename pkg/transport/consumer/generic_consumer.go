@@ -23,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/identity"
 )
 
 var transportID string
@@ -33,6 +34,8 @@ type GenericConsumer struct {
 	eventChan            chan *cloudevents.Event
 	enableDatabaseOffset bool
 	clusterID            string
+	isManager            bool
+	statusTopicPattern   string
 
 	consumerCtx    context.Context
 	consumerCancel context.CancelFunc
@@ -74,9 +77,12 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConf
 	var clientProtocol interface{}
 
 	c.clusterID = tranConfig.KafkaCredential.ClusterID
+	c.isManager = tranConfig.IsManager
 	topics := []string{tranConfig.KafkaCredential.StatusTopic}
 	if !tranConfig.IsManager {
 		topics[0] = tranConfig.KafkaCredential.SpecTopic
+	} else {
+		c.statusTopicPattern = tranConfig.KafkaCredential.StatusTopic
 	}
 
 	switch tranConfig.TransportType {
@@ -159,14 +165,14 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
-			c.eventChan <- &event
+			c.publishReceivedEvent(&event)
 			return ceprotocol.ResultACK
 		}
 		if payload := c.assembler.assemble(chunk); payload != nil {
 			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {
 				c.log.Error(err, "failed the set the assembled data to event")
 			} else {
-				c.eventChan <- &event
+				c.publishReceivedEvent(&event)
 			}
 		}
 		return ceprotocol.ResultACK
@@ -176,6 +182,13 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	}
 	c.log.Info("receiver stopped\n")
 	return nil
+}
+
+func (c *GenericConsumer) publishReceivedEvent(event *cloudevents.Event) {
+	if c.isManager {
+		identity.EnrichManagerStatusEvent(event, c.statusTopicPattern)
+	}
+	c.eventChan <- event
 }
 
 func (c *GenericConsumer) EventChan() chan *cloudevents.Event {

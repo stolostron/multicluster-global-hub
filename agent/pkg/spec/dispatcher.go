@@ -79,6 +79,10 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				// d.log.Infow("event dropped due to cluster name mismatch", "clusterName", clusterName)
 				continue
 			}
+			if !specEventSourceAllowed(evt) {
+				d.log.Warnw("event dropped due to untrusted source", "type", evt.Type(), "source", evt.Source())
+				continue
+			}
 			syncer, found := d.syncers[evt.Type()]
 			if !found {
 				d.log.Debugw("dispatching to the default generic syncer", "eventType", evt.Type())
