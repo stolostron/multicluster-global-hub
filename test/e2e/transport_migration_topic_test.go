@@ -64,7 +64,7 @@ var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migr
 			Eventually(func() error {
 				secret := &corev1.Secret{}
 				if err := sourceHubClient.Get(ctx, types.NamespacedName{
-					Name:      constants.GHTransportSecretName,
+					Name:      constants.GHTransportConfigSecret,
 					Namespace: constants.GHAgentNamespace,
 				}, secret); err != nil {
 					return fmt.Errorf("get transport secret on managed hub agent namespace: %w", err)
