@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -17,10 +18,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var addToMgr = false
+var (
+	addToMgr              = false
+	genericDispatcherInst *genericDispatcher
+)
 
 type genericDispatcher struct {
 	log         *zap.SugaredLogger
+	client      client.Client
 	consumer    transport.Consumer
 	agentConfig *configs.AgentConfig
 	syncers     map[string]Syncer
@@ -31,10 +36,11 @@ type genericDispatcher struct {
 func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config *configs.AgentConfig,
 ) (Dispatcher, error) {
 	if addToMgr {
-		return nil, nil
+		return genericDispatcherInst, nil
 	}
 	dispatcher := &genericDispatcher{
 		log:         logger.DefaultZapLogger(),
+		client:      mgr.GetClient(),
 		consumer:    consumer,
 		agentConfig: config,
 		syncers:     make(map[string]Syncer),
@@ -44,6 +50,7 @@ func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config 
 	}
 
 	addToMgr = true
+	genericDispatcherInst = dispatcher
 	return dispatcher, nil
 }
 
@@ -99,9 +106,15 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				d.log.Infow("event dropped due to subject mismatch", "type", evt.Type(), "subject", subject)
 				continue
 			}
-			if expired, expiry := isEventExpired(evt); expired {
-				d.log.Infow("event dropped due to expiry",
-					"type", evt.Type(), "source", evt.Source(), "subject", subject, "expiry", expiry)
+			if expired, _ := isEventExpired(evt); expired {
+				d.log.Infow("event dropped due to expiry", "type", evt.Type())
+				continue
+			}
+			validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			allowed := specEventSourceAllowed(validationCtx, d.client, d.agentConfig, evt, subject)
+			cancel()
+			if !allowed {
+				d.log.Warnw("event dropped due to untrusted source", "type", evt.Type())
 				continue
 			}
 			d.mu.RLock()

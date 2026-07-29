@@ -17,9 +17,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+var specCtrlStarted = false
+
 func AddToManager(context context.Context, mgr ctrl.Manager, transportClient transport.TransportClient,
 	agentConfig *configs.AgentConfig,
 ) error {
+	if specCtrlStarted {
+		return nil
+	}
+
 	log := logger.DefaultZapLogger()
 	if transportClient.GetConsumer() == nil {
 		return fmt.Errorf("the consumer is not initialized")
@@ -32,6 +38,9 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 	dispatcher, err := AddGenericDispatcher(mgr, transportClient.GetConsumer(), agentConfig)
 	if err != nil {
 		return fmt.Errorf("failed to add bundle dispatcher to runtime manager: %w", err)
+	}
+	if dispatcher == nil {
+		return fmt.Errorf("bundle dispatcher is not initialized")
 	}
 
 	// register single migration syncer that routes internally by payload
@@ -64,5 +73,6 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 		hubha.NewHAConfigSyncer(mgr.GetClient(), agentConfig))
 
 	log.Info("added the spec controllers to manager")
+	specCtrlStarted = true
 	return nil
 }

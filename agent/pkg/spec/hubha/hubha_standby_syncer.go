@@ -38,7 +38,13 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 		return nil
 	}
 
-	log.Infof("standby hub received Hub HA resources from active hub: %s", evt.Source())
+	source := evt.Source()
+	if source == "" || source == constants.CloudEventGlobalHubClusterName {
+		log.Warnw("dropping Hub HA resource event with untrusted source", "source", source, "type", evt.Type())
+		return nil
+	}
+
+	log.Infof("standby hub received Hub HA resources from active hub: %s", source)
 
 	// Unmarshal the bundle
 	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
@@ -46,7 +52,7 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 		return fmt.Errorf("failed to unmarshal Hub HA resource bundle: %w", err)
 	}
 
-	sourceHub := evt.Source()
+	sourceHub := source
 
 	// Apply created resources
 	for _, obj := range bundle.Create {
