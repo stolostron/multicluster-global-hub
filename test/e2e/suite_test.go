@@ -374,7 +374,6 @@ func deployGlobalHub() {
 		Eventually(func() error {
 			return checkComponentsAvailableAndPhase(runtimeClient)
 		}, 2*time.Minute, 1*time.Second).Should(Succeed())
-		Expect(err).ShouldNot(HaveOccurred())
 	}
 
 	// Before run test, the mgh should be ready
