@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -37,19 +38,18 @@ func addonFindStandbyHubTestScheme(t *testing.T) *runtime.Scheme {
 }
 
 func TestGlobalHubAddonAgent_findStandbyHub(t *testing.T) {
-	t.Parallel()
-
 	const localClusterName = "local-cluster"
 
 	tests := []struct {
 		name          string
 		clusters      []client.Object
+		cachedLocal   string
 		expectedHub   string
 		expectedError bool
 		errorContains string
 	}{
 		{
-			name: "standby hub exists",
+			name: "regional standby hub exists",
 			clusters: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -71,7 +71,7 @@ func TestGlobalHubAddonAgent_findStandbyHub(t *testing.T) {
 			expectedHub: "hub2",
 		},
 		{
-			name: "no standby hub - returns local-cluster fallback",
+			name: "no standby hub - returns prefixed local-cluster fallback",
 			clusters: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -82,10 +82,10 @@ func TestGlobalHubAddonAgent_findStandbyHub(t *testing.T) {
 					},
 				},
 			},
-			expectedHub: localClusterName,
+			expectedHub: "global-hub/local-cluster",
 		},
 		{
-			name: "no standby hub - resolves labeled local cluster MC name",
+			name: "labeled local MC preferred over stale standby MC",
 			clusters: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -97,14 +97,14 @@ func TestGlobalHubAddonAgent_findStandbyHub(t *testing.T) {
 				},
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "hub1",
+						Name: localClusterName,
 						Labels: map[string]string{
-							constants.GHHubRoleLabelKey: constants.GHHubRoleActive,
+							constants.GHHubRoleLabelKey: constants.GHHubRoleStandby,
 						},
 					},
 				},
 			},
-			expectedHub: "acm-local-cluster",
+			expectedHub: "global-hub/acm-local-cluster",
 		},
 		{
 			name: "multiple standby hubs - returns alphabetically first",
@@ -152,16 +152,33 @@ func TestGlobalHubAddonAgent_findStandbyHub(t *testing.T) {
 			errorContains: "failed to resolve local ManagedCluster name",
 		},
 		{
-			name:          "no clusters - returns local-cluster fallback",
+			name:          "no clusters - returns prefixed local-cluster fallback",
 			clusters:      []client.Object{},
-			expectedHub:   localClusterName,
+			expectedHub:   "global-hub/local-cluster",
 			expectedError: false,
+		},
+		{
+			name: "operator cache used when resolver returns default name",
+			clusters: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hub1",
+						Labels: map[string]string{
+							constants.GHHubRoleLabelKey: constants.GHHubRoleActive,
+						},
+					},
+				},
+			},
+			cachedLocal: "acm-local-cluster",
+			expectedHub: "global-hub/acm-local-cluster",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+			previousLocal := config.GetLocalClusterName()
+			config.SetLocalClusterName(tt.cachedLocal)
+			t.Cleanup(func() { config.SetLocalClusterName(previousLocal) })
 
 			fakeClient := fake.NewClientBuilder().
 				WithScheme(addonFindStandbyHubTestScheme(t)).
