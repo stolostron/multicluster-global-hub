@@ -54,7 +54,9 @@ var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migr
 				}, topic)
 			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 				"expected gh-migration KafkaTopic to be provisioned in the global hub namespace")
-			Expect(topic.Spec.Partitions).To(BeNumerically(">", 0),
+			Expect(topic.Spec.Partitions).NotTo(BeNil(),
+				"gh-migration topic must define partitions in spec")
+			Expect(int(*topic.Spec.Partitions)).To(BeNumerically(">", 0),
 				"gh-migration topic must have at least one partition")
 		})
 
