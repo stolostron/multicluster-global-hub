@@ -34,7 +34,8 @@ var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migr
 			"transport migration topic e2e requires two regional hubs (source and target)")
 		sourceHubName = managedHubNames[0]
 		targetHubName = managedHubNames[1]
-		migrationTopic = operatorconfig.GetMigrationTopic()
+		// Operator in-process topic config is not initialized in the e2e test binary.
+		migrationTopic = operatorconfig.DEFAULT_MIGRATION_TOPIC
 
 		var err error
 		sourceHubClient, err = testClients.RuntimeClient(sourceHubName, agentScheme)
