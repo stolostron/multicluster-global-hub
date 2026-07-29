@@ -1194,6 +1194,10 @@ func (s *MigrationTargetSyncer) queryFailedClusters(ctx context.Context,
 func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *migration.MigrationTargetBundle,
 	clusterErrors map[string]string,
 ) error {
+	defer func() {
+		_ = DeleteLocalMigrationCR(ctx, s.client, spec.ManagedServiceAccountName)
+	}()
+
 	// For initializing rollback on target hub, we need to:
 	// 1. Remove the managed service account user from ClusterManager AutoApproveUsers list
 	// 2. Clean up RBAC resources created for the managed service account
@@ -1236,6 +1240,10 @@ func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *
 func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *migration.MigrationTargetBundle,
 	clusterErrors map[string]string,
 ) error {
+	defer func() {
+		_ = DeleteLocalMigrationCR(ctx, s.client, spec.ManagedServiceAccountName)
+	}()
+
 	log.Infof("rollback deploying stage for clusters: %v", spec.ManagedClusters)
 
 	// 1. Remove all migration resources (including ManagedClusters and KlusterletAddonConfigs)

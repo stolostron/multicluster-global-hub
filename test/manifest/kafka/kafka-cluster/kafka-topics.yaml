@@ -18,6 +18,20 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
+  name: gh-migration
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    cleanup.policy: compact,delete
+    retention.ms: "86400000"
+    retention.bytes: "1073741824"
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
   name: gh-status.global-hub
   labels:
     strimzi.io/cluster: kafka

@@ -41,6 +41,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -409,9 +410,24 @@ func (s *MigrationSourceSyncer) sendMigrationBundle(
 	e := utils.ToMigrationEvent(eventType, fromHub, toHub,
 		s.processingMigrationId, migrationv1alpha1.PhaseDeploying, expireAfter, payloadBytes)
 
-	if err := s.transportClient.GetProducer().SendEvent(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e,
-	); err != nil {
+	topicCtx := cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.GetMigrationTopic())
+	const migrationPublishDeliveryTimeout = 30 * time.Second
+	err = wait.ExponentialBackoff(wait.Backoff{
+		Duration: 5 * time.Second,
+		Factor:   1.0,
+		Steps:    6,
+	}, func() (bool, error) {
+		sendErr := s.sendMigrationEventWithDelivery(topicCtx, e, migrationPublishDeliveryTimeout)
+		if sendErr == nil {
+			return true, nil
+		}
+		if !isMigrationTopicAuthorizationError(sendErr) {
+			return false, sendErr
+		}
+		log.Warnf("deploying: gh-migration publish not authorized yet from %s to %s: %v", fromHub, toHub, sendErr)
+		return false, nil
+	})
+	if err != nil {
 		return fmt.Errorf(errFailedToSendEvent, eventType, fromHub, toHub, err)
 	}
 
@@ -419,6 +435,25 @@ func (s *MigrationSourceSyncer) sendMigrationBundle(
 		fromHub, toHub, len(bundle.MigrationClusterResources), totalClusters, len(payloadBytes))
 
 	return nil
+}
+
+func (s *MigrationSourceSyncer) sendMigrationEventWithDelivery(
+	ctx context.Context, evt cloudevents.Event, timeout time.Duration,
+) error {
+	producer := s.transportClient.GetProducer()
+	if gp, ok := producer.(*genericproducer.GenericProducer); ok {
+		return gp.SendEventWithDeliveryConfirmation(ctx, evt, timeout)
+	}
+	return producer.SendEvent(ctx, evt)
+}
+
+func isMigrationTopicAuthorizationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "Topic authorization failed") ||
+		strings.Contains(msg, "Broker: Topic authorization failed")
 }
 
 // processResourceByType applies resource-specific processing based on resource type

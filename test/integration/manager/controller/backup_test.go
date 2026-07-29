@@ -147,38 +147,33 @@ var _ = Describe("backup pvc", Ordered, func() {
 			return err
 		}, timeout, interval).Should(Succeed())
 		go func() {
-			for {
+			// Simulate volsync: wait for the reconciler to stamp CopyTrigger, then mark backup complete.
+			Eventually(func() error {
+				postgresPvc := &corev1.PersistentVolumeClaim{}
 				err := mgr.GetClient().Get(ctx, types.NamespacedName{
 					Namespace: pvcNamespace,
 					Name:      pvcName,
 				}, postgresPvc)
-				Expect(err).NotTo(HaveOccurred())
-				if len(postgresPvc.Annotations[constants.BackupPvcLatestCopyTrigger]) > 5 {
-					return
-				}
-				Eventually(func() error {
-					postgresPvc := &corev1.PersistentVolumeClaim{}
-					err := mgr.GetClient().Get(ctx, types.NamespacedName{
-						Namespace: pvcNamespace,
-						Name:      pvcName,
-					}, postgresPvc)
-					if err != nil {
-						return err
-					}
-
-					utils.MergeAnnotations(postgresPvc, map[string]string{
-						constants.BackupPvcLatestCopyTrigger: postgresPvc.Annotations[constants.BackupPvcCopyTrigger],
-						constants.BackupPvcLatestCopyStatus:  constants.BackupPvcCompletedTrigger,
-					})
-
-					err = mgr.GetClient().Update(ctx, postgresPvc)
-					if err != nil {
-						return err
-					}
+				if err != nil {
 					return err
-				}, timeout, interval).Should(Succeed())
-				time.Sleep(time.Second * 1)
-			}
+				}
+
+				copyTrigger := postgresPvc.Annotations[constants.BackupPvcCopyTrigger]
+				if copyTrigger == "" || copyTrigger == "now" {
+					return fmt.Errorf("waiting for reconciler copy trigger")
+				}
+				if utils.HasItem(postgresPvc.GetAnnotations(), constants.BackupPvcLatestCopyStatus, constants.BackupPvcCompletedTrigger) &&
+					utils.HasItem(postgresPvc.GetAnnotations(), constants.BackupPvcLatestCopyTrigger, copyTrigger) {
+					return nil
+				}
+
+				utils.MergeAnnotations(postgresPvc, map[string]string{
+					constants.BackupPvcLatestCopyTrigger: copyTrigger,
+					constants.BackupPvcLatestCopyStatus:  constants.BackupPvcCompletedTrigger,
+				})
+
+				return mgr.GetClient().Update(ctx, postgresPvc)
+			}, 2*time.Minute, interval).Should(Succeed())
 		}()
 		_, err := backupReconciler.Reconcile(ctx, reconcile.Request{
 			NamespacedName: types.NamespacedName{

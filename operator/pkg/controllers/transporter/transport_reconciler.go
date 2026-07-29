@@ -61,6 +61,11 @@ func (c *TransportReconciler) IsResourceRemoved() bool {
 
 func StartController(controllerOption config.ControllerOption) (config.ControllerInterface, error) {
 	if transportReconciler != nil {
+		if !migrationACLControllerStarted {
+			if err := migrationACLReconcilerSetup(controllerOption.Manager); err != nil {
+				return nil, err
+			}
+		}
 		return transportReconciler, nil
 	}
 	log.Info("start transport controller")
@@ -77,9 +82,14 @@ func StartController(controllerOption config.ControllerOption) (config.Controlle
 		transportReconciler = nil
 		return nil, err
 	}
+	if err := migrationACLReconcilerSetup(controllerOption.Manager); err != nil {
+		return nil, err
+	}
 	log.Infof("inited transport controller")
 	return transportReconciler, nil
 }
+
+var migrationACLReconcilerSetup = setupMigrationACLReconciler
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TransportReconciler) SetupWithManager(mgr ctrl.Manager) error {

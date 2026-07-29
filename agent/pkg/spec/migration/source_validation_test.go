@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -468,6 +469,39 @@ func TestDeleteLocalMigrationCR(t *testing.T) {
 	}
 	if err := DeleteLocalMigrationCR(ctx, nil, ""); err != nil {
 		t.Fatalf("empty migration name should be ignored, got %v", err)
+	}
+}
+
+func TestRollbackPathsClearLocalMigrationState(t *testing.T) {
+	resetLocalMigrationState()
+	t.Cleanup(resetLocalMigrationState)
+
+	ctx := context.Background()
+	spec := sampleMigrationTargetBundle()
+	if err := EnsureLocalMigrationCR(ctx, nil, "hub2", spec, migrationv1alpha1.PhaseDeploying); err != nil {
+		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
+	}
+	if !MigrationSourceAllowed(ctx, nil, "hub1", "hub2") {
+		t.Fatal("expected seeded local migration state to authorize source hub")
+	}
+
+	scheme := runtime.NewScheme()
+	_ = clusterv1.Install(scheme)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	syncer := NewMigrationTargetSyncer(fakeClient, nil, &configs.AgentConfig{LeafHubName: "hub2"})
+	clusterErrors := make(map[string]string)
+
+	_ = syncer.rollbackInitializing(ctx, spec, clusterErrors)
+	if MigrationSourceAllowed(ctx, nil, "hub1", "hub2") {
+		t.Fatal("expected rollbackInitializing to clear local migration state")
+	}
+
+	if err := EnsureLocalMigrationCR(ctx, nil, "hub2", spec, migrationv1alpha1.PhaseDeploying); err != nil {
+		t.Fatalf("EnsureLocalMigrationCR() error = %v", err)
+	}
+	_ = syncer.rollbackRegistering(ctx, spec, clusterErrors)
+	if MigrationSourceAllowed(ctx, nil, "hub1", "hub2") {
+		t.Fatal("expected rollbackRegistering to clear local migration state")
 	}
 }
 
