@@ -142,15 +142,20 @@ var _ = BeforeSuite(func() {
 	}
 
 	if isPrune != "true" {
-		// valid the clients
-		deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
-		_, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2})
-		Expect(err).ShouldNot(HaveOccurred())
-		// Expect(len(deployList.Items) > 0).To(BeTrue())
-		// valid the global hub cluster apiserver
-		healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(string(healthy)).To(Equal("ok"))
+		Eventually(func() error {
+			deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
+			if _, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2}); err != nil {
+				return err
+			}
+			healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
+			if err != nil {
+				return err
+			}
+			if string(healthy) != "ok" {
+				return fmt.Errorf("healthz returned %q", string(healthy))
+			}
+			return nil
+		}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 		if isGlobalHubDeployed() {
 			klog.Infof("Global hub already deployed, skipping deployGlobalHub")
