@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -40,10 +41,12 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 		By("Check the local policy spec can be read from cloudevents consumer")
 		fmt.Println("============================ create policy -> policy spec event: disabled")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalPolicySpecType)]
-			if evt == nil {
-				return fmt.Errorf("not get the event: %s", string(enum.LocalPolicySpecType))
+			key := string(enum.LocalPolicySpecType)
+			val, ok := receivedEvents.Load(key)
+			if !ok {
+				return fmt.Errorf("not get the event: %s", key)
 			}
+			evt := val.(*cloudevents.Event)
 			fmt.Println(evt)
 			bundle := &generic.GenericBundle[policyv1.Policy]{}
 			err := evt.DataAs(bundle)
@@ -72,10 +75,12 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 		By("Check the local policy spec can be read from cloudevents consumer")
 		fmt.Println("============================ update policy -> policy spec event: enabled")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalPolicySpecType)]
-			if evt == nil {
-				return fmt.Errorf("not get the event: %s", string(enum.LocalPolicySpecType))
+			key := string(enum.LocalPolicySpecType)
+			val, ok := receivedEvents.Load(key)
+			if !ok {
+				return fmt.Errorf("not get the event: %s", key)
 			}
+			evt := val.(*cloudevents.Event)
 			bundle := generic.GenericBundle[policyv1.Policy]{}
 			err := evt.DataAs(&bundle)
 			if err != nil {
@@ -109,9 +114,9 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 
 		By("Check the compliance can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalComplianceType)]
-			if evt == nil {
-				return fmt.Errorf("not get the event: %s", string(enum.LocalComplianceType))
+			key := string(enum.LocalComplianceType)
+			if _, ok := receivedEvents.Load(key); !ok {
+				return fmt.Errorf("not get the event: %s", key)
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
@@ -133,9 +138,9 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 
 		By("Check the complete compliance can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalCompleteComplianceType)]
-			if evt == nil {
-				return fmt.Errorf("not get the event: %s", string(enum.LocalCompleteComplianceType))
+			key := string(enum.LocalCompleteComplianceType)
+			if _, ok := receivedEvents.Load(key); !ok {
+				return fmt.Errorf("not get the event: %s", key)
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
@@ -208,9 +213,9 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 
 		By("Check the local replicated policy event can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := receivedEvents[string(enum.LocalReplicatedPolicyEventType)]
-			if evt == nil {
-				return fmt.Errorf("not get the event: %s", string(enum.LocalReplicatedPolicyEventType))
+			key := string(enum.LocalReplicatedPolicyEventType)
+			if _, ok := receivedEvents.Load(key); !ok {
+				return fmt.Errorf("not get the event: %s", key)
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())

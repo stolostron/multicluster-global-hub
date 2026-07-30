@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -54,10 +55,11 @@ var _ = Describe("ClusterGroupUpgradeEventEmitter", Ordered, func() {
 
 		Eventually(func() error {
 			key := string(enum.ClusterGroupUpgradesEventType)
-			receivedEvent, ok := receivedEvents[key]
+			val, ok := receivedEvents.Load(key)
 			if !ok {
 				return fmt.Errorf("not get the event: %s", key)
 			}
+			receivedEvent := val.(*cloudevents.Event)
 			fmt.Println(">>>>>>>>>>>>>>>>>>> cgu event", receivedEvent)
 			outEvents := event.ClusterGroupUpgradeEventBundle{}
 			err = json.Unmarshal(receivedEvent.Data(), &outEvents)

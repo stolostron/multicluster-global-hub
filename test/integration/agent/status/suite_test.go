@@ -52,6 +52,7 @@ var (
 	runtimeClient  client.Client
 	chanTransport  *ChanTransport
 	receivedEvents *sync.Map
+	agentConfig    *configs.AgentConfig
 )
 
 func TestControllers(t *testing.T) {
@@ -76,8 +77,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	agentConfig := &configs.AgentConfig{
-		LeafHubName: leafHubName,
+	agentConfig = &configs.AgentConfig{
+		PodNamespace: constants.GHAgentNamespace,
+		LeafHubName:  leafHubName,
 		TransportConfig: &transport.TransportInternalConfig{
 			CommitterInterval: 1 * time.Second,
 			TransportType:     string(transport.Chan),
