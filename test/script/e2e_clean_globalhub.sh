@@ -55,6 +55,9 @@ if [[ ! -z $(kubectl get kafka -n "$GH_NAMESPACE" --ignore-not-found=true) ]]; t
   exit 1
 fi
 
+echo "Delete e2e nonk8s NodePort service"
+kubectl delete service multicluster-global-hub-manager-nonk8s-service -n "$GH_NAMESPACE" --ignore-not-found=true
+
 cd operator
 make undeploy
 
