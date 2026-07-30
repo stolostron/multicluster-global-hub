@@ -82,6 +82,11 @@ kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubec
   --from-file=client.key="$CURRENT_DIR"/config/kafka-client-key.pem
 echo "transport secret is ready in $target_namespace namespace!"
 
+# nodePort 30080 is cluster-scoped; transport-identity leaves the nonk8s service in multicluster-global-hub.
+echo "Delete stale nonk8s NodePort service from built-in GH namespace"
+kubectl delete service multicluster-global-hub-manager-nonk8s-service -n multicluster-global-hub \
+  --kubeconfig "$GH_KUBECONFIG" --ignore-not-found=true
+
 ## run e2e
 bash "$CURRENT_DIR/e2e_run.sh" -n $target_namespace -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
 
