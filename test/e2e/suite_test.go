@@ -336,10 +336,22 @@ func deployGlobalHub() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Removing stale e2e nonk8s NodePort service if present")
-	err = testClients.KubeClient().CoreV1().Services(testOptions.GlobalHub.Namespace).Delete(ctx,
-		"multicluster-global-hub-manager-nonk8s-service", metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		Expect(err).NotTo(HaveOccurred())
+	// nodePort 30080 is cluster-scoped; transport-identity may leave the service in the default GH ns while BYO deploys to mgh.
+	nonk8sServiceNamespaces := []string{testOptions.GlobalHub.Namespace, commonconstants.GHDefaultNamespace}
+	seenNamespaces := map[string]struct{}{}
+	for _, ns := range nonk8sServiceNamespaces {
+		if ns == "" {
+			continue
+		}
+		if _, exists := seenNamespaces[ns]; exists {
+			continue
+		}
+		seenNamespaces[ns] = struct{}{}
+		err = testClients.KubeClient().CoreV1().Services(ns).Delete(ctx,
+			"multicluster-global-hub-manager-nonk8s-service", metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
 	}
 
 	Expect(utils.Apply(testClients, testOptions,
