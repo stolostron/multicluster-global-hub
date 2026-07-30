@@ -15,6 +15,10 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 export ISBYO="true"
 
+# transport-identity runs in multicluster-global-hub before BYO; undeploy it so
+# cluster-scoped operator RBAC and nodePort 30080 are free for the mgh deploy.
+bash "$CURRENT_DIR/e2e_clean_globalhub.sh"
+
 target_namespace=${TARGET_NAMESPACE:-"mgh"}
 export NAMESPACE="$target_namespace"
 
