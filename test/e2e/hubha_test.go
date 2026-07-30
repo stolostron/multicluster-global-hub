@@ -1066,6 +1066,9 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 					return activeHubClient.Update(ctx, activeCluster)
 				}, 1*time.Minute, 5*time.Second).Should(Succeed())
 
+				By("Waiting for ManagedCluster resourceVersion to stabilize after update")
+				waitForManagedClusterStable(ctx, activeHubClient, testClusterName, 10*time.Second)
+
 				By("Verifying update is synced with hubAcceptsClient still false")
 				Eventually(func() error {
 					standbyCluster := &clusterv1.ManagedCluster{}
@@ -1090,7 +1093,7 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 
 					klog.Infof("ManagedCluster %s update synced correctly with hubAcceptsClient=false maintained", testClusterName)
 					return nil
-				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+				}, 2*time.Minute, 5*time.Second).Should(Succeed())
 			})
 		})
 	})

@@ -68,6 +68,14 @@ func (p *KafkaEventPublisher) SpecTopic() string {
 	return p.kafkaConfig.SpecTopic
 }
 
+// MigrationTopic returns the configured migration topic (typically gh-migration).
+func (p *KafkaEventPublisher) MigrationTopic() string {
+	if p.kafkaConfig.MigrationTopic != "" {
+		return p.kafkaConfig.MigrationTopic
+	}
+	return operatorconfig.GetMigrationTopic()
+}
+
 // StatusTopic returns the status topic for hubName (per-hub topic or credential override).
 func (p *KafkaEventPublisher) StatusTopic(hubName string) string {
 	if p.kafkaConfig.StatusTopic != "" && !strings.Contains(p.kafkaConfig.StatusTopic, "*") {
