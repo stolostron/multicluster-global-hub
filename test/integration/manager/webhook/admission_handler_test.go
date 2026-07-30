@@ -59,7 +59,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 					return false
 				}
 				return placement.Annotations == nil
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, 30*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 
 		It("Should set global-hub as scheduler name for the placementrule", func() {
@@ -81,7 +81,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 					return false
 				}
 				return placementrule.Spec.SchedulerName == constants.GlobalHubSchedulerName
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, 30*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 
 		It("Should not set global-hub as scheduler name for the placementrule", func() {
@@ -103,7 +103,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 					return false
 				}
 				return placementrule.Spec.SchedulerName != constants.GlobalHubSchedulerName
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
+			}, 30*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 	})
 })

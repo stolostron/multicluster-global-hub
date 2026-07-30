@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -78,10 +79,11 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 		Eventually(func() error {
 			// wait for managed cluster
 			key := string(enum.ManagedClusterEventType)
-			receivedEvent, ok := receivedEvents[key]
+			val, ok := receivedEvents.Load(key)
 			if !ok {
 				return fmt.Errorf("not get the event: %s", key)
 			}
+			receivedEvent := val.(*cloudevents.Event)
 			fmt.Println(">>>>>>>>>>>>>>>>>>> managed cluster event", receivedEvent)
 			outEvents := event.ManagedClusterEventBundle{}
 			err = json.Unmarshal(receivedEvent.Data(), &outEvents)
