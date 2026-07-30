@@ -111,7 +111,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			},
 		}
 
-		name := strings.Replace(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "", -1)
+		name := strings.ReplaceAll(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "")
 		filter.DeltaDuration = 0
 		now := time.Now().Add(2 * time.Second)
 		filter.CacheTime(name, now)
