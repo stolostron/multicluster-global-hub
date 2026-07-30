@@ -339,6 +339,13 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Removing stale e2e nonk8s NodePort service if present")
+	err = testClients.KubeClient().CoreV1().Services(testOptions.GlobalHub.Namespace).Delete(ctx,
+		"multicluster-global-hub-manager-nonk8s-service", metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 	Expect(utils.Apply(testClients, testOptions,
 		utils.RenderOptions{Namespace: testOptions.GlobalHub.Namespace, KustomizationPath: fmt.Sprintf("%s/test/manifest/resources", rootDir)})).NotTo(HaveOccurred())
 	Expect(utils.Apply(testClients, testOptions,
