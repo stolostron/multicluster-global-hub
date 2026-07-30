@@ -12,6 +12,9 @@ export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/global-hub}
 echo "Delete mgh"
 wait_cmd "kubectl delete mgh --all -n multicluster-global-hub --ignore-not-found=true"
 
+echo "Delete e2e nonk8s NodePort service"
+kubectl delete service multicluster-global-hub-manager-nonk8s-service -n multicluster-global-hub --ignore-not-found=true
+
 cd operator
 make undeploy
 
