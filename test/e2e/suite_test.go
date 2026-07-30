@@ -152,15 +152,6 @@ var _ = BeforeSuite(func() {
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(string(healthy)).To(Equal("ok"))
 
-		if isBYO != "true" {
-			_, byoErr := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).
-				Get(ctx, "multicluster-global-hub-storage", metav1.GetOptions{})
-			if byoErr == nil {
-				isBYO = "true"
-				klog.Infof("Detected BYO postgres from multicluster-global-hub-storage secret")
-			}
-		}
-
 		if isGlobalHubDeployed() {
 			klog.Infof("Global hub already deployed, skipping deployGlobalHub")
 			operatorconfig.SetMGHNamespacedName(types.NamespacedName{
