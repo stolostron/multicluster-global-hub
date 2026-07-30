@@ -45,3 +45,6 @@ wait_cmd "kubectl delete crd kafkanodepools.kafka.strimzi.io --ignore-not-found=
 wait_cmd "kubectl delete crd kafkatopics.kafka.strimzi.io --ignore-not-found=true"
 wait_cmd "kubectl delete crd kafkausers.kafka.strimzi.io --ignore-not-found=true"
 
+echo "Recreate namespace for subsequent e2e runs"
+kubectl get namespace multicluster-global-hub >/dev/null 2>&1 || kubectl create namespace multicluster-global-hub
+
