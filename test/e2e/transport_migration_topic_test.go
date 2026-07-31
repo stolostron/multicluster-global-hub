@@ -119,6 +119,19 @@ var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migr
 				seedClusterName,
 			)
 
+			// Wait for validating to settle and align agent migration state (transport-identity
+			// suite may leave a stale processingMigrationId on the target hub agent).
+			probeNS := fmt.Sprintf("%s-probe-%d", spoofMigrationNSPrefix, time.Now().UnixNano())
+			waitForTrustedMigrationDeploy(
+				publisher,
+				targetHubClient,
+				sourceHubName,
+				targetHubName,
+				probeNS,
+				migrationID,
+			)
+			deleteNamespaceAndWait(targetHubClient, probeNS)
+
 			evt := migrationDeployingEvent(sourceHubName, targetHubName, trustedMigration, migrationID)
 			Expect(publisher.SendToTopic(ctx, publisher.MigrationTopic(), evt)).To(Succeed(),
 				"expected trusted migration deploying event to publish on gh-migration")
@@ -143,6 +156,17 @@ var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migr
 				seedMSAName,
 				seedClusterName,
 			)
+
+			probeNS := fmt.Sprintf("%s-probe-%d", spoofMigrationNSPrefix, time.Now().UnixNano())
+			waitForTrustedMigrationDeploy(
+				publisher,
+				targetHubClient,
+				sourceHubName,
+				targetHubName,
+				probeNS,
+				migrationID,
+			)
+			deleteNamespaceAndWait(targetHubClient, probeNS)
 
 			evt := migrationDeployingEvent(spoofMigrationSource, targetHubName, spoofMigrationNS, migrationID)
 			Expect(publisher.SendToTopic(ctx, publisher.MigrationTopic(), evt)).To(Succeed(),
