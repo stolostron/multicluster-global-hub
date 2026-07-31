@@ -143,17 +143,31 @@ var _ = BeforeSuite(func() {
 	}
 
 	if isPrune != "true" {
-		// valid the clients
-		deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
-		_, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2})
-		Expect(err).ShouldNot(HaveOccurred())
-		// Expect(len(deployList.Items) > 0).To(BeTrue())
-		// valid the global hub cluster apiserver
-		healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(string(healthy)).To(Equal("ok"))
-		By("Deploy the global hub")
-		deployGlobalHub()
+		Eventually(func() error {
+			deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
+			if _, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2}); err != nil {
+				return err
+			}
+			healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
+			if err != nil {
+				return err
+			}
+			if string(healthy) != "ok" {
+				return fmt.Errorf("healthz returned %q", string(healthy))
+			}
+			return nil
+		}, 3*time.Minute, 5*time.Second).Should(Succeed())
+
+		if isGlobalHubDeployed() {
+			klog.Infof("Global hub already deployed, skipping deployGlobalHub")
+			operatorconfig.SetMGHNamespacedName(types.NamespacedName{
+				Namespace: testOptions.GlobalHub.Namespace,
+				Name:      MghName,
+			})
+		} else {
+			By("Deploy the global hub")
+			deployGlobalHub()
+		}
 		waitGlobalhubReadyAndLeaseUpdated()
 		By("Init postgres connection")
 		if isBYO == "true" {
@@ -273,6 +287,15 @@ func findRootDir(dir string) (string, error) {
 	}
 }
 
+func isGlobalHubDeployed() bool {
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+	err := globalHubClient.Get(ctx, types.NamespacedName{
+		Name:      MghName,
+		Namespace: testOptions.GlobalHub.Namespace,
+	}, mgh)
+	return err == nil
+}
+
 func deployGlobalHub() {
 	By("Creating namespace for the ServiceMonitor")
 	_, err := testClients.KubeClient().CoreV1().Namespaces().Get(ctx, ServiceMonitorNamespace,
@@ -297,6 +320,25 @@ func deployGlobalHub() {
 		}, metav1.CreateOptions{})
 	}
 	Expect(err).NotTo(HaveOccurred())
+
+	By("Removing stale e2e nonk8s NodePort service if present")
+	// nodePort 30080 is cluster-scoped; transport-identity may leave the service in the default GH ns while BYO deploys to mgh.
+	nonk8sServiceNamespaces := []string{testOptions.GlobalHub.Namespace, commonconstants.GHDefaultNamespace}
+	seenNamespaces := map[string]struct{}{}
+	for _, ns := range nonk8sServiceNamespaces {
+		if ns == "" {
+			continue
+		}
+		if _, exists := seenNamespaces[ns]; exists {
+			continue
+		}
+		seenNamespaces[ns] = struct{}{}
+		err = testClients.KubeClient().CoreV1().Services(ns).Delete(ctx,
+			"multicluster-global-hub-manager-nonk8s-service", metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
 
 	Expect(utils.Apply(testClients, testOptions,
 		utils.RenderOptions{Namespace: testOptions.GlobalHub.Namespace, KustomizationPath: fmt.Sprintf("%s/test/manifest/resources", rootDir)})).NotTo(HaveOccurred())

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -64,10 +65,11 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 
 		Eventually(func() error {
 			key := string(enum.LocalRootPolicyEventType)
-			receivedEvent, ok := receivedEvents[key]
+			val, ok := receivedEvents.Load(key)
 			if !ok {
 				return fmt.Errorf("not get the event: %s", key)
 			}
+			receivedEvent := val.(*cloudevents.Event)
 			fmt.Println(">>>>>>>>>>>>>>>>>>> root policy event1", receivedEvent)
 			outEvents := []event.RootPolicyEvent{}
 			err := json.Unmarshal(receivedEvent.Data(), &outEvents)
@@ -109,15 +111,12 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			},
 		}
 
-		// update the cache with the expired event
 		name := strings.ReplaceAll(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "")
-		filter.DeltaDuration = 0 // set the delta buffer into 0
-		filter.CacheSyncInterval = 1
-		now := time.Now().Add(2 * time.Second) // the next 2 seconds events will be considered as expired
+		filter.DeltaDuration = 0
+		now := time.Now().Add(2 * time.Second)
 		filter.CacheTime(name, now)
 
 		Expect(runtimeClient.Create(ctx, expiredEvent)).NotTo(HaveOccurred())
-
 		time.Sleep(3 * time.Second)
 
 		By("Create a new event")
@@ -141,10 +140,11 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 
 		Eventually(func() error {
 			key := string(enum.LocalRootPolicyEventType)
-			receivedEvent, ok := receivedEvents[key]
+			val, ok := receivedEvents.Load(key)
 			if !ok {
 				return fmt.Errorf("not get the event: %s", key)
 			}
+			receivedEvent := val.(*cloudevents.Event)
 			outEvents := []event.RootPolicyEvent{}
 			err := json.Unmarshal(receivedEvent.Data(), &outEvents)
 			if err != nil {
@@ -195,7 +195,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 		cluster.Status = clusterv1.ManagedClusterStatus{
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
-					Name:  constants.ClusterIdClaimName,
+					Name:  "id.k8s.io",
 					Value: "3f406177-34b2-4852-88dd-ff2809680336",
 				},
 			},
@@ -241,10 +241,11 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 
 		Eventually(func() error {
 			key := string(enum.LocalReplicatedPolicyEventType)
-			receivedEvent, ok := receivedEvents[key]
+			val, ok := receivedEvents.Load(key)
 			if !ok {
 				return fmt.Errorf("not get the event: %s", key)
 			}
+			receivedEvent := val.(*cloudevents.Event)
 			fmt.Println(">>>>>>>>>>>>>>>>>>> replicated policy event", receivedEvent)
 			outEvents := []event.ReplicatedPolicyEvent{}
 			err = json.Unmarshal(receivedEvent.Data(), &outEvents)

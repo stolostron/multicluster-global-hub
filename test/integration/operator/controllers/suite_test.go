@@ -86,9 +86,10 @@ var _ = BeforeSuite(func() {
 		"ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook")
 
 	var err error
-	// cfg is defined in this file globally.
-	cfg, err = testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
+	Eventually(func() error {
+		cfg, err = testEnv.Start()
+		return err
+	}, 3*time.Minute, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
 
 	// create test postgres
@@ -131,15 +132,21 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	cancel()
-	Expect(testPostgres.Stop()).To(Succeed())
+	if cancel != nil {
+		cancel()
+	}
+	if testPostgres != nil {
+		Expect(testPostgres.Stop()).To(Succeed())
+	}
 	By("tearing down the test environment")
-	err := testEnv.Stop()
-	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
-	// Set 4 with random
-	if err != nil {
-		time.Sleep(4 * time.Second)
-		Expect(testEnv.Stop()).To(Succeed())
+	if testEnv != nil {
+		err := testEnv.Stop()
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		// Set 4 with random
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testEnv.Stop()
+		}
 	}
 })
 

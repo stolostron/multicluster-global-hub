@@ -105,6 +105,13 @@ export CGO_ENABLED=1
 export GLOBAL_HUB_NODE_IP=${global_hub_node_ip}
 
 # set log level to debug
+kubectl apply --kubeconfig "$GH_KUBECONFIG" -f - <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${GH_NAMESPACE}
+EOF
+
 cat <<EOF | kubectl apply --kubeconfig $GH_KUBECONFIG -n $GH_NAMESPACE -f -
 apiVersion: v1
 kind: ConfigMap
