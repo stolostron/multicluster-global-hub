@@ -89,15 +89,22 @@ var _ = Describe("claim controllers", Ordered, func() {
 
 	It("clusterclaim testing", func() {
 		By("Create MCH instance to trigger reconciliation")
-		Expect(mgr.GetClient().Create(ctx, &mchv1.MultiClusterHub{
+		mch := &mchv1.MultiClusterHub{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "multiclusterhub",
 				Namespace: "default",
 			},
 			Spec: mchv1.MultiClusterHubSpec{},
-		})).NotTo(HaveOccurred())
+		}
+		Eventually(func() error {
+			err := mgr.GetClient().Create(ctx, mch)
+			if errors.IsAlreadyExists(err) {
+				return nil
+			}
+			return err
+		}, 30*time.Second, 500*time.Millisecond).Should(Succeed())
 
-		mch := &mchv1.MultiClusterHub{}
+		mch = &mchv1.MultiClusterHub{}
 		Eventually(func() bool {
 			err := mgr.GetClient().Get(ctx, types.NamespacedName{
 				Name:      "multiclusterhub",

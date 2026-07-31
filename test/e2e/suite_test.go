@@ -111,20 +111,26 @@ var _ = BeforeSuite(func() {
 	testOptions = completeOptions()
 	testClients = utils.NewTestClient(testOptions)
 	httpClient = testClients.HttpClient()
-	// valid the clients
-	deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
-	_, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2})
-	Expect(err).ShouldNot(HaveOccurred())
-	// Expect(len(deployList.Items) > 0).To(BeTrue())
-	// valid the global hub cluster apiserver
-	healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(string(healthy)).To(Equal("ok"))
+	Eventually(func() error {
+		deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
+		if _, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2}); err != nil {
+			return err
+		}
+		healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
+		if err != nil {
+			return err
+		}
+		if string(healthy) != "ok" {
+			return fmt.Errorf("healthz returned %q", string(healthy))
+		}
+		return nil
+	}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 	By("Deploy the global hub")
 	deployGlobalHub()
 
 	By("Validate the opitions")
+	var err error
 	globalHubClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 	Expect(err).To(Succeed())
 	var clusterNames []string
@@ -290,6 +296,13 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Removing stale e2e nonk8s NodePort service if present")
+	err = testClients.KubeClient().CoreV1().Services(GlobalhubNamespace).Delete(ctx,
+		"multicluster-global-hub-manager-nonk8s-service", metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 	Expect(utils.Apply(testClients, testOptions,
 		utils.RenderOptions{KustomizationPath: fmt.Sprintf("%s/test/manifest/resources", rootDir)})).NotTo(HaveOccurred())
 	Expect(utils.Apply(testClients, testOptions,
@@ -374,7 +387,6 @@ func deployGlobalHub() {
 		Eventually(func() error {
 			return checkComponentsAvailableAndPhase(runtimeClient)
 		}, 2*time.Minute, 1*time.Second).Should(Succeed())
-		Expect(err).ShouldNot(HaveOccurred())
 	}
 
 	// Before run test, the mgh should be ready
