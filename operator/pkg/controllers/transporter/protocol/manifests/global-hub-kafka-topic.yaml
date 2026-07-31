@@ -3,6 +3,22 @@ kind: KafkaTopic
 metadata:
   labels:
     strimzi.io/cluster: {{.KafkaCluster}}
+  name: {{.MigrationTopic}}
+  namespace: {{.Namespace}}
+spec:
+  config:
+    cleanup.policy: compact,delete
+    retention.ms: "86400000"
+    retention.bytes: "1073741824"
+  partitions: {{.TopicPartition}}
+  replicas: {{.TopicReplicas}}
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: {{.KafkaCluster}}
   name: {{.StatusPlaceholderTopic}}
   namespace: {{.Namespace}}
 spec:

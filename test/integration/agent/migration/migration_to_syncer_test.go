@@ -294,6 +294,10 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				},
 			}
 			Expect(runtimeClient.Create(testCtx, migrationCR)).Should(Succeed())
+			DeferCleanup(func() {
+				err := client.IgnoreNotFound(runtimeClient.Delete(testCtx, migrationCR))
+				Expect(err).NotTo(HaveOccurred())
+			})
 			migrationCR.Status.Phase = migrationv1alpha1.PhaseDeploying
 			Expect(runtimeClient.Status().Update(testCtx, migrationCR)).Should(Succeed())
 

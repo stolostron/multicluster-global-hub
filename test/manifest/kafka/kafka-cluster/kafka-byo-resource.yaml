@@ -51,4 +51,13 @@ spec:
         name: gh-spec
         patternType: literal
         type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Write
+      resource:
+        name: gh-migration
+        patternType: literal
+        type: topic
     type: simple

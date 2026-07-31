@@ -6,6 +6,7 @@ package producer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
@@ -23,12 +24,27 @@ import (
 )
 
 type GenericProducer struct {
-	log               *zap.SugaredLogger
-	ceProtocol        interface{}
-	ceClient          cloudevents.Client
-	kafkaProducer     *kafka.Producer
-	messageSizeLimit  int
-	eventErrorHandler func(event *kafka.Message)
+	log                  *zap.SugaredLogger
+	ceProtocol           interface{}
+	ceClient             cloudevents.Client
+	kafkaProducer        *kafka.Producer
+	messageSizeLimit     int
+	eventErrorHandler    func(event *kafka.Message)
+	sendMu               sync.Mutex
+	pendingDeliveryMu    sync.Mutex
+	pendingDelivery      *pendingDeliveryTracker
+	flushConfirmMu       sync.Mutex
+	flushConfirming      bool
+	flushFirstErr        error
+	asyncDeliveryMu      sync.Mutex
+	asyncDeliveryPending int
+}
+
+type pendingDeliveryTracker struct {
+	correlationID string
+	remaining     int
+	firstErr      error
+	done          chan error
 }
 
 func NewGenericProducer(transportConfig *transport.TransportInternalConfig, topic string,
@@ -56,6 +72,12 @@ func (p *GenericProducer) Protocol() *kafka_confluent.Protocol {
 }
 
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	p.sendMu.Lock()
+	defer p.sendMu.Unlock()
+	return p.sendEventLocked(ctx, evt)
+}
+
+func (p *GenericProducer) sendEventLocked(ctx context.Context, evt cloudevents.Event) error {
 	// cloudevent kafka/gochan client
 	// message key
 	evtCtx := cectx.WithLogger(ctx, logger.ZapLogger("cloudevents"))
@@ -88,6 +110,209 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 	return nil
 }
 
+// SendEventWithDeliveryConfirmation sends an event and waits for all Kafka delivery
+// reports for that event (including every chunk). Non-Kafka transports fall back to SendEvent.
+func (p *GenericProducer) SendEventWithDeliveryConfirmation(
+	ctx context.Context, evt cloudevents.Event, timeout time.Duration,
+) error {
+	if p.kafkaProducer == nil {
+		p.sendMu.Lock()
+		defer p.sendMu.Unlock()
+		return p.sendEventLocked(ctx, evt)
+	}
+
+	p.sendMu.Lock()
+	defer p.sendMu.Unlock()
+
+	// Drain in-flight messages from ordinary SendEvent traffic before capturing
+	// delivery errors, so unrelated failures are not attributed to this publish.
+	p.drainKafkaProducerQueue()
+	p.waitAsyncDeliveryReportsSettled(500 * time.Millisecond)
+
+	if err := p.sendEventLocked(ctx, evt); err != nil {
+		return err
+	}
+
+	p.beginFlushConfirmation()
+	defer p.endFlushConfirmation()
+
+	deadline := time.Now().Add(timeout)
+	for {
+		if err := p.flushDeliveryError(); err != nil {
+			return err
+		}
+
+		remaining := p.kafkaProducer.Flush(250)
+		if err := p.flushDeliveryError(); err != nil {
+			return err
+		}
+		if remaining == 0 {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf(
+				"timed out waiting for %d kafka delivery reports after %v",
+				remaining, timeout,
+			)
+		}
+	}
+}
+
+func (p *GenericProducer) beginFlushConfirmation() {
+	p.flushConfirmMu.Lock()
+	defer p.flushConfirmMu.Unlock()
+	p.flushConfirming = true
+	p.flushFirstErr = nil
+}
+
+func (p *GenericProducer) endFlushConfirmation() {
+	p.flushConfirmMu.Lock()
+	defer p.flushConfirmMu.Unlock()
+	p.flushConfirming = false
+	p.flushFirstErr = nil
+}
+
+func (p *GenericProducer) recordFlushDeliveryError(err error) {
+	if err == nil {
+		return
+	}
+	p.flushConfirmMu.Lock()
+	defer p.flushConfirmMu.Unlock()
+	if p.flushConfirming && p.flushFirstErr == nil {
+		p.flushFirstErr = err
+	}
+}
+
+func (p *GenericProducer) flushDeliveryError() error {
+	p.flushConfirmMu.Lock()
+	defer p.flushConfirmMu.Unlock()
+	return p.flushFirstErr
+}
+
+func (p *GenericProducer) drainKafkaProducerQueue() {
+	for {
+		if p.kafkaProducer.Flush(250) == 0 {
+			return
+		}
+	}
+}
+
+func (p *GenericProducer) beginAsyncDeliveryReport() {
+	p.asyncDeliveryMu.Lock()
+	p.asyncDeliveryPending++
+	p.asyncDeliveryMu.Unlock()
+}
+
+func (p *GenericProducer) endAsyncDeliveryReport() {
+	p.asyncDeliveryMu.Lock()
+	p.asyncDeliveryPending--
+	p.asyncDeliveryMu.Unlock()
+}
+
+func (p *GenericProducer) waitAsyncDeliveryReportsSettled(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		p.asyncDeliveryMu.Lock()
+		pending := p.asyncDeliveryPending
+		p.asyncDeliveryMu.Unlock()
+		if pending == 0 {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func (p *GenericProducer) expectedDeliveryReports(evt cloudevents.Event) int {
+	expected := len(p.splitPayloadIntoChunks(evt.Data()))
+	if expected == 0 {
+		return 1
+	}
+	return expected
+}
+
+func (p *GenericProducer) beginPendingDelivery(expected int, correlationID string) *pendingDeliveryTracker {
+	p.pendingDeliveryMu.Lock()
+	defer p.pendingDeliveryMu.Unlock()
+	if p.pendingDelivery != nil {
+		return nil
+	}
+	tracker := &pendingDeliveryTracker{
+		correlationID: correlationID,
+		remaining:     expected,
+		done:          make(chan error, 1),
+	}
+	p.pendingDelivery = tracker
+	return tracker
+}
+
+func (p *GenericProducer) clearPendingDelivery(tracker *pendingDeliveryTracker) {
+	p.pendingDeliveryMu.Lock()
+	defer p.pendingDeliveryMu.Unlock()
+	if p.pendingDelivery == tracker {
+		p.pendingDelivery = nil
+	}
+}
+
+func (p *GenericProducer) recordDeliveryReport(m *kafka.Message) {
+	p.beginAsyncDeliveryReport()
+	defer p.endAsyncDeliveryReport()
+
+	if m != nil && m.TopicPartition.Error != nil {
+		p.recordFlushDeliveryError(m.TopicPartition.Error)
+	}
+
+	correlationID := deliveryCorrelationFromMessage(m)
+	if correlationID == "" {
+		return
+	}
+
+	var deliveryErr error
+	if m.TopicPartition.Error != nil {
+		deliveryErr = m.TopicPartition.Error
+	}
+
+	p.pendingDeliveryMu.Lock()
+	tracker := p.pendingDelivery
+	if tracker == nil || correlationID != tracker.correlationID {
+		p.pendingDeliveryMu.Unlock()
+		return
+	}
+
+	if deliveryErr != nil && tracker.firstErr == nil {
+		tracker.firstErr = deliveryErr
+		p.pendingDelivery = nil
+		p.pendingDeliveryMu.Unlock()
+		tracker.done <- deliveryErr
+		return
+	}
+
+	tracker.remaining--
+	if tracker.remaining <= 0 {
+		p.pendingDelivery = nil
+		pendingErr := tracker.firstErr
+		p.pendingDeliveryMu.Unlock()
+		tracker.done <- pendingErr
+		return
+	}
+	p.pendingDeliveryMu.Unlock()
+}
+
+func deliveryCorrelationFromMessage(m *kafka.Message) string {
+	if m == nil {
+		return ""
+	}
+	if correlationID, ok := m.Opaque.(string); ok && correlationID != "" {
+		return correlationID
+	}
+	headerKey := "ce_" + transport.DeliveryCorrelationKey
+	for _, header := range m.Headers {
+		if header.Key == headerKey {
+			return string(header.Value)
+		}
+	}
+	return ""
+}
+
 // Reconnect close the previous producer state and init a new producer
 func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig, topic string) error {
 	// cloudevent kafka/gochan client
@@ -113,7 +338,7 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportInterna
 		if err != nil {
 			return err
 		}
-		handleProducerEvents(p.log, eventChan, transportConfig.FailureThreshold, p.eventErrorHandler)
+		handleProducerEvents(p, eventChan, transportConfig.FailureThreshold)
 		p.ceProtocol = kafkaProtocol
 		p.kafkaProducer = producer
 	case string(transport.Chan):
@@ -178,9 +403,7 @@ func getConfluentSenderProtocol(logger *zap.SugaredLogger, kafkaCredentail *tran
 	return producer, protocol, nil
 }
 
-func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event, transportFailureThreshold int,
-	eventErrorHandler func(event *kafka.Message),
-) {
+func handleProducerEvents(p *GenericProducer, eventChan chan kafka.Event, transportFailureThreshold int) {
 	// Listen to all the events on the default events channel
 	// It's important to read these events otherwise the events channel will eventually fill up
 	go func() {
@@ -195,10 +418,13 @@ func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event, tr
 				// is already configured to do that.
 				m := ev
 				if m.TopicPartition.Error != nil {
-					if eventErrorHandler != nil {
-						eventErrorHandler(m)
+					p.recordDeliveryReport(m)
+					if p.eventErrorHandler != nil {
+						p.eventErrorHandler(m)
 					}
-					log.Warnw("delivery failed", "error", m.TopicPartition.Error)
+					p.log.Warnw("delivery failed", "error", m.TopicPartition.Error)
+				} else {
+					p.recordDeliveryReport(m)
 				}
 			case kafka.Error:
 				// Generic client instance-level errors, such as
@@ -213,13 +439,13 @@ func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event, tr
 					// to the application that currently there are no brokers to communicate with.
 					// But librdkafka will continue to try to reconnect indefinately,
 					// and it will attempt to re-send messages until message.timeout.ms or message.max.retries are exceeded.
-					log.Debugw("transport producer client error(ALL_BROKERS_DOWN), ignore it for most cases", "error", ev)
+					p.log.Debugw("transport producer client error(ALL_BROKERS_DOWN), ignore it for most cases", "error", ev)
 				} else {
-					log.Warnw("transport producer client error", "error", ev)
+					p.log.Warnw("transport producer client error", "error", ev)
 
 					errorCount++
 					if errorCount >= transportFailureThreshold {
-						log.Panicf("transport producer error > 10 in 5 minutes, error: %v", ev)
+						p.log.Panicf("transport producer error > 10 in 5 minutes, error: %v", ev)
 					}
 					// return panic when error more than 10 times in 5 minites
 					if lastErrorTime.Add(5 * time.Minute).Before(time.Now()) {

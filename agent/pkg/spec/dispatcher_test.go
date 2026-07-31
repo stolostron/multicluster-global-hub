@@ -150,9 +150,10 @@ func TestDispatch_UsesTypeSpecificSyncer(t *testing.T) {
 	agentConfig := &configs.AgentConfig{LeafHubName: "hub2"}
 
 	dispatcher := &genericDispatcher{
-		log:         logger.DefaultZapLogger(),
-		consumer:    &mockConsumer{eventChan: eventChan},
-		agentConfig: agentConfig,
+		log:           logger.DefaultZapLogger(),
+		consumer:      &mockConsumer{eventChan: eventChan},
+		agentConfig:   agentConfig,
+		validationSem: make(chan struct{}, maxConcurrentSpecValidations),
 		syncers: map[string]Syncer{
 			constants.GenericSpecMsgKey: genericRecorder,
 			"Policy":                    typedRecorder,
@@ -182,9 +183,10 @@ func runDispatchScenario(t *testing.T, scenario dispatchScenario) *recordingSync
 	agentConfig := &configs.AgentConfig{LeafHubName: "hub2"}
 
 	dispatcher := &genericDispatcher{
-		log:         logger.DefaultZapLogger(),
-		consumer:    &mockConsumer{eventChan: eventChan},
-		agentConfig: agentConfig,
+		log:           logger.DefaultZapLogger(),
+		consumer:      &mockConsumer{eventChan: eventChan},
+		agentConfig:   agentConfig,
+		validationSem: make(chan struct{}, maxConcurrentSpecValidations),
 		syncers: map[string]Syncer{
 			constants.GenericSpecMsgKey: recorder,
 		},
@@ -249,10 +251,11 @@ func TestDispatch_AllowsRegisteredMigrationDeploying(t *testing.T) {
 	agentConfig := &configs.AgentConfig{LeafHubName: "hub2"}
 
 	dispatcher := &genericDispatcher{
-		log:         logger.DefaultZapLogger(),
-		client:      fakeClient,
-		consumer:    &mockConsumer{eventChan: eventChan},
-		agentConfig: agentConfig,
+		log:           logger.DefaultZapLogger(),
+		client:        fakeClient,
+		consumer:      &mockConsumer{eventChan: eventChan},
+		agentConfig:   agentConfig,
+		validationSem: make(chan struct{}, maxConcurrentSpecValidations),
 		syncers: map[string]Syncer{
 			string(enum.ManagedClusterMigrationType): recorder,
 		},
@@ -281,9 +284,10 @@ func TestDispatch_SourceValidation(t *testing.T) {
 	agentConfig := &configs.AgentConfig{LeafHubName: "hub2"}
 
 	dispatcher := &genericDispatcher{
-		log:         logger.DefaultZapLogger(),
-		consumer:    &mockConsumer{eventChan: eventChan},
-		agentConfig: agentConfig,
+		log:           logger.DefaultZapLogger(),
+		consumer:      &mockConsumer{eventChan: eventChan},
+		agentConfig:   agentConfig,
+		validationSem: make(chan struct{}, maxConcurrentSpecValidations),
 		syncers: map[string]Syncer{
 			constants.GenericSpecMsgKey: recorder,
 		},
