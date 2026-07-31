@@ -1,0 +1,34 @@
+// Copyright (c) 2026 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package protocol
+
+import (
+	ctrl "sigs.k8s.io/controller-runtime"
+
+	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+)
+
+// SyncMigrationWriteACL grants or revokes Write on the migration topic for a source hub.
+func SyncMigrationWriteACL(
+	mgr ctrl.Manager,
+	mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	fromHub string,
+	grant bool,
+	opts ...KafkaOption,
+) error {
+	trans := NewStrimziTransporter(mgr, mgh, opts...)
+	return trans.SyncMigrationWriteACL(fromHub, grant)
+}
