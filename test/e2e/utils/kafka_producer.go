@@ -17,8 +17,8 @@ import (
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	pkgutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // KafkaEventPublisher sends CloudEvents to Kafka using transport credentials from a cluster secret.
@@ -37,7 +37,7 @@ func NewKafkaEventPublisher(ctx context.Context, c client.Client, namespace stri
 		return nil, fmt.Errorf("get transport secret in namespace %s: %w", namespace, err)
 	}
 
-	kafkaConfig, err := transportconfig.GetKafkaCredentialBySecret(secret, c)
+	kafkaConfig, err := pkgutils.GetKafkaCredentialBySecret(secret, c)
 	if err != nil {
 		return nil, fmt.Errorf("parse kafka credentials: %w", err)
 	}
@@ -66,6 +66,14 @@ func (p *KafkaEventPublisher) SendToTopic(ctx context.Context, topic string, evt
 // SpecTopic returns the configured spec topic (typically gh-spec).
 func (p *KafkaEventPublisher) SpecTopic() string {
 	return p.kafkaConfig.SpecTopic
+}
+
+// MigrationTopic returns the configured migration topic (typically gh-migration).
+func (p *KafkaEventPublisher) MigrationTopic() string {
+	if p.kafkaConfig.MigrationTopic != "" {
+		return p.kafkaConfig.MigrationTopic
+	}
+	return operatorconfig.GetMigrationTopic()
 }
 
 // StatusTopic returns the status topic for hubName (per-hub topic or credential override).
