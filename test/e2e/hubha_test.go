@@ -1062,6 +1062,9 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 					return activeHubClient.Update(ctx, activeCluster)
 				}, 1*time.Minute, 5*time.Second).Should(Succeed())
 
+				By("Waiting for ManagedCluster resourceVersion to stabilize after update")
+				waitForManagedClusterStable(ctx, activeHubClient, testClusterName, 10*time.Second)
+
 				By("Verifying update is synced with hubAcceptsClient still false")
 				Eventually(func() error {
 					standbyCluster := &clusterv1.ManagedCluster{}
@@ -1086,11 +1089,38 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 
 					klog.Infof("ManagedCluster %s update synced correctly with hubAcceptsClient=false maintained", testClusterName)
 					return nil
-				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+				}, 2*time.Minute, 5*time.Second).Should(Succeed())
 			})
 		})
 	})
 })
+
+// waitForManagedClusterStable waits until the ManagedCluster resourceVersion on the
+// active hub stops changing for stableDuration. This reduces races with create-time
+// webhook churn before Hub HA update bundles are emitted.
+func waitForManagedClusterStable(ctx context.Context, c client.Client, name string, stableDuration time.Duration) {
+	var lastRV string
+	stableSince := time.Time{}
+
+	Eventually(func() error {
+		cluster := &clusterv1.ManagedCluster{}
+		if err := c.Get(ctx, types.NamespacedName{Name: name}, cluster); err != nil {
+			return err
+		}
+
+		rv := cluster.ResourceVersion
+		now := time.Now()
+		if rv != lastRV {
+			lastRV = rv
+			stableSince = now
+			return fmt.Errorf("resourceVersion changed to %s, waiting for stability", rv)
+		}
+		if now.Sub(stableSince) < stableDuration {
+			return fmt.Errorf("resourceVersion %s stable for %v, need %v", rv, now.Sub(stableSince), stableDuration)
+		}
+		return nil
+	}, 2*time.Minute, 2*time.Second).Should(Succeed())
+}
 
 // getHubRoleLabel retrieves the hub role label from a managed cluster
 func getHubRoleLabel(ctx context.Context, c client.Client, clusterName string) string {
