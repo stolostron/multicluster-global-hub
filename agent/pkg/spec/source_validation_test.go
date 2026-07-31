@@ -25,6 +25,7 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
 func TestSpecEventSourceAllowed(t *testing.T) {
@@ -56,7 +57,8 @@ func TestSpecEventSourceAllowed(t *testing.T) {
 
 		evt := cloudevents.NewEvent()
 		evt.SetSource("hub1")
-		evt.SetType(constants.MigrationTargetMsgKey)
+		evt.SetType(string(enum.ManagedClusterMigrationType))
+		evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
 		assert.True(t, specEventSourceAllowed(ctx, nil, "hub2", &evt))
 	})
 }

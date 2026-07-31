@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cetypes "github.com/cloudevents/sdk-go/v2/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,7 +17,11 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var migrationValidationLog = logger.DefaultZapLogger()
 
 type localMigrationRecord struct {
 	fromHub string
@@ -38,13 +43,14 @@ var migrationDeployAllowedGVKs = map[schema.GroupVersionKind]struct{}{
 	{Group: "work.open-cluster-management.io", Version: "v1", Kind: "ManifestWork"}:           {},
 }
 
-// IsMigrationDeployingEvent reports whether evt is a source-hub migration deploying event.
+// IsMigrationDeployingEvent reports whether evt is a migration resource deploying event.
 func IsMigrationDeployingEvent(evt *cloudevents.Event) bool {
-	if evt == nil || evt.Type() != constants.MigrationTargetMsgKey {
+	if evt == nil || evt.Type() != string(enum.ManagedClusterMigrationType) {
 		return false
 	}
-	source := evt.Source()
-	return source != "" && source != constants.CloudEventGlobalHubClusterName
+
+	stage, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyMigrationStage])
+	return err == nil && stage == migrationv1alpha1.PhaseDeploying
 }
 
 // MigrationSourceAllowed returns true when source may publish migration events to targetHub.
@@ -65,6 +71,7 @@ func MigrationSourceAllowed(ctx context.Context, c client.Client, source, target
 
 	list := &migrationv1alpha1.ManagedClusterMigrationList{}
 	if err := c.List(ctx, list); err != nil {
+		migrationValidationLog.Warnw("failed to list ManagedClusterMigration for source validation", "error", err)
 		return false
 	}
 
@@ -128,7 +135,7 @@ func EnsureLocalMigrationCR(
 	return nil
 }
 
-// DeleteLocalMigrationCR removes recorded local migration state after cleaning completes.
+// DeleteLocalMigrationCR removes recorded local migration state after cleaning or rollback.
 func DeleteLocalMigrationCR(_ context.Context, _ client.Client, migrationName string) error {
 	if migrationName == "" {
 		return nil

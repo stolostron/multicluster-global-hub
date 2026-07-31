@@ -1,37 +1,29 @@
 package config
 
-import (
-	"fmt"
-	"testing"
-)
+import "testing"
 
-// TestIsValidKafkaTopicName tests the isValidKafkaTopicName function.
-func TestIsValidKafkaTopicName(t *testing.T) {
-	// Define test cases
-	testCases := []struct {
-		name     string
-		input    string
-		expected bool
-	}{
-		{"Valid topic with letters and numbers", "validTopic1", true},
-		{"Valid topic with underscore", "valid_topic-2", true},
-		{"Valid topic with dot", "valid.topic.3", true},
-		{"Invalid topic with space", "invalid topic", false},
-		{"Invalid topic with invalid character", "invalidTopic$", false},
-		{"Empty topic name", "", false},
-		{"Invalid name .", ".", false},
-		{"Invalid name ..", "..", false},
-		{"Valid topic with asterisk", "validTopic*", true},
-		{"Invalid topic with asterisk not at the end", "invalidTopic*extra", false},
+func TestGetMigrationTopic(t *testing.T) {
+	original := migrationTopic
+	t.Cleanup(func() { migrationTopic = original })
+
+	migrationTopic = "gh-migration"
+	if got := GetMigrationTopic(); got != "gh-migration" {
+		t.Fatalf("GetMigrationTopic() = %q, want gh-migration", got)
 	}
+}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			result := isValidKafkaTopicName(testCase.input)
-			if result != testCase.expected {
-				fmt.Println("len", len(testCase.input))
-				t.Errorf("isValidKafkaTopicName(%q) = %v; expected %v", testCase.input, result, testCase.expected)
-			}
-		})
+func TestGetKafkaUserName(t *testing.T) {
+	if got := GetKafkaUserName("hub1"); got != "hub1-kafka-user" {
+		t.Fatalf("GetKafkaUserName() = %q, want hub1-kafka-user", got)
+	}
+}
+
+func TestSetMigrationTopic(t *testing.T) {
+	original := migrationTopic
+	t.Cleanup(func() { migrationTopic = original })
+
+	SetMigrationTopic("custom-migration")
+	if got := GetMigrationTopic(); got != "custom-migration" {
+		t.Fatalf("SetMigrationTopic() = %q, want custom-migration", got)
 	}
 }

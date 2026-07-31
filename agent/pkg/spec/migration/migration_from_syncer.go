@@ -9,10 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
+	cetypes "github.com/cloudevents/sdk-go/v2/types"
 	apiconstants "github.com/stolostron/cluster-lifecycle-api/constants"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -39,6 +41,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -56,13 +59,12 @@ const (
 
 	// VeleroRestoreNameLabel is used to mark ImageClusterInstall resources as restored by velero.
 	// This label is required to prevent the image-based-install-operator from reconciling the resource.
-	// Reference: https://github.com/openshift/image-based-install-operator/blob/main/controllers/imageclusterinstall_controller.go#L118
+	// Reference: https://github.com/openshift/image-based-install-operator/blob/main/controllers/
+	// imageclusterinstall_controller.go#L118
 	VeleroRestoreNameLabel = "velero.io/restore-name"
 
 	GlobalHubRestoreName = "globalhub"
 )
-
-var rollbackingTimeout = 10 * time.Minute // the rollbacking stage timeout should less than migration timeout
 
 type MigrationSourceSyncer struct {
 	client                client.Client
@@ -73,6 +75,8 @@ type MigrationSourceSyncer struct {
 	processingMigrationId string
 	clusterErrors         map[string]string
 	leafHubName           string
+	mu                    sync.Mutex
+	completedStages       map[string]string // tracks stage state: "in-progress" or "completed"
 }
 
 func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
@@ -86,6 +90,7 @@ func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 		transportConfig: agentConfig.TransportConfig,
 		bundleVersion:   eventversion.NewVersion(),
 		leafHubName:     agentConfig.LeafHubName,
+		completedStages: make(map[string]string),
 	}
 }
 
@@ -99,11 +104,15 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return nil
 	}
 
+	ctx = withExpireTime(ctx, parseExpireTime(evt))
+
 	// Parse migration event
 	migrationEvent := &migration.MigrationSourceBundle{}
 	if err := json.Unmarshal(evt.Data(), migrationEvent); err != nil {
 		return fmt.Errorf("failed to unmarshal migration event: %w", err)
 	}
+	// Populate MigrationId and Stage from CloudEvents extensions
+	migrationEvent.MigrationId, migrationEvent.Stage = extractMigrationExtensions(evt)
 	log.Debugf("received migration event: migrationId=%s, stage=%s", migrationEvent.MigrationId, migrationEvent.Stage)
 	defer func() {
 		s.reportStatus(ctx, migrationEvent, err)
@@ -128,22 +137,38 @@ func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migratio
 		return fmt.Errorf("migrationId is required but not provided in stage %s", event.Stage)
 	}
 
+	s.mu.Lock()
 	s.clusterErrors = make(map[string]string)
 
-	// Set current migration ID for stages that need cluster identification:
-	// - processingMigrationId is empty: always set, to handle restart case
-	// - Validating phase: always set (uses placement for cluster selection)
-	if s.processingMigrationId == "" ||
-		event.Stage == migrationv1alpha1.PhaseValidating {
+	// Reset state only on a genuine migration switch (new migrationId or first event after restart)
+	isNewMigration := s.processingMigrationId == "" ||
+		(event.Stage == migrationv1alpha1.PhaseValidating &&
+			s.processingMigrationId != event.MigrationId)
+	if isNewMigration {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
+		s.completedStages = make(map[string]string)
 	}
 
 	// Check if migration ID matches for all other stages
 	if s.processingMigrationId != event.MigrationId {
+		s.mu.Unlock()
 		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId,
 			event.MigrationId)
 	}
+
+	// Skip stages that are already completed or in-progress (Rollbacking is excluded since it can repeat)
+	if event.Stage != migrationv1alpha1.PhaseRollbacking && s.completedStages[event.Stage] != "" {
+		stageState := s.completedStages[event.Stage]
+		s.mu.Unlock()
+		log.Infof("stage %s already %s for migration %s, skipping",
+			event.Stage, stageState, event.MigrationId)
+		return nil
+	}
+	if event.Stage != migrationv1alpha1.PhaseRollbacking {
+		s.completedStages[event.Stage] = "in-progress"
+	}
+	s.mu.Unlock()
 
 	switch event.Stage {
 	case migrationv1alpha1.PhaseValidating:
@@ -174,9 +199,22 @@ func (s *MigrationSourceSyncer) executeStage(ctx context.Context, source *migrat
 	if err := stageFunc(ctx, source); err != nil {
 		log.Errorf("migration %s failed: migrationId=%s, error=%v",
 			source.Stage, source.MigrationId, err)
+		// Clear in-progress state on failure so retries can run
+		s.mu.Lock()
+		if s.processingMigrationId == source.MigrationId {
+			delete(s.completedStages, source.Stage)
+		}
+		s.mu.Unlock()
 		return err
 	}
 
+	if source.Stage != migrationv1alpha1.PhaseRollbacking {
+		s.mu.Lock()
+		if s.processingMigrationId == source.MigrationId {
+			s.completedStages[source.Stage] = "completed"
+		}
+		s.mu.Unlock()
+	}
 	log.Infof("migration %s completed: migrationId=%s", source.Stage, source.MigrationId)
 	return nil
 }
@@ -282,7 +320,7 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 	toHub := source.ToHub
 	totalClusters := len(source.ManagedClusters)
 
-	migrationBundle := migration.NewMigrationResourceBundle(source.MigrationId)
+	migrationBundle := migration.NewMigrationResourceBundle(totalClusters)
 
 	// collect clusters and klusterletAddonConfig for migration
 	for _, managedCluster := range source.ManagedClusters {
@@ -364,20 +402,55 @@ func (s *MigrationSourceSyncer) sendMigrationBundle(
 		return fmt.Errorf("failed to marshal MigrationResourceBundle (%v) - %w", bundle, err)
 	}
 
-	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
-	// Add total clusters count to CloudEvent extension for batch tracking
-	e.SetExtension(migration.ExtTotalClusters, totalClusters)
+	eventType := string(enum.ManagedClusterMigrationType)
+	expireAfter := remainingExpireTime(expireTimeFromContext(ctx))
+	e := utils.ToMigrationEvent(eventType, fromHub, toHub,
+		s.processingMigrationId, migrationv1alpha1.PhaseDeploying, expireAfter, payloadBytes)
 
-	if err := s.transportClient.GetProducer().SendEvent(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e,
-	); err != nil {
-		return fmt.Errorf(errFailedToSendEvent, constants.MigrationTargetMsgKey, fromHub, toHub, err)
+	topicCtx := cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.GetMigrationTopic())
+	const migrationPublishDeliveryTimeout = 30 * time.Second
+	err = wait.ExponentialBackoff(wait.Backoff{
+		Duration: 5 * time.Second,
+		Factor:   1.0,
+		Steps:    6,
+	}, func() (bool, error) {
+		sendErr := s.sendMigrationEventWithDelivery(topicCtx, e, migrationPublishDeliveryTimeout)
+		if sendErr == nil {
+			return true, nil
+		}
+		if !isMigrationTopicAuthorizationError(sendErr) {
+			return false, sendErr
+		}
+		log.Warnf("deploying: gh-migration publish not authorized yet from %s to %s: %v", fromHub, toHub, sendErr)
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf(errFailedToSendEvent, eventType, fromHub, toHub, err)
 	}
 
 	log.Infof("deploying: sent migration bundle from %s to %s: clusters=%d, totalClusters=%d, size=%d bytes",
 		fromHub, toHub, len(bundle.MigrationClusterResources), totalClusters, len(payloadBytes))
 
 	return nil
+}
+
+func (s *MigrationSourceSyncer) sendMigrationEventWithDelivery(
+	ctx context.Context, evt cloudevents.Event, timeout time.Duration,
+) error {
+	producer := s.transportClient.GetProducer()
+	if gp, ok := producer.(*genericproducer.GenericProducer); ok {
+		return gp.SendEventWithDeliveryConfirmation(ctx, evt, timeout)
+	}
+	return producer.SendEvent(ctx, evt)
+}
+
+func isMigrationTopicAuthorizationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "Topic authorization failed") ||
+		strings.Contains(msg, "Broker: Topic authorization failed")
 }
 
 // processResourceByType applies resource-specific processing based on resource type
@@ -591,11 +664,55 @@ func (m *MigrationSourceSyncer) registering(
 	return nil
 }
 
+// parseExpireTime parses the expirytime extension from a CloudEvent into time.Time.
+func parseExpireTime(evt *cloudevents.Event) time.Time {
+	if evt == nil {
+		return time.Time{}
+	}
+	if val, err := cetypes.ToString(evt.Extensions()[constants.CloudEventExtensionKeyExpireTime]); err == nil {
+		if t, err := time.Parse(time.RFC3339, val); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+// Context key for passing parsed expirytime through the call chain,
+// avoiding race conditions when multiple events are processed concurrently.
+type expireTimeKeyType struct{}
+
+var expireTimeKey = expireTimeKeyType{}
+
+func withExpireTime(ctx context.Context, expireTime time.Time) context.Context {
+	return context.WithValue(ctx, expireTimeKey, expireTime)
+}
+
+func expireTimeFromContext(ctx context.Context) time.Time {
+	if v, ok := ctx.Value(expireTimeKey).(time.Time); ok {
+		return v
+	}
+	return time.Time{}
+}
+
+// remainingExpireTime returns the duration until expireTime.
+// Returns 10 minutes if expireTime is zero (not set), or 0 if already past.
+func remainingExpireTime(expireTime time.Time) time.Duration {
+	if expireTime.IsZero() {
+		log.Warnf("expirytime not set, falling back to default 10 minutes")
+		return 10 * time.Minute
+	}
+	if remaining := time.Until(expireTime); remaining > 0 {
+		return remaining
+	}
+	return 0
+}
+
 func ReportMigrationStatus(
 	ctx context.Context,
 	transportClient transport.TransportClient,
 	migrationBundle *migration.MigrationStatusBundle,
 	version *eventversion.Version,
+	expireTime time.Time,
 ) error {
 	source := configs.GetLeafHubName()
 	clusterName := constants.CloudEventGlobalHubClusterName
@@ -604,9 +721,12 @@ func ReportMigrationStatus(
 		return fmt.Errorf("failed to marshal ManagedClusterMigrationBundle %w", err)
 	}
 
+	expireAfter := remainingExpireTime(expireTime)
+
 	version.Incr()
 	eventType := string(enum.ManagedClusterMigrationType)
-	e := utils.ToCloudEvent(eventType, source, clusterName, payloadBytes)
+	e := utils.ToMigrationEvent(eventType, source, clusterName,
+		migrationBundle.MigrationId, migrationBundle.Stage, expireAfter, payloadBytes)
 	e.SetExtension(eventversion.ExtVersion, version.String())
 	if transportClient != nil {
 		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
@@ -805,10 +925,7 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 		}
 	}
 
-	timeout := rollbackingTimeout
-	if spec.RollbackingTimeoutMinutes > 0 {
-		timeout = time.Duration(spec.RollbackingTimeoutMinutes) * time.Minute
-	}
+	timeout := remainingExpireTime(expireTimeFromContext(ctx))
 
 	err := wait.PollUntilContextTimeout(
 		ctx, 5*time.Second, timeout, true,
@@ -872,6 +989,7 @@ func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migratio
 			ClusterErrors:   s.clusterErrors,
 		},
 		s.bundleVersion,
+		expireTimeFromContext(ctx),
 	)
 
 	if reportErr != nil {
@@ -927,6 +1045,7 @@ func ResyncMigrationEvent(ctx context.Context, transportClient transport.Transpo
 		&migration.MigrationStatusBundle{
 			Resync: true,
 		}, eventversion.NewVersion(),
+		time.Time{},
 	)
 }
 
