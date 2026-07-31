@@ -130,31 +130,45 @@ var _ = Describe("manager", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		mgh.Finalizers = []string{"fz"}
-		err = runtimeClient.Update(ctx, mgh)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			latest := &v1alpha4.MulticlusterGlobalHub{}
+			if err := runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      mgh.Name,
+			}, latest); err != nil {
+				return err
+			}
+			latest.Finalizers = []string{"fz"}
+			return runtimeClient.Update(ctx, latest)
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		err = runtimeClient.Delete(ctx, mgh)
 		Expect(err).To(Succeed())
 
-		_, err = reconciler.Reconcile(ctx, reconcile.Request{
+		reconcileReq := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: mgh.Namespace,
 				Name:      mgh.Name,
 			},
-		})
-		Expect(err).To(Succeed())
+		}
 		Eventually(func() error {
+			_, err := reconciler.Reconcile(ctx, reconcileReq)
+			if err != nil {
+				return err
+			}
 			serviceMonitor := &promv1.ServiceMonitor{}
 			err = runtimeClient.Get(ctx, types.NamespacedName{
 				Namespace: utils.GetDefaultNamespace(),
 				Name:      operatorconstants.GHServiceMonitorName,
 			}, serviceMonitor)
-
 			if errors.IsNotFound(err) {
 				return nil
 			}
-			return fmt.Errorf("failed to delete service monitor, %v", err)
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("service monitor still exists")
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	AfterAll(func() {

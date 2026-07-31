@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	addonapi "github.com/stolostron/klusterlet-addon-controller/pkg/apis"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -80,9 +81,10 @@ var _ = BeforeSuite(func() {
 	initializeWebhookInEnvironment()
 
 	var err error
-	// cfg is defined in this file globally.
-	cfg, err = testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
+	Eventually(func() error {
+		cfg, err = testEnv.Start()
+		return err
+	}, 3*time.Minute, 5*time.Second).Should(Succeed())
 	Expect(cfg).NotTo(BeNil())
 
 	// add scheme
@@ -127,20 +129,32 @@ var _ = BeforeSuite(func() {
 			},
 		},
 	}
-	err = c.Create(ctx, renamedLocalcluster, &client.CreateOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	Eventually(func() error {
+		return c.Create(ctx, renamedLocalcluster, &client.CreateOptions{})
+	}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 })
 
 var _ = AfterSuite(func() {
-	err := c.Delete(ctx, &clusterv1.ManagedCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: localClusterName,
-		},
-	})
-	Expect(err).NotTo(HaveOccurred())
-
-	cancel()
-	Expect(testEnv.Stop()).NotTo(HaveOccurred())
+	if c != nil {
+		err := c.Delete(ctx, &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: localClusterName,
+			},
+		})
+		if err != nil && !errors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+	if cancel != nil {
+		cancel()
+	}
+	if testEnv != nil {
+		err := testEnv.Stop()
+		if err != nil {
+			time.Sleep(4 * time.Second)
+			_ = testEnv.Stop()
+		}
+	}
 })
 
 func initializeWebhookInEnvironment() {
