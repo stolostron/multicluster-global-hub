@@ -1,3 +1,4 @@
+// Package version provides generation/value semantics for status bundle versioning.
 package version
 
 import (
