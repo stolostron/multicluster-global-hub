@@ -96,18 +96,25 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(oldCount).To(Equal(int64(0)), "old format records should be deleted")
 
-			// Verify new records exist with correct format
-			var newRecords []models.Transport
-			err = db.Find(&newRecords).Error
-			Expect(err).NotTo(HaveOccurred())
-			Expect(newRecords).To(HaveLen(3))
-
-			// Verify each new record has topic@partition format
+			// Verify migrated records exist with correct format. Query only expected
+			// names — the suite-wide manager committer may insert unrelated offsets
+			// (e.g. "@0" from events with empty topic) while this test runs.
 			expectedNames := map[string]bool{
 				"old-topic-1@0": false,
 				"old-topic-2@1": false,
 				"old-topic-3@2": false,
 			}
+			expectedNameList := make([]string, 0, len(expectedNames))
+			for name := range expectedNames {
+				expectedNameList = append(expectedNameList, name)
+			}
+
+			var newRecords []models.Transport
+			err = db.Where("name IN ?", expectedNameList).Find(&newRecords).Error
+			Expect(err).NotTo(HaveOccurred())
+			Expect(newRecords).To(HaveLen(3))
+
+			// Verify each new record has topic@partition format
 
 			for _, record := range newRecords {
 				_, exists := expectedNames[record.Name]
