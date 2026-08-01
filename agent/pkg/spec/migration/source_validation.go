@@ -41,6 +41,12 @@ var migrationDeployAllowedGVKs = map[schema.GroupVersionKind]struct{}{
 	{Group: "", Version: "v1", Kind: "ConfigMap"}:                                             {},
 	{Group: "", Version: "v1", Kind: "Namespace"}:                                             {},
 	{Group: "work.open-cluster-management.io", Version: "v1", Kind: "ManifestWork"}:           {},
+	{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterDeployment"}:                    {},
+	{Group: "extensions.hive.openshift.io", Version: "v1alpha1", Kind: "ImageClusterInstall"}: {},
+	{Group: "metal3.io", Version: "v1alpha1", Kind: "BareMetalHost"}:                          {},
+	{Group: "metal3.io", Version: "v1alpha1", Kind: "HostFirmwareSettings"}:                   {},
+	{Group: "metal3.io", Version: "v1alpha1", Kind: "FirmwareSchema"}:                         {},
+	{Group: "metal3.io", Version: "v1alpha1", Kind: "HostFirmwareComponents"}:                 {},
 }
 
 // IsMigrationDeployingEvent reports whether evt is a migration resource deploying event.
@@ -172,6 +178,10 @@ func IsMigrationDeployResourceAllowed(resource *unstructured.Unstructured, clust
 	case "ManifestWork":
 		return resource.GetNamespace() == clusterName
 	case "Secret", "ConfigMap":
+		return resource.GetNamespace() == clusterName
+	case "ClusterDeployment", "ImageClusterInstall":
+		return resource.GetNamespace() == clusterName && resource.GetName() == clusterName
+	case "BareMetalHost", "HostFirmwareSettings", "FirmwareSchema", "HostFirmwareComponents":
 		return resource.GetNamespace() == clusterName
 	default:
 		return false
