@@ -299,6 +299,52 @@ func TestIsMigrationDeployResourceAllowed(t *testing.T) {
 	foreignClusterDeployment := clusterDeployment.DeepCopy()
 	foreignClusterDeployment.SetName("other-cluster")
 
+	foreignNamespaceClusterDeployment := clusterDeployment.DeepCopy()
+	foreignNamespaceClusterDeployment.SetNamespace("other-cluster")
+
+	imageClusterInstall := &unstructured.Unstructured{}
+	imageClusterInstall.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: "extensions.hive.openshift.io", Version: "v1alpha1", Kind: "ImageClusterInstall",
+	})
+	imageClusterInstall.SetNamespace("cluster1")
+	imageClusterInstall.SetName("cluster1")
+
+	foreignImageClusterInstall := imageClusterInstall.DeepCopy()
+	foreignImageClusterInstall.SetName("other-cluster")
+
+	foreignNamespaceImageClusterInstall := imageClusterInstall.DeepCopy()
+	foreignNamespaceImageClusterInstall.SetNamespace("other-cluster")
+
+	hostFirmwareSettings := &unstructured.Unstructured{}
+	hostFirmwareSettings.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: "metal3.io", Version: "v1alpha1", Kind: "HostFirmwareSettings",
+	})
+	hostFirmwareSettings.SetNamespace("cluster1")
+	hostFirmwareSettings.SetName("settings1")
+
+	foreignHostFirmwareSettings := hostFirmwareSettings.DeepCopy()
+	foreignHostFirmwareSettings.SetNamespace("other-cluster")
+
+	firmwareSchema := &unstructured.Unstructured{}
+	firmwareSchema.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: "metal3.io", Version: "v1alpha1", Kind: "FirmwareSchema",
+	})
+	firmwareSchema.SetNamespace("cluster1")
+	firmwareSchema.SetName("schema1")
+
+	foreignFirmwareSchema := firmwareSchema.DeepCopy()
+	foreignFirmwareSchema.SetNamespace("other-cluster")
+
+	hostFirmwareComponents := &unstructured.Unstructured{}
+	hostFirmwareComponents.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: "metal3.io", Version: "v1alpha1", Kind: "HostFirmwareComponents",
+	})
+	hostFirmwareComponents.SetNamespace("cluster1")
+	hostFirmwareComponents.SetName("components1")
+
+	foreignHostFirmwareComponents := hostFirmwareComponents.DeepCopy()
+	foreignHostFirmwareComponents.SetNamespace("other-cluster")
+
 	bmh := &unstructured.Unstructured{}
 	bmh.SetGroupVersionKind(schema.GroupVersionKind{
 		Group: "metal3.io", Version: "v1alpha1", Kind: "BareMetalHost",
@@ -323,7 +369,17 @@ func TestIsMigrationDeployResourceAllowed(t *testing.T) {
 		{name: "cluster secret allowed", resource: secret, clusterName: "cluster1", allowed: true},
 		{name: "foreign namespace secret denied", resource: foreignSecret, clusterName: "cluster1", allowed: false},
 		{name: "cluster deployment allowed", resource: clusterDeployment, clusterName: "cluster1", allowed: true},
-		{name: "foreign cluster deployment denied", resource: foreignClusterDeployment, clusterName: "cluster1", allowed: false},
+		{name: "foreign cluster deployment name denied", resource: foreignClusterDeployment, clusterName: "cluster1", allowed: false},
+		{name: "foreign cluster deployment namespace denied", resource: foreignNamespaceClusterDeployment, clusterName: "cluster1", allowed: false},
+		{name: "image cluster install allowed", resource: imageClusterInstall, clusterName: "cluster1", allowed: true},
+		{name: "foreign image cluster install name denied", resource: foreignImageClusterInstall, clusterName: "cluster1", allowed: false},
+		{name: "foreign image cluster install namespace denied", resource: foreignNamespaceImageClusterInstall, clusterName: "cluster1", allowed: false},
+		{name: "host firmware settings allowed", resource: hostFirmwareSettings, clusterName: "cluster1", allowed: true},
+		{name: "foreign host firmware settings denied", resource: foreignHostFirmwareSettings, clusterName: "cluster1", allowed: false},
+		{name: "firmware schema allowed", resource: firmwareSchema, clusterName: "cluster1", allowed: true},
+		{name: "foreign firmware schema denied", resource: foreignFirmwareSchema, clusterName: "cluster1", allowed: false},
+		{name: "host firmware components allowed", resource: hostFirmwareComponents, clusterName: "cluster1", allowed: true},
+		{name: "foreign host firmware components denied", resource: foreignHostFirmwareComponents, clusterName: "cluster1", allowed: false},
 		{name: "bare metal host allowed", resource: bmh, clusterName: "cluster1", allowed: true},
 		{name: "foreign bare metal host denied", resource: foreignBMH, clusterName: "cluster1", allowed: false},
 	}
