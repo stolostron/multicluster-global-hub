@@ -3,6 +3,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -11,6 +12,10 @@ import (
 
 const (
 	ConditionReasonResourcesDeployed = "ResourcesDeployed"
+
+	// migrationDeployingACLPropagationWait allows Strimzi to propagate gh-migration
+	// Write ACLs from KafkaUser to brokers before source-hub agents publish bundles.
+	migrationDeployingACLPropagationWait = 45 * time.Second
 )
 
 // Migrating - deploying:
@@ -43,6 +48,25 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 
 	fromHub := mcm.Spec.From
 	clusters := GetClusterList(string(mcm.UID))
+
+	// Allow the operator migration ACL reconciler to grant source-hub Write on
+	// gh-migration and Strimzi to propagate ACLs before hub agents publish bundles.
+	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) &&
+		!GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying) {
+		migrationID := string(mcm.GetUID())
+		readyTime, scheduled := GetDeployingACLReadyTime(migrationID)
+		if !scheduled {
+			SetDeployingACLReadyTime(migrationID, time.Now().Add(migrationDeployingACLPropagationWait))
+			condition.Message = "Waiting for migration transport ACL to be provisioned"
+			setRetry(mcm, migrationv1alpha1.PhaseDeploying, migrationv1alpha1.ConditionTypeDeployed, fromHub)
+			return true, nil
+		}
+		if time.Now().Before(readyTime) {
+			condition.Message = "Waiting for migration transport ACL to propagate"
+			setRetry(mcm, migrationv1alpha1.PhaseDeploying, migrationv1alpha1.ConditionTypeDeployed, fromHub)
+			return true, nil
+		}
+	}
 
 	// 1. source hub: start and wait the confirmation
 	//    Target hub: no need to send events to trigger deploying. This handles target hub restarts where resources may

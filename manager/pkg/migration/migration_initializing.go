@@ -145,7 +145,9 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	nextPhase = migrationv1alpha1.PhaseDeploying
 
 	log.Infof("finish initializing: %s (uid: %s)", mcm.Name, mcm.UID)
-	return false, nil
+	// Requeue before deploying so the operator migration ACL reconciler can grant
+	// source-hub Write on gh-migration after the phase transitions to Deploying.
+	return true, nil
 }
 
 // handleStatusWithRollback updates the condition and phase, transitioning to Rollbacking for most phases

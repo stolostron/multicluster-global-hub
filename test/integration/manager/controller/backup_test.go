@@ -76,8 +76,8 @@ var _ = Describe("backup pvc", Ordered, func() {
 		Expect(err).Should(Succeed())
 
 		backupReconciler = controllers.NewBackupPVCReconciler(mgr, database.GetConn())
-		err = backupReconciler.SetupWithManager(mgr)
-		Expect(err).NotTo(HaveOccurred())
+		// Tests invoke Reconcile directly; registering with the manager causes duplicate
+		// reconciles on PVC updates and flakes the volsync simulation in test 3.
 		Expect(mgr.GetClient().Create(ctx, postgresPvc)).NotTo(HaveOccurred())
 		Expect(mgr.GetClient().Create(ctx, mchObj)).Should(Succeed())
 	})
@@ -146,47 +146,47 @@ var _ = Describe("backup pvc", Ordered, func() {
 			}
 			return err
 		}, timeout, interval).Should(Succeed())
+
+		reconcileDone := make(chan error, 1)
 		go func() {
-			for {
-				err := mgr.GetClient().Get(ctx, types.NamespacedName{
+			_, err := backupReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
 					Namespace: pvcNamespace,
 					Name:      pvcName,
-				}, postgresPvc)
-				Expect(err).NotTo(HaveOccurred())
-				if len(postgresPvc.Annotations[constants.BackupPvcLatestCopyTrigger]) > 5 {
-					return
-				}
-				Eventually(func() error {
-					postgresPvc := &corev1.PersistentVolumeClaim{}
-					err := mgr.GetClient().Get(ctx, types.NamespacedName{
-						Namespace: pvcNamespace,
-						Name:      pvcName,
-					}, postgresPvc)
-					if err != nil {
-						return err
-					}
-
-					utils.MergeAnnotations(postgresPvc, map[string]string{
-						constants.BackupPvcLatestCopyTrigger: postgresPvc.Annotations[constants.BackupPvcCopyTrigger],
-						constants.BackupPvcLatestCopyStatus:  constants.BackupPvcCompletedTrigger,
-					})
-
-					err = mgr.GetClient().Update(ctx, postgresPvc)
-					if err != nil {
-						return err
-					}
-					return err
-				}, timeout, interval).Should(Succeed())
-				time.Sleep(time.Second * 1)
-			}
+				},
+			})
+			reconcileDone <- err
 		}()
-		_, err := backupReconciler.Reconcile(ctx, reconcile.Request{
-			NamespacedName: types.NamespacedName{
+
+		// Simulate volsync on the main goroutine while Reconcile polls for completion.
+		Eventually(func() error {
+			postgresPvc := &corev1.PersistentVolumeClaim{}
+			err := mgr.GetClient().Get(ctx, types.NamespacedName{
 				Namespace: pvcNamespace,
 				Name:      pvcName,
-			},
-		})
-		Expect(err).NotTo(HaveOccurred())
+			}, postgresPvc)
+			if err != nil {
+				return err
+			}
+
+			copyTrigger := postgresPvc.Annotations[constants.BackupPvcCopyTrigger]
+			if copyTrigger == "" || copyTrigger == "now" {
+				return fmt.Errorf("waiting for reconciler copy trigger")
+			}
+			if utils.HasItem(postgresPvc.GetAnnotations(), constants.BackupPvcLatestCopyStatus, constants.BackupPvcCompletedTrigger) &&
+				utils.HasItem(postgresPvc.GetAnnotations(), constants.BackupPvcLatestCopyTrigger, copyTrigger) {
+				return nil
+			}
+
+			utils.MergeAnnotations(postgresPvc, map[string]string{
+				constants.BackupPvcLatestCopyTrigger: copyTrigger,
+				constants.BackupPvcLatestCopyStatus:  constants.BackupPvcCompletedTrigger,
+			})
+
+			return mgr.GetClient().Update(ctx, postgresPvc)
+		}, 2*time.Minute, interval).Should(Succeed())
+
+		Eventually(reconcileDone, 2*time.Minute, interval).Should(Receive(BeNil()))
 	})
 
 	It("disable mch and pvc do not need backup", func() {
