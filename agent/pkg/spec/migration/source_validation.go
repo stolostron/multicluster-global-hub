@@ -23,6 +23,8 @@ import (
 
 var migrationValidationLog = logger.DefaultZapLogger()
 
+const metal3Group = "metal3.io"
+
 type localMigrationRecord struct {
 	fromHub string
 	toHub   string
@@ -43,10 +45,10 @@ var migrationDeployAllowedGVKs = map[schema.GroupVersionKind]struct{}{
 	{Group: "work.open-cluster-management.io", Version: "v1", Kind: "ManifestWork"}:           {},
 	{Group: "hive.openshift.io", Version: "v1", Kind: "ClusterDeployment"}:                    {},
 	{Group: "extensions.hive.openshift.io", Version: "v1alpha1", Kind: "ImageClusterInstall"}: {},
-	{Group: "metal3.io", Version: "v1alpha1", Kind: "BareMetalHost"}:                          {},
-	{Group: "metal3.io", Version: "v1alpha1", Kind: "HostFirmwareSettings"}:                   {},
-	{Group: "metal3.io", Version: "v1alpha1", Kind: "FirmwareSchema"}:                         {},
-	{Group: "metal3.io", Version: "v1alpha1", Kind: "HostFirmwareComponents"}:                 {},
+	{Group: metal3Group, Version: "v1alpha1", Kind: "BareMetalHost"}:                          {},
+	{Group: metal3Group, Version: "v1alpha1", Kind: "HostFirmwareSettings"}:                   {},
+	{Group: metal3Group, Version: "v1alpha1", Kind: "FirmwareSchema"}:                         {},
+	{Group: metal3Group, Version: "v1alpha1", Kind: "HostFirmwareComponents"}:                 {},
 }
 
 // IsMigrationDeployingEvent reports whether evt is a migration resource deploying event.
