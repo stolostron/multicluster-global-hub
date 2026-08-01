@@ -549,3 +549,17 @@ func TestIsMigrationDeployResourceAllowed_EmptyClusterName(t *testing.T) {
 		t.Fatal("expected empty cluster name to be rejected")
 	}
 }
+
+func TestMigrateResourcesCoveredByDeployAllowList(t *testing.T) {
+	seen := make(map[string]struct{})
+	for _, resource := range migrateResources {
+		key := resource.gvk.String()
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		if _, ok := migrationDeployAllowedGVKs[resource.gvk]; !ok {
+			t.Fatalf("migrateResources GVK %v is not in migrationDeployAllowedGVKs", resource.gvk)
+		}
+	}
+}
