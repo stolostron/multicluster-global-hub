@@ -289,6 +289,26 @@ func TestIsMigrationDeployResourceAllowed(t *testing.T) {
 	foreignSecret := secret.DeepCopy()
 	foreignSecret.SetNamespace("kube-system")
 
+	clusterDeployment := &unstructured.Unstructured{}
+	clusterDeployment.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: "hive.openshift.io", Version: "v1", Kind: "ClusterDeployment",
+	})
+	clusterDeployment.SetNamespace("cluster1")
+	clusterDeployment.SetName("cluster1")
+
+	foreignClusterDeployment := clusterDeployment.DeepCopy()
+	foreignClusterDeployment.SetName("other-cluster")
+
+	bmh := &unstructured.Unstructured{}
+	bmh.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: "metal3.io", Version: "v1alpha1", Kind: "BareMetalHost",
+	})
+	bmh.SetNamespace("cluster1")
+	bmh.SetName("node0")
+
+	foreignBMH := bmh.DeepCopy()
+	foreignBMH.SetNamespace("other-cluster")
+
 	cases := []struct {
 		name        string
 		resource    *unstructured.Unstructured
@@ -302,6 +322,10 @@ func TestIsMigrationDeployResourceAllowed(t *testing.T) {
 		{name: "cluster role denied", resource: clusterRole, clusterName: "cluster1", allowed: false},
 		{name: "cluster secret allowed", resource: secret, clusterName: "cluster1", allowed: true},
 		{name: "foreign namespace secret denied", resource: foreignSecret, clusterName: "cluster1", allowed: false},
+		{name: "cluster deployment allowed", resource: clusterDeployment, clusterName: "cluster1", allowed: true},
+		{name: "foreign cluster deployment denied", resource: foreignClusterDeployment, clusterName: "cluster1", allowed: false},
+		{name: "bare metal host allowed", resource: bmh, clusterName: "cluster1", allowed: true},
+		{name: "foreign bare metal host denied", resource: foreignBMH, clusterName: "cluster1", allowed: false},
 	}
 
 	for _, tc := range cases {
