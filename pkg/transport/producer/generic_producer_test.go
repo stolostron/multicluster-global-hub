@@ -292,3 +292,51 @@ func TestSplitPayloadIntoChunks(t *testing.T) {
 
 	require.Empty(t, p.splitPayloadIntoChunks(nil))
 }
+
+func TestExpectedDeliveryReports(t *testing.T) {
+	p := &GenericProducer{messageSizeLimit: 4}
+	evt := cloudeventsEventWithData([]byte("123456789"))
+	require.Equal(t, 3, p.expectedDeliveryReports(evt))
+
+	empty := cloudevents.NewEvent()
+	require.Equal(t, 1, p.expectedDeliveryReports(empty))
+}
+
+func TestSendEvent_chunkedPayload(t *testing.T) {
+	tranConfig := &transport.TransportInternalConfig{
+		TransportType: string(transport.Chan),
+		Extends:       make(map[string]interface{}),
+	}
+	p, err := NewGenericProducer(tranConfig, "gh-spec", nil)
+	require.NoError(t, err)
+
+	ch := p.ceProtocol.(*gochan.SendReceiver)
+	receiver, err := cloudevents.NewClient(ch, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
+	require.NoError(t, err)
+
+	received := make(chan cloudevents.Event, 4)
+	go func() {
+		_ = receiver.StartReceiver(context.Background(), func(ctx context.Context, e cloudevents.Event) error {
+			received <- e
+			return nil
+		})
+	}()
+
+	p.messageSizeLimit = 4
+	evt := cloudevents.NewEvent()
+	evt.SetType("test.event")
+	evt.SetSource("test-source")
+	require.NoError(t, evt.SetData(cloudevents.ApplicationJSON, []byte("123456789")))
+	require.NoError(t, p.SendEvent(context.Background(), evt))
+
+	var count int
+	deadline := time.After(time.Second)
+	for count < 3 {
+		select {
+		case <-received:
+			count++
+		case <-deadline:
+			t.Fatalf("expected 3 chunked events, got %d", count)
+		}
+	}
+}
