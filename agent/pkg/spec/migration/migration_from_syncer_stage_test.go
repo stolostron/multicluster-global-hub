@@ -13,6 +13,7 @@ import (
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 )
 
 func TestHandleStage_requiresMigrationId(t *testing.T) {
@@ -129,6 +130,7 @@ func TestExecuteStage_rollbackingDoesNotMarkCompleted(t *testing.T) {
 
 func TestHandleStage_startsNewMigration(t *testing.T) {
 	syncer := &MigrationSourceSyncer{
+		bundleVersion: eventversion.NewVersion(),
 		completedStages: map[string]string{
 			migrationv1alpha1.PhaseCleaning: "completed",
 		},
@@ -144,6 +146,7 @@ func TestHandleStage_startsNewMigration(t *testing.T) {
 
 func TestHandleStage_resetsOnValidatingMigrationSwitch(t *testing.T) {
 	syncer := &MigrationSourceSyncer{
+		bundleVersion:         eventversion.NewVersion(),
 		processingMigrationId: "migration-old",
 		completedStages: map[string]string{
 			migrationv1alpha1.PhaseDeploying: "completed",
