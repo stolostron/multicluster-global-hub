@@ -57,6 +57,7 @@ fi
 
 echo "Delete e2e nonk8s NodePort service"
 kubectl delete service multicluster-global-hub-manager-nonk8s-service -n "$GH_NAMESPACE" --ignore-not-found=true
+kubectl delete service multicluster-global-hub-manager-nonk8s-service -n mgh --ignore-not-found=true
 
 cd operator
 make undeploy

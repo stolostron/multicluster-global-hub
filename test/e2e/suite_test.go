@@ -336,40 +336,8 @@ func deployGlobalHub() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Removing stale e2e nonk8s NodePort service if present")
-	// nodePort 30080 is cluster-scoped; transport-identity may leave the service in the default GH ns while BYO deploys to mgh.
-	nonk8sServiceNamespaces := []string{testOptions.GlobalHub.Namespace, commonconstants.GHDefaultNamespace}
-	seenNamespaces := map[string]struct{}{}
-	for _, ns := range nonk8sServiceNamespaces {
-		if ns == "" {
-			continue
-		}
-		if _, exists := seenNamespaces[ns]; exists {
-			continue
-		}
-		seenNamespaces[ns] = struct{}{}
-		err = testClients.KubeClient().CoreV1().Services(ns).Delete(ctx,
-			"multicluster-global-hub-manager-nonk8s-service", metav1.DeleteOptions{})
-		if err != nil && !errors.IsNotFound(err) {
-			Expect(err).NotTo(HaveOccurred())
-		}
-	}
-
-	Eventually(func() error {
-		for _, ns := range nonk8sServiceNamespaces {
-			if ns == "" {
-				continue
-			}
-			_, err := testClients.KubeClient().CoreV1().Services(ns).Get(
-				ctx, "multicluster-global-hub-manager-nonk8s-service", metav1.GetOptions{})
-			if err == nil {
-				return fmt.Errorf("nonk8s service still exists in namespace %s", ns)
-			}
-			if !errors.IsNotFound(err) {
-				return err
-			}
-		}
-		return nil
-	}, 30*time.Second, time.Second).Should(Succeed())
+	// nodePort 30080 is cluster-scoped; BYO deploys to mgh while later suites use multicluster-global-hub.
+	deleteServicesUsingNodePort(30080)
 
 	Expect(utils.Apply(testClients, testOptions,
 		utils.RenderOptions{Namespace: testOptions.GlobalHub.Namespace, KustomizationPath: fmt.Sprintf("%s/test/manifest/resources", rootDir)})).NotTo(HaveOccurred())
@@ -586,6 +554,45 @@ func patchGHDeployment(runtimeClient client.Client, namespace, name string) erro
 	args := deployment.Spec.Template.Spec.Containers[0].Args
 	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
 	return runtimeClient.Update(ctx, deployment)
+}
+
+func deleteServicesUsingNodePort(nodePort int32) {
+	serviceList, err := testClients.KubeClient().CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for i := range serviceList.Items {
+		svc := &serviceList.Items[i]
+		if !serviceUsesNodePort(svc, nodePort) {
+			continue
+		}
+		err = testClients.KubeClient().CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+
+	Eventually(func() error {
+		serviceList, err := testClients.KubeClient().CoreV1().Services("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for i := range serviceList.Items {
+			svc := &serviceList.Items[i]
+			if serviceUsesNodePort(svc, nodePort) {
+				return fmt.Errorf("service %s/%s still uses nodePort %d", svc.Namespace, svc.Name, nodePort)
+			}
+		}
+		return nil
+	}, time.Minute, time.Second).Should(Succeed())
+}
+
+func serviceUsesNodePort(svc *corev1.Service, nodePort int32) bool {
+	for _, port := range svc.Spec.Ports {
+		if port.NodePort == nodePort {
+			return true
+		}
+	}
+	return false
 }
 
 func writeFile(bytes []byte, file string) error {
