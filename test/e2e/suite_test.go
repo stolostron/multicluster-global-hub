@@ -298,6 +298,42 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Removing stale e2e nonk8s NodePort service if present")
+	// nodePort 30080 is cluster-scoped; transport-identity may leave the service in the default GH ns while BYO deploys to mgh.
+	nonk8sServiceNamespaces := []string{testOptions.GlobalHub.Namespace, commonconstants.GHDefaultNamespace}
+	seenNamespaces := map[string]struct{}{}
+	for _, ns := range nonk8sServiceNamespaces {
+		if ns == "" {
+			continue
+		}
+		if _, exists := seenNamespaces[ns]; exists {
+			continue
+		}
+		seenNamespaces[ns] = struct{}{}
+		err = testClients.KubeClient().CoreV1().Services(ns).Delete(ctx,
+			"multicluster-global-hub-manager-nonk8s-service", metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+
+	Eventually(func() error {
+		for _, ns := range nonk8sServiceNamespaces {
+			if ns == "" {
+				continue
+			}
+			_, err := testClients.KubeClient().CoreV1().Services(ns).Get(
+				ctx, "multicluster-global-hub-manager-nonk8s-service", metav1.GetOptions{})
+			if err == nil {
+				return fmt.Errorf("nonk8s service still exists in namespace %s", ns)
+			}
+			if !errors.IsNotFound(err) {
+				return err
+			}
+		}
+		return nil
+	}, time.Minute, time.Second).Should(Succeed())
+
 	Expect(utils.Apply(testClients, testOptions,
 		utils.RenderOptions{Namespace: testOptions.GlobalHub.Namespace, KustomizationPath: fmt.Sprintf("%s/test/manifest/resources", rootDir)})).NotTo(HaveOccurred())
 	Expect(utils.Apply(testClients, testOptions,
