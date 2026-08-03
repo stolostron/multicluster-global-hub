@@ -37,7 +37,7 @@ func NewKafkaEventPublisher(ctx context.Context, c client.Client, namespace stri
 		return nil, fmt.Errorf("get transport secret in namespace %s: %w", namespace, err)
 	}
 
-	kafkaConfig, err := transportconfig.GetKafkaCredentialBySecret(secret, c)
+	kafkaConfig, err := transportconfig.GetKafkaCredentailBySecret(secret, c)
 	if err != nil {
 		return nil, fmt.Errorf("parse kafka credentials: %w", err)
 	}

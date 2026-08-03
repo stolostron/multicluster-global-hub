@@ -101,7 +101,11 @@ var _ = BeforeSuite(func() {
 
 	By("Start cloudevents producer and consumer")
 	managerConfig.TransportConfig.IsManager = false
-	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
+	producer, err = genericproducer.NewGenericProducer(
+		managerConfig.TransportConfig,
+		managerConfig.TransportConfig.KafkaCredential.StatusTopic,
+		nil,
+	)
 	Expect(err).NotTo(HaveOccurred())
 
 	managerConfig.TransportConfig.IsManager = true

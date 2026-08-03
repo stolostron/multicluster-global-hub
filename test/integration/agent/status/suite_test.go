@@ -248,7 +248,7 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternal
 
 		// mock the producer in agent
 		transConfig.IsManager = false
-		producer, err := genericproducer.NewGenericProducer(transConfig)
+		producer, err := genericproducer.NewGenericProducer(transConfig, topic, nil)
 		if err != nil {
 			return trans, err
 		}

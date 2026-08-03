@@ -5,17 +5,18 @@ import "sigs.k8s.io/kustomize/kyaml/yaml"
 // KafkaConfig is used to connect the transporter instance.
 // This struct can be marshalled into a single Secret entry like "kafka.yaml".
 type KafkaConfig struct {
-	BootstrapServer  string `yaml:"bootstrap.server"`
-	StatusTopic      string `yaml:"topic.status,omitempty"`
-	SpecTopic        string `yaml:"topic.spec,omitempty"`
-	MigrationTopic   string `yaml:"topic.migration,omitempty"`
-	ClusterID        string `yaml:"cluster.id,omitempty"`
-	CACert           string `yaml:"ca.crt,omitempty"`
-	ClientCert       string `yaml:"client.crt,omitempty"`
-	ClientKey        string `yaml:"client.key,omitempty"`
-	CASecretName     string `yaml:"ca.secret,omitempty"`
-	ClientSecretName string `yaml:"client.secret,omitempty"`
-	ConsumerGroupID  string `yaml:"consumergroup.id,omitempty"`
+	BootstrapServer   string `yaml:"bootstrap.server"`
+	StatusTopic       string `yaml:"topic.status,omitempty"`
+	SpecTopic         string `yaml:"topic.spec,omitempty"`
+	MigrationTopic    string `yaml:"topic.migration,omitempty"`
+	ClusterID         string `yaml:"cluster.id,omitempty"`
+	CACert            string `yaml:"ca.crt,omitempty"`
+	ClientCert        string `yaml:"client.crt,omitempty"`
+	ClientKey         string `yaml:"client.key,omitempty"`
+	CASecretName      string `yaml:"ca.secret,omitempty"`
+	ClientSecretName  string `yaml:"client.secret,omitempty"`
+	ConsumerGroupID   string `yaml:"consumergroup.id,omitempty"`
+	IsNewKafkaCluster bool   `yaml:"isNewKafkaCluster,omitempty"`
 }
 
 // YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
@@ -36,17 +37,18 @@ func (k *KafkaConfig) YamlMarshal(rawCert bool) ([]byte, error) {
 // DeepCopy creates a deep copy of KafkaConnCredential
 func (k *KafkaConfig) DeepCopy() *KafkaConfig {
 	return &KafkaConfig{
-		BootstrapServer:  k.BootstrapServer,
-		StatusTopic:      k.StatusTopic,
-		SpecTopic:        k.SpecTopic,
-		MigrationTopic:   k.MigrationTopic,
-		ClusterID:        k.ClusterID,
-		ConsumerGroupID:  k.ConsumerGroupID,
-		CACert:           k.CACert,
-		ClientCert:       k.ClientCert,
-		ClientKey:        k.ClientKey,
-		CASecretName:     k.CASecretName,
-		ClientSecretName: k.ClientSecretName,
+		BootstrapServer:   k.BootstrapServer,
+		StatusTopic:       k.StatusTopic,
+		SpecTopic:         k.SpecTopic,
+		MigrationTopic:    k.MigrationTopic,
+		ClusterID:         k.ClusterID,
+		ConsumerGroupID:   k.ConsumerGroupID,
+		CACert:            k.CACert,
+		ClientCert:        k.ClientCert,
+		ClientKey:         k.ClientKey,
+		CASecretName:      k.CASecretName,
+		ClientSecretName:  k.ClientSecretName,
+		IsNewKafkaCluster: k.IsNewKafkaCluster,
 	}
 }
 

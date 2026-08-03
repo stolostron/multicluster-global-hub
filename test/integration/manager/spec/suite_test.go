@@ -125,7 +125,11 @@ var _ = BeforeSuite(func() {
 
 	By("Create consumer/producer")
 	managerConfig.TransportConfig.IsManager = true
-	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
+	producer, err = genericproducer.NewGenericProducer(
+		managerConfig.TransportConfig,
+		managerConfig.TransportConfig.KafkaCredential.SpecTopic,
+		nil,
+	)
 	Expect(err).NotTo(HaveOccurred())
 	managerConfig.TransportConfig.IsManager = false
 	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig)

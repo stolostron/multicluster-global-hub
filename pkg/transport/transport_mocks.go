@@ -13,7 +13,7 @@ import (
 // ProducerMock is a mock for the producer interface, intended for use in unit tests.
 type ProducerMock struct {
 	SendEventFunc func(ctx context.Context, evt cloudevents.Event) error
-	ReconnectFunc func(config *TransportInternalConfig) error
+	ReconnectFunc func(config *TransportInternalConfig, topic string) error
 }
 
 // Make sure we implement the producer interface:
@@ -29,12 +29,12 @@ func (m *ProducerMock) SendEvent(ctx context.Context, evt event.Event) error {
 	return m.SendEventFunc(ctx, evt)
 }
 
-func (m *ProducerMock) Reconnect(config *TransportInternalConfig) error {
+func (m *ProducerMock) Reconnect(config *TransportInternalConfig, topic string) error {
 	if m == nil {
 		panic("nil mock")
 	}
 	if m.ReconnectFunc == nil {
 		panic("nil ReconnectFunc")
 	}
-	return m.ReconnectFunc(config)
+	return m.ReconnectFunc(config, topic)
 }
