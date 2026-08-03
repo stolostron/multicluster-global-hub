@@ -686,7 +686,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 
 	kafkaStatus := KafkaStatus{
 		kafkaReady:   false,
-		kafkaReason:  "KafkaNotReady",
+		kakfaReason:  "KafkaNotReady",
 		kafkaMessage: "Wait kafka cluster ready",
 	}
 
@@ -724,7 +724,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 				return kafkaStatus, nil
 			}
 			kafkaStatus.kafkaMessage = *condition.Message
-			kafkaStatus.kafkaReason = *condition.Reason
+			kafkaStatus.kakfaReason = *condition.Reason
 			return kafkaStatus, nil
 		}
 	}
