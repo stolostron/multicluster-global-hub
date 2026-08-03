@@ -19,11 +19,13 @@ type MigrationStatus struct {
 }
 
 type StageState struct {
-	started       bool
-	finished      bool
-	error         string
-	clusterErrors map[string]string // cluster name -> error message
-	lastStartTime time.Time         // the last start time of the stage
+	started                bool
+	finished               bool
+	error                  string
+	clusterErrors          map[string]string // cluster name -> error message
+	lastStartTime          time.Time         // the last start time of the stage
+	failedClusters         []string          // clusters that failed to migrate (for rollback)
+	failedClustersReported bool              // whether failed clusters have been explicitly reported
 }
 
 // AddMigrationStatus init the migration status for the migrationId
@@ -210,6 +212,38 @@ func GetClusterErrors(migrationId, hub, phase string) map[string]string {
 		return p.clusterErrors
 	}
 	return nil
+}
+
+// SetFailedClusters sets the failed clusters list for the given migration stage.
+func SetFailedClusters(migrationId, hub, phase string, clusters []string) {
+	mu.Lock()
+	defer mu.Unlock()
+	if p := getStageState(migrationId, hub, phase); p != nil {
+		p.failedClusters = clusters
+		p.failedClustersReported = true
+		log.Infof("set failed clusters for migrationId: %s, hub: %s, phase: %s, clusters: %v",
+			migrationId, hub, phase, clusters)
+	}
+}
+
+// GetFailedClusters returns the failed clusters list for the given migration stage.
+func GetFailedClusters(migrationId, hub, phase string) []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	if p := getStageState(migrationId, hub, phase); p != nil {
+		return p.failedClusters
+	}
+	return nil
+}
+
+// HasFailedClustersReported returns true if failed clusters have been reported for the given stage.
+func HasFailedClustersReported(migrationId, hub, phase string) bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	if p := getStageState(migrationId, hub, phase); p != nil {
+		return p.failedClustersReported
+	}
+	return false
 }
 
 func GetReadyClusters(migrationId, hub, phase string) []string {
