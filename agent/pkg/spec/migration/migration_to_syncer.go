@@ -553,13 +553,20 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 			resourceEvent.MigrationId)
 	}
 
-	// Initialize batch tracking - read TotalClusters from payload
+	// Initialize batch tracking - read total cluster count from CloudEvents extension
 	if s.deployingProcessedClusters == nil {
-		totalClusters := resourceEvent.TotalClusters
+		totalClusters := 0
+		if val, err := cetypes.ToInteger(evt.Extensions()[migration.ExtTotalClusters]); err == nil {
+			totalClusters = int(val)
+		} else {
+			s.mu.Unlock()
+			log.Errorf("deploying: failed to convert totalclusters extension to integer: %v", err)
+			return fmt.Errorf("failed to convert totalclusters extension to integer: %v", err)
+		}
 		if totalClusters == 0 {
 			s.mu.Unlock()
-			log.Error("deploying: totalClusters in payload is 0, expecting at least 1 cluster")
-			return fmt.Errorf("totalClusters in payload is 0, expecting at least 1 cluster")
+			log.Error("deploying: totalclusters extension is 0, expecting at least 1 cluster")
+			return fmt.Errorf("totalclusters extension is 0, expecting at least 1 cluster")
 		}
 		s.deployingTotalClusters = totalClusters
 		s.deployingProcessedClusters = make(map[string]bool)

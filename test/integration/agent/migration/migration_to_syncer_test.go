@@ -367,7 +367,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			addonObj.SetAPIVersion("agent.open-cluster-management.io/v1")
 
 			migrationResources := &migration.MigrationResourceBundle{
-				TotalClusters: 1,
+				MigrationId: testMigrationID,
 				MigrationClusterResources: []migration.MigrationClusterResource{
 					{
 						ClusterName: testClusterName,
@@ -383,6 +383,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			if err := event.SetData("application/json", data); err != nil {
 				panic(err)
 			}
+			event.SetExtension(migration.ExtTotalClusters, 1)
 
 			By("Processing the deployment event")
 			migrationSyncer.SetMigrationID(testMigrationID)
