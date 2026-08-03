@@ -116,7 +116,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			&mchv1.MultiClusterHub{ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"}},
 			&addonv1.KlusterletAddonConfig{ObjectMeta: metav1.ObjectMeta{Name: testClusterName, Namespace: testClusterName}},
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}},
-			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.GetDefaultNamespace()}},
 		}
 		// delete the configmap using the test's namespace (not global config which may have changed)
 		_ = runtimeClient.Delete(testCtx, &corev1.ConfigMap{
@@ -128,6 +127,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		for _, resource := range resources {
 			_ = runtimeClient.Delete(testCtx, resource)
 		}
+		// Keep multicluster-global-hub namespace: MigrationToSyncer reuses it for shadow migration CRs.
 		testCtxCancel()
 	})
 
@@ -563,9 +563,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub, []string{"non-existent-cluster"})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId: "error-test-2",
-				Stage:       migrationv1alpha1.PhaseValidating,
-				ToHub:       testToHub,
+				ToHub: testToHub,
 			})
 
 			err := migrationSyncer.Sync(testCtx, event)
@@ -575,10 +573,8 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			time.Sleep(10 * time.Millisecond)
 
 			By("Creating migration event for non-existent cluster")
-			initEvent := createMigrationFromEvent("error-test-2", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{"non-existent-cluster"})
+			initEvent := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{"non-existent-cluster"})
 			initEvent.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
-				MigrationId:     "error-test-2",
-				Stage:           migrationv1alpha1.PhaseInitializing,
 				ToHub:           testToHub,
 				ManagedClusters: []string{"non-existent-cluster"},
 				BootstrapSecret: cleanBootstrapSecret,
