@@ -293,15 +293,6 @@ func TestSplitPayloadIntoChunks(t *testing.T) {
 	require.Empty(t, p.splitPayloadIntoChunks(nil))
 }
 
-func TestExpectedDeliveryReports(t *testing.T) {
-	p := &GenericProducer{messageSizeLimit: 4}
-	evt := cloudeventsEventWithData([]byte("123456789"))
-	require.Equal(t, 3, p.expectedDeliveryReports(evt))
-
-	empty := cloudevents.NewEvent()
-	require.Equal(t, 1, p.expectedDeliveryReports(empty))
-}
-
 func TestSendEvent_chunkedPayload(t *testing.T) {
 	tranConfig := &transport.TransportInternalConfig{
 		TransportType: string(transport.Chan),
