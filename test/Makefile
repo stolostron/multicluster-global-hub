@@ -21,6 +21,7 @@ e2e-test-all: tidy vendor
 	sh ./test/script/e2e_run.sh -f "e2e-test-transport-identity" -v $(VERBOSE)
 	sh ./test/script/e2e_run_byo.sh -v $(VERBOSE)
 	sh ./test/script/e2e_clean_globalhub.sh -n mgh
+	sh ./test/script/e2e_clean_globalhub.sh
 	sh ./test/script/e2e_run.sh -f "e2e-test-transport-migration-topic" -v $(VERBOSE)
 
 e2e-test-cluster e2e-test-local-agent e2e-test-placement e2e-test-app e2e-test-policy e2e-test-localpolicy e2e-test-grafana e2e-test-agent e2e-test-transport-identity e2e-test-transport-migration-topic: tidy vendor
