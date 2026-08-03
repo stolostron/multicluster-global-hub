@@ -27,8 +27,20 @@ const (
 
 var _ = Describe("Deploy the application to the managed cluster", Label("e2e-test-app"), Ordered, func() {
 	BeforeAll(func() {
-		_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", APP_SUB_YAML)
-		Expect(err).To(Succeed())
+		By("Clean up overlapping helloworld app resources from the placement e2e")
+		Eventually(func() error {
+			if _, err := testClients.Kubectl(testOptions.GlobalHub.Name, "delete", "-f", PLACEMENT_APP_SUB_YAML, "--ignore-not-found"); err != nil {
+				return err
+			}
+			_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "delete", "-f", APP_SUB_YAML, "--ignore-not-found")
+			return err
+		}, 2*time.Minute, 5*time.Second).Should(Succeed())
+
+		By("Deploy the application subscription manifest")
+		Eventually(func() error {
+			_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", APP_SUB_YAML)
+			return err
+		}, 2*time.Minute, 5*time.Second).Should(Succeed())
 	})
 	Context("deploy the application", func() {
 		It("deploy the application/subscription", func() {
