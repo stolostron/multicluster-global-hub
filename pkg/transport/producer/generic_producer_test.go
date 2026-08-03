@@ -4,11 +4,13 @@
 package producer
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stretchr/testify/require"
 
@@ -247,4 +249,46 @@ func cloudeventsEventWithData(data []byte) cloudevents.Event {
 	evt.SetType("test.event")
 	_ = evt.SetData(cloudevents.ApplicationJSON, data)
 	return evt
+}
+
+func TestSendEventWithDeliveryConfirmation_nonKafkaTransport(t *testing.T) {
+	tranConfig := &transport.TransportInternalConfig{
+		TransportType: string(transport.Chan),
+		Extends:       make(map[string]interface{}),
+	}
+	p, err := NewGenericProducer(tranConfig, "gh-spec", nil)
+	require.NoError(t, err)
+	require.Nil(t, p.kafkaProducer)
+
+	ch := p.ceProtocol.(*gochan.SendReceiver)
+	receiver, err := cloudevents.NewClient(ch, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		_ = receiver.StartReceiver(context.Background(), func(ctx context.Context, e cloudevents.Event) error {
+			close(done)
+			return nil
+		})
+	}()
+
+	evt := cloudevents.NewEvent()
+	evt.SetType("test.event")
+	evt.SetSource("test-source")
+	err = p.SendEventWithDeliveryConfirmation(context.Background(), evt, time.Second)
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("expected event to be delivered on chan transport")
+	}
+}
+
+func TestSplitPayloadIntoChunks(t *testing.T) {
+	p := &GenericProducer{messageSizeLimit: 3}
+	chunks := p.splitPayloadIntoChunks([]byte("123456"))
+	require.Equal(t, [][]byte{[]byte("123"), []byte("456")}, chunks)
+
+	require.Empty(t, p.splitPayloadIntoChunks(nil))
 }

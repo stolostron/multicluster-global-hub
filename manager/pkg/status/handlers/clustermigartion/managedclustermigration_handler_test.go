@@ -109,3 +109,70 @@ func TestHandleMigrationEvent(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleMigrationEventUsesClusterNameExtension(t *testing.T) {
+	migrationId := "clustername-ext-123"
+	migration.AddMigrationStatus(migrationId)
+	defer migration.RemoveMigrationStatus(migrationId)
+
+	handler := &managedClusterMigrationHandler{}
+
+	event := cloudevents.NewEvent()
+	event.SetSource("hub1")
+	event.SetType("com.example.migration")
+	event.SetExtension(constants.CloudEventExtensionKeyClusterName, constants.CloudEventGlobalHubClusterName)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseInitializing)
+	require.NoError(t, event.SetData(cloudevents.ApplicationJSON, migrationbundle.MigrationStatusBundle{}))
+
+	err := handler.handle(context.Background(), &event)
+	assert.NoError(t, err)
+	assert.True(t, migration.GetFinished(migrationId, "hub1", migrationv1alpha1.PhaseInitializing))
+}
+
+func TestHandleMigrationEventFailedClustersReported(t *testing.T) {
+	migrationId := "failed-clusters-123"
+	migration.AddMigrationStatus(migrationId)
+	defer migration.RemoveMigrationStatus(migrationId)
+
+	handler := &managedClusterMigrationHandler{}
+
+	event := cloudevents.NewEvent()
+	event.SetSource("hub1")
+	event.SetType("com.example.migration")
+	event.SetSubject(constants.CloudEventGlobalHubClusterName)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseValidating)
+	require.NoError(t, event.SetData(cloudevents.ApplicationJSON, migrationbundle.MigrationStatusBundle{
+		FailedClustersReported: true,
+		FailedClusters:         []string{"cluster1", "cluster2"},
+	}))
+
+	err := handler.handle(context.Background(), &event)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"cluster1", "cluster2"},
+		migration.GetFailedClusters(migrationId, "hub1", migrationv1alpha1.PhaseValidating))
+}
+
+func TestHandleMigrationEventResync(t *testing.T) {
+	migrationId := "resync-123"
+	migration.AddMigrationStatus(migrationId)
+	migration.SetFinished(migrationId, "hub1", migrationv1alpha1.PhaseInitializing)
+	defer migration.RemoveMigrationStatus(migrationId)
+
+	handler := &managedClusterMigrationHandler{}
+
+	event := cloudevents.NewEvent()
+	event.SetSource("hub1")
+	event.SetType("com.example.migration")
+	event.SetSubject(constants.CloudEventGlobalHubClusterName)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseInitializing)
+	require.NoError(t, event.SetData(cloudevents.ApplicationJSON, migrationbundle.MigrationStatusBundle{
+		Resync: true,
+	}))
+
+	err := handler.handle(context.Background(), &event)
+	assert.NoError(t, err)
+	assert.False(t, migration.GetFinished(migrationId, "hub1", migrationv1alpha1.PhaseInitializing))
+}
