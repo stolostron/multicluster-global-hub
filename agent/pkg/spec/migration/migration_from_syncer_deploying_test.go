@@ -44,7 +44,7 @@ func TestProcessResourceByType_ManagedCluster(t *testing.T) {
 			"metadata": map[string]interface{}{
 				"annotations": map[string]interface{}{
 					constants.ManagedClusterMigrating: "true",
-					KlusterletConfigAnnotation:      "config",
+					KlusterletConfigAnnotation:        "config",
 				},
 			},
 			"spec": map[string]interface{}{
