@@ -15,10 +15,6 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 export ISBYO="true"
 
-# transport-identity runs in multicluster-global-hub before BYO; undeploy it so
-# cluster-scoped operator RBAC and nodePort 30080 are free for the mgh deploy.
-bash "$CURRENT_DIR/e2e_clean_globalhub.sh"
-
 target_namespace=${TARGET_NAMESPACE:-"mgh"}
 export NAMESPACE="$target_namespace"
 
@@ -87,19 +83,7 @@ kubectl create secret generic "$transport_secret" -n "${target_namespace}" --kub
   --from-file=client.key="${CURRENT_DIR}"/config/kafka-client-key.pem
 echo "transport secret is ready in ${target_namespace} namespace!"
 
-# nodePort 30080 is cluster-scoped; BYO leaves the nonk8s service in mgh.
-echo "Delete stale nonk8s NodePort services"
-kubectl delete service multicluster-global-hub-manager-nonk8s-service -n multicluster-global-hub \
-  --kubeconfig "$GH_KUBECONFIG" --ignore-not-found=true
-kubectl delete service multicluster-global-hub-manager-nonk8s-service -n mgh \
-  --kubeconfig "$GH_KUBECONFIG" --ignore-not-found=true
-
 ## run e2e
 bash "$CURRENT_DIR/e2e_run.sh" -n ${target_namespace} -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
-
-# Clean up MulticlusterGlobalHub resources before migration tests
-echo "Cleaning up BYO test resources..."
-kubectl delete multiclusterglobalhubs --all -n ${target_namespace} --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
-kubectl delete service multicluster-global-hub-manager-nonk8s-service -n ${target_namespace} --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
 
 unset ISBYO
