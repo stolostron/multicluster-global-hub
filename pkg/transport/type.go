@@ -8,6 +8,8 @@ const (
 	Broadcast      = "broadcast" // Broadcast can be used as destination when a bundle should be broadcasted.
 	ChunkSizeKey   = "extsize"   // ChunkSizeKey is the key used for total bundle size header.
 	ChunkOffsetKey = "extoffset" // ChunkOffsetKey is the key used for message fragment offset header.
+	// DeliveryCorrelationKey tags Kafka messages during producer delivery confirmation.
+	DeliveryCorrelationKey = "deliverycorrelation"
 )
 
 // indicate the transport type, only support kafka or go chan
@@ -40,7 +42,7 @@ type TransportInternalConfig struct {
 	// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 	EnableDatabaseOffset bool
 	ConsumerGroupId      string
-	// set the kafka credentail in the transport controller
+	// set the kafka credential in the transport controller
 	KafkaCredential   *KafkaConfig
 	RestfulCredential *RestfulConfig
 	Extends           map[string]interface{}
@@ -71,15 +73,16 @@ type KafkaConsumerConfig struct {
 
 // topics
 type ClusterTopic struct {
-	SpecTopic   string
-	StatusTopic string
+	SpecTopic      string
+	MigrationTopic string
+	StatusTopic    string
 }
 
 type EventPosition struct {
 	Topic     string `json:"-"`
 	Partition int32  `json:"partition"`
 	Offset    int64  `json:"offset"`
-	// define the kafka cluster identiy:
+	// define the kafka cluster identity:
 	// 1. built in kafka, use the kafka cluster id
 	// 2. byo kafka, use the kafka bootstrapserver as the identity
 	OwnerIdentity string `json:"ownerIdentity"`
