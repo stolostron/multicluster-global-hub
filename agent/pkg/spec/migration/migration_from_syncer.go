@@ -320,7 +320,7 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 	toHub := source.ToHub
 	totalClusters := len(source.ManagedClusters)
 
-	migrationBundle := migration.NewMigrationResourceBundle(totalClusters)
+	migrationBundle := migration.NewMigrationResourceBundle(source.MigrationId)
 
 	// collect clusters and klusterletAddonConfig for migration
 	for _, managedCluster := range source.ManagedClusters {
@@ -406,6 +406,7 @@ func (s *MigrationSourceSyncer) sendMigrationBundle(
 	expireAfter := remainingExpireTime(expireTimeFromContext(ctx))
 	e := utils.ToMigrationEvent(eventType, fromHub, toHub,
 		s.processingMigrationId, migrationv1alpha1.PhaseDeploying, expireAfter, payloadBytes)
+	e.SetExtension(migration.ExtTotalClusters, totalClusters)
 
 	topicCtx := cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.GetMigrationTopic())
 	const migrationPublishDeliveryTimeout = 30 * time.Second
