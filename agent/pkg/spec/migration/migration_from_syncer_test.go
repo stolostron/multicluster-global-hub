@@ -501,6 +501,8 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
 				"hub2", payload)
 			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, c.receivedMigrationEventBundle.MigrationId)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, string(c.receivedMigrationEventBundle.Stage))
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if err != nil {
 				t.Errorf("Failed to sync managed cluster migration: %v", err)
@@ -509,10 +511,17 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			sentEvent := producer.sentEvent
 			expectEvent := c.expectedProduceEvent
 			if expectEvent != nil {
-				assert.Equal(t, sentEvent.Type(), expectEvent.Type())
-				assert.Equal(t, sentEvent.Type(), expectEvent.Type())
-				assert.Equal(t, sentEvent.Source(), expectEvent.Source())
-				assert.Equal(t, sentEvent.Extensions(), sentEvent.Extensions())
+				if assert.NotNil(t, sentEvent) {
+					assert.Equal(t, expectEvent.Type(), sentEvent.Type())
+					assert.Equal(t, expectEvent.Source(), sentEvent.Source())
+					assert.Equal(t, c.receivedMigrationEventBundle.MigrationId,
+						sentEvent.Extensions()[constants.CloudEventExtensionKeyMigrationId])
+					assert.Equal(t, string(c.receivedMigrationEventBundle.Stage),
+						sentEvent.Extensions()[constants.CloudEventExtensionKeyMigrationStage])
+					if wantCluster, ok := expectEvent.Extensions()[constants.CloudEventExtensionKeyClusterName]; ok {
+						assert.Equal(t, wantCluster, sentEvent.Extensions()[constants.CloudEventExtensionKeyClusterName])
+					}
+				}
 			}
 
 			if c.expectedObjects != nil {

@@ -60,7 +60,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		)
 
 		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.GetDefaultNamespace()}}
-		Expect(runtimeClient.Create(testCtx, namespace)).Should(Succeed())
+		Expect(client.IgnoreAlreadyExists(runtimeClient.Create(testCtx, namespace))).Should(Succeed())
 
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -89,7 +89,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		Expect(runtimeClient.Create(testCtx, multiclusterHub)).Should(Succeed())
 
 		addonNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}}
-		Expect(runtimeClient.Create(testCtx, addonNamespace)).Should(Succeed())
+		Expect(client.IgnoreAlreadyExists(runtimeClient.Create(testCtx, addonNamespace))).Should(Succeed())
 
 		addonConfig := &addonv1.KlusterletAddonConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: testClusterName, Namespace: testClusterName},
