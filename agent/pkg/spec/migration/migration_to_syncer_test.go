@@ -62,6 +62,11 @@ func TestMigrationToSyncer(t *testing.T) {
 						WorkImagePullSpec:         "test",
 					},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -150,6 +155,11 @@ func TestMigrationToSyncer(t *testing.T) {
 						},
 					},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -195,6 +205,11 @@ func TestMigrationToSyncer(t *testing.T) {
 							},
 							AutoApproveUsers: []string{"test"},
 						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					},
 				},
 			},
@@ -248,6 +263,11 @@ func TestMigrationToSyncer(t *testing.T) {
 						},
 					},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -295,6 +315,11 @@ func TestMigrationToSyncer(t *testing.T) {
 						},
 					},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -331,6 +356,11 @@ func TestMigrationToSyncer(t *testing.T) {
 					Spec: operatorv1.ClusterManagerSpec{
 						RegistrationImagePullSpec: "test",
 						WorkImagePullSpec:         "test",
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					},
 				},
 				&rbacv1.ClusterRole{
@@ -1077,7 +1107,10 @@ func TestDeploying(t *testing.T) {
 
 	scheme := configs.GetRuntimeScheme()
 	ctx := context.Background()
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(
+		&clusterv1.ManagedCluster{},
+		&addonv1.KlusterletAddonConfig{},
+	).Build()
 	// set agent config
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	// set tranport config
