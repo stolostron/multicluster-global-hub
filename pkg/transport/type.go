@@ -8,6 +8,8 @@ const (
 	Broadcast      = "broadcast" // Broadcast can be used as destination when a bundle should be broadcasted.
 	ChunkSizeKey   = "extsize"   // ChunkSizeKey is the key used for total bundle size header.
 	ChunkOffsetKey = "extoffset" // ChunkOffsetKey is the key used for message fragment offset header.
+	// DeliveryCorrelationKey tags Kafka messages during producer delivery confirmation.
+	DeliveryCorrelationKey = "deliverycorrelation"
 )
 
 // indicate the transport type, only support kafka or go chan
@@ -67,8 +69,9 @@ type KafkaConsumerConfig struct {
 
 // topics
 type ClusterTopic struct {
-	SpecTopic   string
-	StatusTopic string
+	SpecTopic      string
+	MigrationTopic string
+	StatusTopic    string
 }
 
 type EventPosition struct {

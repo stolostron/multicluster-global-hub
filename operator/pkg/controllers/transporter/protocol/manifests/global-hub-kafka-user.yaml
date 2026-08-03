@@ -28,6 +28,15 @@ spec:
       operations:
       - Describe
       - Read
+      - Write
+      resource:
+        name: {{.MigrationTopic}}
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
       resource:
         name: {{.StatusTopic}}
         patternType: {{.StatusTopicPattern}}

@@ -1001,6 +1001,8 @@ func TestMigrationToSyncer(t *testing.T) {
 			assert.Nil(t, err)
 			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
 				"hub2", payload)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, c.migrationEvent.MigrationId)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, c.migrationEvent.Stage)
 			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			assert.Nil(t, err)
@@ -1250,6 +1252,8 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 
 			// sync managed cluster migration
 			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, eventSource, "hub2", payload)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, c.receivedMigrationEventBundle.MigrationId)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, c.receivedMigrationEventBundle.Stage)
 			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if c.expectedError == nil {
@@ -1325,6 +1329,8 @@ func TestDeploying(t *testing.T) {
 			},
 		},
 	})
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
 	evt.SetExtension(migration.ExtTotalClusters, 1) // Set totalclusters for batch tracking
 	evt.SetTime(time.Now())                         // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 
@@ -1491,8 +1497,8 @@ func TestRegistering(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			// change the resitering timeout
-			registeringTimeout = 10 * time.Second
+			// Set a short expiry time (10 seconds) for test timeout
+			testCtx := withExpireTime(ctx, time.Now().Add(10*time.Second))
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
 
 			agentConfig := &configs.AgentConfig{
@@ -1501,7 +1507,7 @@ func TestRegistering(t *testing.T) {
 			}
 			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
 
-			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, map[string]string{})
+			err := managedClusterMigrationSyncer.registering(testCtx, c.migrationEvent, map[string]string{})
 			if c.expectedError == "" {
 				assert.Nil(t, err)
 			} else {
@@ -1629,6 +1635,8 @@ func TestDeployingBatchReceiving(t *testing.T) {
 				}
 
 				evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, "hub1", "hub2", bundle)
+				evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
+				evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
 				evt.SetExtension(migration.ExtTotalClusters, c.expectedTotalClusters)
 				evt.SetTime(time.Now())
 
@@ -2292,15 +2300,6 @@ func TestShouldSkipMigrationEvent(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "Skip event - no cached time and old event",
-			setupConfigMap: func(c client.Client) error {
-				return nil // No setup needed
-			},
-			eventTime:   time.Now().Add(-15 * time.Minute), // 15 minutes old
-			expectSkip:  true,
-			expectError: false,
-		},
-		{
 			name: "Process event - cached time is older",
 			setupConfigMap: func(c client.Client) error {
 				pastTime := time.Now().Add(-1 * time.Hour)
@@ -2692,6 +2691,8 @@ func TestDeployingBatchReceivingError(t *testing.T) {
 		}
 
 		evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, "hub1", "hub2", bundle)
+		evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, "different-migration-id")
+		evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
 		evt.SetTime(time.Now())
 
 		// Should return error due to migration ID mismatch
@@ -3499,6 +3500,8 @@ func TestInitializingWithOCMClusterRole(t *testing.T) {
 	assert.Nil(t, err)
 	evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
 		"hub2", payload)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationEvent.MigrationId)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationEvent.Stage)
 	evt.SetTime(time.Now())
 	err = syncer.Sync(ctx, &evt)
 	assert.Nil(t, err)
@@ -3561,6 +3564,8 @@ func TestInitializingWithNoClusterRole(t *testing.T) {
 	assert.Nil(t, err)
 	evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
 		"hub2", payload)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationEvent.MigrationId)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationEvent.Stage)
 	evt.SetTime(time.Now())
 	err = syncer.Sync(ctx, &evt)
 

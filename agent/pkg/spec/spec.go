@@ -10,6 +10,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/migration"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -36,9 +37,11 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 		migration.NewMigrationSourceSyncer(mgr.GetClient(),
 			mgr.GetConfig(), transportClient, agentConfig))
 
-	dispatcher.RegisterSyncer(constants.MigrationTargetMsgKey,
-		migration.NewMigrationTargetSyncer(mgr.GetClient(),
-			transportClient, agentConfig))
+	targetSyncer := migration.NewMigrationTargetSyncer(mgr.GetClient(),
+		transportClient, agentConfig)
+	dispatcher.RegisterSyncer(constants.MigrationTargetMsgKey, targetSyncer)
+	// Deploying bundles on gh-migration use ManagedClusterMigrationType as the CloudEvent type.
+	dispatcher.RegisterSyncer(string(enum.ManagedClusterMigrationType), targetSyncer)
 	if err := migration.ResyncMigrationEvent(context, transportClient, agentConfig.TransportConfig); err != nil {
 		return fmt.Errorf("failed to resync migration event: %w", err)
 	}

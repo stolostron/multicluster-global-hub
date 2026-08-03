@@ -161,10 +161,16 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 // initClient will init the consumer identity, clientProtocol, client
 func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig) (cloudevents.Client, error) {
-	topics := []string{tranConfig.KafkaCredential.SpecTopic}
+	var topics []string
 	if c.isManager {
 		c.statusTopicPattern = tranConfig.KafkaCredential.StatusTopic
 		topics = []string{tranConfig.KafkaCredential.StatusTopic}
+	} else {
+		topics = []string{tranConfig.KafkaCredential.SpecTopic}
+		if migrationTopic := tranConfig.KafkaCredential.GetMigrationTopic(); migrationTopic != "" &&
+			migrationTopic != tranConfig.KafkaCredential.SpecTopic {
+			topics = append(topics, migrationTopic)
+		}
 	}
 
 	var err error
@@ -183,11 +189,15 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConf
 		if tranConfig.Extends == nil {
 			tranConfig.Extends = make(map[string]interface{})
 		}
-		topic := topics[0]
-		if _, found := tranConfig.Extends[topic]; !found {
-			tranConfig.Extends[topic] = gochan.New()
+		primaryTopic := topics[0]
+		if _, found := tranConfig.Extends[primaryTopic]; !found {
+			tranConfig.Extends[primaryTopic] = gochan.New()
 		}
-		clientProtocol = tranConfig.Extends[topic]
+		primaryChan := tranConfig.Extends[primaryTopic]
+		for _, topic := range topics[1:] {
+			tranConfig.Extends[topic] = primaryChan
+		}
+		clientProtocol = primaryChan
 	default:
 		return nil, fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
 	}

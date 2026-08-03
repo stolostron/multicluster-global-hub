@@ -219,6 +219,10 @@ const (
 	CloudEventGlobalHubClusterName = "global-hub"
 	// cloudevent extension keys
 	CloudEventExtensionKeyClusterName = "clustername"
+	// Migration CloudEvents extension keys
+	CloudEventExtensionKeyMigrationId    = "migrationid"
+	CloudEventExtensionKeyMigrationStage = "migrationstage"
+	CloudEventExtensionKeyExpireTime     = "expirytime"
 	// LabelKeyIsManagedServiceAccount is from     managed-serviceaccount/pkg/common/constants.go
 	LabelKeyIsManagedServiceAccount = "authentication.open-cluster-management.io/is-managed-serviceaccount"
 )

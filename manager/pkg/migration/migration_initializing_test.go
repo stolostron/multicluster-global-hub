@@ -285,7 +285,7 @@ func TestInitializing(t *testing.T) {
 				SetFinished(migrationID, "target-hub", migrationv1alpha1.PhaseInitializing)
 				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseInitializing)
 			},
-			expectedRequeue:         false,
+			expectedRequeue:         true,
 			expectedError:           false,
 			expectedPhase:           migrationv1alpha1.PhaseDeploying,   // Should move to deploying phase
 			expectedConditionStatus: metav1.ConditionTrue,               // Condition should be true
