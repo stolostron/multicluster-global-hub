@@ -51,7 +51,7 @@ func TestBYOTransporterEnsureUserAndPruneAreNoOps(t *testing.T) {
 	if ready, err := trans.EnsureKafka(); err != nil || ready {
 		t.Fatalf("EnsureKafka() = (%v, %v), want (false, nil)", ready, err)
 	}
-	if err := trans.Prun("hub1"); err != nil {
+	if err := trans.Prune("hub1"); err != nil {
 		t.Fatalf("Prune() error = %v", err)
 	}
 }
