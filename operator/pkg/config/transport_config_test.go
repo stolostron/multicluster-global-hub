@@ -171,14 +171,20 @@ func TestGetTransportConfigClientName(t *testing.T) {
 	restoreTransportConfigState(t)
 
 	transporterProtocol = transport.StrimziTransporter
-	enableInventory = false
 	if got := GetTransportConfigClientName("hub1"); got != "hub1-kafka-user" {
 		t.Fatalf("GetTransportConfigClientName() = %q, want hub1-kafka-user", got)
 	}
+}
 
+func TestEnableInventory(t *testing.T) {
+	restoreTransportConfigState(t)
+
+	if EnableInventory() {
+		t.Fatal("EnableInventory() = true, want false by default")
+	}
 	enableInventory = true
-	if got := GetTransportConfigClientName("hub1"); got != "hub1" {
-		t.Fatalf("GetTransportConfigClientName(inventory) = %q, want hub1", got)
+	if !EnableInventory() {
+		t.Fatal("EnableInventory() = false, want true")
 	}
 }
 
