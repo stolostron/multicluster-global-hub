@@ -249,7 +249,7 @@ func migrationDeployingEvent(sourceHub, targetHub, resourceName, migrationID str
 		MigrationClusterResources: []migrationbundle.MigrationClusterResource{
 			{
 				ClusterName: resourceName,
-				ResouceList: []unstructured.Unstructured{obj},
+				ResourceList: []unstructured.Unstructured{obj},
 			},
 		},
 	}
