@@ -80,6 +80,38 @@ func TestDeployingSourceHubs(t *testing.T) {
 	}
 }
 
+func TestAddDeployingSourceHub(t *testing.T) {
+	t.Parallel()
+
+	needed := make(map[string]struct{})
+	addDeployingSourceHub(needed, nil)
+	if len(needed) != 0 {
+		t.Fatalf("addDeployingSourceHub(nil) len = %d, want 0", len(needed))
+	}
+
+	addDeployingSourceHub(needed, &migrationv1alpha1.ManagedClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "deleted",
+			DeletionTimestamp: &metav1.Time{Time: metav1.Now().Time},
+		},
+		Spec:   migrationv1alpha1.ManagedClusterMigrationSpec{From: "hub1"},
+		Status: migrationv1alpha1.ManagedClusterMigrationStatus{Phase: migrationv1alpha1.PhaseDeploying},
+	})
+	if len(needed) != 0 {
+		t.Fatalf("addDeployingSourceHub(deleted) len = %d, want 0", len(needed))
+	}
+}
+
+func TestHubsToSyncForMigrationEmptyTrigger(t *testing.T) {
+	t.Parallel()
+
+	needed := map[string]struct{}{"hub1": {}}
+	got := hubsToSyncForMigration("", needed)
+	if len(got) != 1 {
+		t.Fatalf("hubsToSyncForMigration(\"\") len = %d, want 1", len(got))
+	}
+}
+
 func TestHubsToSyncForMigration(t *testing.T) {
 	t.Parallel()
 

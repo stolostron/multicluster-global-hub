@@ -78,7 +78,7 @@ func TestReportMigrationStatus_producerError(t *testing.T) {
 	t.Cleanup(func() { configs.SetAgentConfig(nil) })
 
 	producer := &reportStatusProducer{err: errors.New("send failed")}
-	transportClient := &transport.TransportClient{}
+	transportClient := &controller.TransportClient{}
 	transportClient.SetProducer(producer)
 
 	err := ReportMigrationStatus(context.Background(), transportClient,

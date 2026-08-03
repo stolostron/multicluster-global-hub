@@ -38,6 +38,10 @@ func TestSpecEventSourceAllowed(t *testing.T) {
 		assert.True(t, specEventSourceAllowed(ctx, nil, "hub2", &evt))
 	})
 
+	t.Run("rejects nil event", func(t *testing.T) {
+		assert.False(t, specEventSourceAllowed(ctx, nil, "hub2", nil))
+	})
+
 	t.Run("rejects unknown source", func(t *testing.T) {
 		evt := cloudevents.NewEvent()
 		evt.SetSource("evil")
