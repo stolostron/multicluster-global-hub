@@ -67,7 +67,7 @@ func TestSendEventToSourceHub_usesMigrationEventExtensions(t *testing.T) {
 
 	var payload migrationbundle.MigrationSourceBundle
 	require.NoError(t, json.Unmarshal(evt.Data(), &payload))
-	assert.Equal(t, "source-hub", payload.ToHub)
+	assert.Equal(t, "target-hub", payload.ToHub)
 	assert.Equal(t, []string{"cluster1"}, payload.ManagedClusters)
 }
 
