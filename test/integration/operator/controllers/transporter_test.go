@@ -388,13 +388,14 @@ var _ = Describe("transporter", Ordered, func() {
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
 		// utils.PrettyPrint(kafkaUser.Spec.Authorization)
-		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)
 		Expect(err).To(Succeed())
 		Expect("gh-spec").To(Equal(clusterTopic.SpecTopic))
 		Expect(config.GetStatusTopic(clusterName)).To(Equal(clusterTopic.StatusTopic))
+		Expect(config.GetMigrationTopic()).To(Equal(clusterTopic.MigrationTopic))
 
 		// topic: update
 		_, err = trans.EnsureTopic(clusterName)
@@ -417,7 +418,7 @@ var _ = Describe("transporter", Ordered, func() {
 })
 
 func UpdateKafkaClusterReady(c client.Client, ns string) error {
-	kafkaVersion := "3.9.0"
+	kafkaVersion := "4.0.0"
 	kafkaClusterName := "kafka"
 	globalHubKafkaUser := "global-hub-kafka-user"
 	clientCa := "kafka-clients-ca-cert"
@@ -467,7 +468,7 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		},
 	}
 
-	err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
 		existkafkaCluster := &kafkav1beta2.Kafka{}
 		err := c.Get(context.Background(), types.NamespacedName{
 			Name:      kafkaClusterName,
@@ -506,9 +507,11 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 			return false, nil
 		}
 		return true, nil
-	})
+	}); err != nil {
+		return err
+	}
 
-	err = createSecret(c, ns, globalHubKafkaUser, map[string][]byte{
+	err := createSecret(c, ns, globalHubKafkaUser, map[string][]byte{
 		"user.crt": []byte("usercrt"),
 		"user.key": []byte("userkey"),
 	})

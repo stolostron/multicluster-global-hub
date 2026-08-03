@@ -3,6 +3,7 @@ package migration
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 var (
@@ -11,8 +12,9 @@ var (
 )
 
 type MigrationStatus struct {
-	Progress map[string]*MigrationProgress // key: hub-phase
-	Clusters map[string][]string           // key: source hub -> clusters
+	Progress              map[string]*MigrationProgress // key: hub-phase
+	Clusters              map[string][]string           // key: source hub -> clusters
+	deployingACLReadyTime time.Time                     // zero until set; deploy after this instant
 }
 
 type MigrationProgress struct {
@@ -110,6 +112,25 @@ func SetErrorMessage(migrationId, hub, phase, errMessage string) {
 	if p := getProgress(migrationId, hub, phase); p != nil {
 		p.error = errMessage
 	}
+}
+
+// SetDeployingACLReadyTime records when hub agents may publish to gh-migration.
+func SetDeployingACLReadyTime(migrationId string, readyTime time.Time) {
+	mu.Lock()
+	defer mu.Unlock()
+	if status := getMigrationStatus(migrationId); status != nil {
+		status.deployingACLReadyTime = readyTime
+	}
+}
+
+// GetDeployingACLReadyTime returns the earliest time Deploying hub events may start.
+func GetDeployingACLReadyTime(migrationId string) (time.Time, bool) {
+	mu.RLock()
+	defer mu.RUnlock()
+	if status := getMigrationStatus(migrationId); status != nil {
+		return status.deployingACLReadyTime, !status.deployingACLReadyTime.IsZero()
+	}
+	return time.Time{}, false
 }
 
 // GetStarted returns true if the status of the given stage is started for the hub cluster
