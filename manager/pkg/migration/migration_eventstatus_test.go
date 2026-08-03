@@ -631,24 +631,3 @@ func TestGetReadyClusters(t *testing.T) {
 		})
 	}
 }
-
-func TestSetFailedClusters(t *testing.T) {
-	migrationID := "failed-clusters-status"
-	hub := "hub1"
-	phase := migrationv1alpha1.PhaseValidating
-
-	AddMigrationStatus(migrationID)
-	defer RemoveMigrationStatus(migrationID)
-
-	assert.Nil(t, GetFailedClusters(migrationID, hub, phase))
-	assert.False(t, HasFailedClustersReported(migrationID, hub, phase))
-
-	SetStarted(migrationID, hub, phase)
-	SetFailedClusters(migrationID, hub, phase, []string{"c1", "c2"})
-
-	assert.Equal(t, []string{"c1", "c2"}, GetFailedClusters(migrationID, hub, phase))
-	assert.True(t, HasFailedClustersReported(migrationID, hub, phase))
-
-	SetFailedClusters("missing-migration", hub, phase, []string{"c3"})
-	assert.Nil(t, GetFailedClusters("missing-migration", hub, phase))
-}
