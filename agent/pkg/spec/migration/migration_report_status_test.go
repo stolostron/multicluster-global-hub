@@ -21,6 +21,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 )
 
 type reportStatusProducer struct {
@@ -42,7 +43,7 @@ func TestReportMigrationStatus_sendsManagedClusterMigrationEvent(t *testing.T) {
 	t.Cleanup(func() { configs.SetAgentConfig(nil) })
 
 	producer := &reportStatusProducer{}
-	transportClient := &transport.TransportClient{}
+	transportClient := &controller.TransportClient{}
 	transportClient.SetProducer(producer)
 
 	version := eventversion.NewVersion()
