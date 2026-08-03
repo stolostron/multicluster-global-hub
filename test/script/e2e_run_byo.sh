@@ -15,9 +15,6 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 export ISBYO="true"
 
-# CleanUp globalhub
-bash "$CURRENT_DIR/e2e_clean_globalhub.sh"
-
 target_namespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
 
 ######################################### Generate Storage Secret ###################################################
@@ -66,6 +63,7 @@ wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECO
 
 # wait the byo kafkatopic and kafkauser
 wait_cmd "kubectl get kafkatopic gh-spec -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-migration -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 wait_cmd "kubectl get kafkatopic gh-status -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 wait_cmd "kubectl get kafkauser $byo_user -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 echo "Kafka topic and user is ready"

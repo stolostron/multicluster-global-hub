@@ -126,8 +126,20 @@ var _ = BeforeSuite(func() {
 		return nil
 	}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
-	By("Deploy the global hub")
-	deployGlobalHub()
+	if isGlobalHubDeployed() {
+		klog.Infof("Global hub already deployed, skipping deployGlobalHub")
+		operatorconfig.SetMGHNamespacedName(types.NamespacedName{
+			Namespace: GlobalhubNamespace,
+			Name:      MghName,
+		})
+		runtimeClient, err := testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
+		Expect(err).ShouldNot(HaveOccurred())
+		_, err = WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
+		Expect(err).ShouldNot(HaveOccurred())
+	} else {
+		By("Deploy the global hub")
+		deployGlobalHub()
+	}
 
 	By("Validate the opitions")
 	var err error
@@ -269,6 +281,19 @@ func findRootDir(dir string) (string, error) {
 
 		dir = filepath.Dir(dir)
 	}
+}
+
+func isGlobalHubDeployed() bool {
+	runtimeClient, err := testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
+	if err != nil {
+		return false
+	}
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+	err = runtimeClient.Get(ctx, types.NamespacedName{
+		Name:      MghName,
+		Namespace: testOptions.GlobalHub.Namespace,
+	}, mgh)
+	return err == nil
 }
 
 func deployGlobalHub() {
