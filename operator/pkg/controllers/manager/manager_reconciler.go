@@ -257,7 +257,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	if isMiddlewareUpdated(transportConn, storageConn) {
+	if isMiddlewareUpdated(transportConn, storageConn) && r.kubeClient != nil {
 		err = commonutils.RestartPod(ctx, r.kubeClient, mgh.Namespace, constants.ManagerDeploymentName)
 		if err != nil {
 			reconcileErr = fmt.Errorf("failed to restart manager pod: %w", err)

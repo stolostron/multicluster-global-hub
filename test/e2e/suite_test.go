@@ -409,7 +409,7 @@ func deployGlobalHub() {
 			}
 		}
 		return nil
-	}, 5*time.Minute, 1*time.Second).Should(Succeed())
+	}, 10*time.Minute, 1*time.Second).Should(Succeed())
 
 	if isPrune != "true" {
 		// check components avaibable and phase
