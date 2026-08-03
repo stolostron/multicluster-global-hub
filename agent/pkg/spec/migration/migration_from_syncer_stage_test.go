@@ -148,7 +148,7 @@ func TestHandleStage_startsNewMigration(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "migration-new", syncer.processingMigrationId)
-	assert.Equal(t, "in-progress", syncer.completedStages[migrationv1alpha1.PhaseDeploying])
+	assert.Equal(t, "completed", syncer.completedStages[migrationv1alpha1.PhaseDeploying])
 }
 
 func TestHandleStage_resetsOnValidatingMigrationSwitch(t *testing.T) {
@@ -165,5 +165,5 @@ func TestHandleStage_resetsOnValidatingMigrationSwitch(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "migration-new", syncer.processingMigrationId)
-	assert.Equal(t, "in-progress", syncer.completedStages[migrationv1alpha1.PhaseValidating])
+	assert.Equal(t, "completed", syncer.completedStages[migrationv1alpha1.PhaseValidating])
 }

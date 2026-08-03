@@ -715,6 +715,10 @@ func ReportMigrationStatus(
 	version *eventversion.Version,
 	expireTime time.Time,
 ) error {
+	if transportClient == nil {
+		return errors.New("transport client must not be nil")
+	}
+
 	source := configs.GetLeafHubName()
 	clusterName := constants.CloudEventGlobalHubClusterName
 	payloadBytes, err := json.Marshal(migrationBundle)
@@ -729,14 +733,11 @@ func ReportMigrationStatus(
 	e := utils.ToMigrationEvent(eventType, source, clusterName,
 		migrationBundle.MigrationId, migrationBundle.Stage, expireAfter, payloadBytes)
 	e.SetExtension(eventversion.ExtVersion, version.String())
-	if transportClient != nil {
-		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
-			return fmt.Errorf(errFailedToSendEvent, eventType, source, clusterName, err)
-		}
-		version.Next()
-		return nil
+	if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
+		return fmt.Errorf(errFailedToSendEvent, eventType, source, clusterName, err)
 	}
-	return errors.New("transport client must not be nil")
+	version.Next()
+	return nil
 }
 
 // cleanObjectMetadata removes metadata fields that should not be migrated
