@@ -117,6 +117,8 @@ func ToMigrationEvent(
 	e.SetType(evtType)
 	e.SetSource(source)
 	e.SetSubject(subject)
+	// release-2.16 agent spec dispatcher routes by clustername extension (Subject on 2.17+).
+	e.SetExtension(constants.CloudEventExtensionKeyClusterName, subject)
 	e.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
 	e.SetExtension(constants.CloudEventExtensionKeyMigrationStage, stage)
 	e.SetExtension(constants.CloudEventExtensionKeyExpireTime, time.Now().Add(expireAfter).Format(time.RFC3339))
