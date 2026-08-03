@@ -604,10 +604,10 @@ func createMigrationFromEvent(migrationID, stage, fromHub, toHub string, cluster
 	event.SetSource(fromHub)
 	event.SetSubject(constants.CloudEventGlobalHubClusterName)
 	event.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationID)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationStage, stage)
 
 	payload := &migration.MigrationSourceBundle{
-		MigrationId:     migrationID,
-		Stage:           stage,
 		ToHub:           toHub,
 		ManagedClusters: clusters,
 	}
