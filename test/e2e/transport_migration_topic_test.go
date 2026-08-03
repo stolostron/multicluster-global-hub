@@ -44,7 +44,7 @@ var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migr
 			Eventually(func() error {
 				return globalHubClient.Get(ctx, types.NamespacedName{
 					Name:      migrationTopic,
-					Namespace: testOptions.GlobalHub.Namespace,
+					Namespace: GlobalhubNamespace,
 				}, topic)
 			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 				"expected gh-migration KafkaTopic to be provisioned in the global hub namespace")
@@ -64,7 +64,7 @@ var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migr
 					return fmt.Errorf("get transport secret on managed hub agent namespace: %w", err)
 				}
 
-				kafkaConfig, err := transportconfig.GetKafkaCredentialBySecret(secret, sourceHubClient)
+				kafkaConfig, err := transportconfig.GetKafkaCredentailBySecret(secret, sourceHubClient)
 				if err != nil {
 					return fmt.Errorf("parse transport secret kafka credentials: %w", err)
 				}
