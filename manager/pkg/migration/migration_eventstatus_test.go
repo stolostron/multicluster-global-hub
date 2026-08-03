@@ -2,6 +2,7 @@ package migration
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -132,6 +133,7 @@ func TestEventStatusEdgeCases(t *testing.T) {
 				assert.NotPanics(t, func() { SetStarted(migrationID, hubName, phase) }, "SetStarted should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetFinished(migrationID, hubName, phase) }, "SetFinished should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetErrorMessage(migrationID, hubName, phase, "error") }, "SetErrorMessage should not panic for non-existent migration")
+				assert.NotPanics(t, func() { SetDeployingACLReadyTime(migrationID, time.Now()) }, "SetDeployingACLReadyTime should not panic for non-existent migration")
 			},
 		},
 		{
@@ -321,6 +323,35 @@ func TestResetMigrationStatus(t *testing.T) {
 			RemoveMigrationStatus(migrationID)
 		})
 	}
+}
+
+func TestDeployingACLReadyTime(t *testing.T) {
+	migrationID := "test-deploying-acl-ready"
+
+	t.Run("returns false when migration status does not exist", func(t *testing.T) {
+		_, scheduled := GetDeployingACLReadyTime(migrationID)
+		assert.False(t, scheduled)
+	})
+
+	t.Run("returns false before ready time is set", func(t *testing.T) {
+		AddMigrationStatus(migrationID)
+		defer RemoveMigrationStatus(migrationID)
+
+		_, scheduled := GetDeployingACLReadyTime(migrationID)
+		assert.False(t, scheduled)
+	})
+
+	t.Run("stores and returns configured ready time", func(t *testing.T) {
+		AddMigrationStatus(migrationID)
+		defer RemoveMigrationStatus(migrationID)
+
+		readyTime := time.Now().Add(45 * time.Second).Truncate(time.Millisecond)
+		SetDeployingACLReadyTime(migrationID, readyTime)
+
+		got, scheduled := GetDeployingACLReadyTime(migrationID)
+		assert.True(t, scheduled)
+		assert.Equal(t, readyTime, got)
+	})
 }
 
 // TestGetClusterList tests the GetClusterList function

@@ -103,6 +103,33 @@ func TestDeploying(t *testing.T) {
 			expectedConditionReason: ConditionReasonWaiting,
 		},
 		{
+			name: "Should wait for ACL propagation after ready time is scheduled",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-acl-propagating"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                    "source-hub",
+					To:                      "target-hub",
+					IncludedManagedClusters: []string{"cluster1"},
+				},
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Phase: migrationv1alpha1.PhaseDeploying,
+				},
+			},
+			setupState: func(migrationID string) {
+				AddMigrationStatus(migrationID)
+				SetDeployingACLReadyTime(migrationID, time.Now().Add(time.Hour))
+			},
+			expectedRequeue:         true,
+			expectedError:           false,
+			expectedPhase:           migrationv1alpha1.PhaseDeploying,
+			expectedConditionStatus: metav1.ConditionFalse,
+			expectedConditionReason: ConditionReasonWaiting,
+		},
+		{
 			name: "Should wait for source hub to complete deploying",
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -121,6 +148,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
+				SetDeployingACLReadyTime(migrationID, time.Now().Add(-time.Second))
 				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				// Don't set finished to simulate waiting state
@@ -150,6 +178,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
+				SetDeployingACLReadyTime(migrationID, time.Now().Add(-time.Second))
 				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
@@ -180,6 +209,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
+				SetDeployingACLReadyTime(migrationID, time.Now().Add(-time.Second))
 				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
@@ -210,6 +240,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
+				SetDeployingACLReadyTime(migrationID, time.Now().Add(-time.Second))
 				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetErrorMessage(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying, "deployment failed")
@@ -239,6 +270,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
+				SetDeployingACLReadyTime(migrationID, time.Now().Add(-time.Second))
 				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
