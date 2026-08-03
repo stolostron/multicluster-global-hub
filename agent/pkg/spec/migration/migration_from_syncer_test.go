@@ -140,7 +140,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt := cloudevents.NewEvent()
 				evt.SetType(string(enum.ManagedClusterMigrationType)) // spec message: initialize -> deploy
 				evt.SetSource("hub1")
-				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "global-hub")
+				evt.SetSubject("global-hub")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
 				return &evt
 			}(),
@@ -229,7 +229,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt := cloudevents.NewEvent()
 				evt.SetType(string(enum.ManagedClusterMigrationType))
 				evt.SetSource("hub1")
-				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
+				evt.SetSubject("global-hub")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
 				_ = evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.MigrationStatusBundle{
 					Stage: migrationv1alpha1.ConditionTypeCleaned,
@@ -282,7 +282,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt := cloudevents.NewEvent()
 				evt.SetType(string(enum.ManagedClusterMigrationType))
 				evt.SetSource("hub1")
-				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "global-hub")
+				evt.SetSubject("global-hub")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
 				return &evt
 			}(),
@@ -392,7 +392,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt := cloudevents.NewEvent()
 				evt.SetType(string(enum.ManagedClusterMigrationType))
 				evt.SetSource("hub1")
-				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "global-hub")
+				evt.SetSubject("global-hub")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
 				return &evt
 			}(),
@@ -453,7 +453,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt := cloudevents.NewEvent()
 				evt.SetType(string(enum.ManagedClusterMigrationType))
 				evt.SetSource("hub1")
-				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "global-hub")
+				evt.SetSubject("global-hub")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
 				return &evt
 			}(),
@@ -642,12 +642,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				if assert.NotNil(t, sentEvent) {
 					assert.Equal(t, expectEvent.Type(), sentEvent.Type())
 					assert.Equal(t, expectEvent.Source(), sentEvent.Source())
-					assert.Equal(t, c.receivedMigrationEventBundle.MigrationId,
-						sentEvent.Extensions()[constants.CloudEventExtensionKeyMigrationId])
-					assert.Equal(t, string(c.receivedMigrationEventBundle.Stage),
-						sentEvent.Extensions()[constants.CloudEventExtensionKeyMigrationStage])
-					if wantCluster, ok := expectEvent.Extensions()[constants.CloudEventExtensionKeyClusterName]; ok {
-						assert.Equal(t, wantCluster, sentEvent.Extensions()[constants.CloudEventExtensionKeyClusterName])
+					assert.Equal(t, expectEvent.Subject(), sentEvent.Subject())
+					for k, v := range expectEvent.Extensions() {
+						assert.Equal(t, v, sentEvent.Extensions()[k], "extension %s mismatch", k)
 					}
 				}
 			}
