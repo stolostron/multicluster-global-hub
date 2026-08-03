@@ -557,8 +557,7 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	credential.MigrationTopic = config.GetMigrationTopic()
 
 	// consumer group id
-	credential.ConsumerGroupID = config.GetConsumerGroupID(k.mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix,
-		clusterName)
+	credential.ConsumerGroupID = config.GetConsumerGroupID("", clusterName)
 
 	// for the non local-cluster
 	if clusterName != config.GetLocalClusterName() && clusterName != constants.LocalClusterName {
@@ -686,7 +685,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 
 	kafkaStatus := KafkaStatus{
 		kafkaReady:   false,
-		kafkaReason:  "KafkaNotReady",
+		kakfaReason:  "KafkaNotReady",
 		kafkaMessage: "Wait kafka cluster ready",
 	}
 
@@ -724,7 +723,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 				return kafkaStatus, nil
 			}
 			kafkaStatus.kafkaMessage = *condition.Message
-			kafkaStatus.kafkaReason = *condition.Reason
+			kafkaStatus.kakfaReason = *condition.Reason
 			return kafkaStatus, nil
 		}
 	}

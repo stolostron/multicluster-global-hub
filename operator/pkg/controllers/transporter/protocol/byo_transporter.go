@@ -88,7 +88,7 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 	return &transport.KafkaConfig{
 		ClusterID:       string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
-		ConsumerGroupID: config.GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix, clusterName),
+		ConsumerGroupID: config.GetConsumerGroupID("", clusterName),
 
 		// for the byo case, the status topic isn't change by the clusterName
 		StatusTopic:    config.GetStatusTopic(""),

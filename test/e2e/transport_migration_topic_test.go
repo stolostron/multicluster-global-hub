@@ -16,7 +16,7 @@ import (
 
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	pkgutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
+	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
 var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migration-topic"), Ordered, func() {
@@ -64,7 +64,7 @@ var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migr
 					return fmt.Errorf("get transport secret on managed hub agent namespace: %w", err)
 				}
 
-				kafkaConfig, err := pkgutils.GetKafkaCredentialBySecret(secret, sourceHubClient)
+				kafkaConfig, err := transportconfig.GetKafkaCredentialBySecret(secret, sourceHubClient)
 				if err != nil {
 					return fmt.Errorf("parse transport secret kafka credentials: %w", err)
 				}
