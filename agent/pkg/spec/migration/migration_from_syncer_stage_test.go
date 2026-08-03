@@ -10,7 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -129,7 +131,11 @@ func TestExecuteStage_rollbackingDoesNotMarkCompleted(t *testing.T) {
 }
 
 func TestHandleStage_startsNewMigration(t *testing.T) {
+	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "source-hub"})
+	t.Cleanup(func() { configs.SetAgentConfig(nil) })
+
 	syncer := &MigrationSourceSyncer{
+		client:        fake.NewClientBuilder().WithScheme(configs.GetRuntimeScheme()).Build(),
 		bundleVersion: eventversion.NewVersion(),
 		completedStages: map[string]string{
 			migrationv1alpha1.PhaseCleaning: "completed",
@@ -138,6 +144,7 @@ func TestHandleStage_startsNewMigration(t *testing.T) {
 	err := syncer.handleStage(context.Background(), &migrationbundle.MigrationSourceBundle{
 		MigrationId: "migration-new",
 		Stage:       migrationv1alpha1.PhaseDeploying,
+		ToHub:       "target-hub",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "migration-new", syncer.processingMigrationId)

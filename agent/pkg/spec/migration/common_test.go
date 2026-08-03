@@ -1301,3 +1301,63 @@ func TestListAndFilterResourcesByLabelKey(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterByAnnotationKey(t *testing.T) {
+	items := []unstructured.Unstructured{
+		{Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name": "with-annotation",
+				"annotations": map[string]interface{}{
+					HivePauseAnnotation: "true",
+				},
+			},
+		}},
+		{Object: map[string]interface{}{
+			"metadata": map[string]interface{}{"name": "without-annotation"},
+		}},
+	}
+
+	filtered := filterByAnnotationKey(items, HivePauseAnnotation)
+	assert.Len(t, filtered, 1)
+	assert.Equal(t, "with-annotation", filtered[0].GetName())
+}
+
+func TestHasAnnotationKey(t *testing.T) {
+	withAnnotation := &unstructured.Unstructured{Object: map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"annotations": map[string]interface{}{HivePauseAnnotation: "true"},
+		},
+	}}
+	withoutAnnotation := &unstructured.Unstructured{Object: map[string]interface{}{
+		"metadata": map[string]interface{}{},
+	}}
+
+	assert.True(t, hasAnnotationKey(withAnnotation, HivePauseAnnotation))
+	assert.False(t, hasAnnotationKey(withoutAnnotation, HivePauseAnnotation))
+	assert.False(t, hasAnnotationKey(withoutAnnotation, "missing"))
+}
+
+func TestCleanResourceForMigration(t *testing.T) {
+	resource := &unstructured.Unstructured{Object: map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"annotations": map[string]interface{}{
+				"kubectl.kubernetes.io/last-applied-configuration": "{}",
+			},
+			"resourceVersion": "123",
+		},
+		"status": map[string]interface{}{"phase": "Running"},
+	}}
+	migrateResource := MigrationResource{needStatus: false}
+
+	cleanResourceForMigration(resource, migrateResource,
+		func(obj client.Object) {
+			obj.SetResourceVersion("")
+		},
+		func(*unstructured.Unstructured, MigrationResource) {},
+	)
+
+	_, found, err := unstructured.NestedFieldNoCopy(resource.Object, "status")
+	assert.NoError(t, err)
+	assert.False(t, found)
+	assert.NotContains(t, resource.GetAnnotations(), "kubectl.kubernetes.io/last-applied-configuration")
+}
