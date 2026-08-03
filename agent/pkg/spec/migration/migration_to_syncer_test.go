@@ -493,6 +493,12 @@ func TestMigrationToSyncer(t *testing.T) {
 						WorkImagePullSpec:         "test",
 					},
 				},
+				// Bootstrap ClusterRole needed for dynamic ClusterRole detection
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 				&rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: GetSubjectAccessReviewClusterRoleName("test"),
