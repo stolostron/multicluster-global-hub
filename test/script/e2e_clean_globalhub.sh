@@ -61,7 +61,7 @@ kubectl delete service multicluster-global-hub-manager-nonk8s-service -n mgh --i
 
 if [[ "$GH_NAMESPACE" == "multicluster-global-hub" ]]; then
   cd operator
-  make undeploy
+  make undeploy ignore-not-found=true
 
   ## clean
   wait_cmd "kubectl delete crd kafkas.kafka.strimzi.io --ignore-not-found=true"
