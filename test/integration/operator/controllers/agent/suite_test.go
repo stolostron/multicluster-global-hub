@@ -43,7 +43,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -123,9 +122,12 @@ var _ = BeforeSuite(func() {
 			EnablePprof:           false,
 		},
 	}
-	config.SetTransporterConn(&transport.KafkaConfig{
-		ClusterID: "fake",
-	})
+	Expect(config.SetTransportConfig(ctx, runtimeClient, existMgh)).To(Succeed())
+	Expect(runtimeClient.Get(ctx, config.GetMGHNamespacedName(), existMgh)).To(Succeed())
+	controllerOption.MulticlusterGlobalHub = existMgh
+	conn, err := config.GetTransporter().GetConnCredential("")
+	Expect(err).ToNot(HaveOccurred())
+	config.SetTransporterConn(conn)
 
 	By("start the addon manager and add addon controller to manager")
 	_, err = addon.StartAddonManagerController(controllerOption)
@@ -139,13 +141,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	err = config.LoadControllerConfig(ctx, kubeClient)
 	Expect(err).ToNot(HaveOccurred())
-
-	By("Create an external transport")
-	trans := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
-		Namespace: mgh.Namespace,
-		Name:      constants.GHTransportSecretName,
-	}, runtimeClient)
-	config.SetTransporter(trans)
 
 	go func() {
 		defer GinkgoRecover()

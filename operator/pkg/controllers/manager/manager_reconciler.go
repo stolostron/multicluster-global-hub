@@ -290,11 +290,15 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	}
 
 	if isMiddlewareUpdated(kafkaConfig, storageConn) {
-		log.Infof("restarting manager pod")
-		err = commonutils.RestartPod(ctx, r.kubeClient, mgh.Namespace, constants.ManagerDeploymentName)
-		if err != nil {
-			reconcileErr = fmt.Errorf("failed to restart manager pod: %w", err)
-			return ctrl.Result{}, reconcileErr
+		if r.kubeClient == nil {
+			log.Infof("skip restarting manager pod: kube client is not configured")
+		} else {
+			log.Infof("restarting manager pod")
+			err = commonutils.RestartPod(ctx, r.kubeClient, mgh.Namespace, constants.ManagerDeploymentName)
+			if err != nil {
+				reconcileErr = fmt.Errorf("failed to restart manager pod: %w", err)
+				return ctrl.Result{}, reconcileErr
+			}
 		}
 	}
 	electionConfig, err := config.GetElectionConfig()
