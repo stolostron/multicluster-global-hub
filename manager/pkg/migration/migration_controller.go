@@ -37,6 +37,7 @@ import (
 const (
 	klusterletConfigNamePrefix = "migration-"
 	bootstrapSecretNamePrefix  = "bootstrap-"
+	RETRY_TIMES                = 3
 )
 
 var (
@@ -311,5 +312,31 @@ func getTimeout(stage string) time.Duration {
 		return cleaningTimeout
 	default:
 		return migratingTimeout
+	}
+}
+
+func setRetry(mcm *migrationv1alpha1.ManagedClusterMigration, stage string, condType string, hubName string) {
+	currentCond := migrationv1alpha1.FindMigrationCondition(mcm.Status.Conditions, condType)
+	if currentCond == nil {
+		log.Infof("condition %s not initialized for hub %s, stage %s", condType, hubName, stage)
+		return
+	}
+
+	stageState := getStageState(string(mcm.GetUID()), hubName, stage)
+	if stageState == nil {
+		log.Warnf("stage state not initialized for hub %s, stage %s", hubName, stage)
+		return
+	}
+
+	if !stageState.started {
+		log.Warnf("stage %s is not started(%v) for hub %s, return", stage, stageState.started, hubName)
+		return
+	}
+
+	retryInterval := getTimeout(stage) / RETRY_TIMES
+	timeSinceLastStartTime := time.Since(stageState.lastStartTime)
+	if timeSinceLastStartTime >= retryInterval {
+		stageState.started = false
+		log.Infof("retry for stage %s on hub %s after %v", stage, hubName, timeSinceLastStartTime)
 	}
 }

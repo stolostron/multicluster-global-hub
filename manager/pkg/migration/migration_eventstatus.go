@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -22,6 +23,7 @@ type StageState struct {
 	finished      bool
 	error         string
 	clusterErrors map[string]string // cluster name -> error message
+	lastStartTime time.Time         // the last start time of the stage
 }
 
 // AddMigrationStatus init the migration status for the migrationId
@@ -102,6 +104,7 @@ func SetStarted(migrationId, hub, phase string) {
 	defer mu.Unlock()
 	if p := getStageState(migrationId, hub, phase); p != nil {
 		p.started = true
+		p.lastStartTime = time.Now()
 	}
 }
 
