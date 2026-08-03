@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -316,7 +317,7 @@ func getTimeout(stage string) time.Duration {
 }
 
 func setRetry(mcm *migrationv1alpha1.ManagedClusterMigration, stage string, condType string, hubName string) {
-	currentCond := migrationv1alpha1.FindMigrationCondition(mcm.Status.Conditions, condType)
+	currentCond := meta.FindStatusCondition(mcm.Status.Conditions, condType)
 	if currentCond == nil {
 		log.Infof("condition %s not initialized for hub %s, stage %s", condType, hubName, stage)
 		return
