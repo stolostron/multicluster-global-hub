@@ -42,7 +42,6 @@ import (
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func TestDeployingSourceHubs(t *testing.T) {
@@ -163,7 +162,7 @@ func TestMigrationACLReconcilerReconcileNotFound(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "hub1-kafka-user", Namespace: "test-ns"},
 		Spec: &kafkav1beta2.KafkaUserSpec{
 			Authorization: simpleKafkaUserAuthorization(
-				utils.WriteTopicACL("gh-migration"),
+				protocol.WriteTopicACL("gh-migration"),
 			),
 		},
 	}
@@ -190,7 +189,7 @@ func TestMigrationACLReconcilerReconcileNotFound(t *testing.T) {
 	}
 	if updated.Spec.Authorization != nil {
 		for _, acl := range updated.Spec.Authorization.Acls {
-			if utils.GenerateACLKey(acl) == utils.GenerateACLKey(utils.WriteTopicACL("gh-migration")) {
+			if protocol.GenerateACLKey(acl) == protocol.GenerateACLKey(protocol.WriteTopicACL("gh-migration")) {
 				t.Fatal("expected migration write ACL to be revoked after migration deletion")
 			}
 		}
@@ -227,9 +226,9 @@ func TestMigrationACLReconcilerReconcileDeployingGrantsACL(t *testing.T) {
 	if err := fakeClient.Get(context.Background(), client.ObjectKeyFromObject(kafkaUser), updated); err != nil {
 		t.Fatalf("get updated kafka user: %v", err)
 	}
-	wantKey := utils.GenerateACLKey(utils.WriteTopicACL("gh-migration"))
+	wantKey := protocol.GenerateACLKey(protocol.WriteTopicACL("gh-migration"))
 	for _, acl := range updated.Spec.Authorization.Acls {
-		if utils.GenerateACLKey(acl) == wantKey {
+		if protocol.GenerateACLKey(acl) == wantKey {
 			t.Fatal("legacy migration release lines must not grant gh-migration Write ACL without Deploying phase")
 		}
 	}
@@ -244,7 +243,7 @@ func TestMigrationACLReconcilerReconcileCompletedRevokesACL(t *testing.T) {
 	scheme, fakeClient, _, kafkaUser := newMigrationACLReconcilerFixtures(t)
 	_ = scheme
 	kafkaUser.Spec.Authorization.Acls = []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		utils.WriteTopicACL("gh-migration"),
+		protocol.WriteTopicACL("gh-migration"),
 	}
 	if err := fakeClient.Update(context.Background(), kafkaUser); err != nil {
 		t.Fatalf("update kafka user with migration ACL: %v", err)
@@ -275,7 +274,7 @@ func TestMigrationACLReconcilerReconcileCompletedRevokesACL(t *testing.T) {
 	}
 	if updated.Spec.Authorization != nil {
 		for _, acl := range updated.Spec.Authorization.Acls {
-			if utils.GenerateACLKey(acl) == utils.GenerateACLKey(utils.WriteTopicACL("gh-migration")) {
+			if protocol.GenerateACLKey(acl) == protocol.GenerateACLKey(protocol.WriteTopicACL("gh-migration")) {
 				t.Fatal("expected migration write ACL to be revoked after migration completed")
 			}
 		}
@@ -328,7 +327,7 @@ func newMigrationACLReconcilerFixtures(
 		ObjectMeta: metav1.ObjectMeta{Name: "hub1-kafka-user", Namespace: "test-ns"},
 		Spec: &kafkav1beta2.KafkaUserSpec{
 			Authorization: simpleKafkaUserAuthorization(
-				utils.ReadTopicACL("gh-spec", false),
+				protocol.ReadTopicACL("gh-spec", false),
 			),
 		},
 	}

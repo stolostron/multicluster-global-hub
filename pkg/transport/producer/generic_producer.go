@@ -17,6 +17,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
@@ -52,7 +53,7 @@ func NewGenericProducer(transportConfig *transport.TransportInternalConfig, topi
 ) (*GenericProducer, error) {
 	genericProducer := &GenericProducer{
 		log:               logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
-		messageSizeLimit:  config.MaxSizeToChunk,
+		messageSizeLimit:  constants.KafkaClientMessageMaxBytes,
 		eventErrorHandler: eventErrorHandler,
 	}
 	err := genericProducer.initClient(transportConfig, topic)
@@ -384,7 +385,7 @@ func (p *GenericProducer) SetDataLimit(size int) {
 func getConfluentSenderProtocol(logger *zap.SugaredLogger, kafkaCredentail *transport.KafkaConfig,
 	defaultTopic string,
 ) (*kafka.Producer, *kafka_confluent.Protocol, error) {
-	configMap, err := config.GetConfluentConfigMapByKafkaCredential(kafkaCredentail, "", 0)
+	configMap, err := config.GetConfluentConfigMapByKafkaCredential(kafkaCredentail, "")
 	if err != nil {
 		return nil, nil, err
 	}

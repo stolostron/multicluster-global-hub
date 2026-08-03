@@ -33,7 +33,6 @@ import (
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -343,27 +342,15 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
 	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
-	if clusterName == config.GetLocalClusterName() || clusterName == constants.LocalClusterName {
+	if clusterName == constants.LocalClusterName {
 		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
 	}
 
 	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		utils.ConsumeGroupReadACL(),
-		// migration resource into mh: write access to the spec topic is required for cluster migration.
-		utils.GetTopicACL(clusterTopic.SpecTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
-		}),
-		// consume migration deploying bundles from the dedicated migration topic
-		utils.GetTopicACL(clusterTopic.MigrationTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		}),
-		// report status into gh: allow the current hub to write messages to the specific status topic
-		utils.GetTopicACL(clusterTopic.StatusTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
-		}),
+		ConsumeGroupReadACL(),
+		ReadTopicACL(clusterTopic.SpecTopic, false),
+		ReadTopicACL(clusterTopic.MigrationTopic, false),
+		WriteTopicACL(clusterTopic.StatusTopic),
 	}
 
 	desiredKafkaUser := newKafkaUser(k.kafkaClusterNamespace, k.kafkaClusterName, userName, authnType, simpleACLs)
@@ -420,11 +407,11 @@ func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 	aclMap := make(map[string]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem)
 
 	for _, acl := range kafkaUserAcls {
-		key := utils.GenerateACLKey(acl)
+		key := GenerateACLKey(acl)
 		aclMap[key] = acl
 	}
 	for _, acl := range desiredKafkaUserAcls {
-		key := utils.GenerateACLKey(acl)
+		key := GenerateACLKey(acl)
 		aclMap[key] = acl
 	}
 
@@ -436,7 +423,7 @@ func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 	// Sort ACLs to ensure consistent ordering for comparison
 	// This prevents unnecessary updates when ACLs are functionally identical but ordered differently
 	sort.Slice(mergedAcls, func(i, j int) bool {
-		return utils.GenerateACLKey(mergedAcls[i]) < utils.GenerateACLKey(mergedAcls[j])
+		return GenerateACLKey(mergedAcls[i]) < GenerateACLKey(mergedAcls[j])
 	})
 
 	return mergedAcls
@@ -560,7 +547,7 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	credential.ConsumerGroupID = config.GetConsumerGroupID("", clusterName)
 
 	// for the non local-cluster
-	if clusterName != config.GetLocalClusterName() && clusterName != constants.LocalClusterName {
+	if clusterName != constants.LocalClusterName {
 		return credential, nil
 	}
 
@@ -1105,4 +1092,69 @@ func (k *strimziTransporter) newSubscription(mgh *operatorv1alpha4.MulticlusterG
 		},
 	}
 	return sub
+}
+
+func WriteTopicACL(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	host := "*"
+	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	writeAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+			Name:        &topicName,
+			PatternType: &patternType,
+		},
+		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		},
+	}
+	return writeAcl
+}
+
+func ReadTopicACL(topicName string, prefixParttern bool) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	host := "*"
+	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	if prefixParttern {
+		patternType = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
+	}
+
+	return kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+			Name:        &topicName,
+			PatternType: &patternType,
+		},
+		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	}
+}
+
+func ConsumeGroupReadACL() kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	host := "*"
+	consumerGroup := "*"
+	consumerPatternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	consumerAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup,
+			Name:        &consumerGroup,
+			PatternType: &consumerPatternType,
+		},
+		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	}
+	return consumerAcl
+}
+
+func GenerateACLKey(acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem) string {
+	ops := make([]string, len(acl.Operations))
+	for i, v := range acl.Operations {
+		ops[i] = string(v)
+	}
+	sort.Strings(ops)
+	return fmt.Sprintf("%s|%s", *acl.Resource.Name, strings.Join(ops, ","))
 }

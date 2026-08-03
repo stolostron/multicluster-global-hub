@@ -24,17 +24,16 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func migrationWriteACLKey(topic string) string {
-	return utils.GenerateACLKey(utils.WriteTopicACL(topic))
+	return GenerateACLKey(WriteTopicACL(topic))
 }
 
 func (k *strimziTransporter) hasMigrationWriteACL(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem) bool {
 	key := migrationWriteACLKey(config.GetMigrationTopic())
 	for _, acl := range acls {
-		if utils.GenerateACLKey(acl) == key {
+		if GenerateACLKey(acl) == key {
 			return true
 		}
 	}
@@ -64,7 +63,7 @@ func (k *strimziTransporter) SyncMigrationWriteACL(fromHub string, grant bool) e
 	}
 
 	migrationTopic := config.GetMigrationTopic()
-	desiredWriteACL := utils.WriteTopicACL(migrationTopic)
+	desiredWriteACL := WriteTopicACL(migrationTopic)
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		latestKafkaUser := &kafkav1beta2.KafkaUser{}
@@ -82,7 +81,7 @@ func (k *strimziTransporter) SyncMigrationWriteACL(fromHub string, grant bool) e
 
 		updatedACLs := make([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, 0, len(currentACLs))
 		for _, acl := range currentACLs {
-			if utils.GenerateACLKey(acl) == migrationWriteACLKey(migrationTopic) {
+			if GenerateACLKey(acl) == migrationWriteACLKey(migrationTopic) {
 				continue
 			}
 			updatedACLs = append(updatedACLs, acl)

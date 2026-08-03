@@ -27,7 +27,6 @@ import (
 
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func TestSyncMigrationWriteACLWrapper(t *testing.T) {
@@ -47,7 +46,7 @@ func TestSyncMigrationWriteACLWrapper(t *testing.T) {
 			Authorization: &kafkav1beta2.KafkaUserSpecAuthorization{
 				Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
 				Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-					utils.ReadTopicACL("gh-spec", false),
+					ReadTopicACL("gh-spec", false),
 				},
 			},
 		},
@@ -74,10 +73,10 @@ func TestSyncMigrationWriteACLWrapper(t *testing.T) {
 	if len(updated.Spec.Authorization.Acls) != 2 {
 		t.Fatalf("expected read and write ACLs after grant, got %d", len(updated.Spec.Authorization.Acls))
 	}
-	wantKey := utils.GenerateACLKey(utils.WriteTopicACL("gh-migration"))
+	wantKey := GenerateACLKey(WriteTopicACL("gh-migration"))
 	foundWrite := false
 	for _, acl := range updated.Spec.Authorization.Acls {
-		if utils.GenerateACLKey(acl) == wantKey {
+		if GenerateACLKey(acl) == wantKey {
 			foundWrite = true
 			break
 		}

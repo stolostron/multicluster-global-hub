@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type migrationACLMockManager struct {
@@ -82,7 +81,7 @@ func TestMigrationWriteACLKey(t *testing.T) {
 	t.Parallel()
 
 	key := migrationWriteACLKey("gh-migration")
-	want := utils.GenerateACLKey(utils.WriteTopicACL("gh-migration"))
+	want := GenerateACLKey(WriteTopicACL("gh-migration"))
 	if key != want {
 		t.Fatalf("migrationWriteACLKey() = %q, want %q", key, want)
 	}
@@ -94,7 +93,7 @@ func TestHasMigrationWriteACL(t *testing.T) {
 	operatorconfig.SetMigrationTopic("gh-migration")
 	transporter := &strimziTransporter{}
 	withACL := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		utils.WriteTopicACL("gh-migration"),
+		WriteTopicACL("gh-migration"),
 	}
 	if !transporter.hasMigrationWriteACL(withACL) {
 		t.Fatal("expected migration write ACL to be present")
@@ -114,7 +113,7 @@ func TestCurrentKafkaUserACLs(t *testing.T) {
 		t.Fatalf("expected nil ACLs for nil user, got %#v", got)
 	}
 
-	acl := utils.WriteTopicACL("gh-migration")
+	acl := WriteTopicACL("gh-migration")
 	user := &kafkav1beta2.KafkaUser{
 		Spec: &kafkav1beta2.KafkaUserSpec{
 			Authorization: &kafkav1beta2.KafkaUserSpecAuthorization{
@@ -154,7 +153,7 @@ func TestSyncMigrationWriteACLGrantAndRevoke(t *testing.T) {
 			Authorization: &kafkav1beta2.KafkaUserSpecAuthorization{
 				Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
 				Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-					utils.ReadTopicACL("gh-spec", false),
+					ReadTopicACL("gh-spec", false),
 				},
 			},
 		},

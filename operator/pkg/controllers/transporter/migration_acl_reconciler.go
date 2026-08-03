@@ -160,7 +160,7 @@ func managedHubFromKafkaUser(user *kafkav1beta2.KafkaUser) (string, bool) {
 		return "", false
 	}
 	fromHub := strings.TrimSuffix(user.Name, "-kafka-user")
-	if fromHub == constants.LocalClusterName || fromHub == config.GetLocalClusterName() {
+	if fromHub == constants.LocalClusterName {
 		return "", false
 	}
 	return fromHub, true
