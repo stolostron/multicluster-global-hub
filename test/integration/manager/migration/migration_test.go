@@ -410,6 +410,11 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 
+			migration.SetDeployingACLReadyTime(
+				string(migrationInstance.GetUID()),
+				time.Now().Add(-time.Second),
+			)
+
 			// mock the source hub report result
 			migration.SetFinished(string(migrationInstance.GetUID()), migrationInstance.Spec.From,
 				migrationv1alpha1.PhaseDeploying)

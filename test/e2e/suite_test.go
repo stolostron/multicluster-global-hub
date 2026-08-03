@@ -354,6 +354,23 @@ func deployGlobalHub() {
 		}
 	}
 
+	Eventually(func() error {
+		for _, ns := range nonk8sServiceNamespaces {
+			if ns == "" {
+				continue
+			}
+			_, err := testClients.KubeClient().CoreV1().Services(ns).Get(
+				ctx, "multicluster-global-hub-manager-nonk8s-service", metav1.GetOptions{})
+			if err == nil {
+				return fmt.Errorf("nonk8s service still exists in namespace %s", ns)
+			}
+			if !errors.IsNotFound(err) {
+				return err
+			}
+		}
+		return nil
+	}, 30*time.Second, time.Second).Should(Succeed())
+
 	Expect(utils.Apply(testClients, testOptions,
 		utils.RenderOptions{Namespace: testOptions.GlobalHub.Namespace, KustomizationPath: fmt.Sprintf("%s/test/manifest/resources", rootDir)})).NotTo(HaveOccurred())
 	Expect(utils.Apply(testClients, testOptions,
