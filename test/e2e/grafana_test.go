@@ -328,7 +328,6 @@ func getGrafanaResource(ctx context.Context, path string) (int, error) {
 
 	responseBody, err := testClients.Kubectl(testOptions.GlobalHub.Name,
 		"exec",
-		"-it",
 		grafanaPod.Name,
 		"-n",
 		configNamespace,
