@@ -286,6 +286,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 			}, "10s", "200ms").Should(Succeed())
 
 			By("Simulating deploying stage error")
+			bypassDeployingACLWait(string(m.GetUID()))
 			migration.SetStarted(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseDeploying)
 			migration.SetErrorMessage(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseDeploying, "deploying failed")
 
@@ -324,6 +325,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 			}, "10s", "200ms").Should(Equal(migrationv1alpha1.PhaseDeploying))
 
 			By("Simulating deploying stage error to trigger rollback")
+			bypassDeployingACLWait(string(m.GetUID()))
 			migration.SetStarted(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseDeploying)
 			migration.SetErrorMessage(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseDeploying, "deploying failed")
 

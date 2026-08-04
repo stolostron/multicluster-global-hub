@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +38,7 @@ import (
 const (
 	klusterletConfigNamePrefix = "migration-"
 	bootstrapSecretNamePrefix  = "bootstrap-"
+	RETRY_TIMES                = 3
 )
 
 var (
@@ -273,7 +275,9 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	}
 
 	eventType := constants.MigrationTargetMsgKey
-	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, payloadToBytes)
+	migrationId := string(migration.GetUID())
+	evt := utils.ToMigrationEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To,
+		migrationId, stage, getTimeout(stage), payloadToBytes)
 	if err := m.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
@@ -311,5 +315,31 @@ func getTimeout(stage string) time.Duration {
 		return cleaningTimeout
 	default:
 		return migratingTimeout
+	}
+}
+
+func setRetry(mcm *migrationv1alpha1.ManagedClusterMigration, stage string, condType string, hubName string) {
+	currentCond := meta.FindStatusCondition(mcm.Status.Conditions, condType)
+	if currentCond == nil {
+		log.Infof("condition %s not initialized for hub %s, stage %s", condType, hubName, stage)
+		return
+	}
+
+	stageState := getStageState(string(mcm.GetUID()), hubName, stage)
+	if stageState == nil {
+		log.Warnf("stage state not initialized for hub %s, stage %s", hubName, stage)
+		return
+	}
+
+	if !stageState.started {
+		log.Warnf("stage %s is not started(%v) for hub %s, return", stage, stageState.started, hubName)
+		return
+	}
+
+	retryInterval := getTimeout(stage) / RETRY_TIMES
+	timeSinceLastStartTime := time.Since(stageState.lastStartTime)
+	if timeSinceLastStartTime >= retryInterval {
+		stageState.started = false
+		log.Infof("retry for stage %s on hub %s after %v", stage, hubName, timeSinceLastStartTime)
 	}
 }

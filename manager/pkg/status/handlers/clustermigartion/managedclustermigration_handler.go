@@ -6,6 +6,7 @@ package clustermigration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
@@ -46,7 +47,16 @@ func RegisterManagedClusterMigrationHandler(mgr ctrl.Manager, conflationManager 
 }
 
 func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloudevents.Event) error {
-	log.Debugw("handle migrationBundle", "cloudevents", evt)
+	log.Debugf("handle migration status event:\n %s", evt)
+
+	if expireStr, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyExpireTime]); err == nil {
+		if expireTime, err := time.Parse(time.RFC3339, expireStr); err == nil {
+			if time.Now().After(expireTime) {
+				log.Infof("migration status event has expired (expirytime=%s), skip processing", expireStr)
+				return nil
+			}
+		}
+	}
 
 	bundle := &migrationbundle.MigrationStatusBundle{}
 	if err := evt.DataAs(bundle); err != nil {
@@ -54,15 +64,19 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return err
 	}
 
-	clusterName, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyClusterName])
-	if err != nil {
-		log.Error("failed to parse migrationBundle clusterName", "error", err)
-		return err
+	subject := evt.Subject()
+	if subject == "" {
+		clusterName, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyClusterName])
+		if err != nil || clusterName == "" {
+			log.Error("failed to parse migrationBundle subject")
+			return fmt.Errorf("migration event missing subject")
+		}
+		subject = clusterName
 	}
 
-	if clusterName != constants.CloudEventGlobalHubClusterName {
-		return fmt.Errorf("expected to get the the clusterName %s, but got %s",
-			constants.CloudEventGlobalHubClusterName, clusterName)
+	if subject != constants.CloudEventGlobalHubClusterName {
+		return fmt.Errorf("expected to get the subject %s, but got %s",
+			constants.CloudEventGlobalHubClusterName, subject)
 	}
 
 	hubClusterName := evt.Source()
@@ -76,31 +90,51 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return nil
 	}
 
-	if bundle.MigrationId == "" {
-		return fmt.Errorf("the hub %s should set the migrationId", hubClusterName)
+	migrationId, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyMigrationId])
+	if err != nil || migrationId == "" {
+		if bundle.MigrationId != "" {
+			migrationId = bundle.MigrationId
+		} else {
+			return fmt.Errorf("the hub %s should set the migrationId extension", hubClusterName)
+		}
+	}
+
+	stage, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyMigrationStage])
+	if err != nil || stage == "" {
+		if bundle.Stage != "" {
+			stage = bundle.Stage
+		} else {
+			return fmt.Errorf("the hub %s should set the migrationstage extension", hubClusterName)
+		}
 	}
 
 	log.Infof("status: migration event, id: %s, hub: %s, stage: %s",
-		bundle.MigrationId, hubClusterName, bundle.Stage)
+		migrationId, hubClusterName, stage)
 
-	// Store managed clusters in validating phase and it should not change
-	if bundle.Stage == migrationv1alpha1.PhaseValidating && len(bundle.ManagedClusters) > 0 {
-		migration.SetClusterList(bundle.MigrationId, bundle.ManagedClusters)
-		log.Infof("status: set cluster list, id: %s, clusters: %v", bundle.MigrationId, bundle.ManagedClusters)
+	if stage == migrationv1alpha1.PhaseValidating && len(bundle.ManagedClusters) > 0 {
+		migration.SetClusterList(migrationId, bundle.ManagedClusters)
+		log.Infof("status: set cluster list, id: %s, clusters: %v", migrationId, bundle.ManagedClusters)
+	}
+
+	if bundle.FailedClustersReported {
+		migration.SetFailedClusters(migrationId, hubClusterName, stage, bundle.FailedClusters)
+		log.Infof("status: received failed clusters report, id: %s, hub: %s, clusters: %v",
+			migrationId, hubClusterName, bundle.FailedClusters)
+		return nil
 	}
 
 	if bundle.ErrMessage != "" {
-		migration.SetErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
-		migration.SetClusterErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ClusterErrors)
+		migration.SetErrorMessage(migrationId, hubClusterName, stage, bundle.ErrMessage)
+		migration.SetClusterErrorMessage(migrationId, hubClusterName, stage, bundle.ClusterErrors)
 		log.Infof("status: migration failed, id: %s, hub: %s, stage: %s, error: %s",
-			bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
+			migrationId, hubClusterName, stage, bundle.ErrMessage)
 		if len(bundle.ClusterErrors) > 0 {
-			log.Infof("status: cluster errors, id: %s, errors: %v", bundle.MigrationId, bundle.ClusterErrors)
+			log.Infof("status: cluster errors, id: %s, errors: %v", migrationId, bundle.ClusterErrors)
 		}
 	} else {
-		migration.SetFinished(bundle.MigrationId, hubClusterName, bundle.Stage)
+		migration.SetFinished(migrationId, hubClusterName, stage)
 		log.Infof("status: migration stage completed, id: %s, hub: %s, stage: %s",
-			bundle.MigrationId, hubClusterName, bundle.Stage)
+			migrationId, hubClusterName, stage)
 	}
 
 	return nil

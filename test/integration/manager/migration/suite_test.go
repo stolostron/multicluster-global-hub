@@ -355,8 +355,16 @@ func createMigrationCR(ctx context.Context, name, fromHub, toHub string, cluster
 	return m, nil
 }
 
+// bypassDeployingACLWait skips the gh-migration ACL propagation delay in integration tests.
+func bypassDeployingACLWait(migrationUID string) {
+	migration.SetDeployingACLReadyTime(migrationUID, time.Now().Add(-time.Second))
+}
+
 // simulateHubConfirmation simulates a hub sending a confirmation for a specific phase.
 func simulateHubConfirmation(uid types.UID, hubName, phase string) {
+	if phase == migrationv1alpha1.PhaseDeploying {
+		bypassDeployingACLWait(string(uid))
+	}
 	migration.SetStarted(string(uid), hubName, phase)
 	migration.SetFinished(string(uid), hubName, phase)
 }

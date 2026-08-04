@@ -62,6 +62,11 @@ func TestMigrationToSyncer(t *testing.T) {
 						WorkImagePullSpec:         "test",
 					},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -150,6 +155,11 @@ func TestMigrationToSyncer(t *testing.T) {
 						},
 					},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -195,6 +205,11 @@ func TestMigrationToSyncer(t *testing.T) {
 							},
 							AutoApproveUsers: []string{"test"},
 						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					},
 				},
 			},
@@ -248,6 +263,11 @@ func TestMigrationToSyncer(t *testing.T) {
 						},
 					},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -295,6 +315,11 @@ func TestMigrationToSyncer(t *testing.T) {
 						},
 					},
 				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					},
+				},
 			},
 			expectedClusterManager: &operatorv1.ClusterManager{
 				ObjectMeta: metav1.ObjectMeta{
@@ -331,6 +356,11 @@ func TestMigrationToSyncer(t *testing.T) {
 					Spec: operatorv1.ClusterManagerSpec{
 						RegistrationImagePullSpec: "test",
 						WorkImagePullSpec:         "test",
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					},
 				},
 				&rbacv1.ClusterRole{
@@ -461,6 +491,12 @@ func TestMigrationToSyncer(t *testing.T) {
 					Spec: operatorv1.ClusterManagerSpec{
 						RegistrationImagePullSpec: "test",
 						WorkImagePullSpec:         "test",
+					},
+				},
+				// Bootstrap ClusterRole needed for dynamic ClusterRole detection
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					},
 				},
 				&rbacv1.ClusterRole{
@@ -852,6 +888,8 @@ func TestMigrationToSyncer(t *testing.T) {
 			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
 				"hub2", payload)
 			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, c.migrationEvent.MigrationId)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, string(c.migrationEvent.Stage))
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			assert.Nil(t, err)
 
@@ -1009,6 +1047,8 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			// sync managed cluster migration
 			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, eventSource, "hub2", payload)
 			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, c.receivedMigrationEventBundle.MigrationId)
+			evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, string(c.receivedMigrationEventBundle.Stage))
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if c.expectedError == nil {
 				assert.Nil(t, err)
@@ -1059,18 +1099,24 @@ func TestDeploying(t *testing.T) {
 		MigrationClusterResources: []migration.MigrationClusterResource{
 			{
 				ClusterName: "cluster1",
-				ResouceList: []unstructured.Unstructured{
+				ResourceList: []unstructured.Unstructured{
 					*mcObj,
 					*addonObj,
 				},
 			},
 		},
 	})
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationId)
+	evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
+	evt.SetExtension(migration.ExtTotalClusters, 1)
 	evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 
 	scheme := configs.GetRuntimeScheme()
 	ctx := context.Background()
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(
+		&clusterv1.ManagedCluster{},
+		&addonv1.KlusterletAddonConfig{},
+	).Build()
 	// set agent config
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	// set tranport config
@@ -1228,8 +1274,8 @@ func TestRegistering(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			// change the resitering timeout
-			registeringTimeout = 10 * time.Second
+			// Set a short expiry time (10 seconds) for test timeout
+			testCtx := withExpireTime(ctx, time.Now().Add(10*time.Second))
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
 
 			agentConfig := &configs.AgentConfig{
@@ -1238,7 +1284,7 @@ func TestRegistering(t *testing.T) {
 			}
 			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
 
-			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, map[string]string{})
+			err := managedClusterMigrationSyncer.registering(testCtx, c.migrationEvent, map[string]string{})
 			if c.expectedError == "" {
 				assert.Nil(t, err)
 			} else {

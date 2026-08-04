@@ -87,13 +87,16 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		}
 		Expect(runtimeClient.Create(testCtx, clusterManager)).Should(Succeed())
 
+		// Create bootstrap ClusterRole needed for dynamic ClusterRole detection
+		bootstrapClusterRole := &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "open-cluster-management:managedcluster:bootstrap:agent-registration",
+			},
+		}
+		Expect(runtimeClient.Create(testCtx, bootstrapClusterRole)).Should(Succeed())
+
 		clusterNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}}
 		Expect(runtimeClient.Create(testCtx, clusterNamespace)).Should(Succeed())
-
-		configs.SetAgentConfig(&configs.AgentConfig{
-			LeafHubName:  testToHub,
-			PodNamespace: testMSANamespace, // Set PodNamespace for configmap operations
-		})
 
 		// Delete any existing configmap to ensure clean state before each test suite
 		_ = runtimeClient.Delete(ctx, &corev1.ConfigMap{
@@ -132,6 +135,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testMSANamespace}},
 			&operatorv1.ClusterManager{ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"}},
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}},
+			&rbacv1.ClusterRole{ObjectMeta: metav1.ObjectMeta{Name: "open-cluster-management:managedcluster:bootstrap:agent-registration"}},
 		}
 		// delete the configmap using the test's namespace (not global config which may have changed)
 		_ = runtimeClient.Delete(testCtx, &corev1.ConfigMap{
@@ -151,9 +155,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating migration event for validating stage with no existing clusters")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseValidating,
-				ManagedClusters: []string{"non-existing-cluster"},
+				FromHub:                   testFromHub,
+				ManagedServiceAccountName: testMSAName,
+				ManagedClusters:           []string{"non-existing-cluster"},
 			})
 
 			By("Processing the validating event")
@@ -166,29 +170,36 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 					constants.CloudEventGlobalHubClusterName, testMigrationID, migrationv1alpha1.PhaseValidating)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
-			By("Testing validation failure when cluster already exists")
-			event = createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
+			By("Testing validation failure when cluster already exists (uses new migrationId)")
+			newMigrationID := "test-migration-validate-existing"
+			event = createMigrationToEvent(newMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseValidating,
 				ManagedClusters: []string{testClusterName},
 			})
 
 			err = migrationSyncer.Sync(testCtx, event)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("clusters validation failed"))
+
+			By("Resetting migration state back to testMigrationID for subsequent tests")
+			resetEvent := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
+			resetEvent.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
+				FromHub:                   testFromHub,
+				ManagedServiceAccountName: testMSAName,
+				ManagedClusters:           []string{"non-existing-cluster"},
+			})
+			err = migrationSyncer.Sync(testCtx, resetEvent)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should initialize migration permissions successfully", func() {
 			By("Creating migration event for initializing stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:                           testMigrationID,
-				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				FromHub:                               testFromHub,
-				ManagedClusters:                       []string{testClusterName},
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
+				ManagedClusters:                       []string{testClusterName},
 			})
 
 			By("Processing the migration event")
@@ -267,6 +278,29 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		})
 
 		It("should deploy migration resources successfully", func() {
+			By("Creating migration namespace and in-flight CR for deploying source validation")
+			ghNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}
+			Expect(client.IgnoreAlreadyExists(runtimeClient.Create(testCtx, ghNamespace))).Should(Succeed())
+
+			migrationCR := &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testMigrationID,
+					Namespace: constants.GHDefaultNamespace,
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                    testFromHub,
+					To:                      testToHub,
+					IncludedManagedClusters: []string{testClusterName},
+				},
+			}
+			Expect(runtimeClient.Create(testCtx, migrationCR)).Should(Succeed())
+			DeferCleanup(func() {
+				err := client.IgnoreNotFound(runtimeClient.Delete(testCtx, migrationCR))
+				Expect(err).NotTo(HaveOccurred())
+			})
+			migrationCR.Status.Phase = migrationv1alpha1.PhaseDeploying
+			Expect(runtimeClient.Status().Update(testCtx, migrationCR)).Should(Succeed())
+
 			By("Creating test manifest work for the cluster")
 			manifestWork := &workv1.ManifestWork{
 				ObjectMeta: metav1.ObjectMeta{
@@ -337,7 +371,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				MigrationClusterResources: []migration.MigrationClusterResource{
 					{
 						ClusterName: testClusterName,
-						ResouceList: []unstructured.Unstructured{
+						ResourceList: []unstructured.Unstructured{
 							*mcObj,
 							*addonObj,
 						},
@@ -349,13 +383,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			if err := event.SetData("application/json", data); err != nil {
 				panic(err)
 			}
+			event.SetExtension(migration.ExtTotalClusters, 1)
 
 			By("Processing the deployment event")
-			Expect(migrationsyncer.EnsureLocalMigrationCR(testCtx, runtimeClient, testToHub, &migration.MigrationTargetBundle{
-				FromHub:                   testFromHub,
-				ManagedClusters:           []string{testClusterName},
-				ManagedServiceAccountName: testMSAName,
-			}, migrationv1alpha1.PhaseDeploying)).To(Succeed())
 			migrationSyncer.SetMigrationID(testMigrationID)
 			err = migrationSyncer.Sync(testCtx, event)
 			Expect(err).NotTo(HaveOccurred())
@@ -421,8 +451,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			// Create migration event for registering stage
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRegistering, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:     testMigrationID,
-				Stage:           migrationv1alpha1.PhaseRegistering,
 				ManagedClusters: []string{testClusterName},
 			})
 
@@ -435,14 +463,12 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				for _, event := range receivedEvents {
 					if event.Source() == testToHub &&
 						event.Type() == string(enum.ManagedClusterMigrationType) &&
-						event.Extensions()[constants.CloudEventExtensionKeyClusterName] == constants.CloudEventGlobalHubClusterName {
+						event.Subject() == constants.CloudEventGlobalHubClusterName {
 
-						migrationBundle := &migration.MigrationStatusBundle{}
-						if err := json.Unmarshal(event.Data(), migrationBundle); err != nil {
-							return err
-						}
+						migrationID, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationId].(string)
+						stage, _ := event.Extensions()[constants.CloudEventExtensionKeyMigrationStage].(string)
 
-						if migrationBundle.MigrationId == testMigrationID && migrationBundle.Stage != migrationv1alpha1.PhaseRegistering {
+						if migrationID == testMigrationID && stage != migrationv1alpha1.PhaseRegistering {
 							return nil
 						}
 					}
@@ -457,8 +483,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating migration event for cleaning stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseCleaning, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:               testMigrationID,
-				Stage:                     migrationv1alpha1.PhaseCleaning,
 				ManagedServiceAccountName: testMSAName,
 			})
 
@@ -519,6 +543,15 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			err := runtimeClient.Create(testCtx, clusterRole)
 			Expect(err).NotTo(HaveOccurred())
 
+			// Wait for cache to sync - the runtimeClient is a cached client from mgr.GetClient()
+			Eventually(func() bool {
+				cr := &rbacv1.ClusterRole{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleName(testMSAName),
+				}, cr)
+				return err == nil
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
+
 			clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: migrationsyncer.GetAgentRegistrationClusterRoleBindingName(testMSAName),
@@ -538,14 +571,21 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			}
 			err = runtimeClient.Create(testCtx, clusterRoleBinding)
 			Expect(err).NotTo(HaveOccurred())
+
+			// Wait for cache to sync
+			Eventually(func() bool {
+				crb := &rbacv1.ClusterRoleBinding{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{
+					Name: migrationsyncer.GetAgentRegistrationClusterRoleBindingName(testMSAName),
+				}, crb)
+				return err == nil
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 
 		It("should rollback initializing stage successfully", func() {
 			By("Creating rollback event for initializing stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:                           testMigrationID,
-				Stage:                                 migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:                         migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
@@ -597,8 +637,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating rollback event for deploying stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:                           testMigrationID,
-				Stage:                                 migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:                         migrationv1alpha1.PhaseDeploying,
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
@@ -668,8 +706,6 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating rollback event for registering stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
-				MigrationId:                           testMigrationID,
-				Stage:                                 migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:                         migrationv1alpha1.PhaseRegistering,
 				ManagedServiceAccountName:             testMSAName,
 				ManagedServiceAccountInstallNamespace: testMSANamespace,
@@ -715,11 +751,10 @@ func createMigrationToEvent(migrationID, stage, fromHub, toHub string) *cloudeve
 	event.SetSource(constants.CloudEventGlobalHubClusterName)
 	event.SetSubject(toHub)
 	event.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationId, migrationID)
+	event.SetExtension(constants.CloudEventExtensionKeyMigrationStage, stage)
 
-	payload := &migration.MigrationTargetBundle{
-		MigrationId: migrationID,
-		Stage:       stage,
-	}
+	payload := &migration.MigrationTargetBundle{}
 
 	data, _ := json.Marshal(payload)
 	if err := event.SetData("application/json", data); err != nil {

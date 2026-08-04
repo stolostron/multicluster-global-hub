@@ -2,6 +2,7 @@ package migration
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -132,6 +133,7 @@ func TestEventStatusEdgeCases(t *testing.T) {
 				assert.NotPanics(t, func() { SetStarted(migrationID, hubName, phase) }, "SetStarted should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetFinished(migrationID, hubName, phase) }, "SetFinished should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetErrorMessage(migrationID, hubName, phase, "error") }, "SetErrorMessage should not panic for non-existent migration")
+				assert.NotPanics(t, func() { SetDeployingACLReadyTime(migrationID, time.Now()) }, "SetDeployingACLReadyTime should not panic for non-existent migration")
 			},
 		},
 		{
@@ -321,6 +323,57 @@ func TestResetMigrationStatus(t *testing.T) {
 			RemoveMigrationStatus(migrationID)
 		})
 	}
+}
+
+func TestDeployingACLReadyTime(t *testing.T) {
+	migrationID := "test-deploying-acl-ready"
+
+	t.Run("returns false when migration status does not exist", func(t *testing.T) {
+		_, scheduled := GetDeployingACLReadyTime(migrationID)
+		assert.False(t, scheduled)
+	})
+
+	t.Run("returns false before ready time is set", func(t *testing.T) {
+		AddMigrationStatus(migrationID)
+		defer RemoveMigrationStatus(migrationID)
+
+		_, scheduled := GetDeployingACLReadyTime(migrationID)
+		assert.False(t, scheduled)
+	})
+
+	t.Run("stores and returns configured ready time", func(t *testing.T) {
+		AddMigrationStatus(migrationID)
+		defer RemoveMigrationStatus(migrationID)
+
+		readyTime := time.Now().Add(45 * time.Second).Truncate(time.Millisecond)
+		SetDeployingACLReadyTime(migrationID, readyTime)
+
+		got, scheduled := GetDeployingACLReadyTime(migrationID)
+		assert.True(t, scheduled)
+		assert.Equal(t, readyTime, got)
+	})
+}
+
+func TestSetFailedClusters(t *testing.T) {
+	migrationID := "failed-clusters-status"
+	hub := "hub1"
+	phase := migrationv1alpha1.PhaseValidating
+
+	AddMigrationStatus(migrationID)
+	defer RemoveMigrationStatus(migrationID)
+
+	assert.Nil(t, GetFailedClusters(migrationID, hub, phase))
+	assert.False(t, HasFailedClustersReported(migrationID, hub, phase))
+
+	SetStarted(migrationID, hub, phase)
+	SetFailedClusters(migrationID, hub, phase, []string{"c1", "c2"})
+
+	assert.Equal(t, []string{"c1", "c2"}, GetFailedClusters(migrationID, hub, phase))
+	assert.True(t, HasFailedClustersReported(migrationID, hub, phase))
+
+	// No-op when stage state does not exist
+	SetFailedClusters("missing-migration", hub, phase, []string{"c3"})
+	assert.Nil(t, GetFailedClusters("missing-migration", hub, phase))
 }
 
 // TestGetClusterList tests the GetClusterList function

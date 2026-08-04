@@ -15,10 +15,6 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 export ISBYO="true"
 
-# transport-identity runs in multicluster-global-hub before BYO; undeploy it so
-# cluster-scoped operator RBAC and nodePort 30080 are free for the mgh deploy.
-bash "$CURRENT_DIR/e2e_clean_globalhub.sh"
-
 target_namespace=${TARGET_NAMESPACE:-"mgh"}
 export NAMESPACE="$target_namespace"
 
@@ -28,70 +24,76 @@ pg_ns="hoh-postgres"
 ps_user="hoh-pguser-postgres"
 pg_cert="hoh-cluster-cert"
 
-if kubectl get secret "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" >/dev/null 2>&1; then
-  echo "storage: $storage_secret already exists in $target_namespace namespace"
-  kubectl delete secret "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG"
+if kubectl get secret "${storage_secret}" -n "${target_namespace}" --kubeconfig "$GH_KUBECONFIG" >/dev/null 2>&1; then
+  echo "storage: ${storage_secret} already exists in ${target_namespace} namespace"
+  kubectl delete secret "${storage_secret}" -n "${target_namespace}" --kubeconfig "$GH_KUBECONFIG"
 fi
 
 # wait the pg cluster is ready
-wait_cmd "kubectl get pods --kubeconfig $POSTGRES_KUBECONFIG -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns | grep Running"
-kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns --timeout=100s --kubeconfig "$POSTGRES_KUBECONFIG"
+wait_cmd "kubectl get pods --kubeconfig ${POSTGRES_KUBECONFIG} -l postgres-operator.crunchydata.com/instance-set=pgha1 -n ${pg_ns} | grep Running"
+kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n ${pg_ns} --timeout=100s --kubeconfig "${POSTGRES_KUBECONFIG}"
 echo "postgres cluster is ready!"
 
-database_uri=$(kubectl get secrets -n "${pg_ns}" --kubeconfig "$POSTGRES_KUBECONFIG" "${ps_user}" -o go-template='{{index (.data) "uri" | base64decode}}')
-kubectl get secret $pg_cert -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.data.ca\.crt}' | base64 -d >"$CONFIG_DIR/postgres-cluster-ca.crt"
+database_uri=$(kubectl get secrets -n "${pg_ns}" --kubeconfig "${POSTGRES_KUBECONFIG}" "${ps_user}" -o go-template='{{index (.data) "uri" | base64decode}}')
+kubectl get secret ${pg_cert} -n ${pg_ns} --kubeconfig "${POSTGRES_KUBECONFIG}" -o jsonpath='{.data.ca\.crt}' | base64 -d >"$CONFIG_DIR/postgres-cluster-ca.crt"
 
 # covert the database uri into external uri
-external_host=$(kubectl config view --minify --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
+external_host=$(kubectl config view --minify --kubeconfig "${POSTGRES_KUBECONFIG}" -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
 external_port=32432
 database_uri=$(echo "${database_uri}" | sed "s|@[^/]*|@$external_host:$external_port|")
 
-kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl --kubeconfig "$GH_KUBECONFIG" apply -f -
+kubectl create namespace "${target_namespace}" --dry-run=client -o yaml | kubectl --kubeconfig "$GH_KUBECONFIG" apply -f -
 
-kubectl create secret generic "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" \
+kubectl create secret generic "${storage_secret}" -n "${target_namespace}" --kubeconfig "$GH_KUBECONFIG" \
   --from-literal=database_uri="${database_uri}?sslmode=verify-ca" \
   --from-file=ca.crt="$CONFIG_DIR/postgres-cluster-ca.crt"
 
-echo "storage secret is ready in $target_namespace namespace!"
+echo "storage secret is ready in ${target_namespace} namespace!"
 
 ######################################### Generate Transport Secret ###################################################
 byo_user=global-hub-byo-user
 transport_secret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
 kafka_namespace=${KAFKA_NAMESPACE:-"kafka"}
 
-if kubectl get secret "$transport_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" >/dev/null 2>&1; then
-  echo "transport: $transport_secret already exists in $target_namespace namespace"
-  kubectl delete secret "$transport_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG"
+if kubectl get secret "$transport_secret" -n "${target_namespace}" --kubeconfig "$GH_KUBECONFIG" >/dev/null 2>&1; then
+  echo "transport: $transport_secret already exists in ${target_namespace} namespace"
+  kubectl delete secret "$transport_secret" -n "${target_namespace}" --kubeconfig "$GH_KUBECONFIG"
 fi
 
 # wait the cluster is ready
-wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -o jsonpath='{.status.listeners[0]}' | grep bootstrapServers"
+wait_cmd "kubectl get kafka kafka -n ${kafka_namespace} --kubeconfig ${KAFKA_KUBECONFIG} -o jsonpath='{.status.listeners[0]}' | grep bootstrapServers"
 
 # wait the byo kafkatopic and kafkauser
-wait_cmd "kubectl get kafkatopic gh-spec -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
-wait_cmd "kubectl get kafkatopic gh-status -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
-wait_cmd "kubectl get kafkauser $byo_user -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-spec -n ${kafka_namespace} --kubeconfig ${KAFKA_KUBECONFIG} | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-migration -n ${kafka_namespace} --kubeconfig ${KAFKA_KUBECONFIG} | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-status -n ${kafka_namespace} --kubeconfig ${KAFKA_KUBECONFIG} | grep -C 1 True"
+wait_cmd "kubectl get kafkauser ${byo_user} -n ${kafka_namespace} --kubeconfig ${KAFKA_KUBECONFIG} | grep -C 1 True"
 echo "Kafka topic and user is ready"
 
-bootstrap_server=$(kubectl get kafka kafka -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.status.listeners[0].bootstrapServers}')
-kubectl get kafka kafka -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.status.listeners[0].certificates[0]}' >"$CURRENT_DIR"/config/kafka-ca-cert.pem
-kubectl get secret $byo_user -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.data.user\.crt}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-cert.pem
-kubectl get secret $byo_user -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.data.user\.key}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-key.pem
+bootstrap_server=$(kubectl get kafka kafka -n "${kafka_namespace}" --kubeconfig "${KAFKA_KUBECONFIG}" -o jsonpath='{.status.listeners[0].bootstrapServers}')
+kubectl get kafka kafka -n "${kafka_namespace}" --kubeconfig "${KAFKA_KUBECONFIG}" -o jsonpath='{.status.listeners[0].certificates[0]}' >"${CURRENT_DIR}"/config/kafka-ca-cert.pem
+kubectl get secret ${byo_user} -n "${kafka_namespace}" --kubeconfig "${KAFKA_KUBECONFIG}" -o jsonpath='{.data.user\.crt}' | base64 -d >"${CURRENT_DIR}"/config/kafka-client-cert.pem
+kubectl get secret ${byo_user} -n "${kafka_namespace}" --kubeconfig "${KAFKA_KUBECONFIG}" -o jsonpath='{.data.user\.key}' | base64 -d >"${CURRENT_DIR}"/config/kafka-client-key.pem
 
 # generate the secret in the target cluster: GH_KUBECONFIG
-kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" \
+kubectl create secret generic "$transport_secret" -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" \
   --from-literal=bootstrap_server="$bootstrap_server" \
-  --from-file=ca.crt="$CURRENT_DIR"/config/kafka-ca-cert.pem \
-  --from-file=client.crt="$CURRENT_DIR"/config/kafka-client-cert.pem \
-  --from-file=client.key="$CURRENT_DIR"/config/kafka-client-key.pem
-echo "transport secret is ready in $target_namespace namespace!"
-
-# nodePort 30080 is cluster-scoped; transport-identity leaves the nonk8s service in multicluster-global-hub.
-echo "Delete stale nonk8s NodePort service from built-in GH namespace"
-kubectl delete service multicluster-global-hub-manager-nonk8s-service -n multicluster-global-hub \
-  --kubeconfig "$GH_KUBECONFIG" --ignore-not-found=true
+  --from-file=ca.crt="${CURRENT_DIR}"/config/kafka-ca-cert.pem \
+  --from-file=client.crt="${CURRENT_DIR}"/config/kafka-client-cert.pem \
+  --from-file=client.key="${CURRENT_DIR}"/config/kafka-client-key.pem
+echo "transport secret is ready in ${target_namespace} namespace!"
 
 ## run e2e
-bash "$CURRENT_DIR/e2e_run.sh" -n $target_namespace -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
+bash "$CURRENT_DIR/e2e_run.sh" -n ${target_namespace} -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
+
+# Clean up BYO namespace before transport suites. The operator only reconciles when exactly
+# one MulticlusterGlobalHub exists cluster-wide; leaving the mgh operand blocks transport-identity.
+echo "Cleaning up BYO test resources..."
+kubectl delete multiclusterglobalhubs --all -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
+wait_cmd "[[ -z \$(kubectl get multiclusterglobalhubs -n ${target_namespace} --kubeconfig ${GH_KUBECONFIG} --ignore-not-found=true -o name 2>/dev/null) ]]"
+kubectl delete service multicluster-global-hub-manager-nonk8s-service -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
+kubectl delete deployment multicluster-global-hub-operator -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
+kubectl wait --for=delete deployment/multicluster-global-hub-operator -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --timeout=120s 2>/dev/null || true
 
 unset ISBYO
+unset NAMESPACE

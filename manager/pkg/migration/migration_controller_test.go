@@ -7,6 +7,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -614,4 +615,72 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 		migratingTimeout = originalMigrationStageTimeout
 		registeringTimeout = originalRegisteringTimeout
 	})
+}
+
+func TestSetRetry_resetsStartedAfterInterval(t *testing.T) {
+	migrationID := "retry-test-uid"
+	hub := "source-hub"
+	stage := migrationv1alpha1.PhaseDeploying
+	condType := migrationv1alpha1.ConditionTypeDeployed
+
+	mcm := &migrationv1alpha1.ManagedClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{UID: types.UID(migrationID)},
+		Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+			Conditions: []metav1.Condition{{
+				Type:   condType,
+				Status: metav1.ConditionFalse,
+			}},
+		},
+	}
+
+	AddMigrationStatus(migrationID)
+	defer RemoveMigrationStatus(migrationID)
+
+	SetStarted(migrationID, hub, stage)
+	state := getStageState(migrationID, hub, stage)
+	require.NotNil(t, state)
+	state.lastStartTime = time.Now().Add(-2 * time.Hour)
+
+	setRetry(mcm, stage, condType, hub)
+
+	assert.False(t, state.started)
+}
+
+func TestSetRetry_skipsWhenConditionMissing(t *testing.T) {
+	migrationID := "retry-no-cond"
+	hub := "source-hub"
+	stage := migrationv1alpha1.PhaseDeploying
+
+	mcm := &migrationv1alpha1.ManagedClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{UID: types.UID(migrationID)},
+	}
+
+	AddMigrationStatus(migrationID)
+	defer RemoveMigrationStatus(migrationID)
+	SetStarted(migrationID, hub, stage)
+	state := getStageState(migrationID, hub, stage)
+	require.NotNil(t, state)
+
+	setRetry(mcm, stage, migrationv1alpha1.ConditionTypeDeployed, hub)
+
+	assert.True(t, state.started)
+}
+
+func TestSetRetry_skipsWhenStageNotStarted(t *testing.T) {
+	migrationID := "retry-not-started"
+	hub := "source-hub"
+	stage := migrationv1alpha1.PhaseDeploying
+	condType := migrationv1alpha1.ConditionTypeDeployed
+
+	mcm := &migrationv1alpha1.ManagedClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{UID: types.UID(migrationID)},
+		Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+			Conditions: []metav1.Condition{{Type: condType, Status: metav1.ConditionFalse}},
+		},
+	}
+
+	AddMigrationStatus(migrationID)
+	defer RemoveMigrationStatus(migrationID)
+
+	setRetry(mcm, stage, condType, hub)
 }

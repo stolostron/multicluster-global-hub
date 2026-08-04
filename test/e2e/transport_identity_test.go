@@ -248,13 +248,22 @@ func migrationDeployingEvent(sourceHub, targetHub, resourceName, migrationID str
 		MigrationId: migrationID,
 		MigrationClusterResources: []migrationbundle.MigrationClusterResource{
 			{
-				ClusterName: resourceName,
-				ResouceList: []unstructured.Unstructured{obj},
+				ClusterName:  resourceName,
+				ResourceList: []unstructured.Unstructured{obj},
 			},
 		},
 	}
 
-	evt := pkgutils.ToCloudEvent(constants.MigrationTargetMsgKey, sourceHub, targetHub, bundle)
+	evt := pkgutils.ToMigrationEvent(
+		string(enum.ManagedClusterMigrationType),
+		sourceHub,
+		targetHub,
+		migrationID,
+		migrationv1alpha1.PhaseDeploying,
+		10*time.Minute,
+		bundle,
+	)
+	evt.SetExtension(migrationbundle.ExtTotalClusters, 1)
 	evt.SetTime(time.Now())
 	return evt
 }
@@ -263,16 +272,20 @@ func migrationValidatingEvent(
 	sourceHub, targetHub, migrationID, managedServiceAccountName, clusterName string,
 ) cloudevents.Event {
 	bundle := migrationbundle.MigrationTargetBundle{
-		MigrationId:               migrationID,
-		Stage:                     migrationv1alpha1.PhaseValidating,
 		FromHub:                   sourceHub,
 		ManagedServiceAccountName: managedServiceAccountName,
 		ManagedClusters:           []string{clusterName},
 	}
 
-	evt := pkgutils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName, targetHub, bundle)
-	evt.SetTime(time.Now())
-	return evt
+	return pkgutils.ToMigrationEvent(
+		string(enum.ManagedClusterMigrationType),
+		constants.CloudEventGlobalHubClusterName,
+		targetHub,
+		migrationID,
+		migrationv1alpha1.PhaseValidating,
+		10*time.Minute,
+		bundle,
+	)
 }
 
 func seedInFlightMigrationState(
