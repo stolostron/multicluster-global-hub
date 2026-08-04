@@ -19,6 +19,17 @@ type ObjectMetadata struct {
 	Group     string `json:"group,omitempty"`
 	Version   string `json:"version,omitempty"`
 	Kind      string `json:"kind,omitempty"`
+	// InventoryBegin marks the start of a per-GVK resync inventory. Receivers clear any
+	// previously accumulated keys for this GVK before applying entries in the same frame.
+	InventoryBegin bool `json:"inventory_begin,omitempty"`
+	// Complete marks the end of a per-GVK resync inventory. Receivers must not run stale
+	// cleanup until Complete is observed (partial frames may be sent when metadata is large).
+	Complete bool `json:"complete,omitempty"`
+}
+
+// Key returns a unique identity for the metadata entry.
+func (m ObjectMetadata) Key() string {
+	return m.Group + "/" + m.Version + "/" + m.Kind + "/" + m.Namespace + "/" + m.Name
 }
 
 type GenericBundle[T any] struct {
@@ -27,10 +38,26 @@ type GenericBundle[T any] struct {
 	Delete         []ObjectMetadata `json:"delete,omitempty"`
 	Resync         []T              `json:"resync,omitempty"`
 	ResyncMetadata []ObjectMetadata `json:"resync_metadata,omitempty"`
+
+	keyFunc func(T) string `json:"-"`
 }
 
-func NewGenericBundle[T any]() *GenericBundle[T] {
-	return &GenericBundle[T]{}
+// BundleOption configures a GenericBundle at construction time.
+type BundleOption[T any] func(*GenericBundle[T])
+
+// WithKeyFunc enables deduplication in AddUpdate by object key.
+func WithKeyFunc[T any](fn func(T) string) BundleOption[T] {
+	return func(b *GenericBundle[T]) {
+		b.keyFunc = fn
+	}
+}
+
+func NewGenericBundle[T any](opts ...BundleOption[T]) *GenericBundle[T] {
+	b := &GenericBundle[T]{}
+	for _, opt := range opts {
+		opt(b)
+	}
+	return b
 }
 
 func (b *GenericBundle[T]) IsEmpty() bool {
@@ -64,6 +91,25 @@ func (b *GenericBundle[T]) AddCreate(obj T) (bool, error) {
 }
 
 func (b *GenericBundle[T]) AddUpdate(obj T) (bool, error) {
+	if b.keyFunc != nil {
+		key := b.keyFunc(obj)
+		for i, existing := range b.Update {
+			if b.keyFunc(existing) == key {
+				prev := existing
+				b.Update[i] = obj
+				size, err := b.Size()
+				if err != nil {
+					b.Update[i] = prev
+					return false, err
+				}
+				if size > MaxBundleBytes {
+					b.Update[i] = prev
+					return false, nil
+				}
+				return true, nil
+			}
+		}
+	}
 	return b.tryAdd(&b.Update, obj)
 }
 
@@ -72,6 +118,24 @@ func (b *GenericBundle[T]) AddResync(obj T) (bool, error) {
 }
 
 func (b *GenericBundle[T]) AddDelete(meta ObjectMetadata) (bool, error) {
+	key := meta.Key()
+	for i, existing := range b.Delete {
+		if existing.Key() == key {
+			prev := existing
+			b.Delete[i] = meta
+			size, err := b.Size()
+			if err != nil {
+				b.Delete[i] = prev
+				return false, err
+			}
+			if size > MaxBundleBytes {
+				b.Delete[i] = prev
+				return false, nil
+			}
+			return true, nil
+		}
+	}
+
 	wasEmptyBeforeAdd := b.IsEmpty()
 
 	b.Delete = append(b.Delete, meta)
