@@ -39,7 +39,6 @@ import (
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
@@ -130,22 +129,6 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(len(managedHubNames)).To(Equal(ExpectedMH))
 	Expect(len(clusterNames)).To(Equal(ExpectedMC * ExpectedMH))
-
-	By("Add deploy mode label to the managed hub")
-	clusters := &clusterv1.ManagedClusterList{}
-	Expect(globalHubClient.List(ctx, clusters)).To(Succeed())
-	for _, clusterItem := range clusters.Items {
-		cluster := &clusterv1.ManagedCluster{}
-		err = globalHubClient.Get(ctx, client.ObjectKeyFromObject(&clusterItem), cluster)
-		Expect(err).To(Succeed())
-		if cluster.Labels == nil {
-			cluster.Labels = map[string]string{}
-		}
-		cluster.Labels[commonconstants.GHDeployModeLabelKey] = commonconstants.GHDeployModeDefault
-		err = globalHubClient.Update(ctx, cluster)
-		Expect(err).To(Succeed(), "Failed to update cluster %s with deploy mode %s", cluster.Name,
-			commonconstants.GHDeployModeDefault)
-	}
 
 	if isPrune != "true" {
 		Eventually(func() error {
