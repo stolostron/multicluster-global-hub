@@ -1032,20 +1032,33 @@ func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.Multiclust
 
 // create/ update the kafka subscription
 func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
-	// get subscription
-	existingSub := &subv1alpha1.Subscription{}
-	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+	subNN := types.NamespacedName{
 		Name:      k.subName,
 		Namespace: mgh.GetNamespace(),
-	}, existingSub)
+	}
+
+	existingSub := &subv1alpha1.Subscription{}
+	err := k.manager.GetClient().Get(k.ctx, subNN, existingSub)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 
 	expectedSub := k.newSubscription(mgh)
 	if errors.IsNotFound(err) {
-		return k.manager.GetClient().Create(k.ctx, expectedSub)
-	} else {
+		if createErr := k.manager.GetClient().Create(k.ctx, expectedSub); createErr != nil {
+			if !errors.IsAlreadyExists(createErr) {
+				return createErr
+			}
+		} else {
+			return nil
+		}
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := k.manager.GetClient().Get(k.ctx, subNN, existingSub); err != nil {
+			return err
+		}
+
 		startingCSV := expectedSub.Spec.StartingCSV
 		// if updating channel must remove startingCSV
 		if existingSub.Spec.Channel != expectedSub.Spec.Channel {
@@ -1056,7 +1069,7 @@ func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.Multiclust
 		}
 		existingSub.Spec.StartingCSV = startingCSV
 		return k.manager.GetClient().Update(k.ctx, existingSub)
-	}
+	})
 }
 
 // newSubscription returns an CrunchyPostgres subscription with desired default values
