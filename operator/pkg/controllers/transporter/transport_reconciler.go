@@ -52,6 +52,7 @@ var (
 type TransportReconciler struct {
 	ctrl.Manager
 	transporter transport.Transporter
+	olmVersion  string
 }
 
 func (c *TransportReconciler) IsResourceRemoved() bool {
@@ -76,7 +77,11 @@ func StartController(controllerOption config.ControllerOption) (config.Controlle
 		kafkaNetworkPolicyWatchNamespace = controllerOption.OperatorConfig.PodNamespace
 	}
 
-	transportReconciler = NewTransportReconciler(controllerOption.Manager)
+	olmVersion := ""
+	if controllerOption.OperatorConfig != nil {
+		olmVersion = controllerOption.OperatorConfig.OLMVersion
+	}
+	transportReconciler = NewTransportReconciler(controllerOption.Manager, olmVersion)
 	err := transportReconciler.SetupWithManager(controllerOption.Manager)
 	if err != nil {
 		transportReconciler = nil
@@ -146,8 +151,8 @@ func secretCond(obj client.Object) bool {
 	return false
 }
 
-func NewTransportReconciler(mgr ctrl.Manager) *TransportReconciler {
-	return &TransportReconciler{Manager: mgr}
+func NewTransportReconciler(mgr ctrl.Manager, olmVersion string) *TransportReconciler {
+	return &TransportReconciler{Manager: mgr, olmVersion: olmVersion}
 }
 
 // Resources reconcile the transport resources and also update transporter on the configuration
@@ -198,6 +203,7 @@ func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1
 		mgh,
 		protocol.WithContext(ctx),
 		protocol.WithCommunity(operatorutils.IsCommunityMode()),
+		protocol.WithOLMVersion(r.olmVersion),
 	)
 	r.transporter = strimziTransporter
 

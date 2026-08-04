@@ -25,10 +25,14 @@ import (
 
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
 	"github.com/spf13/pflag"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -76,6 +80,13 @@ func doMain(ctx context.Context, cfg *rest.Config) error {
 	if err != nil {
 		return fmt.Errorf("unable to start manager: %w", err)
 	}
+
+	olmVersion, err := detectOLMVersion(ctx, mgr.GetAPIReader())
+	if err != nil {
+		return fmt.Errorf("failed to detect OLM version: %w", err)
+	}
+	operatorConfig.OLMVersion = olmVersion
+	setupLog.Infof("detected OLM version: %q", operatorConfig.OLMVersion)
 
 	imageClient, err := imagev1client.NewForConfig(cfg)
 	if err != nil {
@@ -130,6 +141,29 @@ func parseFlags() *config.OperatorConfig {
 	pflag.Parse()
 
 	return config
+}
+
+func detectOLMVersion(ctx context.Context, r client.Reader) (string, error) {
+	if os.Getenv("OPERATOR_CONDITION_NAME") != "" {
+		return config.OLMVersionV0, nil
+	}
+	crd := &apiextensionsv1.CustomResourceDefinition{}
+	err := r.Get(ctx, types.NamespacedName{Name: "clusterextensions.olm.operatorframework.io"}, crd)
+	switch {
+	case err == nil:
+		return config.OLMVersionV1, nil
+	case errors.IsNotFound(err):
+		// OLMv1 CRD not found — fall back to checking for OLMv0 Subscription CRD
+		err = r.Get(ctx, types.NamespacedName{Name: "subscriptions.operators.coreos.com"}, crd)
+		if err == nil {
+			return config.OLMVersionV0, nil
+		} else if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to check for OLMv0 CRD: %w", err)
+	default:
+		return "", fmt.Errorf("failed to check for OLMv1 CRD: %w", err)
+	}
 }
 
 func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) (ctrl.Manager, error) {
