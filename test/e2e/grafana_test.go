@@ -16,7 +16,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
