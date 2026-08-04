@@ -85,4 +85,20 @@ func TestSyncMigrationWriteACLWrapper(t *testing.T) {
 	if !foundWrite {
 		t.Fatal("expected migration topic write ACL")
 	}
+
+	if err := SyncMigrationWriteACL(mgr, mgh, "hub1", false, WithContext(context.Background())); err != nil {
+		t.Fatalf("SyncMigrationWriteACL() revoke error = %v", err)
+	}
+
+	if err := fakeClient.Get(context.Background(), client.ObjectKeyFromObject(kafkaUser), updated); err != nil {
+		t.Fatalf("get updated kafka user after revoke: %v", err)
+	}
+	if len(updated.Spec.Authorization.Acls) != 1 {
+		t.Fatalf("expected only read ACL after revoke, got %d", len(updated.Spec.Authorization.Acls))
+	}
+	for _, acl := range updated.Spec.Authorization.Acls {
+		if utils.GenerateACLKey(acl) == wantKey {
+			t.Fatal("expected migration topic write ACL to be revoked")
+		}
+	}
 }

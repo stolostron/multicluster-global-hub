@@ -6,8 +6,10 @@ package syncers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
@@ -394,13 +396,44 @@ func TestGenerateKlusterletConfig(t *testing.T) {
 
 type ProducerMock struct {
 	sentEvent *cloudevents.Event
+	sendErr   error
 }
 
 func (m *ProducerMock) SendEvent(ctx context.Context, evt cloudevents.Event) error {
 	m.sentEvent = &evt
-	return nil
+	return m.sendErr
 }
 
 func (m *ProducerMock) Reconnect(config *transport.TransportInternalConfig, topic string) error {
 	return nil
+}
+
+type mockMigrationTransportClient struct {
+	producer transport.Producer
+}
+
+func (m *mockMigrationTransportClient) GetProducer() transport.Producer { return m.producer }
+
+func (m *mockMigrationTransportClient) GetConsumer() transport.Consumer { return nil }
+
+func (m *mockMigrationTransportClient) GetRequester() transport.Requester { return nil }
+
+func TestIsMigrationTopicAuthorizationError(t *testing.T) {
+	assert.False(t, isMigrationTopicAuthorizationError(nil))
+	assert.False(t, isMigrationTopicAuthorizationError(errors.New("connection refused")))
+	assert.True(t, isMigrationTopicAuthorizationError(errors.New("Topic authorization failed")))
+	assert.True(t, isMigrationTopicAuthorizationError(errors.New("Broker: Topic authorization failed")))
+}
+
+func TestSendMigrationEventWithDelivery_usesProducerSendEvent(t *testing.T) {
+	producer := &ProducerMock{}
+	syncer := &migrationSourceSyncer{
+		transportClient: &mockMigrationTransportClient{producer: producer},
+	}
+
+	evt := cloudevents.NewEvent()
+	evt.SetID("test-id")
+	err := syncer.sendMigrationEventWithDelivery(context.Background(), evt, time.Second)
+	assert.NoError(t, err)
+	assert.NotNil(t, producer.sentEvent)
 }

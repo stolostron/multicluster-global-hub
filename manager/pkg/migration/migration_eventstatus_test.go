@@ -2,6 +2,7 @@ package migration
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -40,4 +41,38 @@ func TestMigrationEventProgress(t *testing.T) {
 	assert.Empty(t, GetErrorMessage(migrateId, "target-cluster", migrationv1alpha1.PhaseValidating))
 	SetErrorMessage(migrateId, "target-cluster", migrationv1alpha1.PhaseValidating, "failed to validate")
 	assert.NotEmpty(t, GetErrorMessage(migrateId, "target-cluster", migrationv1alpha1.PhaseValidating))
+}
+
+func TestDeployingACLReadyTime(t *testing.T) {
+	migrateId := "acl-ready-migration"
+	t.Cleanup(func() { RemoveMigrationStatus(migrateId) })
+
+	_, ok := GetDeployingACLReadyTime(migrateId)
+	assert.False(t, ok)
+
+	AddMigrationStatus(migrateId)
+	_, ok = GetDeployingACLReadyTime(migrateId)
+	assert.False(t, ok)
+
+	readyTime := time.Now().Add(45 * time.Second)
+	SetDeployingACLReadyTime(migrateId, readyTime)
+
+	got, ok := GetDeployingACLReadyTime(migrateId)
+	assert.True(t, ok)
+	assert.Equal(t, readyTime, got)
+}
+
+func TestAddSourceClustersAndRemoveMigrationStatus(t *testing.T) {
+	migrateId := "source-clusters-migration"
+	t.Cleanup(func() { RemoveMigrationStatus(migrateId) })
+
+	AddMigrationStatus(migrateId)
+	clusters := map[string][]string{"hub1": {"cluster1", "cluster2"}}
+	AddSourceClusters(migrateId, clusters)
+	assert.Equal(t, clusters, GetSourceClusters(migrateId))
+
+	RemoveMigrationStatus(migrateId)
+	assert.Nil(t, GetSourceClusters(migrateId))
+	_, ok := GetDeployingACLReadyTime(migrateId)
+	assert.False(t, ok)
 }
