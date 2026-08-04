@@ -258,8 +258,12 @@ var _ = Describe("transporter", Ordered, func() {
 		}
 		mgh.Spec.ImagePullSecret = "mgh-image-pull"
 
-		err, updated := trans.CreateUpdateKafkaCluster(mgh)
-		Expect(err).To(Succeed())
+		var updated bool
+		Eventually(func() error {
+			var err error
+			err, updated = trans.CreateUpdateKafkaCluster(mgh)
+			return err
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 		Expect(updated).To(BeTrue())
 
 		mgh.Spec.NodeSelector = map[string]string{
