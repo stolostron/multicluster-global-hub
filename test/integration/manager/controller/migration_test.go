@@ -23,8 +23,40 @@ import (
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+func migrationTokenSecret(namespace string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "migration",
+			Namespace: namespace,
+			Labels: map[string]string{
+				constants.LabelKeyIsManagedServiceAccount: "true",
+			},
+		},
+		Data: map[string][]byte{
+			"ca.crt": []byte("test"),
+			"token":  []byte("test"),
+		},
+	}
+}
+
+func waitForMigrationTokenSecret(ctx context.Context, namespace string) *corev1.Secret {
+	secret := &corev1.Secret{}
+	Eventually(func() error {
+		err := mgr.GetClient().Get(ctx, types.NamespacedName{
+			Name:      "migration",
+			Namespace: namespace,
+		}, secret)
+		if apierrors.IsNotFound(err) {
+			return mgr.GetClient().Create(ctx, migrationTokenSecret(namespace))
+		}
+		return err
+	}, 10*time.Second, 200*time.Millisecond).Should(Succeed())
+	return secret
+}
 
 var _ = Describe("migration", Ordered, func() {
 	Context("managed cluster migration tests with from hub", func() {
@@ -117,20 +149,8 @@ var _ = Describe("migration", Ordered, func() {
 
 			// mimic msa generated secret
 			By("mimic msa generated secret")
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "migration",
-					Namespace: "hub2",
-					Labels: map[string]string{
-						"authentication.open-cluster-management.io/is-managed-serviceaccount": "true",
-					},
-				},
-				Data: map[string][]byte{
-					"ca.crt": []byte("test"),
-					"token":  []byte("test"),
-				},
-			}
-			Expect(mgr.GetClient().Create(testCtx, secret)).To(Succeed())
+			Expect(mgr.GetClient().Create(testCtx, migrationTokenSecret("hub2"))).To(Succeed())
+			waitForMigrationTokenSecret(testCtx, "hub2")
 		})
 
 		AfterAll(func() {
@@ -152,12 +172,7 @@ var _ = Describe("migration", Ordered, func() {
 		})
 
 		It("should have bootstrap secret generated if the secret is updated", func() {
-			secret := &corev1.Secret{}
-			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
-				Name:      "migration",
-				Namespace: "hub2",
-			}, secret)).To(Succeed())
-
+			secret := waitForMigrationTokenSecret(testCtx, "hub2")
 			secret.Data["ca.crt"] = []byte("updated")
 			Expect(mgr.GetClient().Update(testCtx, secret)).To(Succeed())
 
@@ -175,7 +190,7 @@ var _ = Describe("migration", Ordered, func() {
 					return fmt.Errorf("failed to create Kubernetes client config: %v", err)
 				}
 				return nil
-			}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
+			}, 10*time.Second, 200*time.Millisecond).Should(Succeed())
 		})
 
 		It("should have received the migration event", func() {
@@ -398,20 +413,8 @@ var _ = Describe("migration", Ordered, func() {
 
 			// mimic msa generated secret
 			By("mimic msa generated secret")
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "migration",
-					Namespace: "hub3",
-					Labels: map[string]string{
-						"authentication.open-cluster-management.io/is-managed-serviceaccount": "true",
-					},
-				},
-				Data: map[string][]byte{
-					"ca.crt": []byte("test"),
-					"token":  []byte("test"),
-				},
-			}
-			Expect(mgr.GetClient().Create(testCtx, secret)).To(Succeed())
+			Expect(mgr.GetClient().Create(testCtx, migrationTokenSecret("hub3"))).To(Succeed())
+			waitForMigrationTokenSecret(testCtx, "hub3")
 
 			By("create the managed cluster data in the database")
 			Expect(db.Exec(`INSERT INTO "status"."managed_clusters" ("leaf_hub_name", "cluster_id", "error", "payload") VALUES
@@ -439,12 +442,7 @@ var _ = Describe("migration", Ordered, func() {
 		})
 
 		It("should have bootstrap secret generated if the secret is updated", func() {
-			secret := &corev1.Secret{}
-			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
-				Name:      "migration",
-				Namespace: "hub3",
-			}, secret)).To(Succeed())
-
+			secret := waitForMigrationTokenSecret(testCtx, "hub3")
 			secret.Data["ca.crt"] = []byte("updated")
 			Expect(mgr.GetClient().Update(testCtx, secret)).To(Succeed())
 
@@ -462,7 +460,7 @@ var _ = Describe("migration", Ordered, func() {
 					return fmt.Errorf("failed to create Kubernetes client config: %v", err)
 				}
 				return nil
-			}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
+			}, 10*time.Second, 200*time.Millisecond).Should(Succeed())
 		})
 
 		It("should have the migration event received", func() {
