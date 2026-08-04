@@ -20,11 +20,13 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,6 +39,7 @@ import (
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
@@ -127,6 +130,22 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(len(managedHubNames)).To(Equal(ExpectedMH))
 	Expect(len(clusterNames)).To(Equal(ExpectedMC * ExpectedMH))
+
+	By("Add deploy mode label to the managed hub")
+	clusters := &clusterv1.ManagedClusterList{}
+	Expect(globalHubClient.List(ctx, clusters)).To(Succeed())
+	for _, clusterItem := range clusters.Items {
+		cluster := &clusterv1.ManagedCluster{}
+		err = globalHubClient.Get(ctx, client.ObjectKeyFromObject(&clusterItem), cluster)
+		Expect(err).To(Succeed())
+		if cluster.Labels == nil {
+			cluster.Labels = map[string]string{}
+		}
+		cluster.Labels[commonconstants.GHDeployModeLabelKey] = commonconstants.GHDeployModeDefault
+		err = globalHubClient.Update(ctx, cluster)
+		Expect(err).To(Succeed(), "Failed to update cluster %s with deploy mode %s", cluster.Name,
+			commonconstants.GHDeployModeDefault)
+	}
 
 	if isPrune != "true" {
 		Eventually(func() error {
@@ -390,6 +409,14 @@ func waitGlobalhubReadyAndLeaseUpdated() {
 	runtimeClient, err := testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 	Expect(err).ShouldNot(HaveOccurred())
 
+	By("Waiting for manager and grafana deployments")
+	for _, name := range []string{"multicluster-global-hub-manager", "multicluster-global-hub-grafana"} {
+		deployName := name
+		Eventually(func() error {
+			return checkDeployAvailable(runtimeClient, testOptions.GlobalHub.Namespace, deployName)
+		}, 15*time.Minute, 1*time.Second).Should(Succeed())
+	}
+
 	Eventually(func() error {
 		return checkComponentsAvailableAndPhase(runtimeClient)
 	}, 15*time.Minute, 1*time.Second).Should(Succeed())
@@ -405,6 +432,38 @@ func waitGlobalhubReadyAndLeaseUpdated() {
 		}
 		return nil
 	}, 5*time.Minute, 1*time.Second).Should(Succeed())
+
+	_, err = waitGlobalHubReady(runtimeClient, 5*time.Second)
+	Expect(err).ShouldNot(HaveOccurred())
+}
+
+func waitGlobalHubReady(runtimeClient client.Client, interval time.Duration) (*v1alpha4.MulticlusterGlobalHub, error) {
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+
+	timeOutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	err := wait.PollUntilContextCancel(timeOutCtx, interval, true, func(ctx context.Context) (bool, error) {
+		err := runtimeClient.Get(ctx, operatorconfig.GetMGHNamespacedName(), mgh)
+		if errors.IsNotFound(err) {
+			klog.Infof("wait until the mgh instance is created")
+			return false, nil
+		} else if err != nil {
+			return true, err
+		}
+
+		if meta.IsStatusConditionTrue(mgh.Status.Conditions, operatorconfig.CONDITION_TYPE_GLOBALHUB_READY) {
+			return true, nil
+		}
+
+		klog.Info("mgh instance ready condition is not true")
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return mgh, nil
 }
 
 func isLeaseUpdated(leaseName, namespace, deployName string, c client.Client) (bool, error) {
