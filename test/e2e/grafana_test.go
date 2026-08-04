@@ -2,13 +2,14 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/ini.v1"
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
@@ -302,26 +303,10 @@ var _ = Describe("The grafana resources counts should be right", Ordered, Label(
 func getGrafanaResource(ctx context.Context, path string) (int, error) {
 	configNamespace := testOptions.GlobalHub.Namespace
 
-	labelSelector := fmt.Sprintf("name=%s", grafanaDeploymentName)
-	var grafanaPod corev1.Pod
-	Eventually(func() error {
-		poList, err := testClients.KubeClient().CoreV1().Pods(configNamespace).List(ctx, metav1.ListOptions{
-			LabelSelector: labelSelector,
-		})
-		if err != nil {
-			return err
-		}
-
-		klog.Infof("Get grafana path:%v", path)
-		if len(poList.Items) == 0 {
-			return fmt.Errorf("Can not get grafana pod")
-		}
-		if len(poList.Items[0].Status.PodIP) == 0 {
-			return fmt.Errorf("Can not get grafana pod IP")
-		}
-		grafanaPod = poList.Items[0]
-		return nil
-	}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+	grafanaPod, err := getReadyGrafanaPod(ctx, configNamespace)
+	if err != nil {
+		return 0, err
+	}
 
 	url := "http://" + grafanaPod.Status.PodIP + ":3001/api/" + path
 	klog.Infof("Sending request: %v", url)
@@ -335,32 +320,65 @@ func getGrafanaResource(ctx context.Context, path string) (int, error) {
 		"grafana",
 		"--",
 		"/usr/bin/curl",
+		"-sf",
 		"-H",
 		"Content-Type: application/json",
 		"-H",
 		"X-Forwarded-User: WHAT_YOU_ARE_DOING_IS_VOIDING_SUPPORT_0000000000000000000000000000000000000000000000000000000000000000",
 		url)
 	if err != nil {
-		klog.Errorf("responseBody: %v, err: %v", string(responseBody), err)
+		klog.Errorf("grafana API request failed for %s: %v", path, err)
 		return 0, err
 	}
 
-	var mapObj map[string]interface{}
-	var arrayObj []interface{}
-
+	responseBody = strings.TrimSpace(responseBody)
 	if len(responseBody) == 0 {
-		return 0, nil
+		return 0, fmt.Errorf("empty response from grafana API %s", path)
 	}
 
-	err = yaml.Unmarshal([]byte(responseBody), &mapObj)
-	if err == nil {
+	var mapObj map[string]interface{}
+	if err := json.Unmarshal([]byte(responseBody), &mapObj); err == nil {
 		return 1, nil
 	}
 
-	err = yaml.Unmarshal([]byte(responseBody), &arrayObj)
-	if err == nil {
+	var arrayObj []interface{}
+	if err := json.Unmarshal([]byte(responseBody), &arrayObj); err == nil {
 		return len(arrayObj), nil
 	}
 
-	return 0, err
+	return 0, fmt.Errorf("grafana API %s returned non-JSON response", path)
+}
+
+func getReadyGrafanaPod(ctx context.Context, namespace string) (*corev1.Pod, error) {
+	labelSelector := fmt.Sprintf("name=%s", grafanaDeploymentName)
+	poList, err := testClients.KubeClient().CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(poList.Items) == 0 {
+		return nil, fmt.Errorf("grafana pod not found")
+	}
+
+	pod := poList.Items[0]
+	if pod.Status.PodIP == "" {
+		return nil, fmt.Errorf("grafana pod IP is not assigned")
+	}
+	if pod.Status.Phase != corev1.PodRunning {
+		return nil, fmt.Errorf("grafana pod is not running: %s", pod.Status.Phase)
+	}
+
+	grafanaReady := false
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name == "grafana" && cs.Ready {
+			grafanaReady = true
+			break
+		}
+	}
+	if !grafanaReady {
+		return nil, fmt.Errorf("grafana container is not ready")
+	}
+
+	return &pod, nil
 }
