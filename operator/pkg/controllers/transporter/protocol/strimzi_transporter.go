@@ -1069,10 +1069,10 @@ func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.Multiclust
 			desiredSpec = expectedSub.Spec.DeepCopy()
 		}
 		desiredSpec.StartingCSV = startingCSV
-		if equality.Semantic.DeepEqual(existingSub.Spec, *desiredSpec) {
+		if equality.Semantic.DeepEqual(existingSub.Spec, desiredSpec) {
 			return nil
 		}
-		existingSub.Spec = *desiredSpec
+		existingSub.Spec = desiredSpec
 		return k.manager.GetClient().Update(k.ctx, existingSub)
 	})
 }
