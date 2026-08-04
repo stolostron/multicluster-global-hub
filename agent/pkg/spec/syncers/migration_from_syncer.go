@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +33,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -446,13 +449,47 @@ func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
 	}
 
 	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
-	if err := s.transportClient.GetProducer().SendEvent(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
+	topicCtx := cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.GetMigrationTopic())
+	const migrationPublishDeliveryTimeout = 30 * time.Second
+	err = wait.ExponentialBackoff(wait.Backoff{
+		Duration: 5 * time.Second,
+		Factor:   1.0,
+		Steps:    6,
+	}, func() (bool, error) {
+		sendErr := s.sendMigrationEventWithDelivery(topicCtx, e, migrationPublishDeliveryTimeout)
+		if sendErr == nil {
+			return true, nil
+		}
+		if !isMigrationTopicAuthorizationError(sendErr) {
+			return false, sendErr
+		}
+		return false, nil
+	})
+	if err != nil {
 		return fmt.Errorf("failed to send event(%s) from %s to %s: %v",
 			constants.MigrationTargetMsgKey, fromHub, toHub, err)
 	}
 	log.Info("deploying the resources into the target hub cluster")
 	return nil
+}
+
+func (s *migrationSourceSyncer) sendMigrationEventWithDelivery(
+	ctx context.Context, evt cloudevents.Event, timeout time.Duration,
+) error {
+	producer := s.transportClient.GetProducer()
+	if gp, ok := producer.(*genericproducer.GenericProducer); ok {
+		return gp.SendEventWithDeliveryConfirmation(ctx, evt, timeout)
+	}
+	return producer.SendEvent(ctx, evt)
+}
+
+func isMigrationTopicAuthorizationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "Topic authorization failed") ||
+		strings.Contains(msg, "Broker: Topic authorization failed")
 }
 
 func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []string,

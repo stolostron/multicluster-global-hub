@@ -294,6 +294,11 @@ func waitForTrustedMigrationDeploy(
 }
 
 func deleteNamespaceAndWait(targetClient client.Client, namespaceName string) {
+	mc := &clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}}
+	if err := targetClient.Delete(ctx, mc); err != nil && !apierrors.IsNotFound(err) {
+		Expect(err).NotTo(HaveOccurred(), "expected to delete managed cluster %q during test cleanup", namespaceName)
+	}
+
 	err := targetClient.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespaceName}})
 	if err != nil && !apierrors.IsNotFound(err) {
 		Expect(err).NotTo(HaveOccurred(), "expected to delete namespace %q during test cleanup", namespaceName)
@@ -301,7 +306,7 @@ func deleteNamespaceAndWait(targetClient client.Client, namespaceName string) {
 
 	Eventually(func() bool {
 		err := targetClient.Get(ctx, types.NamespacedName{Name: namespaceName}, &corev1.Namespace{})
-		return client.IgnoreNotFound(err) == nil && err != nil
-	}, 30*time.Second, 500*time.Millisecond).Should(BeTrue(),
+		return apierrors.IsNotFound(err)
+	}, 2*time.Minute, 500*time.Millisecond).Should(BeTrue(),
 		"expected namespace %q to be fully removed before next test", namespaceName)
 }

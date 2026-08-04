@@ -17,9 +17,10 @@ import (
 )
 
 // go test ./test/integration/operator/controllers/agent -ginkgo.focus "deploy default addon" -v
-var _ = Describe("deploy default addon", func() {
+var _ = Describe("deploy default addon", Ordered, func() {
 	It("Should skip to create agent when importing an bare OCP in brownfield(enable local cluster)", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
+		defer cleanupCluster(clusterName)
 
 		By("By preparing an OCP Managed Clusters")
 		prepareCluster(clusterName,
@@ -59,6 +60,7 @@ var _ = Describe("deploy default addon", func() {
 
 	It("Should create default addon with deploy label = Default under brownfield mode", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
+		defer cleanupCluster(clusterName)
 		workName := fmt.Sprintf("addon-%s-deploy-0",
 			constants.GHManagedClusterAddonName)
 
@@ -96,6 +98,7 @@ var _ = Describe("deploy default addon", func() {
 
 	It("Should create default addon and ACM with deploy label = Default under brownfield mode", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
+		defer cleanupCluster(clusterName)
 		workName := fmt.Sprintf("addon-%s-deploy-0",
 			constants.GHManagedClusterAddonName)
 

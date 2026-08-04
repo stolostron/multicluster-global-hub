@@ -287,11 +287,17 @@ var _ = Describe("migration", Ordered, func() {
 		}
 
 		// add a label to trigger the reconcile
-		err = mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
-		Expect(err).To(Succeed())
-		migrationInstance.Labels = map[string]string{"test": "foo"}
-		err = mgr.GetClient().Update(ctx, migrationInstance)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+			if err != nil {
+				return err
+			}
+			if migrationInstance.Labels == nil {
+				migrationInstance.Labels = map[string]string{}
+			}
+			migrationInstance.Labels["test"] = "foo"
+			return mgr.GetClient().Update(ctx, migrationInstance)
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		// validating: not found cluster
 		By("validating: not found cluster")
@@ -409,6 +415,11 @@ var _ = Describe("migration", Ordered, func() {
 			if err != nil {
 				return err
 			}
+
+			migration.SetDeployingACLReadyTime(
+				string(migrationInstance.GetUID()),
+				time.Now().Add(-time.Second),
+			)
 
 			// mock the source hub report result
 			migration.SetFinished(string(migrationInstance.GetUID()), migrationInstance.Spec.From,

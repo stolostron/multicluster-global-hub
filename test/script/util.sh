@@ -9,7 +9,7 @@ export CLUSTERADM_VERSION=0.10.1
 export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.26.4
-export GINKGO_VERSION=v2.17.2
+export GINKGO_VERSION=v2.28.1
 
 # Environment Variables
 CURRENT_DIR=$(
@@ -620,11 +620,11 @@ check_golang() {
 }
 
 check_ginkgo() {
-  if ! command -v ginkgo >/dev/null 2>&1; then
-    go install github.com/onsi/ginkgo/v2/ginkgo@$GINKGO_VERSION
-    go get github.com/onsi/gomega/...
-    sudo mv $(go env GOPATH)/bin/ginkgo $INSTALL_DIR/ginkgo
-  fi
+  # Always install the pinned CLI so CI images with a stale ginkgo on PATH cannot
+  # mismatch the ginkgo/v2 module version used by test/e2e (see go.mod).
+  go install github.com/onsi/ginkgo/v2/ginkgo@$GINKGO_VERSION
+  go get github.com/onsi/gomega/...
+  sudo mv -f "$(go env GOPATH)/bin/ginkgo" "$INSTALL_DIR/ginkgo"
   echo "ginkgo version: $(ginkgo version)"
 }
 

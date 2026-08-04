@@ -68,6 +68,23 @@ func prepareCluster(name string, labels, annotations map[string]string,
 	})).Should(Succeed())
 }
 
+func cleanupCluster(name string) {
+	cluster := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}
+	_ = runtimeClient.Delete(ctx, &addonv1alpha1.ManagedClusterAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHManagedClusterAddonName,
+			Namespace: name,
+		},
+	})
+	_ = runtimeClient.Delete(ctx, cluster)
+	Eventually(func() bool {
+		err := runtimeClient.Get(ctx, types.NamespacedName{Name: name}, cluster)
+		return errors.IsNotFound(err)
+	}, timeout, interval).Should(BeTrue())
+}
+
 // go test ./test/integration/operator/controllers/agent -ginkgo.focus "none addon" -v
 var _ = Describe("none addon", func() {
 	It("Should not create addon in these cases", func() {

@@ -47,8 +47,10 @@ jobs:
           # clone multicluster-global-hub-operator-bundle repo
           git clone https://github.com/stolostron/multicluster-global-hub-operator-bundle.git -b release-1.5
 
-          # compare the bundle dir
-          diff -I 'createdAt' -ruN operator/bundle multicluster-global-hub-operator-bundle/bundle
+          # compare the bundle dir (exclude accidental CSV backup copy in operator-bundle repo)
+          diff -I 'createdAt' -ruN \
+            --exclude="multicluster-global-hub-operator.clusterserviceversion.yaml''" \
+            operator/bundle multicluster-global-hub-operator-bundle/bundle
 
   scorecard-test:
     name: bundle scorecard test

@@ -15,10 +15,6 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 export ISBYO="true"
 
-# transport-identity runs in multicluster-global-hub before BYO; undeploy it so
-# cluster-scoped operator RBAC and nodePort 30080 are free for the mgh deploy.
-bash "$CURRENT_DIR/e2e_clean_globalhub.sh"
-
 target_namespace=${TARGET_NAMESPACE:-"mgh"}
 export NAMESPACE="$target_namespace"
 
@@ -68,6 +64,7 @@ wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECO
 
 # wait the byo kafkatopic and kafkauser
 wait_cmd "kubectl get kafkatopic gh-spec -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-migration -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 wait_cmd "kubectl get kafkatopic gh-status -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 wait_cmd "kubectl get kafkauser $byo_user -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 echo "Kafka topic and user is ready"
@@ -85,12 +82,17 @@ kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubec
   --from-file=client.key="$CURRENT_DIR"/config/kafka-client-key.pem
 echo "transport secret is ready in $target_namespace namespace!"
 
-# nodePort 30080 is cluster-scoped; transport-identity leaves the nonk8s service in multicluster-global-hub.
-echo "Delete stale nonk8s NodePort service from built-in GH namespace"
-kubectl delete service multicluster-global-hub-manager-nonk8s-service -n multicluster-global-hub \
-  --kubeconfig "$GH_KUBECONFIG" --ignore-not-found=true
-
 ## run e2e
 bash "$CURRENT_DIR/e2e_run.sh" -n $target_namespace -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
 
+# Clean up BYO namespace before transport suites. The operator only reconciles when exactly
+# one MulticlusterGlobalHub exists cluster-wide; leaving the mgh operand blocks transport-identity.
+echo "Cleaning up BYO test resources..."
+kubectl delete multiclusterglobalhubs --all -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
+wait_cmd "[[ -z \$(kubectl get multiclusterglobalhubs -n ${target_namespace} --kubeconfig ${GH_KUBECONFIG} --ignore-not-found=true -o name 2>/dev/null) ]]"
+kubectl delete service multicluster-global-hub-manager-nonk8s-service -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
+kubectl delete deployment multicluster-global-hub-operator -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
+kubectl wait --for=delete deployment/multicluster-global-hub-operator -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --timeout=120s 2>/dev/null || true
+
 unset ISBYO
+unset NAMESPACE

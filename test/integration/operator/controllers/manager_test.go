@@ -69,6 +69,7 @@ var _ = Describe("manager", Ordered, func() {
 		initOption = config.ControllerOption{
 			Manager:               runtimeManager,
 			MulticlusterGlobalHub: mgh,
+			KubeClient:            kubeClient,
 			OperatorConfig:        &config.OperatorConfig{},
 		}
 		// transport

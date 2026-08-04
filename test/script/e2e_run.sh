@@ -121,13 +121,23 @@ data:
   logLevel: debug
 EOF
 
+GINKGO_FLAGS=(--fail-fast --poll-progress-after=30s --poll-progress-interval=30s)
+
+run_ginkgo() {
+  # Match the ginkgo/v2 module in go.mod; avoid stale ginkgo CLIs on CI images.
+  (
+    cd "$PROJECT_DIR"
+    go run github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION} "$@"
+  )
+}
+
 if [ "${filter}" = "e2e-test-prune" ]; then
   export ISPRUNE="true"
   echo "run prune"
-  ginkgo --fail-fast --label-filter="e2e-test-prune" --output-dir="$CONFIG_DIR" --json-report=report.json \
+  run_ginkgo "${GINKGO_FLAGS[@]}" --label-filter="e2e-test-prune" --output-dir="$CONFIG_DIR" --json-report=report.json \
     --junit-report=report.xml "$TEST_DIR/e2e" -- -options="$OPTION_FILE" -v="$verbose"
 else
-  ginkgo --fail-fast --label-filter="${filter}" --output-dir="$CONFIG_DIR" --json-report=report.json \
+  run_ginkgo "${GINKGO_FLAGS[@]}" --label-filter="${filter}" --output-dir="$CONFIG_DIR" --json-report=report.json \
     --junit-report=report.xml "$TEST_DIR"/e2e -- -options="$OPTION_FILE" -v="$verbose"
 fi
 

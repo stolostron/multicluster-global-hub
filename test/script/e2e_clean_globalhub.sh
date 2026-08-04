@@ -55,18 +55,11 @@ if [[ ! -z $(kubectl get kafka -n "$GH_NAMESPACE" --ignore-not-found=true) ]]; t
   exit 1
 fi
 
-echo "Delete e2e nonk8s NodePort service"
-kubectl delete service multicluster-global-hub-manager-nonk8s-service -n "$GH_NAMESPACE" --ignore-not-found=true
-
 cd operator
-make undeploy
+make undeploy ignore-not-found=true
 
 ## clean
 wait_cmd "kubectl delete crd kafkas.kafka.strimzi.io --ignore-not-found=true"
 wait_cmd "kubectl delete crd kafkanodepools.kafka.strimzi.io --ignore-not-found=true"
 wait_cmd "kubectl delete crd kafkatopics.kafka.strimzi.io --ignore-not-found=true"
 wait_cmd "kubectl delete crd kafkausers.kafka.strimzi.io --ignore-not-found=true"
-
-echo "Recreate namespace for subsequent e2e runs"
-kubectl get namespace "$GH_NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "$GH_NAMESPACE"
-

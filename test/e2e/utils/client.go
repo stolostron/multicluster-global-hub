@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -104,36 +105,38 @@ func (c *testClient) KubeDynamicClient() dynamic.Interface {
 
 func (c *testClient) Kubectl(clusterName string, args ...string) (string, error) {
 	config := ""
-	context := ""
+	kubeContext := ""
 	if c.options.GlobalHub.Name == clusterName {
 		config = c.options.GlobalHub.KubeConfig
-		context = c.options.GlobalHub.KubeContext
+		kubeContext = c.options.GlobalHub.KubeContext
 	}
 	for _, hub := range c.options.GlobalHub.ManagedHubs {
 		if hub.Name == clusterName {
-			context = hub.KubeContext
+			kubeContext = hub.KubeContext
 			config = hub.KubeConfig
 		}
 		for _, cluster := range hub.ManagedClusters {
 			if cluster.Name == clusterName {
-				context = cluster.KubeContext
+				kubeContext = cluster.KubeContext
 				config = cluster.KubeConfig
 			}
 		}
 	}
 
-	if config == "" && context == "" {
+	if config == "" && kubeContext == "" {
 		return "", fmt.Errorf("cluster %s is not found in options", clusterName)
 	}
 
-	args = append([]string{"--context", context}, args...)
+	args = append([]string{"--context", kubeContext}, args...)
 	args = append([]string{"--kubeconfig", config}, args...)
-	output, err := exec.Command("kubectl", args...).Output()
+	kubectlCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(kubectlCtx, "kubectl", args...)
+	combinedOutput, err := cmd.CombinedOutput()
 	if err != nil {
-		combinedOutput, err := exec.Command("kubectl", args...).CombinedOutput()
 		klog.Errorf("Output:%v, err:%v", string(combinedOutput), err)
 	}
-	return string(output), err
+	return string(combinedOutput), err
 }
 
 func (c *testClient) RestConfig(clusterName string) (*rest.Config, error) {

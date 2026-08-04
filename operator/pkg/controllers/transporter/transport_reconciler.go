@@ -52,6 +52,11 @@ func (c *TransportReconciler) IsResourceRemoved() bool {
 
 func StartController(controllerOption config.ControllerOption) (config.ControllerInterface, error) {
 	if transportReconciler != nil {
+		if !migrationACLControllerStarted {
+			if err := migrationACLReconcilerSetup(controllerOption.Manager); err != nil {
+				return nil, err
+			}
+		}
 		return transportReconciler, nil
 	}
 	log.Info("start transport controller")
@@ -62,9 +67,14 @@ func StartController(controllerOption config.ControllerOption) (config.Controlle
 		transportReconciler = nil
 		return nil, err
 	}
+	if err := migrationACLReconcilerSetup(controllerOption.Manager); err != nil {
+		return nil, err
+	}
 	log.Infof("inited transport controller")
 	return transportReconciler, nil
 }
+
+var migrationACLReconcilerSetup = setupMigrationACLReconciler
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TransportReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -74,18 +84,6 @@ func (r *TransportReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
 		Complete(r)
-}
-
-var mghPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return true
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
 }
 
 var secretPred = predicate.Funcs{
@@ -145,7 +143,8 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return
 		}
 
-		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+		err = config.UpdateMGHComponent(
+			ctx, r.GetClient(),
 			getTransportComponentStatus(reconcileErr),
 			updateConn,
 		)
