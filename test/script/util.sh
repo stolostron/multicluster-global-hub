@@ -9,7 +9,7 @@ export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.26.4
-export GINKGO_VERSION=v2.17.2
+export GINKGO_VERSION=v2.28.1
 
 # Environment Variables
 CURRENT_DIR=$(

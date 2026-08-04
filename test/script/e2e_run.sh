@@ -17,7 +17,36 @@ export MH_NUM=${MH_NUM:-2}
 export MC_NUM=${MC_NUM:-1}
 export GH_NAME="global-hub" # the KinD name
 export GH_KUBECONFIG="${CONFIG_DIR}/${GH_NAME}"
-export GH_NAMESPACE="multicluster-global-hub"
+
+while getopts ":f:v:n:" opt; do
+  case $opt in
+  f)
+    filter="$OPTARG"
+    ;;
+  v)
+    verbose="$OPTARG"
+    ;;
+  n)
+    GH_NAMESPACE="$OPTARG"
+    ;;
+  \?)
+    echo "Invalid option -$OPTARG" >&2
+    exit 1
+    ;;
+  esac
+
+  case $OPTARG in
+  -*)
+    echo "Option $opt needs a valid argument"
+    exit 1
+    ;;
+  esac
+done
+
+verbose=${verbose:=5}
+GH_NAMESPACE=${GH_NAMESPACE:=multicluster-global-hub}
+export GH_NAMESPACE
+echo "namespace: "$GH_NAMESPACE
 
 # hub cluster
 hub_api_server=$(kubectl config view -o jsonpath="{.clusters[0].cluster.server}" --kubeconfig "$GH_KUBECONFIG" --context "$GH_NAME")
@@ -69,30 +98,6 @@ EOF
   done
 done
 
-while getopts ":f:v:" opt; do
-  case $opt in
-  f)
-    filter="$OPTARG"
-    ;;
-  v)
-    verbose="$OPTARG"
-    ;;
-  \?)
-    echo "Invalid option -$OPTARG" >&2
-    exit 1
-    ;;
-  esac
-
-  case $OPTARG in
-  -*)
-    echo "Option $opt needs a valid argument"
-    exit 1
-    ;;
-  esac
-done
-
-verbose=${verbose:=5}
-
 # Go programs typically use dynamic linking for C libraries: confluent-kafka package is used in e2e test
 export CGO_ENABLED=1
 
@@ -106,13 +111,32 @@ metadata:
   name: ${GH_NAMESPACE}
 EOF
 
+cat <<EOF | kubectl apply --kubeconfig $GH_KUBECONFIG -n $GH_NAMESPACE -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multicluster-global-hub-config
+data:
+  logLevel: debug
+EOF
+
+GINKGO_FLAGS=(--fail-fast --poll-progress-after=30s --poll-progress-interval=30s)
+
+run_ginkgo() {
+  # Match the ginkgo/v2 module in go.mod; avoid stale ginkgo CLIs on CI images.
+  (
+    cd "$PROJECT_DIR"
+    go run github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION} "$@"
+  )
+}
+
 if [ "${filter}" = "e2e-test-prune" ]; then
   export ISPRUNE="true"
   echo "run prune"
-  ginkgo --fail-fast --label-filter="e2e-test-prune" --output-dir="$CONFIG_DIR" --json-report=report.json \
+  run_ginkgo "${GINKGO_FLAGS[@]}" --label-filter="e2e-test-prune" --output-dir="$CONFIG_DIR" --json-report=report.json \
     --junit-report=report.xml "$TEST_DIR/e2e" -- -options="$OPTION_FILE" -v="$verbose"
 else
-  ginkgo --fail-fast --label-filter="${filter}" --output-dir="$CONFIG_DIR" --json-report=report.json \
+  run_ginkgo "${GINKGO_FLAGS[@]}" --label-filter="${filter}" --output-dir="$CONFIG_DIR" --json-report=report.json \
     --junit-report=report.xml "$TEST_DIR"/e2e -- -options="$OPTION_FILE" -v="$verbose"
 fi
 
