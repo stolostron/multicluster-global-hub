@@ -258,9 +258,11 @@ var _ = Describe("transporter", Ordered, func() {
 		}
 		mgh.Spec.ImagePullSecret = "mgh-image-pull"
 
-		var updated bool
+		var (
+			updated bool
+			err     error
+		)
 		Eventually(func() error {
-			var err error
 			err, updated = trans.CreateUpdateKafkaCluster(mgh)
 			return err
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
