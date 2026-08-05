@@ -3,12 +3,18 @@ approvers:
 - bjoydeep
 - birsanv
 - rohit-bharmal
+- sudeshmu
+- mihirlele
+- ab-ghosh
 
 reviewers:
 - nirrozenbaum
 - bjoydeep
 - birsanv
 - rohit-bharmal
+- sudeshmu
+- mihirlele
+- ab-ghosh
 - github-actions[bot]
 
 emeritus_approvers:
@@ -16,4 +22,3 @@ emeritus_approvers:
 - clyang82
 - morvencao
 - yanmxa
-
