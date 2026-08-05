@@ -24,7 +24,7 @@ import (
 )
 
 // +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers;kafkanodepools,verbs=get;create;list;watch;update;delete
-// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions;subscriptions,verbs=get;create;delete;update;list;watch
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;delete;list;watch
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=podmonitors,verbs=get;create;delete;update;list;watch
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
