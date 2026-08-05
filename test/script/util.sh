@@ -433,11 +433,7 @@ enable_olm() {
   kubectl config use-context "$1"
   curl -L https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh -o install.sh
   chmod +x install.sh
-  ./install.sh v0.30.0 || true
-  # install.sh can return before packageserver CSV reaches Succeeded; Strimzi
-  # subscription install depends on a healthy packageserver catalog resolver.
-  wait_cmd "kubectl get deployment packageserver -n olm -o jsonpath='{.status.availableReplicas}' 2>/dev/null | grep -v '^0$'" 300
-  wait_cmd "kubectl get csv packageserver -n olm -o jsonpath='{.status.phase}' 2>/dev/null | grep Succeeded" 300
+  ./install.sh v0.28.0
 }
 
 wait_secret_ready() {
