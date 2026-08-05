@@ -308,22 +308,47 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 	return nil
 }
 
-func (k *strimziTransporter) isStrimziOperatorRunning() (bool, error) {
+func (k *strimziTransporter) getStrimziOperatorDeployment() (*appsv1.Deployment, bool, error) {
 	deployment := &appsv1.Deployment{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      "strimzi-cluster-operator",
 		Namespace: k.mgh.Namespace,
 	}, deployment)
 	if errors.IsNotFound(err) {
-		return false, nil
+		return nil, false, nil
 	}
 	if err != nil {
+		return nil, false, err
+	}
+	return deployment, true, nil
+}
+
+func (k *strimziTransporter) isStrimziOperatorDeployed() (bool, error) {
+	_, deployed, err := k.getStrimziOperatorDeployment()
+	return deployed, err
+}
+
+func (k *strimziTransporter) isStrimziOperatorRunning() (bool, error) {
+	deployment, deployed, err := k.getStrimziOperatorDeployment()
+	if err != nil || !deployed {
 		return false, err
+	}
+	if deployment.Status.ReadyReplicas > 0 {
+		return true, nil
 	}
 	return deployment.Status.AvailableReplicas > 0, nil
 }
 
 func (k *strimziTransporter) isCSVInstalled() (bool, error) {
+	deployed, err := k.isStrimziOperatorDeployed()
+	if err != nil {
+		return false, err
+	}
+	if deployed {
+		// YAML/Helm bootstrap on Kind: skip OLM CSV gate when the operator deployment exists.
+		return true, nil
+	}
+
 	running, err := k.isStrimziOperatorRunning()
 	if err != nil || running {
 		return running, err
@@ -1053,6 +1078,14 @@ func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.Multiclust
 
 // create/ update the kafka subscription
 func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
+	deployed, err := k.isStrimziOperatorDeployed()
+	if err != nil {
+		return err
+	}
+	if deployed {
+		return nil
+	}
+
 	running, err := k.isStrimziOperatorRunning()
 	if err != nil {
 		return err

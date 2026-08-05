@@ -445,15 +445,12 @@ bootstrap_strimzi_operator() {
   local kubeconfig=${2:-$GH_KUBECONFIG}
 
   kubectl create namespace "$namespace" --dry-run=client -oyaml | kubectl apply -f - --kubeconfig "$kubeconfig"
-  if kubectl get deployment strimzi-cluster-operator -n "$namespace" --kubeconfig "$kubeconfig" >/dev/null 2>&1; then
-    echo "Strimzi operator already installed in $namespace"
-    return 0
+  if ! kubectl get deployment strimzi-cluster-operator -n "$namespace" --kubeconfig "$kubeconfig" >/dev/null 2>&1; then
+    curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml" \
+      | sed "s/namespace: myproject/namespace: ${namespace}/g" \
+      | kubectl create -f - -n "$namespace" --kubeconfig "$kubeconfig"
   fi
-
-  curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml" \
-    | sed "s/namespace: myproject/namespace: ${namespace}/g" \
-    | kubectl create -f - -n "$namespace" --kubeconfig "$kubeconfig"
-  wait_cmd "kubectl get pods -n $namespace --kubeconfig $kubeconfig -l name=strimzi-cluster-operator | grep Running" 600
+  wait_cmd "kubectl get deployment strimzi-cluster-operator -n $namespace --kubeconfig $kubeconfig -o jsonpath='{.status.readyReplicas}' | grep -v '^0$'" 600
   kubectl wait --for=condition=Established crd/kafkas.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
   kubectl wait --for=condition=Established crd/kafkatopics.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
   kubectl wait --for=condition=Established crd/kafkausers.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s

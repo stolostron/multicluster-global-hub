@@ -27,13 +27,13 @@ kubectl logs deployment/"$COMPONENT" -n "$NAMESPACE" --all-containers=true
 [ "$COMPONENT" != "multicluster-global-hub-operator" ] && exit 0
 
 echo ">>>> KafkaCluster"
-kubectl get kafka -n "$NAMESPACE" -oyaml
+kubectl get kafka.v1beta2.kafka.strimzi.io -n "$NAMESPACE" -oyaml
 
 echo ">>>> KafkaUsers"
-kubectl get kafkauser -n "$NAMESPACE" -oyaml
+kubectl get kafkauser.v1beta2.kafka.strimzi.io -n "$NAMESPACE" -oyaml
 
 echo ">>>> KafkaTopics"
-kubectl get kafkatopics -n "$NAMESPACE" -oyaml
+kubectl get kafkatopic.v1beta2.kafka.strimzi.io -n "$NAMESPACE" -oyaml
 
 echo ">>>> pod"
 kubectl get pod -n "$NAMESPACE"

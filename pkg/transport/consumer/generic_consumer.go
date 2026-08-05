@@ -81,6 +81,10 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConf
 	topics := []string{tranConfig.KafkaCredential.StatusTopic}
 	if !tranConfig.IsManager {
 		topics[0] = tranConfig.KafkaCredential.SpecTopic
+		if migrationTopic := tranConfig.KafkaCredential.GetMigrationTopic(); migrationTopic != "" &&
+			migrationTopic != tranConfig.KafkaCredential.SpecTopic {
+			topics = append(topics, migrationTopic)
+		}
 	} else {
 		c.statusTopicPattern = tranConfig.KafkaCredential.StatusTopic
 	}
