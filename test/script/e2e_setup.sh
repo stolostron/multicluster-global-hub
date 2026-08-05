@@ -43,6 +43,8 @@ for pid in "${pids[@]}"; do
   wait "$pid" || true
 done
 
+bootstrap_strimzi_subscription multicluster-global-hub
+
 # service-ca after OLM — applying it first causes
 # `CSV "packageserver" failed to reach phase succeeded` on Kind.
 enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true

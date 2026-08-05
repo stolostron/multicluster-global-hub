@@ -150,11 +150,11 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 		transporter.subCatalogSourceNamespace = catalogSourceNamespace
 	}
 	subscriptionChannel, ok := mgh.Annotations[operatorconstants.SubscriptionChannel]
-	if ok && catalogSourceNamespace != "" {
+	if ok && subscriptionChannel != "" {
 		transporter.subChannel = subscriptionChannel
 	}
 	subscriptionPackageName, ok := mgh.Annotations[operatorconstants.SubscriptionPackageName]
-	if ok && catalogSourceNamespace != "" {
+	if ok && subscriptionPackageName != "" {
 		transporter.subPackageName = subscriptionPackageName
 	}
 
