@@ -127,6 +127,10 @@ func (s *LocalAgentController) IsResourceRemoved() bool {
 // +kubebuilder:rbac:groups=agent.open-cluster-management.io,resources=klusterletaddonconfigs,verbs=get;create;watch;list
 // +kubebuilder:rbac:groups=register.open-cluster-management.io,resources=managedclusters/accept,verbs=update
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete;deletecollection
+// +kubebuilder:rbac:groups=extensions.hive.openshift.io,resources=imageclusterinstalls;imageclusterinstalls/status,verbs=create;delete;get;list;update;watch
+// +kubebuilder:rbac:groups=hive.openshift.io,resources=clusterdeployments;clusterdeployments/status,verbs=create;delete;get;list;update;watch
+// +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts;baremetalhosts/status;dataimages;firmwareschemas;firmwareschemas/status;hostfirmwarecomponents;hostfirmwarecomponents/status;hostfirmwaresettings;hostfirmwaresettings/status,verbs=create;delete;get;list;update;watch
+// +kubebuilder:rbac:groups=observability.open-cluster-management.io,resources=observabilityaddons,verbs=delete;get;list;update
 
 func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Debugf("reconcile local agent controller: %v", req)

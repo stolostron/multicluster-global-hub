@@ -273,6 +273,58 @@ rules:
   - watch
   - list
 - apiGroups:
+  - extensions.hive.openshift.io
+  resources:
+  - imageclusterinstalls
+  - imageclusterinstalls/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - hive.openshift.io
+  resources:
+  - clusterdeployments
+  - clusterdeployments/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts
+  - baremetalhosts/status
+  - dataimages
+  - firmwareschemas
+  - firmwareschemas/status
+  - hostfirmwarecomponents
+  - hostfirmwarecomponents/status
+  - hostfirmwaresettings
+  - hostfirmwaresettings/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - observability.open-cluster-management.io
+  resources:
+  - observabilityaddons
+  verbs:
+  - delete
+  - get
+  - list
+  - update
+- apiGroups:
   - work.open-cluster-management.io
   resources:
   - manifestworks
