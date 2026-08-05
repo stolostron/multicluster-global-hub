@@ -42,6 +42,16 @@ func migrationTokenSecret(namespace string) *corev1.Secret {
 	}
 }
 
+func waitForMigrationCRDeleted(ctx context.Context) {
+	Eventually(func() bool {
+		err := mgr.GetClient().Get(ctx, types.NamespacedName{
+			Name:      "migration",
+			Namespace: utils.GetDefaultNamespace(),
+		}, &migrationv1alpha1.ManagedClusterMigration{})
+		return apierrors.IsNotFound(err)
+	}, 10*time.Second, 200*time.Millisecond).Should(BeTrue())
+}
+
 func waitForMigrationTokenSecret(ctx context.Context, namespace string) *corev1.Secret {
 	secret := &corev1.Secret{}
 	Eventually(func() error {
@@ -317,6 +327,8 @@ var _ = Describe("migration", Ordered, func() {
 				}, msa)
 				return apierrors.IsNotFound(err)
 			}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			waitForMigrationCRDeleted(testCtx)
 		})
 	})
 
@@ -381,6 +393,7 @@ var _ = Describe("migration", Ordered, func() {
 
 			// create managedclustermigration CR
 			By("create managedclustermigration CR")
+			waitForMigrationCRDeleted(testCtx)
 			migrationInstance = &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "migration",

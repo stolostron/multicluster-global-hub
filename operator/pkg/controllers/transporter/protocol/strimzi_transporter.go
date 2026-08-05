@@ -17,6 +17,7 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
@@ -339,19 +340,54 @@ func (k *strimziTransporter) isStrimziOperatorRunning() (bool, error) {
 	return deployment.Status.AvailableReplicas > 0, nil
 }
 
-func (k *strimziTransporter) isCSVInstalled() (bool, error) {
+func (k *strimziTransporter) isStrimziAPIAvailable() (bool, error) {
+	dc, err := discovery.NewDiscoveryClientForConfig(k.manager.GetConfig())
+	if err != nil {
+		return false, err
+	}
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
+	gvk := kafkav1beta2.GroupVersion.WithKind("Kafka")
+	_, err = mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		if meta.IsNoMatchError(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (k *strimziTransporter) isStrimziBootstrapped() (bool, error) {
 	deployed, err := k.isStrimziOperatorDeployed()
 	if err != nil {
 		return false, err
 	}
 	if deployed {
-		// YAML/Helm bootstrap on Kind: skip OLM CSV gate when the operator deployment exists.
 		return true, nil
 	}
 
 	running, err := k.isStrimziOperatorRunning()
-	if err != nil || running {
-		return running, err
+	if err != nil {
+		return false, err
+	}
+	if running {
+		return true, nil
+	}
+
+	if !k.subCommunity {
+		return false, nil
+	}
+	return k.isStrimziAPIAvailable()
+}
+
+func (k *strimziTransporter) isCSVInstalled() (bool, error) {
+	bootstrapped, err := k.isStrimziBootstrapped()
+	if err != nil {
+		return false, err
+	}
+	if bootstrapped {
+		// YAML bootstrap on Kind: skip OLM CSV gate when Strimzi is already present.
+		return true, nil
 	}
 
 	existingSub := &subv1alpha1.Subscription{}
@@ -1078,19 +1114,11 @@ func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.Multiclust
 
 // create/ update the kafka subscription
 func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
-	deployed, err := k.isStrimziOperatorDeployed()
+	bootstrapped, err := k.isStrimziBootstrapped()
 	if err != nil {
 		return err
 	}
-	if deployed {
-		return nil
-	}
-
-	running, err := k.isStrimziOperatorRunning()
-	if err != nil {
-		return err
-	}
-	if running {
+	if bootstrapped {
 		return nil
 	}
 

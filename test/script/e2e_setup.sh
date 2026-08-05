@@ -43,7 +43,7 @@ for pid in "${pids[@]}"; do
   wait "$pid" || true
 done
 
-bootstrap_strimzi_operator multicluster-global-hub
+bootstrap_strimzi_operator multicluster-global-hub "$GH_KUBECONFIG"
 
 # service-ca after OLM — applying it first causes
 # `CSV "packageserver" failed to reach phase succeeded` on Kind.
