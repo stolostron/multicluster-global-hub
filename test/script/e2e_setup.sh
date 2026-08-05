@@ -27,20 +27,19 @@ echo -e "${YELLOW} creating clusters:${NC} $(($(date +%s) - start_time)) seconds
 
 # Init hubs
 start_time=$(date +%s)
+
+# clusteradm init races with OLM install on the same cluster — init the global hub first.
+init_hub "$GH_NAME" 2>&1
+
 pids=()
-
-# async install olm
 enable_olm "$GH_NAME" 2>&1 &
-pids+=($!)
-
-init_hub "$GH_NAME" 2>&1 &
 pids+=($!)
 for i in $(seq 1 "${MH_NUM}"); do
   init_hub "hub$i" 2>&1 &
   pids+=($!)
 done
 for pid in "${pids[@]}"; do
-  wait "$pid" || true
+  wait "$pid" || exit 1
 done
 
 bootstrap_strimzi_operator multicluster-global-hub "$GH_KUBECONFIG"
