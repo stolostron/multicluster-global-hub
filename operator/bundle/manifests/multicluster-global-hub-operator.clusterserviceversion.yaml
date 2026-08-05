@@ -766,6 +766,18 @@ spec:
           - update
           - watch
         - apiGroups:
+          - extensions.hive.openshift.io
+          resources:
+          - imageclusterinstalls
+          - imageclusterinstalls/status
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
           - global-hub.open-cluster-management.io
           resources:
           - managedclustermigrations
@@ -775,6 +787,18 @@ spec:
           - get
           - list
           - patch
+          - update
+          - watch
+        - apiGroups:
+          - hive.openshift.io
+          resources:
+          - clusterdeployments
+          - clusterdeployments/status
+          verbs:
+          - create
+          - delete
+          - get
+          - list
           - update
           - watch
         - apiGroups:
@@ -809,6 +833,25 @@ spec:
           - update
           - watch
         - apiGroups:
+          - metal3.io
+          resources:
+          - baremetalhosts
+          - baremetalhosts/status
+          - dataimages
+          - firmwareschemas
+          - firmwareschemas/status
+          - hostfirmwarecomponents
+          - hostfirmwarecomponents/status
+          - hostfirmwaresettings
+          - hostfirmwaresettings/status
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
           - monitoring.coreos.com
           resources:
           - podmonitors
@@ -830,6 +873,15 @@ spec:
           verbs:
           - create
           - get
+          - update
+        - apiGroups:
+          - observability.open-cluster-management.io
+          resources:
+          - observabilityaddons
+          verbs:
+          - delete
+          - get
+          - list
           - update
         - apiGroups:
           - operator.open-cluster-management.io
