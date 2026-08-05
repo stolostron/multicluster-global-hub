@@ -437,34 +437,26 @@ enable_olm() {
   wait_cmd "kubectl get catalogsource operatorhubio-catalog -n olm -o jsonpath='{.status.connectionState.lastObservedState}' 2>/dev/null | grep -i ready" 300
 }
 
-# OLM v0.28 operatorhubio-catalog does not ship strimzi-0.48.x; use the 2.13
-# channel so Strimzi CSV installs before the operand reconciles kafka transport.
-bootstrap_strimzi_subscription() {
+# Install Strimzi directly on Kind — OLM operatorhubio-catalog cannot resolve
+# Strimzi CSVs in prow e2e (same pinned YAML approach as test/script/e2e_kafka.sh).
+bootstrap_strimzi_operator() {
   local namespace=${1:-multicluster-global-hub}
+  local strimzi_version=${STRIMZI_VERSION:-0.50.1}
+
   kubectl create namespace "$namespace" --dry-run=client -oyaml | kubectl apply -f -
-  kubectl apply -f - <<EOF
-apiVersion: operators.coreos.com/v1
-kind: OperatorGroup
-metadata:
-  name: default
-  namespace: ${namespace}
-spec:
-  targetNamespaces:
-  - ${namespace}
----
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: strimzi-kafka-operator
-  namespace: ${namespace}
-spec:
-  channel: strimzi-0.43.x
-  name: strimzi-kafka-operator
-  source: operatorhubio-catalog
-  sourceNamespace: olm
-  installPlanApproval: Automatic
-EOF
-  wait_cmd "kubectl get csv -n ${namespace} -o jsonpath='{range .items[*]}{.metadata.name}{\" \"}{.status.phase}{\"\\n\"}{end}' 2>/dev/null | grep strimzi-kafka-operator | grep Succeeded" 600
+  if kubectl get deployment strimzi-cluster-operator -n "$namespace" >/dev/null 2>&1; then
+    echo "Strimzi operator already installed in $namespace"
+    return 0
+  fi
+
+  curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml" \
+    | sed "s/namespace: myproject/namespace: ${namespace}/g" \
+    | kubectl create -f - -n "$namespace"
+  retry "(kubectl get pods -n $namespace -l name=strimzi-cluster-operator | grep Running)" 120
+  kubectl wait --for=condition=Established crd/kafkas.kafka.strimzi.io --timeout=120s
+  kubectl wait --for=condition=Established crd/kafkatopics.kafka.strimzi.io --timeout=120s
+  kubectl wait --for=condition=Established crd/kafkausers.kafka.strimzi.io --timeout=120s
+  kubectl wait --for=condition=Established crd/kafkanodepools.kafka.strimzi.io --timeout=120s
 }
 
 wait_secret_ready() {

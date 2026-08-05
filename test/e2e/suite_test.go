@@ -335,7 +335,6 @@ func deployGlobalHub() {
 				"mgh-scheduler-interval":                                                 "minute",
 				"global-hub.open-cluster-management.io/strimzi-catalog-source-name":      "operatorhubio-catalog",
 				"global-hub.open-cluster-management.io/strimzi-catalog-source-namespace": "olm",
-				"global-hub.open-cluster-management.io/strimzi-subscription-channel":     "strimzi-0.43.x",
 				"global-hub.open-cluster-management.io/kafka-use-nodeport":               "",
 				"global-hub.open-cluster-management.io/kind-cluster-ip":                  os.Getenv("GLOBAL_HUB_NODE_IP"),
 			},

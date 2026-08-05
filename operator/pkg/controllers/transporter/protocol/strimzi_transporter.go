@@ -12,6 +12,7 @@ import (
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	jsonpatch "github.com/evanphx/json-patch"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -307,7 +308,27 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 	return nil
 }
 
+func (k *strimziTransporter) isStrimziOperatorRunning() (bool, error) {
+	deployment := &appsv1.Deployment{}
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+		Name:      "strimzi-cluster-operator",
+		Namespace: k.mgh.Namespace,
+	}, deployment)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return deployment.Status.AvailableReplicas > 0, nil
+}
+
 func (k *strimziTransporter) isCSVInstalled() (bool, error) {
+	running, err := k.isStrimziOperatorRunning()
+	if err != nil || running {
+		return running, err
+	}
+
 	existingSub := &subv1alpha1.Subscription{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.subName,
@@ -1032,6 +1053,14 @@ func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.Multiclust
 
 // create/ update the kafka subscription
 func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
+	running, err := k.isStrimziOperatorRunning()
+	if err != nil {
+		return err
+	}
+	if running {
+		return nil
+	}
+
 	subNN := types.NamespacedName{
 		Name:      k.subName,
 		Namespace: mgh.GetNamespace(),
