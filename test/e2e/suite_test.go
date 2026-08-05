@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -326,6 +327,8 @@ func deployGlobalHub() {
 		utils.RenderOptions{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
+	waitOLMPackageserverReady()
+
 	mcgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      MghName,
@@ -388,17 +391,24 @@ func deployGlobalHub() {
 	operatorconfig.SetMGHNamespacedName(types.NamespacedName{Namespace: mcgh.Namespace, Name: mcgh.Name})
 }
 
+func waitOLMPackageserverReady() {
+	By("Waiting for OLM packageserver")
+	Eventually(func() error {
+		out, err := exec.Command("kubectl", "get", "csv", "packageserver", "-n", "olm",
+			"-o", "jsonpath={.status.phase}").Output()
+		if err != nil {
+			return err
+		}
+		if phase := strings.TrimSpace(string(out)); phase != "Succeeded" {
+			return fmt.Errorf("packageserver CSV phase %q", phase)
+		}
+		return nil
+	}, 5*time.Minute, 5*time.Second).Should(Succeed())
+}
+
 func waitGlobalhubReadyAndLeaseUpdated() {
 	runtimeClient, err := testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 	Expect(err).ShouldNot(HaveOccurred())
-
-	By("Waiting for manager and grafana deployments")
-	for _, name := range []string{"multicluster-global-hub-manager", "multicluster-global-hub-grafana"} {
-		deployName := name
-		Eventually(func() error {
-			return checkDeployAvailable(runtimeClient, testOptions.GlobalHub.Namespace, deployName)
-		}, 15*time.Minute, 1*time.Second).Should(Succeed())
-	}
 
 	Eventually(func() error {
 		return checkComponentsAvailableAndPhase(runtimeClient)
