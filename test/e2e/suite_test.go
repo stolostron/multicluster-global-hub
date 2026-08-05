@@ -209,7 +209,18 @@ var _ = BeforeSuite(func() {
 		}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 		Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
 	} else {
+		operatorconfig.SetMGHNamespacedName(types.NamespacedName{
+			Namespace: testOptions.GlobalHub.Namespace,
+			Name:      MghName,
+		})
 		waitGlobalhubReadyAndLeaseUpdated()
+		By("Validate the clusters on database")
+		Eventually(func() (err error) {
+			managedClusters, err = getManagedCluster(httpClient)
+			klog.Errorf("get managedcluster error:%v", err)
+			return err
+		}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
 	}
 })
 
