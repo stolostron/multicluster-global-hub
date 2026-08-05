@@ -442,21 +442,22 @@ enable_olm() {
 bootstrap_strimzi_operator() {
   local namespace=${1:-multicluster-global-hub}
   local strimzi_version=${STRIMZI_VERSION:-0.50.1}
+  local kubeconfig=${2:-$GH_KUBECONFIG}
 
-  kubectl create namespace "$namespace" --dry-run=client -oyaml | kubectl apply -f -
-  if kubectl get deployment strimzi-cluster-operator -n "$namespace" >/dev/null 2>&1; then
+  kubectl create namespace "$namespace" --dry-run=client -oyaml | kubectl apply -f - --kubeconfig "$kubeconfig"
+  if kubectl get deployment strimzi-cluster-operator -n "$namespace" --kubeconfig "$kubeconfig" >/dev/null 2>&1; then
     echo "Strimzi operator already installed in $namespace"
     return 0
   fi
 
   curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml" \
     | sed "s/namespace: myproject/namespace: ${namespace}/g" \
-    | kubectl create -f - -n "$namespace"
-  retry "(kubectl get pods -n $namespace -l name=strimzi-cluster-operator | grep Running)" 120
-  kubectl wait --for=condition=Established crd/kafkas.kafka.strimzi.io --timeout=120s
-  kubectl wait --for=condition=Established crd/kafkatopics.kafka.strimzi.io --timeout=120s
-  kubectl wait --for=condition=Established crd/kafkausers.kafka.strimzi.io --timeout=120s
-  kubectl wait --for=condition=Established crd/kafkanodepools.kafka.strimzi.io --timeout=120s
+    | kubectl create -f - -n "$namespace" --kubeconfig "$kubeconfig"
+  wait_cmd "kubectl get pods -n $namespace --kubeconfig $kubeconfig -l name=strimzi-cluster-operator | grep Running" 600
+  kubectl wait --for=condition=Established crd/kafkas.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
+  kubectl wait --for=condition=Established crd/kafkatopics.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
+  kubectl wait --for=condition=Established crd/kafkausers.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
+  kubectl wait --for=condition=Established crd/kafkanodepools.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
 }
 
 wait_secret_ready() {
@@ -741,7 +742,7 @@ retry() {
       success=true
       break
     else
-      ((count++))
+      count=$((count + 1))
       sleep 5 # Adjust the sleep duration as needed
     fi
   done
