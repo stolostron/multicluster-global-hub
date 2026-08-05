@@ -15,6 +15,9 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 export ISBYO="true"
 
+# Clean up operator-managed GH before BYO setup (release-2.13 order).
+bash "$CURRENT_DIR/e2e_clean_globalhub.sh"
+
 target_namespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
 
 ######################################### Generate Storage Secret ###################################################
@@ -82,15 +85,4 @@ kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubec
 
 echo "transport secret is ready in $target_namespace namespace!"
 ## run e2e
-bash "$CURRENT_DIR/e2e_run.sh" -n "$target_namespace" -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
-
-# Clean up BYO operand before transport suites. The operator only reconciles when exactly
-# one MulticlusterGlobalHub exists cluster-wide; leaving the BYO operand blocks transport-identity.
-echo "Cleaning up BYO test resources..."
-kubectl delete multiclusterglobalhubs --all -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
-wait_cmd "[[ -z \$(kubectl get multiclusterglobalhubs -n ${target_namespace} --kubeconfig ${GH_KUBECONFIG} --ignore-not-found=true -o name 2>/dev/null) ]]"
-kubectl delete service multicluster-global-hub-manager-nonk8s-service -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
-kubectl delete deployment multicluster-global-hub-operator -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --ignore-not-found=true
-kubectl wait --for=delete deployment/multicluster-global-hub-operator -n "${target_namespace}" --kubeconfig "${GH_KUBECONFIG}" --timeout=120s 2>/dev/null || true
-
-unset ISBYO
+bash "$CURRENT_DIR/e2e_run.sh" -n "$target_namespace" -f "e2e-test-localpolicy,e2e-test-grafana"
