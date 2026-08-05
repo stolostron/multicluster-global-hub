@@ -330,7 +330,7 @@ func (k *strimziTransporter) isCSVInstalled() (bool, error) {
 	}
 
 	existingSub := &subv1alpha1.Subscription{}
-	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+	err = k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.subName,
 		Namespace: k.mgh.Namespace,
 	}, existingSub)
@@ -1067,7 +1067,7 @@ func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.Multiclust
 	}
 
 	existingSub := &subv1alpha1.Subscription{}
-	err := k.manager.GetClient().Get(k.ctx, subNN, existingSub)
+	err = k.manager.GetClient().Get(k.ctx, subNN, existingSub)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
