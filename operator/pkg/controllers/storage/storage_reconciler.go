@@ -46,6 +46,9 @@ import (
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;create;list;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=get;create;list;watch;patch;delete
+// +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clustercatalogs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;create;delete
 
 //go:embed database
 var databaseFS embed.FS
@@ -63,6 +66,8 @@ type StorageReconciler struct {
 	upgrade                bool
 	databaseReconcileCount int
 	enableMetrics          bool
+	olmVersion             string
+	isCrunchyOLMv1Removed  bool
 }
 
 var WatchedSecret = sets.NewString(
@@ -82,6 +87,9 @@ var (
 )
 
 func (r *StorageReconciler) IsResourceRemoved() bool {
+	if r.olmVersion == config.OLMVersionV1 {
+		return r.isCrunchyOLMv1Removed
+	}
 	return true
 }
 
@@ -89,8 +97,12 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	if storageReconciler != nil {
 		return storageReconciler, nil
 	}
+	olmVersion := ""
+	if initOption.OperatorConfig != nil {
+		olmVersion = initOption.OperatorConfig.OLMVersion
+	}
 	storageReconciler = NewStorageReconciler(initOption.Manager,
-		initOption.MulticlusterGlobalHub.Spec.EnableMetrics)
+		initOption.MulticlusterGlobalHub.Spec.EnableMetrics, olmVersion)
 	err := storageReconciler.SetupWithManager(initOption.Manager)
 	if err != nil {
 		storageReconciler = nil
@@ -100,12 +112,14 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	return storageReconciler, nil
 }
 
-func NewStorageReconciler(mgr ctrl.Manager, enableMetrics bool) *StorageReconciler {
+func NewStorageReconciler(mgr ctrl.Manager, enableMetrics bool, olmVersion string) *StorageReconciler {
 	return &StorageReconciler{
 		Manager:                mgr,
 		upgrade:                false,
 		databaseReconcileCount: 0,
 		enableMetrics:          enableMetrics,
+		olmVersion:             olmVersion,
+		isCrunchyOLMv1Removed:  true,
 	}
 }
 
@@ -207,6 +221,17 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if mgh.DeletionTimestamp != nil {
 		updateConnection = false
 		_ = config.SetStorageConnection(nil)
+		if r.olmVersion == config.OLMVersionV1 {
+			removed, err := PruneCrunchyClusterExtensionResources(ctx, r.GetClient(), mgh.Namespace)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("prune crunchy OLMv1 resources: %w", err)
+			}
+			r.isCrunchyOLMv1Removed = removed
+			if !removed {
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+		}
+		return ctrl.Result{}, nil
 	}
 	if !config.IsBYOPostgres() && !mgh.Spec.EnableMetrics {
 		err = utils.PruneMetricsResources(ctx, r.GetClient(),
@@ -291,9 +316,16 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 	}
 
 	// then the storage secret is not found
-	// if not-provided postgres secret, create crunchy postgres operator by subscription
+	// if not-provided postgres secret, create crunchy postgres operator by subscription or ClusterExtension
 	if config.GetInstallCrunchyOperator(mgh) {
-		err := EnsureCrunchyPostgresSub(ctx, r.GetClient(), mgh)
+		switch r.olmVersion {
+		case config.OLMVersionV1:
+			err = EnsureCrunchyPostgresClusterExtension(ctx, r.GetClient(), mgh)
+		case config.OLMVersionV0:
+			err = EnsureCrunchyPostgresSub(ctx, r.GetClient(), mgh)
+		default:
+			return nil, fmt.Errorf("no OLM detected; cannot install Crunchy Postgres operator")
+		}
 		if err != nil {
 			return nil, err
 		}

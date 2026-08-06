@@ -2,11 +2,14 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -25,6 +28,12 @@ import (
 const (
 	postgresAdminUsername    = "postgres"
 	postgresReadonlyUsername = "global-hub-readonly-user" // #nosec G101
+)
+
+const (
+	CrunchyClusterExtensionName = "crunchy-postgres-operator"
+	CrunchyInstallerSAName      = "crunchy-postgres-installer"
+	CrunchyInstallerCRBName     = "crunchy-postgres-installer"
 )
 
 var (
@@ -72,6 +81,183 @@ func EnsureCrunchyPostgresSub(ctx context.Context, c client.Client, mgh *globalh
 		return c.Update(ctx, calcSub)
 	}
 	return nil
+}
+
+// EnsureCrunchyPostgresClusterExtension creates the ServiceAccount, ClusterRoleBinding, and
+// ClusterExtension for Crunchy Postgres using OLMv1
+func EnsureCrunchyPostgresClusterExtension(ctx context.Context, c client.Client,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) error {
+	// ensure installer ServiceAccount
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      CrunchyInstallerSAName,
+			Namespace: mgh.Namespace,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+	}
+	if err := c.Get(ctx, types.NamespacedName{
+		Name: sa.Name, Namespace: sa.Namespace,
+	}, &corev1.ServiceAccount{}); err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get crunchy installer ServiceAccount %s/%s: %w", sa.Namespace, sa.Name, err)
+		}
+		if err := c.Create(ctx, sa); err != nil {
+			return fmt.Errorf("create crunchy installer ServiceAccount %s/%s: %w", sa.Namespace, sa.Name, err)
+		}
+	}
+
+	// ensure ClusterRoleBinding with cluster-admin
+	expectedSubjects := []rbacv1.Subject{
+		{
+			Kind:      rbacv1.ServiceAccountKind,
+			Name:      CrunchyInstallerSAName,
+			Namespace: mgh.Namespace,
+		},
+	}
+	expectedRoleRef := rbacv1.RoleRef{
+		APIGroup: rbacv1.GroupName,
+		Kind:     "ClusterRole",
+		Name:     "cluster-admin",
+	}
+	existingCRB := &rbacv1.ClusterRoleBinding{}
+	if err := c.Get(ctx, types.NamespacedName{Name: CrunchyInstallerCRBName}, existingCRB); err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get crunchy installer ClusterRoleBinding %q: %w", CrunchyInstallerCRBName, err)
+		}
+		crb := &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: CrunchyInstallerCRBName,
+				Labels: map[string]string{
+					constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+				},
+			},
+			Subjects: expectedSubjects,
+			RoleRef:  expectedRoleRef,
+		}
+		if err := c.Create(ctx, crb); err != nil {
+			return fmt.Errorf("create crunchy installer ClusterRoleBinding %q: %w", CrunchyInstallerCRBName, err)
+		}
+	} else if !equality.Semantic.DeepEqual(existingCRB.Subjects, expectedSubjects) ||
+		existingCRB.RoleRef != expectedRoleRef {
+		// RoleRef is immutable — delete and requeue to recreate
+		if err := c.Delete(ctx, existingCRB); err != nil {
+			return fmt.Errorf("delete crunchy installer ClusterRoleBinding %q: %w", CrunchyInstallerCRBName, err)
+		}
+		return fmt.Errorf("deleted crunchy installer ClusterRoleBinding due to drift, requeueing to recreate")
+	}
+
+	// ensure ClusterExtension
+	chName, pkgName := channel, packageName
+	if operatorutils.IsCommunityMode() {
+		chName = communityChannel
+		pkgName = communityPackageName
+	}
+	expectedCE := &ocv1.ClusterExtension{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: CrunchyClusterExtensionName,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+		Spec: ocv1.ClusterExtensionSpec{
+			Namespace: mgh.Namespace,
+			ServiceAccount: ocv1.ServiceAccountReference{
+				Name: CrunchyInstallerSAName,
+			},
+			Source: ocv1.SourceConfig{
+				SourceType: ocv1.SourceTypeCatalog,
+				Catalog: &ocv1.CatalogFilter{
+					PackageName: pkgName,
+					Channels:    []string{chName},
+				},
+			},
+		},
+	}
+
+	existingCE := &ocv1.ClusterExtension{}
+	if err := c.Get(ctx, types.NamespacedName{Name: expectedCE.Name}, existingCE); err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get crunchy ClusterExtension %q: %w", expectedCE.Name, err)
+		}
+		if err := c.Create(ctx, expectedCE); err != nil {
+			return fmt.Errorf("create crunchy ClusterExtension %q: %w", expectedCE.Name, err)
+		}
+		return nil
+	}
+
+	var existingPkg string
+	if existingCE.Spec.Source.Catalog != nil {
+		existingPkg = existingCE.Spec.Source.Catalog.PackageName
+	}
+	expectedPkg := expectedCE.Spec.Source.Catalog.PackageName
+
+	// packageName and namespace are immutable — delete and let next reconcile recreate
+	if existingPkg != expectedPkg || existingCE.Spec.Namespace != expectedCE.Spec.Namespace {
+		if err := c.Delete(ctx, existingCE); err != nil {
+			return fmt.Errorf("delete crunchy ClusterExtension %q: %w", existingCE.Name, err)
+		}
+		return fmt.Errorf("deleted crunchy ClusterExtension due to immutable field change, requeueing to recreate")
+	}
+
+	// Compare only the fields we manage to avoid hot loops from server-defaulted fields
+	needsUpdate := existingCE.Spec.ServiceAccount.Name != expectedCE.Spec.ServiceAccount.Name
+	needsUpdate = needsUpdate || !equality.Semantic.DeepEqual(
+		existingCE.Spec.Source.Catalog.Channels, expectedCE.Spec.Source.Catalog.Channels,
+	)
+
+	if needsUpdate {
+		patch := client.MergeFrom(existingCE.DeepCopy())
+		existingCE.Spec.ServiceAccount = expectedCE.Spec.ServiceAccount
+		if expectedCE.Spec.Source.Catalog != nil && existingCE.Spec.Source.Catalog != nil {
+			existingCE.Spec.Source.Catalog.Channels = expectedCE.Spec.Source.Catalog.Channels
+		}
+		if err := c.Patch(ctx, existingCE, patch); err != nil {
+			return fmt.Errorf("patch crunchy ClusterExtension %q: %w", existingCE.Name, err)
+		}
+	}
+	return nil
+}
+
+// PruneCrunchyClusterExtensionResources deletes the Crunchy ClusterExtension, installer CRB, and SA.
+// Returns true when all resources are fully removed.
+func PruneCrunchyClusterExtensionResources(ctx context.Context, c client.Client, mghNamespace string) (bool, error) {
+	ce := &ocv1.ClusterExtension{}
+	err := c.Get(ctx, types.NamespacedName{Name: CrunchyClusterExtensionName}, ce)
+	if err != nil && !errors.IsNotFound(err) {
+		return false, fmt.Errorf("get crunchy ClusterExtension %q: %w", CrunchyClusterExtensionName, err)
+	}
+	if err == nil {
+		log.Infof("Delete crunchy ClusterExtension %v", ce.Name)
+		if err := c.Delete(ctx, ce); err != nil && !errors.IsNotFound(err) {
+			return false, fmt.Errorf("delete crunchy ClusterExtension %q: %w", ce.Name, err)
+		}
+		// requeue until the CE is fully removed so OLMv1 can use the installer SA for finalizer work
+		return false, nil
+	}
+
+	// CE is gone — safe to remove installer CRB and SA
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: CrunchyInstallerCRBName},
+	}
+	if err := c.Delete(ctx, crb); err != nil && !errors.IsNotFound(err) {
+		return false, fmt.Errorf("delete crunchy installer ClusterRoleBinding %q: %w", CrunchyInstallerCRBName, err)
+	}
+
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      CrunchyInstallerSAName,
+			Namespace: mghNamespace,
+		},
+	}
+	if err := c.Delete(ctx, sa); err != nil && !errors.IsNotFound(err) {
+		return false, fmt.Errorf("delete crunchy installer ServiceAccount %s/%s: %w", mghNamespace, CrunchyInstallerSAName, err)
+	}
+
+	log.Infof("crunchy ClusterExtension and installer resources deleted")
+	return true, nil
 }
 
 // EnsureCrunchyPostgres verifies PostgresCluster operand is created

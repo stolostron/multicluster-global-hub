@@ -92,7 +92,7 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
 		Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
 
-		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
+		reconciler := operatortrans.NewTransportReconciler(runtimeManager, config.OLMVersionV0)
 
 		Eventually(func() error {
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
@@ -147,7 +147,7 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
 		Expect(config.GetRawStatusTopic()).To(Equal("gh-status.*"))
 
-		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
+		reconciler := operatortrans.NewTransportReconciler(runtimeManager, config.OLMVersionV0)
 
 		// blocking until get the connection
 		go func() {

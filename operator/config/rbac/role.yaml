@@ -486,6 +486,25 @@ rules:
   - list
   - update
 - apiGroups:
+  - olm.operatorframework.io
+  resources:
+  - clustercatalogs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - olm.operatorframework.io
+  resources:
+  - clusterextensions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
   - operator.open-cluster-management.io
   resources:
   - clustermanagers

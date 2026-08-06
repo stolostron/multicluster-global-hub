@@ -9,6 +9,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 )
 
+const (
+	OLMVersionV0 = "v0"
+	OLMVersionV1 = "v1"
+)
+
 type OperatorConfig struct {
 	MetricsAddress            string
 	ProbeAddress              string
@@ -16,6 +21,7 @@ type OperatorConfig struct {
 	LeaderElection            bool
 	EnablePprof               bool
 	TransportFailureThreshold int
+	OLMVersion                string
 }
 
 type ControllerOption struct {

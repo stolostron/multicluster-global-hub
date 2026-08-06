@@ -11,7 +11,9 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -63,6 +65,9 @@ func IsResourceRemoved() bool {
 
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;create;delete;update;list;watch
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;delete;list;watch
+// +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=get;create;delete;patch;list;watch
+// +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clustercatalogs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;create;delete;list;watch
 // +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers;kafkanodepools,verbs=get;create;list;watch;update;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;prometheusrules;podmonitors,verbs=get;create;delete;update;list;watch
 
@@ -387,6 +392,18 @@ func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Resul
 		}
 	}
 
+	switch r.trans.olmVersion {
+	case config.OLMVersionV1:
+		return r.pruneClusterExtensionResources(ctx)
+	case config.OLMVersionV0:
+		return r.pruneSubscriptionResources(ctx)
+	default:
+		isResourceRemoved = true
+		return ctrl.Result{}, nil
+	}
+}
+
+func (r *KafkaController) pruneSubscriptionResources(ctx context.Context) (ctrl.Result, error) {
 	kafkaSub := &subv1alpha1.Subscription{}
 	err := r.c.Get(ctx, types.NamespacedName{
 		Namespace: utils.GetDefaultNamespace(),
@@ -419,6 +436,45 @@ func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Resul
 		return ctrl.Result{}, err
 	}
 	log.Infof("kafka subscription deleted")
+	isResourceRemoved = true
+	return ctrl.Result{}, nil
+}
+
+func (r *KafkaController) pruneClusterExtensionResources(ctx context.Context) (ctrl.Result, error) {
+	ce := &ocv1.ClusterExtension{}
+	err := r.c.Get(ctx, types.NamespacedName{Name: StrimziClusterExtensionName}, ce)
+	if err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("get strimzi ClusterExtension %q: %w", StrimziClusterExtensionName, err)
+	}
+	if err == nil {
+		log.Infow("delete Strimzi ClusterExtension", "name", ce.Name)
+		if err := r.c.Delete(ctx, ce); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("delete strimzi ClusterExtension %q: %w", ce.Name, err)
+		}
+		// requeue until the CE is fully removed so OLMv1 can use the installer SA for finalizer work
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// CE is gone — safe to remove installer SA and CRB
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: StrimziInstallerCRBName},
+	}
+	if err := r.c.Delete(ctx, crb); err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("delete strimzi installer ClusterRoleBinding %q: %w", StrimziInstallerCRBName, err)
+	}
+
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      StrimziInstallerSAName,
+			Namespace: r.trans.mgh.Namespace,
+		},
+	}
+	if err := r.c.Delete(ctx, sa); err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("delete strimzi installer ServiceAccount %s/%s: %w",
+			r.trans.mgh.Namespace, StrimziInstallerSAName, err)
+	}
+
+	log.Infof("strimzi ClusterExtension and installer resources deleted")
 	isResourceRemoved = true
 	return ctrl.Result{}, nil
 }

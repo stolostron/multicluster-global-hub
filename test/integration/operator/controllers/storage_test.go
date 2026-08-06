@@ -72,7 +72,7 @@ var _ = Describe("storage", Ordered, func() {
 		}
 		Expect(runtimeClient.Create(ctx, storageSecret)).To(Succeed())
 
-		storageReconciler := storage.NewStorageReconciler(runtimeManager, true)
+		storageReconciler := storage.NewStorageReconciler(runtimeManager, true, config.OLMVersionV0)
 		err = storageReconciler.SetupWithManager(runtimeManager)
 		Expect(err).To(Succeed())
 
@@ -213,7 +213,7 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
 
-		storageReconciler := storage.NewStorageReconciler(runtimeManager, true)
+		storageReconciler := storage.NewStorageReconciler(runtimeManager, true, config.OLMVersionV0)
 
 		// blocking until get the connection
 		go func() {
@@ -309,7 +309,7 @@ var _ = Describe("storage", Ordered, func() {
 			return nil
 		}, 5*time.Second, 50*time.Millisecond).ShouldNot(HaveOccurred())
 
-		storageReconciler := storage.NewStorageReconciler(runtimeManager, true)
+		storageReconciler := storage.NewStorageReconciler(runtimeManager, true, config.OLMVersionV0)
 
 		// blocking until get the connection
 		go func() {
