@@ -21,6 +21,7 @@ import (
 
 const (
 	DEFAULT_SPEC_TOPIC          = "gh-spec"
+	DEFAULT_MIGRATION_TOPIC     = "gh-migration"
 	DEFAULT_STATUS_TOPIC        = "gh-status.*"
 	DEFAULT_SHARED_STATUS_TOPIC = "gh-status"
 )
@@ -32,6 +33,7 @@ var (
 	enableInventory       = false
 	isBYOKafka            = false
 	specTopic             = ""
+	migrationTopic        = ""
 	statusTopic           = ""
 	kafkaResourceReady    = false
 	acmResourceReady      = false
@@ -39,7 +41,6 @@ var (
 	kafkaClientCACert     []byte
 	inventoryClientCAKey  []byte
 	inventoryClientCACert []byte
-	inventoryConn         *transport.RestfulConfig
 )
 
 func SetTransporterConn(conn *transport.KafkaConfig) bool {
@@ -107,11 +108,18 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 	// set the topic
 	specTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic
 	statusTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic
+	migrationTopic = DEFAULT_MIGRATION_TOPIC
+	if specTopic == "" {
+		specTopic = DEFAULT_SPEC_TOPIC
+	}
+	if statusTopic == "" {
+		statusTopic = DEFAULT_STATUS_TOPIC
+	}
 	if !isValidKafkaTopicName(specTopic) {
 		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
 	}
 	if !isValidKafkaTopicName(statusTopic) {
-		return fmt.Errorf("the specTopic is invalid: %s", statusTopic)
+		return fmt.Errorf("the statusTopic is invalid: %s", statusTopic)
 	}
 
 	// BYO Case:
@@ -158,9 +166,13 @@ func GetSpecTopic() string {
 	return specTopic
 }
 
+func GetMigrationTopic() string {
+	return migrationTopic
+}
+
 // GetStatusTopic return the status topic with clusterName, like 'gh-status.<clusterName>'
 func GetStatusTopic(clusterName string) string {
-	return strings.Replace(statusTopic, "*", clusterName, -1)
+	return strings.ReplaceAll(statusTopic, "*", clusterName)
 }
 
 // GetRawStatusTopic return the validated statusTopic from mgh CR
@@ -198,6 +210,10 @@ func SetKafkaType(ctx context.Context, runtimeClient client.Client, namespace st
 
 func SetBYOKafka(byoKafka bool) {
 	isBYOKafka = byoKafka
+}
+
+func SetMigrationTopic(topic string) {
+	migrationTopic = topic
 }
 
 func IsBYOKafka() bool {
@@ -292,4 +308,16 @@ func GetTransportConfigClientName(clusterName string) string {
 // GetKafkaUserName gives a kafkaUser name based on the cluster name, it's also the CN of the certificate
 func GetKafkaUserName(clusterName string) string {
 	return fmt.Sprintf("%s-kafka-user", clusterName)
+}
+
+func GetConsumerGroupID(prefix, clusterName string) string {
+	consumerGroupID := clusterName
+	if prefix != "" {
+		consumerGroupID = prefix + clusterName
+	}
+	return strings.ReplaceAll(consumerGroupID, "-", "_")
+}
+
+func GetManagerConsumerGroupID(_ *v1alpha4.MulticlusterGlobalHub) string {
+	return GetConsumerGroupID("", constants.CloudEventSourceGlobalHub)
 }

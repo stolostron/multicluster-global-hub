@@ -15,7 +15,7 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 export ISBYO="true"
 
-# CleanUp globalhub
+# Clean up operator-managed GH before BYO setup (release-2.13 order).
 bash "$CURRENT_DIR/e2e_clean_globalhub.sh"
 
 target_namespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
@@ -66,6 +66,7 @@ wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECO
 
 # wait the byo kafkatopic and kafkauser
 wait_cmd "kubectl get kafkatopic gh-spec -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-migration -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 wait_cmd "kubectl get kafkatopic gh-status -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 wait_cmd "kubectl get kafkauser $byo_user -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 echo "Kafka topic and user is ready"
@@ -84,4 +85,4 @@ kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubec
 
 echo "transport secret is ready in $target_namespace namespace!"
 ## run e2e
-bash "$CURRENT_DIR/e2e_run.sh" -f "e2e-test-localpolicy,e2e-test-grafana"
+bash "$CURRENT_DIR/e2e_run.sh" -n "$target_namespace" -f "e2e-test-localpolicy,e2e-test-grafana"

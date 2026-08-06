@@ -94,7 +94,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	agentConfig.TransportConfig.IsManager = true
-	genericProducer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig)
+	genericProducer, err = genericproducer.NewGenericProducer(
+		agentConfig.TransportConfig,
+		agentConfig.TransportConfig.KafkaCredential.StatusTopic,
+		nil,
+	)
 	Expect(err).NotTo(HaveOccurred())
 
 	transportClient := controller.TransportClient{}

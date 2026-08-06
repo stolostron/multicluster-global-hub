@@ -25,7 +25,7 @@ type Requester interface {
 
 type Producer interface {
 	SendEvent(ctx context.Context, evt cloudevents.Event) error
-	Reconnect(config *TransportInternalConfig) error
+	Reconnect(config *TransportInternalConfig, topic string) error
 }
 
 type Consumer interface {

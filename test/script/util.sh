@@ -9,7 +9,7 @@ export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.26.4
-export GINKGO_VERSION=v2.17.2
+export GINKGO_VERSION=v2.28.1
 
 # Environment Variables
 CURRENT_DIR=$(
@@ -433,7 +433,28 @@ enable_olm() {
   kubectl config use-context "$1"
   curl -L https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh -o install.sh
   chmod +x install.sh
-  ./install.sh v0.30.0
+  ./install.sh v0.28.0
+  wait_cmd "kubectl get catalogsource operatorhubio-catalog -n olm -o jsonpath='{.status.connectionState.lastObservedState}' 2>/dev/null | grep -i ready" 300
+}
+
+# Install Strimzi directly on Kind — OLM operatorhubio-catalog cannot resolve
+# Strimzi CSVs in prow e2e (same pinned YAML approach as test/script/e2e_kafka.sh).
+bootstrap_strimzi_operator() {
+  local namespace=${1:-multicluster-global-hub}
+  local strimzi_version=${STRIMZI_VERSION:-0.50.1}
+  local kubeconfig=${2:-$GH_KUBECONFIG}
+
+  kubectl create namespace "$namespace" --dry-run=client -oyaml | kubectl apply -f - --kubeconfig "$kubeconfig"
+  if ! kubectl get deployment strimzi-cluster-operator -n "$namespace" --kubeconfig "$kubeconfig" >/dev/null 2>&1; then
+    curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml" \
+      | sed "s/namespace: myproject/namespace: ${namespace}/g" \
+      | kubectl create -f - -n "$namespace" --kubeconfig "$kubeconfig"
+  fi
+  wait_cmd "kubectl get deployment strimzi-cluster-operator -n $namespace --kubeconfig $kubeconfig -o jsonpath='{.status.readyReplicas}' | grep -v '^0$'" 600
+  kubectl wait --for=condition=Established crd/kafkas.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
+  kubectl wait --for=condition=Established crd/kafkatopics.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
+  kubectl wait --for=condition=Established crd/kafkausers.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
+  kubectl wait --for=condition=Established crd/kafkanodepools.kafka.strimzi.io --kubeconfig "$kubeconfig" --timeout=120s
 }
 
 wait_secret_ready() {
@@ -718,7 +739,7 @@ retry() {
       success=true
       break
     else
-      ((count++))
+      count=$((count + 1))
       sleep 5 # Adjust the sleep duration as needed
     fi
   done

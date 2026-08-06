@@ -47,7 +47,7 @@ func NewKafkaEventPublisher(ctx context.Context, c client.Client, namespace stri
 		KafkaCredential: kafkaConfig,
 	}
 
-	producer, err := genericproducer.NewGenericProducer(transportConfig)
+	producer, err := genericproducer.NewGenericProducer(transportConfig, kafkaConfig.SpecTopic, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create kafka producer: %w", err)
 	}
@@ -66,6 +66,14 @@ func (p *KafkaEventPublisher) SendToTopic(ctx context.Context, topic string, evt
 // SpecTopic returns the configured spec topic (typically gh-spec).
 func (p *KafkaEventPublisher) SpecTopic() string {
 	return p.kafkaConfig.SpecTopic
+}
+
+// MigrationTopic returns the configured migration topic (typically gh-migration).
+func (p *KafkaEventPublisher) MigrationTopic() string {
+	if p.kafkaConfig.MigrationTopic != "" {
+		return p.kafkaConfig.MigrationTopic
+	}
+	return operatorconfig.GetMigrationTopic()
 }
 
 // StatusTopic returns the status topic for hubName (per-hub topic or credential override).

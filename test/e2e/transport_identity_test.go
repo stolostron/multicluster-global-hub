@@ -69,6 +69,29 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 			}
 		})
 
+		It("should accept status events when CloudEvent source matches the Kafka status topic hub", func() {
+			statusTopic := publisher.StatusTopic(sourceHubName)
+			evt := statusCloudEvent(
+				statusTopic,
+				sourceHubName,
+				string(enum.HubClusterHeartbeatType),
+				generic.GenericObjectBundle{},
+			)
+
+			Expect(publisher.SendToTopic(ctx, statusTopic, *evt)).To(Succeed(),
+				"expected trusted status event to publish to Kafka")
+
+			Eventually(func() error {
+				var heartbeat models.LeafHubHeartbeat
+				err := database.GetGorm().Where("leaf_hub_name = ?", sourceHubName).First(&heartbeat).Error
+				if err != nil {
+					return fmt.Errorf("expected heartbeat row for trusted hub %q: %w", sourceHubName, err)
+				}
+				return nil
+			}, 45*time.Second, 500*time.Millisecond).Should(Succeed(),
+				"trusted status heartbeat must be persisted when CloudEvent source matches topic hub")
+		})
+
 		It("should drop status events when CloudEvent source does not match the Kafka status topic hub", func() {
 			statusTopic := publisher.StatusTopic(sourceHubName)
 			evt := statusCloudEvent(
@@ -98,29 +121,6 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 				return nil
 			}, 45*time.Second, 500*time.Millisecond).Should(Succeed(),
 				"spoofed status heartbeat must not be persisted when CloudEvent source mismatches topic hub")
-		})
-
-		It("should accept status events when CloudEvent source matches the Kafka status topic hub", func() {
-			statusTopic := publisher.StatusTopic(sourceHubName)
-			evt := statusCloudEvent(
-				statusTopic,
-				sourceHubName,
-				string(enum.HubClusterHeartbeatType),
-				generic.GenericObjectBundle{},
-			)
-
-			Expect(publisher.SendToTopic(ctx, statusTopic, *evt)).To(Succeed(),
-				"expected trusted status event to publish to Kafka")
-
-			Eventually(func() error {
-				var heartbeat models.LeafHubHeartbeat
-				err := database.GetGorm().Where("leaf_hub_name = ?", sourceHubName).First(&heartbeat).Error
-				if err != nil {
-					return fmt.Errorf("expected heartbeat row for trusted hub %q: %w", sourceHubName, err)
-				}
-				return nil
-			}, 45*time.Second, 500*time.Millisecond).Should(Succeed(),
-				"trusted status heartbeat must be persisted when CloudEvent source matches topic hub")
 		})
 	})
 
@@ -193,7 +193,10 @@ var _ = Describe("Transport Identity E2E", Label("e2e-test-transport-identity"),
 })
 
 func statusCloudEvent(kafkaTopic, source, eventType string, data interface{}) *cloudevents.Event {
+	// Regional hub agents publish heartbeats with monotonically increasing versions (e.g. 8.0+).
+	// Use a generation-0 value well above agent traffic so conflation accepts test events on hub1/hub2.
 	version := eventversion.NewVersion()
+	version.Value = 100000
 	version.Incr()
 	evt := cloudevents.NewEvent()
 	evt.SetSource(source)

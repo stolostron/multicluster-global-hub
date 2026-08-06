@@ -24,7 +24,7 @@ func TestAssembler(t *testing.T) {
 	}
 
 	transportConfig.IsManager = true
-	genericProducer, err := producer.NewGenericProducer(transportConfig)
+	genericProducer, err := producer.NewGenericProducer(transportConfig, transportConfig.KafkaCredential.SpecTopic, nil)
 	assert.Nil(t, err)
 	genericProducer.SetDataLimit(5)
 

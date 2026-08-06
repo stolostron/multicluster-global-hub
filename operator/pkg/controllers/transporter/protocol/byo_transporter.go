@@ -3,6 +3,7 @@ package protocol
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"path/filepath"
 
 	"github.com/go-logr/logr"
@@ -50,8 +51,9 @@ func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
 
 func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	return &transport.ClusterTopic{
-		SpecTopic:   config.GetSpecTopic(),
-		StatusTopic: config.GetStatusTopic(clusterName),
+		SpecTopic:      config.GetSpecTopic(),
+		MigrationTopic: config.GetMigrationTopic(),
+		StatusTopic:    config.GetStatusTopic(clusterName),
 	}, nil
 }
 
@@ -73,15 +75,27 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 	if err != nil {
 		return nil, err
 	}
+
+	mgh, err := config.GetMulticlusterGlobalHub(context.Background(), s.runtimeClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mgh: %w", err)
+	}
+
+	if mgh == nil {
+		return nil, fmt.Errorf("multicluster global hub instance not found")
+	}
+
 	return &transport.KafkaConfig{
 		ClusterID:       string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
+		ConsumerGroupID: config.GetConsumerGroupID("", clusterName),
 
 		// for the byo case, the status topic isn't change by the clusterName
-		StatusTopic: config.GetStatusTopic(""),
-		SpecTopic:   config.GetSpecTopic(),
-		CACert:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
-		ClientCert:  base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
-		ClientKey:   base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
+		StatusTopic:    config.GetStatusTopic(""),
+		SpecTopic:      config.GetSpecTopic(),
+		MigrationTopic: config.GetMigrationTopic(),
+		CACert:         base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
+		ClientCert:     base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
+		ClientKey:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
 	}, nil
 }

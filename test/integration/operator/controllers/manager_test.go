@@ -67,6 +67,7 @@ var _ = Describe("manager", Ordered, func() {
 		config.SetDatabaseReady(true)
 		initOption = config.ControllerOption{
 			Manager:               runtimeManager,
+			KubeClient:            kubeClient,
 			MulticlusterGlobalHub: mgh,
 			OperatorConfig:        &config.OperatorConfig{},
 		}

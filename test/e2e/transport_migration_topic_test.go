@@ -1,0 +1,80 @@
+// Copyright (c) 2026 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+
+package tests
+
+import (
+	"fmt"
+	"time"
+
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+)
+
+var _ = Describe("Transport Migration Topic E2E", Label("e2e-test-transport-migration-topic"), Ordered, func() {
+	var (
+		sourceHubName   string
+		sourceHubClient client.Client
+		migrationTopic  string
+	)
+
+	BeforeAll(func() {
+		Expect(len(managedHubNames)).To(BeNumerically(">=", 1),
+			"transport migration topic e2e requires at least one regional hub")
+		sourceHubName = managedHubNames[0]
+		// Operator in-process topic config is not initialized in the e2e test binary.
+		migrationTopic = operatorconfig.DEFAULT_MIGRATION_TOPIC
+
+		var err error
+		sourceHubClient, err = testClients.RuntimeClient(sourceHubName, agentScheme)
+		Expect(err).NotTo(HaveOccurred(), "expected source hub %q kubeconfig to be valid", sourceHubName)
+	})
+
+	Context("Phase 3 - dedicated gh-migration topic", func() {
+		It("should provision the gh-migration KafkaTopic in the global hub namespace", func() {
+			topic := &kafkav1beta2.KafkaTopic{}
+			Eventually(func() error {
+				return globalHubClient.Get(ctx, types.NamespacedName{
+					Name:      migrationTopic,
+					Namespace: GlobalhubNamespace,
+				}, topic)
+			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
+				"expected gh-migration KafkaTopic to be provisioned in the global hub namespace")
+			Expect(topic.Spec.Partitions).NotTo(BeNil(),
+				"gh-migration topic must define partitions in spec")
+			Expect(int(*topic.Spec.Partitions)).To(BeNumerically(">", 0),
+				"gh-migration topic must have at least one partition")
+		})
+
+		It("should include the migration topic in managed hub transport credentials", func() {
+			Eventually(func() error {
+				secret := &corev1.Secret{}
+				if err := sourceHubClient.Get(ctx, types.NamespacedName{
+					Name:      constants.GHTransportConfigSecret,
+					Namespace: constants.GHAgentNamespace,
+				}, secret); err != nil {
+					return fmt.Errorf("get transport secret on managed hub agent namespace: %w", err)
+				}
+
+				kafkaConfig, err := transportconfig.GetKafkaCredentailBySecret(secret, sourceHubClient)
+				if err != nil {
+					return fmt.Errorf("parse transport secret kafka credentials: %w", err)
+				}
+				if kafkaConfig.MigrationTopic != migrationTopic {
+					return fmt.Errorf("managed hub transport credentials migration topic = %q, want %q",
+						kafkaConfig.MigrationTopic, migrationTopic)
+				}
+				return nil
+			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
+				"managed hub transport credentials must include the gh-migration topic")
+		})
+	})
+})

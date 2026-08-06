@@ -155,14 +155,19 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 
 // ReconcileProducer, transport config is changed, then create/update the producer
 func (c *TransportCtrl) ReconcileProducer() error {
+	producerTopic := c.transportConfig.KafkaCredential.StatusTopic
+	if c.transportConfig.IsManager {
+		producerTopic = c.transportConfig.KafkaCredential.SpecTopic
+	}
+
 	if c.transportClient.producer == nil {
-		sender, err := producer.NewGenericProducer(c.transportConfig)
+		sender, err := producer.NewGenericProducer(c.transportConfig, producerTopic, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create/update the producer: %w", err)
 		}
 		c.transportClient.producer = sender
 	} else {
-		if err := c.transportClient.producer.Reconnect(c.transportConfig); err != nil {
+		if err := c.transportClient.producer.Reconnect(c.transportConfig, producerTopic); err != nil {
 			return fmt.Errorf("failed to reconnect the producer: %w", err)
 		}
 	}

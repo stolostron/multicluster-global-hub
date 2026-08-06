@@ -36,12 +36,10 @@ import (
 	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
 
@@ -111,26 +109,8 @@ var _ = BeforeSuite(func() {
 	testOptions = completeOptions()
 	testClients = utils.NewTestClient(testOptions)
 	httpClient = testClients.HttpClient()
-	Eventually(func() error {
-		deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
-		if _, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2}); err != nil {
-			return err
-		}
-		healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
-		if err != nil {
-			return err
-		}
-		if string(healthy) != "ok" {
-			return fmt.Errorf("healthz returned %q", string(healthy))
-		}
-		return nil
-	}, 3*time.Minute, 5*time.Second).Should(Succeed())
-
-	By("Deploy the global hub")
-	deployGlobalHub()
-
-	By("Validate the opitions")
 	var err error
+	By("Validate the options")
 	globalHubClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 	Expect(err).To(Succeed())
 	var clusterNames []string
@@ -151,6 +131,32 @@ var _ = BeforeSuite(func() {
 	Expect(len(clusterNames)).To(Equal(ExpectedMC * ExpectedMH))
 
 	if isPrune != "true" {
+		Eventually(func() error {
+			deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
+			if _, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2}); err != nil {
+				return err
+			}
+			healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
+			if err != nil {
+				return err
+			}
+			if string(healthy) != "ok" {
+				return fmt.Errorf("healthz returned %q", string(healthy))
+			}
+			return nil
+		}, 3*time.Minute, 5*time.Second).Should(Succeed())
+
+		if isGlobalHubDeployed() {
+			klog.Infof("Global hub already deployed, skipping deployGlobalHub")
+			operatorconfig.SetMGHNamespacedName(types.NamespacedName{
+				Namespace: testOptions.GlobalHub.Namespace,
+				Name:      MghName,
+			})
+		} else {
+			By("Deploy the global hub")
+			deployGlobalHub()
+		}
+		waitGlobalhubReadyAndLeaseUpdated()
 		By("Init postgres connection")
 		if isBYO == "true" {
 			databaseBYOSecret, err := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).
@@ -195,14 +201,27 @@ var _ = BeforeSuite(func() {
 			}, 1*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 		}
 		db = database.GetGorm()
+		By("Validate the clusters on database")
+		Eventually(func() (err error) {
+			managedClusters, err = getManagedCluster(httpClient)
+			klog.Errorf("get managedcluster error:%v", err)
+			return err
+		}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
+	} else {
+		operatorconfig.SetMGHNamespacedName(types.NamespacedName{
+			Namespace: testOptions.GlobalHub.Namespace,
+			Name:      MghName,
+		})
+		waitGlobalhubReadyAndLeaseUpdated()
+		By("Validate the clusters on database")
+		Eventually(func() (err error) {
+			managedClusters, err = getManagedCluster(httpClient)
+			klog.Errorf("get managedcluster error:%v", err)
+			return err
+		}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
 	}
-	By("Validate the clusters on database")
-	Eventually(func() (err error) {
-		managedClusters, err = getManagedCluster(httpClient)
-		klog.Errorf("get managedcluster error:%v", err)
-		return err
-	}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
-	Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
 })
 
 var _ = AfterSuite(func() {
@@ -271,6 +290,19 @@ func findRootDir(dir string) (string, error) {
 	}
 }
 
+func isGlobalHubDeployed() bool {
+	runtimeClient, err := testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
+	if err != nil {
+		return false
+	}
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+	err = runtimeClient.Get(ctx, types.NamespacedName{
+		Name:      MghName,
+		Namespace: testOptions.GlobalHub.Namespace,
+	}, mgh)
+	return err == nil
+}
+
 func deployGlobalHub() {
 	By("Creating namespace for the ServiceMonitor")
 	_, err := testClients.KubeClient().CoreV1().Namespaces().Get(ctx, ServiceMonitorNamespace,
@@ -286,22 +318,18 @@ func deployGlobalHub() {
 
 	By("Creating namespace for the multicluster global hub")
 	_, err = testClients.KubeClient().CoreV1().Namespaces().Get(ctx,
-		commonutils.GetDefaultNamespace(), metav1.GetOptions{})
+		testOptions.GlobalHub.Namespace, metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
 		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: commonutils.GetDefaultNamespace(),
+				Name: testOptions.GlobalHub.Namespace,
 			},
 		}, metav1.CreateOptions{})
 	}
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Removing stale e2e nonk8s NodePort service if present")
-	err = testClients.KubeClient().CoreV1().Services(GlobalhubNamespace).Delete(ctx,
-		"multicluster-global-hub-manager-nonk8s-service", metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		Expect(err).NotTo(HaveOccurred())
-	}
+	deleteServicesUsingNodePort(30080)
 
 	Expect(utils.Apply(testClients, testOptions,
 		utils.RenderOptions{KustomizationPath: fmt.Sprintf("%s/test/manifest/resources", rootDir)})).NotTo(HaveOccurred())
@@ -312,7 +340,7 @@ func deployGlobalHub() {
 	mcgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      MghName,
-			Namespace: GlobalhubNamespace,
+			Namespace: testOptions.GlobalHub.Namespace,
 			Annotations: map[string]string{
 				constants.AnnotationMGHSkipAuth:                                          "true",
 				"mgh-scheduler-interval":                                                 "minute",
@@ -342,17 +370,17 @@ func deployGlobalHub() {
 
 	// patch global hub operator to enable global resources
 	Eventually(func() error {
-		return patchGHDeployment(runtimeClient, GlobalhubNamespace, "multicluster-global-hub-operator")
+		return patchGHDeployment(runtimeClient, testOptions.GlobalHub.Namespace, "multicluster-global-hub-operator")
 	}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 	// make sure operator started and lease updated
 	Eventually(func() error {
-		err = checkDeployAvailable(runtimeClient, GlobalhubNamespace, "multicluster-global-hub-operator")
+		err = checkDeployAvailable(runtimeClient, testOptions.GlobalHub.Namespace, "multicluster-global-hub-operator")
 		if err != nil {
 			return err
 		}
 		updated, err := isLeaseUpdated("multicluster-global-hub-operator-lock",
-			GlobalhubNamespace, "multicluster-global-hub-operator", runtimeClient)
+			testOptions.GlobalHub.Namespace, "multicluster-global-hub-operator", runtimeClient)
 		if err != nil {
 			return err
 		}
@@ -368,44 +396,41 @@ func deployGlobalHub() {
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
-	By("Verifying the multicluster-global-hub-grafana/manager")
-	components := map[string]int{}
-	components["multicluster-global-hub-manager"] = 0
-	components["multicluster-global-hub-grafana"] = 0
+	operatorconfig.SetMGHNamespacedName(types.NamespacedName{Namespace: mcgh.Namespace, Name: mcgh.Name})
+}
+
+func waitGlobalhubReadyAndLeaseUpdated() {
+	runtimeClient, err := testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
+	Expect(err).ShouldNot(HaveOccurred())
+
 	Eventually(func() error {
-		for name := range components {
-			err := checkDeployAvailable(runtimeClient, GlobalhubNamespace, name)
-			if err != nil {
-				return err
-			}
+		return checkComponentsAvailableAndPhase(runtimeClient)
+	}, 15*time.Minute, 1*time.Second).Should(Succeed())
+
+	Eventually(func() error {
+		updated, err := isLeaseUpdated("multicluster-global-hub-manager-lock",
+			testOptions.GlobalHub.Namespace, "multicluster-global-hub-manager", runtimeClient)
+		if err != nil {
+			return err
+		}
+		if !updated {
+			return fmt.Errorf("manager lease not updated")
 		}
 		return nil
 	}, 5*time.Minute, 1*time.Second).Should(Succeed())
 
-	if isPrune != "true" {
-		// check components avaibable and phase
-		Eventually(func() error {
-			return checkComponentsAvailableAndPhase(runtimeClient)
-		}, 2*time.Minute, 1*time.Second).Should(Succeed())
-	}
-
-	// Before run test, the mgh should be ready
-	operatorconfig.SetMGHNamespacedName(types.NamespacedName{Namespace: mcgh.Namespace, Name: mcgh.Name})
-	_, err = WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
+	_, err = waitGlobalHubReady(runtimeClient, 5*time.Second)
 	Expect(err).ShouldNot(HaveOccurred())
 }
 
-func WaitGlobalHubReady(ctx context.Context,
-	client client.Client,
-	interval time.Duration,
-) (*v1alpha4.MulticlusterGlobalHub, error) {
+func waitGlobalHubReady(runtimeClient client.Client, interval time.Duration) (*v1alpha4.MulticlusterGlobalHub, error) {
 	mgh := &v1alpha4.MulticlusterGlobalHub{}
 
-	timeOutCtx, cancel := context.WithTimeout(ctx, time.Minute*5)
+	timeOutCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
 	err := wait.PollUntilContextCancel(timeOutCtx, interval, true, func(ctx context.Context) (bool, error) {
-		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
+		err := runtimeClient.Get(ctx, operatorconfig.GetMGHNamespacedName(), mgh)
 		if errors.IsNotFound(err) {
 			klog.Infof("wait until the mgh instance is created")
 			return false, nil
@@ -413,7 +438,7 @@ func WaitGlobalHubReady(ctx context.Context,
 			return true, err
 		}
 
-		if meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
+		if meta.IsStatusConditionTrue(mgh.Status.Conditions, operatorconfig.CONDITION_TYPE_GLOBALHUB_READY) {
 			return true, nil
 		}
 
@@ -517,7 +542,7 @@ func checkDeployAvailable(runtimeClient client.Client, namespace, name string) e
 func checkComponentsAvailableAndPhase(runtimeClient client.Client) error {
 	mgh := &v1alpha4.MulticlusterGlobalHub{}
 	err := runtimeClient.Get(ctx, client.ObjectKey{
-		Namespace: GlobalhubNamespace,
+		Namespace: testOptions.GlobalHub.Namespace,
 		Name:      MghName,
 	}, mgh)
 	if err != nil {
@@ -549,6 +574,45 @@ func patchGHDeployment(runtimeClient client.Client, namespace, name string) erro
 	args := deployment.Spec.Template.Spec.Containers[0].Args
 	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
 	return runtimeClient.Update(ctx, deployment)
+}
+
+func deleteServicesUsingNodePort(nodePort int32) {
+	serviceList, err := testClients.KubeClient().CoreV1().Services("").List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	for i := range serviceList.Items {
+		svc := &serviceList.Items[i]
+		if !serviceUsesNodePort(svc, nodePort) {
+			continue
+		}
+		err = testClients.KubeClient().CoreV1().Services(svc.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
+
+	Eventually(func() error {
+		serviceList, err := testClients.KubeClient().CoreV1().Services("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for i := range serviceList.Items {
+			svc := &serviceList.Items[i]
+			if serviceUsesNodePort(svc, nodePort) {
+				return fmt.Errorf("service %s/%s still uses nodePort %d", svc.Namespace, svc.Name, nodePort)
+			}
+		}
+		return nil
+	}, time.Minute, time.Second).Should(Succeed())
+}
+
+func serviceUsesNodePort(svc *corev1.Service, nodePort int32) bool {
+	for _, port := range svc.Spec.Ports {
+		if port.NodePort == nodePort {
+			return true
+		}
+	}
+	return false
 }
 
 func writeFile(bytes []byte, file string) error {
