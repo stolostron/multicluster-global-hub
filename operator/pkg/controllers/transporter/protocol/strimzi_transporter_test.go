@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -48,7 +49,7 @@ func TestNewStrimziTransporter(t *testing.T) {
 		},
 	}
 
-	t.Cleanup(func() { transporter = nil })
+	t.Cleanup(func() { config.SetTransporter(nil) })
 	trans := NewStrimziTransporter(
 		nil,
 		mgh,
@@ -73,6 +74,127 @@ func TestNewStrimziTransporter(t *testing.T) {
 	if trans.subChannel != "test-channel" {
 		t.Errorf("subChannel name should be test-channel, but %v", trans.subCatalogSourceNamespace)
 	}
+	if trans.subName != StrimziOperatorName {
+		t.Errorf("subName = %q, want %q", trans.subName, StrimziOperatorName)
+	}
+	if config.GetTransporter() != trans {
+		t.Fatal("GetTransporter() should return the active Strimzi transporter")
+	}
+}
+
+func TestNewStrimziTransporterCommunityDefaults(t *testing.T) {
+	t.Cleanup(func() { config.SetTransporter(nil) })
+
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-mgh",
+			Namespace: utils.GetDefaultNamespace(),
+		},
+	}
+	trans := NewStrimziTransporter(nil, mgh, WithCommunity(true))
+	if trans.subName != StrimziOperatorName {
+		t.Errorf("subName = %q, want %q", trans.subName, StrimziOperatorName)
+	}
+	if trans.subPackageName != StrimziOperatorName {
+		t.Errorf("subPackageName = %q, want %q", trans.subPackageName, StrimziOperatorName)
+	}
+}
+
+func TestTransporterSingletonRefreshOnConstruction(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	_ = v1alpha4.AddToScheme(testScheme)
+	_ = corev1.AddToScheme(testScheme)
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mgh", Namespace: ns},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).Build()
+
+	t.Cleanup(func() { config.SetTransporter(nil) })
+
+	strimzi := NewStrimziTransporter(nil, mgh)
+	if config.GetTransporter() != strimzi {
+		t.Fatal("expected Strimzi transporter after NewStrimziTransporter")
+	}
+
+	byo := NewBYOTransporter(ctx, types.NamespacedName{Name: "transport", Namespace: ns}, fakeClient)
+	if config.GetTransporter() != byo {
+		t.Fatal("expected BYO transporter after NewBYOTransporter")
+	}
+
+	strimziAgain := NewStrimziTransporter(nil, mgh)
+	if config.GetTransporter() != strimziAgain {
+		t.Fatal("expected Strimzi transporter after switching back from BYO")
+	}
+	if config.GetTransporter() == byo {
+		t.Fatal("GetTransporter() still returns BYO after Strimzi re-construction")
+	}
+}
+
+func TestTransporterConcurrentConstruction(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	if err := v1alpha4.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add v1alpha4 to test scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add corev1 to test scheme: %v", err)
+	}
+	if err := kafkav1beta2.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add kafkav1beta2 to test scheme: %v", err)
+	}
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mgh", Namespace: ns},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).Build()
+	fakeMgr := &fakeManager{c: fakeClient}
+
+	t.Cleanup(func() { config.SetTransporter(nil) })
+
+	done := make(chan struct{})
+	var readerWg sync.WaitGroup
+	var writerWg sync.WaitGroup
+
+	for i := 0; i < 8; i++ {
+		readerWg.Add(1)
+		go func() {
+			defer readerWg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					tr := config.GetTransporter()
+					if tr == nil {
+						continue
+					}
+					_, _ = tr.EnsureTopic("hub1")
+					_, _ = tr.EnsureUser("hub1")
+					_, _ = tr.GetConnCredential("hub1")
+				}
+			}
+		}()
+	}
+
+	for i := 0; i < 16; i++ {
+		writerWg.Add(1)
+		go func(i int) {
+			defer writerWg.Done()
+			if i%2 == 0 {
+				NewStrimziTransporter(fakeMgr, mgh)
+			} else {
+				NewBYOTransporter(ctx, types.NamespacedName{Name: "transport", Namespace: ns}, fakeClient)
+			}
+		}(i)
+	}
+
+	writerWg.Wait()
+	close(done)
+	readerWg.Wait()
 }
 
 func TestNewKafkaCluster(t *testing.T) {
@@ -390,7 +512,7 @@ func TestNewKafkaCluster(t *testing.T) {
 }
 
 func TestWithOLMVersion(t *testing.T) {
-	t.Cleanup(func() { transporter = nil })
+	t.Cleanup(func() { config.SetTransporter(nil) })
 	mgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-mgh",
@@ -407,13 +529,11 @@ func TestWithOLMVersion(t *testing.T) {
 		t.Errorf("expected olmVersion %q, got %q", config.OLMVersionV1, trans.olmVersion)
 	}
 
-	transporter = nil
 	trans = NewStrimziTransporter(nil, mgh, WithOLMVersion(config.OLMVersionV0))
 	if trans.olmVersion != config.OLMVersionV0 {
 		t.Errorf("expected olmVersion %q, got %q", config.OLMVersionV0, trans.olmVersion)
 	}
 
-	transporter = nil
 	trans = NewStrimziTransporter(nil, mgh)
 	if trans.olmVersion != "" {
 		t.Errorf("expected empty olmVersion, got %q", trans.olmVersion)
@@ -455,8 +575,7 @@ func TestNewClusterExtension(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			transporter = nil
-			t.Cleanup(func() { transporter = nil })
+			t.Cleanup(func() { config.SetTransporter(nil) })
 			trans := NewStrimziTransporter(
 				nil, mgh,
 				WithCommunity(tt.community),
