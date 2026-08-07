@@ -268,6 +268,9 @@ func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 
 	newKey := clientCAKeySecret.Data["ca.key"]
 	newCert := clientCACertSecret.Data["ca.crt"]
+	if len(newKey) == 0 || len(newCert) == 0 {
+		return fmt.Errorf("Kafka client CA secrets must contain ca.key and ca.crt")
+	}
 
 	kafkaClientCAMu.Lock()
 	defer kafkaClientCAMu.Unlock()

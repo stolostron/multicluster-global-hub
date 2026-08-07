@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -48,7 +49,10 @@ func TestNewStrimziTransporter(t *testing.T) {
 		},
 	}
 
-	t.Cleanup(func() { transporter = nil })
+	t.Cleanup(func() {
+		transporter = nil
+		config.SetTransporter(nil)
+	})
 	trans := NewStrimziTransporter(
 		nil,
 		mgh,
@@ -93,6 +97,7 @@ func TestTransporterSingletonRefreshOnConstruction(t *testing.T) {
 	t.Cleanup(func() {
 		transporter = nil
 		byoTransporter = nil
+		config.SetTransporter(nil)
 	})
 
 	strimzi := NewStrimziTransporter(nil, mgh)
@@ -112,6 +117,46 @@ func TestTransporterSingletonRefreshOnConstruction(t *testing.T) {
 	if config.GetTransporter() == byo {
 		t.Fatal("GetTransporter() still returns BYO after Strimzi re-construction")
 	}
+}
+
+func TestTransporterConcurrentConstruction(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	if err := v1alpha4.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add v1alpha4 to test scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add corev1 to test scheme: %v", err)
+	}
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mgh", Namespace: ns},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).Build()
+
+	t.Cleanup(func() {
+		transporter = nil
+		byoTransporter = nil
+		config.SetTransporter(nil)
+	})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if i%2 == 0 {
+				NewStrimziTransporter(nil, mgh)
+			} else {
+				NewBYOTransporter(ctx, types.NamespacedName{Name: "transport", Namespace: ns}, fakeClient)
+			}
+			if config.GetTransporter() == nil {
+				t.Error("GetTransporter() returned nil during concurrent construction")
+			}
+		}(i)
+	}
+	wg.Wait()
 }
 
 func TestNewKafkaCluster(t *testing.T) {
@@ -429,7 +474,10 @@ func TestNewKafkaCluster(t *testing.T) {
 }
 
 func TestWithOLMVersion(t *testing.T) {
-	t.Cleanup(func() { transporter = nil })
+	t.Cleanup(func() {
+		transporter = nil
+		config.SetTransporter(nil)
+	})
 	mgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-mgh",
@@ -495,7 +543,10 @@ func TestNewClusterExtension(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			transporter = nil
-			t.Cleanup(func() { transporter = nil })
+			t.Cleanup(func() {
+				transporter = nil
+				config.SetTransporter(nil)
+			})
 			trans := NewStrimziTransporter(
 				nil, mgh,
 				WithCommunity(tt.community),

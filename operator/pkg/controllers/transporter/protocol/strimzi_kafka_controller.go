@@ -121,7 +121,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	config.SetTransporter(r.trans)
 	synced, err := syncManagerTransportSecretIfReady(ctx, mgh, r.trans, r.c)
 	if err != nil {
-		log.Errorf("failed to create manager transport-config secret: %v", err)
+		log.Errorw("failed to create manager transport-config secret", "error", err)
 		return ctrl.Result{}, err
 	}
 	if !synced {
@@ -234,18 +234,18 @@ func syncManagerTransportSecretIfReady(ctx context.Context, mgh *v1alpha4.Multic
 ) (synced bool, err error) {
 	kafkaStatus, err := trans.kafkaClusterReady()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("check Kafka cluster readiness: %w", err)
 	}
 	if !kafkaStatus.kafkaReady {
 		return false, nil
 	}
 	if err := config.SetKafkaClientCA(trans.ctx, trans.mgh.Namespace, KafkaClusterName,
 		trans.manager.GetClient()); err != nil {
-		return false, err
+		return false, fmt.Errorf("set Kafka client CA: %w", err)
 	}
 	conn, err := getManagerTransportConn(trans)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("get manager transport connection: %w", err)
 	}
 	if conn == nil {
 		return false, nil

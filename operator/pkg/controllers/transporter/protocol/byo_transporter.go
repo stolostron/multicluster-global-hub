@@ -32,6 +32,9 @@ var byoTransporter *BYOTransporter
 func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 	c client.Client,
 ) *BYOTransporter {
+	transporterConstructMu.Lock()
+	defer transporterConstructMu.Unlock()
+
 	if byoTransporter == nil {
 		byoTransporter = &BYOTransporter{
 			log:           logger.ZaprLogger(),

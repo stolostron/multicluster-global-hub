@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -115,11 +116,16 @@ type strimziTransporter struct {
 
 type KafkaOption func(*strimziTransporter)
 
+var transporterConstructMu sync.Mutex
+
 var transporter *strimziTransporter
 
 func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	opts ...KafkaOption,
 ) *strimziTransporter {
+	transporterConstructMu.Lock()
+	defer transporterConstructMu.Unlock()
+
 	if transporter == nil {
 		transporter = &strimziTransporter{
 			ctx:                       context.TODO(),
@@ -150,7 +156,6 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 	for _, opt := range opts {
 		opt(transporter)
 	}
-	config.SetTransporter(transporter)
 
 	if transporter.subCommunity {
 		transporter.subChannel = CommunityChannel
@@ -175,6 +180,7 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 		transporter.subPackageName = subscriptionPackageName
 	}
 
+	config.SetTransporter(transporter)
 	return transporter
 }
 

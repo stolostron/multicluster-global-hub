@@ -49,7 +49,9 @@ func TestSetKafkaClientCAConcurrentAccess(t *testing.T) {
 
 	ctx := context.Background()
 	testScheme := runtime.NewScheme()
-	_ = corev1.AddToScheme(testScheme)
+	if err := corev1.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add corev1 to test scheme: %v", err)
+	}
 	ns := "test-ns"
 	c := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(
 		&corev1.Secret{
@@ -81,6 +83,44 @@ func TestSetKafkaClientCAConcurrentAccess(t *testing.T) {
 	key, cert := GetKafkaClientCA()
 	if string(key) != "key-v1" || string(cert) != "cert-v1" {
 		t.Fatalf("GetKafkaClientCA() = (%q, %q), want (key-v1, cert-v1)", key, cert)
+	}
+}
+
+func TestSetKafkaClientCARejectsIncompleteSecrets(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add corev1 to test scheme: %v", err)
+	}
+
+	originalKey := kafkaClientCAKey
+	originalCert := kafkaClientCACert
+	t.Cleanup(func() {
+		kafkaClientCAKey = originalKey
+		kafkaClientCACert = originalCert
+	})
+	kafkaClientCAKey = []byte("cached-key")
+	kafkaClientCACert = []byte("cached-cert")
+
+	ns := "test-ns"
+	c := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "kafka-clients-ca", Namespace: ns},
+			Data:       map[string][]byte{},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "kafka-clients-ca-cert", Namespace: ns},
+			Data:       map[string][]byte{"ca.crt": []byte("cert-v1")},
+		},
+	).Build()
+
+	if err := SetKafkaClientCA(ctx, ns, "kafka", c); err == nil {
+		t.Fatal("SetKafkaClientCA() expected error for missing ca.key")
+	}
+
+	key, cert := GetKafkaClientCA()
+	if string(key) != "cached-key" || string(cert) != "cached-cert" {
+		t.Fatalf("GetKafkaClientCA() = (%q, %q), want cached values preserved", key, cert)
 	}
 }
 
