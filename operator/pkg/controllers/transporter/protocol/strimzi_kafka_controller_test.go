@@ -207,6 +207,331 @@ func TestKafkaControllerRefreshUsesActiveStrimziTransporter(t *testing.T) {
 	}
 }
 
+func TestActiveStrimziTransporter(t *testing.T) {
+	config.SetTransporter(nil)
+	t.Cleanup(func() { config.SetTransporter(nil) })
+
+	if _, err := activeStrimziTransporter(); err == nil {
+		t.Fatal("activeStrimziTransporter() expected error when transporter is nil")
+	}
+
+	config.SetTransporter(&stubBYOTransporter{})
+	if _, err := activeStrimziTransporter(); err == nil {
+		t.Fatal("activeStrimziTransporter() expected error for non-Strimzi transporter")
+	}
+
+	mgh := &operatorv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: utils.GetDefaultNamespace()},
+	}
+	st := NewStrimziTransporter(nil, mgh)
+	got, err := activeStrimziTransporter()
+	if err != nil {
+		t.Fatalf("activeStrimziTransporter() error = %v", err)
+	}
+	if got != st {
+		t.Fatal("activeStrimziTransporter() should return the registered Strimzi transporter")
+	}
+}
+
+type stubBYOTransporter struct{}
+
+func (s *stubBYOTransporter) EnsureUser(string) (string, error) { return "", nil }
+
+func (s *stubBYOTransporter) EnsureTopic(string) (*transport.ClusterTopic, error) {
+	return &transport.ClusterTopic{}, nil
+}
+
+func (s *stubBYOTransporter) EnsureKafka() (bool, error) { return false, nil }
+
+func (s *stubBYOTransporter) Prune(string) error { return nil }
+
+func (s *stubBYOTransporter) GetConnCredential(string) (*transport.KafkaConfig, error) {
+	return &transport.KafkaConfig{}, nil
+}
+
+func TestApplyManagerKafkaTopicsNilConn(t *testing.T) {
+	applyManagerKafkaTopics(nil)
+}
+
+func TestSyncManagerTransportSecretIfReadyKafkaNotReady(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	_ = operatorv1alpha4.AddToScheme(testScheme)
+	_ = kafkav1beta2.AddToScheme(testScheme)
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &operatorv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+	}
+	notReadyType := "Ready"
+	notReadyStatus := "False"
+	notReadyReason := "NotReady"
+	notReadyMessage := "Kafka cluster not ready"
+	notReadyKafka := &kafkav1beta2.Kafka{
+		ObjectMeta: metav1.ObjectMeta{Name: KafkaClusterName, Namespace: ns},
+		Spec: &kafkav1beta2.KafkaSpec{
+			Kafka: kafkav1beta2.KafkaSpecKafka{
+				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
+					{Name: "tls", Port: 9093, Type: "nodeport", Tls: true},
+				},
+			},
+		},
+		Status: &kafkav1beta2.KafkaStatus{
+			Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
+				{
+					Type:    &notReadyType,
+					Status:  &notReadyStatus,
+					Reason:  &notReadyReason,
+					Message: &notReadyMessage,
+				},
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(mgh, notReadyKafka).Build()
+	trans := &strimziTransporter{
+		ctx:                   ctx,
+		mgh:                   mgh,
+		kafkaClusterName:      KafkaClusterName,
+		kafkaClusterNamespace: ns,
+		manager:               &fakeManager{c: fakeClient},
+	}
+
+	synced, err := syncManagerTransportSecretIfReady(ctx, mgh, trans, fakeClient)
+	if err != nil {
+		t.Fatalf("syncManagerTransportSecretIfReady() error = %v", err)
+	}
+	if synced {
+		t.Fatal("syncManagerTransportSecretIfReady() should not sync when Kafka is not ready")
+	}
+}
+
+func TestSyncManagerTransportSecretIfReadyRejectsIncompleteCA(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	_ = operatorv1alpha4.AddToScheme(testScheme)
+	_ = corev1.AddToScheme(testScheme)
+	_ = kafkav1beta2.AddToScheme(testScheme)
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &operatorv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+	}
+	bootServer := "kafka-kafka-bootstrap.example.svc:9092"
+	kafkaCluster := readyKafkaCluster(ns, bootServer, "Ready", "True")
+	clientCAKeySecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: KafkaClusterName + "-clients-ca", Namespace: ns},
+		Data:       map[string][]byte{},
+	}
+	clientCACertSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: KafkaClusterName + "-clients-ca-cert", Namespace: ns},
+		Data:       map[string][]byte{"ca.crt": []byte("cacert")},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(
+		mgh, kafkaCluster, clientCAKeySecret, clientCACertSecret,
+	).Build()
+	trans := &strimziTransporter{
+		ctx:                   ctx,
+		mgh:                   mgh,
+		kafkaClusterName:      KafkaClusterName,
+		kafkaClusterNamespace: ns,
+		manager:               &fakeManager{c: fakeClient},
+	}
+
+	_, err := syncManagerTransportSecretIfReady(ctx, mgh, trans, fakeClient)
+	if err == nil {
+		t.Fatal("syncManagerTransportSecretIfReady() expected error for incomplete CA secrets")
+	}
+	if !strings.Contains(err.Error(), "set Kafka client CA") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSyncManagerTransportSecretIfReadyWaitsForUserCredential(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	_ = operatorv1alpha4.AddToScheme(testScheme)
+	_ = corev1.AddToScheme(testScheme)
+	_ = kafkav1beta2.AddToScheme(testScheme)
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &operatorv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+	}
+	bootServer := "kafka-kafka-bootstrap.example.svc:9092"
+	kafkaCluster := readyKafkaCluster(ns, bootServer, "Ready", "True")
+	clientCAKeySecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: KafkaClusterName + "-clients-ca", Namespace: ns},
+		Data:       map[string][]byte{"ca.key": []byte("cakey")},
+	}
+	clientCACertSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: KafkaClusterName + "-clients-ca-cert", Namespace: ns},
+		Data:       map[string][]byte{"ca.crt": []byte("cacert")},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(
+		mgh, kafkaCluster, clientCAKeySecret, clientCACertSecret,
+	).Build()
+	trans := &strimziTransporter{
+		ctx:                   ctx,
+		mgh:                   mgh,
+		kafkaClusterName:      KafkaClusterName,
+		kafkaClusterNamespace: ns,
+		manager:               &fakeManager{c: fakeClient},
+	}
+
+	synced, err := syncManagerTransportSecretIfReady(ctx, mgh, trans, fakeClient)
+	if err != nil {
+		t.Fatalf("syncManagerTransportSecretIfReady() error = %v", err)
+	}
+	if synced {
+		t.Fatal("syncManagerTransportSecretIfReady() should wait when global-hub user credential is missing")
+	}
+}
+
+func TestCreateManagerTransportSecretUpdatesExistingTopics(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	_ = operatorv1alpha4.AddToScheme(testScheme)
+	_ = corev1.AddToScheme(testScheme)
+	_ = kafkav1beta2.AddToScheme(testScheme)
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &operatorv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+		Spec: operatorv1alpha4.MulticlusterGlobalHubSpec{
+			DataLayerSpec: operatorv1alpha4.DataLayerSpec{
+				Kafka: operatorv1alpha4.KafkaSpec{
+					KafkaTopics: operatorv1alpha4.KafkaTopics{
+						SpecTopic:   "spec-old",
+						StatusTopic: "gh-status.*",
+					},
+				},
+			},
+		},
+	}
+	existingSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHTransportConfigSecret,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{"kafka.yaml": []byte("topic.spec: spec-old\n")},
+	}
+	bootServer := "kafka-kafka-bootstrap.example.svc:9092"
+	kafkaCluster := readyKafkaCluster(ns, bootServer, "Ready", "True")
+	kafkaUserSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: DefaultGlobalHubKafkaUserName, Namespace: ns},
+		Data: map[string][]byte{
+			"user.crt": []byte("usercrt"),
+			"user.key": []byte("userkey"),
+		},
+	}
+	clientCAKeySecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: KafkaClusterName + "-clients-ca", Namespace: ns},
+		Data:       map[string][]byte{"ca.key": []byte("cakey")},
+	}
+	clientCACertSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: KafkaClusterName + "-clients-ca-cert", Namespace: ns},
+		Data:       map[string][]byte{"ca.crt": []byte("cacert")},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(
+		mgh, existingSecret, kafkaCluster, kafkaUserSecret, clientCAKeySecret, clientCACertSecret,
+	).Build()
+	if err := config.SetTransportConfig(ctx, fakeClient, mgh); err != nil {
+		t.Fatalf("SetTransportConfig() error = %v", err)
+	}
+
+	mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic = "spec-new"
+	if err := config.SetTransportConfig(ctx, fakeClient, mgh); err != nil {
+		t.Fatalf("SetTransportConfig() error = %v", err)
+	}
+
+	trans := &strimziTransporter{
+		ctx:                   ctx,
+		mgh:                   mgh,
+		kafkaClusterName:      KafkaClusterName,
+		kafkaClusterNamespace: ns,
+		manager:               &fakeManager{c: fakeClient},
+	}
+	if err := SyncManagerTransportConfigSecret(ctx, mgh, trans, fakeClient); err != nil {
+		t.Fatalf("SyncManagerTransportConfigSecret() error = %v", err)
+	}
+
+	secret := &corev1.Secret{}
+	if err := fakeClient.Get(ctx, types.NamespacedName{
+		Name:      constants.GHTransportConfigSecret,
+		Namespace: ns,
+	}, secret); err != nil {
+		t.Fatalf("Get transport-config secret error = %v", err)
+	}
+	kafkaYAML := string(secret.Data["kafka.yaml"])
+	if !strings.Contains(kafkaYAML, "topic.spec: spec-new") {
+		t.Fatalf("kafka.yaml should reflect updated spec topic: %s", kafkaYAML)
+	}
+}
+
+func TestGetManagerTransportConn(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	_ = operatorv1alpha4.AddToScheme(testScheme)
+	_ = corev1.AddToScheme(testScheme)
+	_ = kafkav1beta2.AddToScheme(testScheme)
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &operatorv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+		Spec: operatorv1alpha4.MulticlusterGlobalHubSpec{
+			DataLayerSpec: operatorv1alpha4.DataLayerSpec{
+				Kafka: operatorv1alpha4.KafkaSpec{
+					KafkaTopics: operatorv1alpha4.KafkaTopics{
+						SpecTopic:   "spec1",
+						StatusTopic: "gh-status.*",
+					},
+					ConsumerGroupPrefix: "gh_",
+				},
+			},
+		},
+	}
+	bootServer := "kafka-kafka-bootstrap.example.svc:9092"
+	kafkaCluster := readyKafkaCluster(ns, bootServer, "Ready", "True")
+	kafkaUserSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: DefaultGlobalHubKafkaUserName, Namespace: ns},
+		Data: map[string][]byte{
+			"user.crt": []byte("usercrt"),
+			"user.key": []byte("userkey"),
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(
+		mgh, kafkaCluster, kafkaUserSecret,
+	).Build()
+	if err := config.SetTransportConfig(ctx, fakeClient, mgh); err != nil {
+		t.Fatalf("SetTransportConfig() error = %v", err)
+	}
+
+	trans := &strimziTransporter{
+		ctx:                   ctx,
+		mgh:                   mgh,
+		kafkaClusterName:      KafkaClusterName,
+		kafkaClusterNamespace: ns,
+		manager:               &fakeManager{c: fakeClient},
+	}
+
+	conn, err := getManagerTransportConn(trans)
+	if err != nil {
+		t.Fatalf("getManagerTransportConn() error = %v", err)
+	}
+	if conn == nil {
+		t.Fatal("getManagerTransportConn() returned nil connection")
+	}
+	if conn.SpecTopic != "spec1" {
+		t.Fatalf("SpecTopic = %q, want spec1", conn.SpecTopic)
+	}
+	if conn.StatusTopic != "^gh-status.*" {
+		t.Fatalf("StatusTopic = %q, want ^gh-status.*", conn.StatusTopic)
+	}
+	if conn.ConsumerGroupID != "gh_global_hub" {
+		t.Fatalf("ConsumerGroupID = %q, want gh_global_hub", conn.ConsumerGroupID)
+	}
+}
+
 func TestMulticlusterGlobalHubReconcilerStrimziResources(t *testing.T) {
 	tests := []struct {
 		name         string

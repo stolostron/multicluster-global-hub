@@ -74,8 +74,29 @@ func TestNewStrimziTransporter(t *testing.T) {
 	if trans.subChannel != "test-channel" {
 		t.Errorf("subChannel name should be test-channel, but %v", trans.subCatalogSourceNamespace)
 	}
+	if trans.subName != StrimziOperatorName {
+		t.Errorf("subName = %q, want %q", trans.subName, StrimziOperatorName)
+	}
 	if config.GetTransporter() != trans {
 		t.Fatal("GetTransporter() should return the active Strimzi transporter")
+	}
+}
+
+func TestNewStrimziTransporterCommunityDefaults(t *testing.T) {
+	t.Cleanup(func() { config.SetTransporter(nil) })
+
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-mgh",
+			Namespace: utils.GetDefaultNamespace(),
+		},
+	}
+	trans := NewStrimziTransporter(nil, mgh, WithCommunity(true))
+	if trans.subName != StrimziOperatorName {
+		t.Errorf("subName = %q, want %q", trans.subName, StrimziOperatorName)
+	}
+	if trans.subPackageName != StrimziOperatorName {
+		t.Errorf("subPackageName = %q, want %q", trans.subPackageName, StrimziOperatorName)
 	}
 }
 

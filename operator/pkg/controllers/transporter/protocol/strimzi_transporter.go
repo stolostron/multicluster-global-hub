@@ -53,8 +53,11 @@ const (
 	// Global hub kafkaUser name
 	DefaultGlobalHubKafkaUserName = "global-hub-kafka-user"
 
+	// Strimzi operator package/subscription/ClusterExtension name (shared across OLM install paths).
+	StrimziOperatorName = "strimzi-kafka-operator"
+
 	// subscription - common
-	DefaultKafkaSubName           = "strimzi-kafka-operator"
+	DefaultKafkaSubName           = StrimziOperatorName
 	DefaultInstallPlanApproval    = subv1alpha1.ApprovalAutomatic
 	DefaultCatalogSourceNamespace = "openshift-marketplace"
 
@@ -65,11 +68,11 @@ const (
 
 	// subscription - community
 	CommunityChannel           = "strimzi-0.49.x"
-	CommunityPackageName       = "strimzi-kafka-operator"
+	CommunityPackageName       = StrimziOperatorName
 	CommunityCatalogSourceName = "community-operators"
 
 	// OLMv1 ClusterExtension
-	StrimziClusterExtensionName = "strimzi-kafka-operator"
+	StrimziClusterExtensionName = StrimziOperatorName
 	StrimziInstallerSAName      = "strimzi-kafka-installer"
 	StrimziInstallerCRBName     = "strimzi-kafka-installer"
 )

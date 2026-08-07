@@ -163,3 +163,108 @@ func TestSetTransporterConcurrentAccess(t *testing.T) {
 		t.Fatal("GetTransporter() returned nil after concurrent updates")
 	}
 }
+
+func TestSetKafkaClientCAUpdatesWhenSecretsChange(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add corev1 to test scheme: %v", err)
+	}
+
+	originalKey := kafkaClientCAKey
+	originalCert := kafkaClientCACert
+	t.Cleanup(func() {
+		kafkaClientCAKey = originalKey
+		kafkaClientCACert = originalCert
+	})
+
+	ns := "test-ns"
+	keySecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "kafka-clients-ca", Namespace: ns},
+		Data:       map[string][]byte{"ca.key": []byte("key-v1")},
+	}
+	certSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "kafka-clients-ca-cert", Namespace: ns},
+		Data:       map[string][]byte{"ca.crt": []byte("cert-v1")},
+	}
+	c := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(keySecret, certSecret).Build()
+
+	if err := SetKafkaClientCA(ctx, ns, "kafka", c); err != nil {
+		t.Fatalf("SetKafkaClientCA() error = %v", err)
+	}
+
+	keySecret.Data["ca.key"] = []byte("key-v2")
+	certSecret.Data["ca.crt"] = []byte("cert-v2")
+	if err := c.Update(ctx, keySecret); err != nil {
+		t.Fatalf("update key secret: %v", err)
+	}
+	if err := c.Update(ctx, certSecret); err != nil {
+		t.Fatalf("update cert secret: %v", err)
+	}
+	if err := SetKafkaClientCA(ctx, ns, "kafka", c); err != nil {
+		t.Fatalf("SetKafkaClientCA() second call error = %v", err)
+	}
+
+	key, cert := GetKafkaClientCA()
+	if string(key) != "key-v2" || string(cert) != "cert-v2" {
+		t.Fatalf("GetKafkaClientCA() = (%q, %q), want (key-v2, cert-v2)", key, cert)
+	}
+}
+
+func TestSetKafkaClientCAMissingCertSecret(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add corev1 to test scheme: %v", err)
+	}
+
+	ns := "test-ns"
+	c := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "kafka-clients-ca", Namespace: ns},
+			Data:       map[string][]byte{"ca.key": []byte("key-v1")},
+		},
+	).Build()
+
+	if err := SetKafkaClientCA(ctx, ns, "kafka", c); err == nil {
+		t.Fatal("SetKafkaClientCA() expected error when cert secret is missing")
+	}
+}
+
+func TestSetKafkaClientCAIdempotent(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add corev1 to test scheme: %v", err)
+	}
+
+	originalKey := kafkaClientCAKey
+	originalCert := kafkaClientCACert
+	t.Cleanup(func() {
+		kafkaClientCAKey = originalKey
+		kafkaClientCACert = originalCert
+	})
+
+	ns := "test-ns"
+	c := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "kafka-clients-ca", Namespace: ns},
+			Data:       map[string][]byte{"ca.key": []byte("key-v1")},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "kafka-clients-ca-cert", Namespace: ns},
+			Data:       map[string][]byte{"ca.crt": []byte("cert-v1")},
+		},
+	).Build()
+
+	for i := 0; i < 3; i++ {
+		if err := SetKafkaClientCA(ctx, ns, "kafka", c); err != nil {
+			t.Fatalf("SetKafkaClientCA() call %d error = %v", i, err)
+		}
+	}
+
+	key, cert := GetKafkaClientCA()
+	if string(key) != "key-v1" || string(cert) != "cert-v1" {
+		t.Fatalf("GetKafkaClientCA() = (%q, %q), want (key-v1, cert-v1)", key, cert)
+	}
+}
