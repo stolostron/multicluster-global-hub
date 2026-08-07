@@ -461,8 +461,8 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 	kafkaVersion := "4.1.0"
 	kafkaClusterName := "kafka"
 	globalHubKafkaUser := "global-hub-kafka-user"
-	clientCa := "kafka-clients-ca-cert"
-	clientCaCert := "kafka-clients-ca"
+	clientCAKeySecret := "kafka-clients-ca"
+	clientCACertSecret := "kafka-clients-ca-cert"
 
 	readyCondition := "Ready"
 	trueCondition := "True"
@@ -559,14 +559,14 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		return err
 	}
 
-	err = createSecret(c, ns, clientCa, map[string][]byte{
+	err = createSecret(c, ns, clientCAKeySecret, map[string][]byte{
 		"ca.key": []byte("cakey"),
 	})
 	if err != nil {
 		return err
 	}
 
-	err = createSecret(c, ns, clientCaCert, map[string][]byte{
+	err = createSecret(c, ns, clientCACertSecret, map[string][]byte{
 		"ca.crt": []byte("cacert"),
 	})
 	if err != nil {
@@ -576,21 +576,20 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 }
 
 func createSecret(c client.Client, ns, name string, data map[string][]byte) error {
-	clientCaCertSecret := &corev1.Secret{
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      name,
 		},
-		Data: data,
 	}
-	err := c.Get(context.Background(), client.ObjectKeyFromObject(clientCaCertSecret), clientCaCertSecret)
+	err := c.Get(context.Background(), client.ObjectKeyFromObject(secret), secret)
 	if errors.IsNotFound(err) {
-		e := c.Create(context.Background(), clientCaCertSecret)
-		if e != nil {
-			return e
-		}
-	} else if err != nil {
+		secret.Data = data
+		return c.Create(context.Background(), secret)
+	}
+	if err != nil {
 		return err
 	}
-	return nil
+	secret.Data = data
+	return c.Update(context.Background(), secret)
 }
