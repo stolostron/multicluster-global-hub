@@ -7,14 +7,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -81,24 +86,21 @@ func TestHubHAEmitter_Update_SendsImmediately(t *testing.T) {
 		},
 	}
 
-	// Update should send immediately
+	// Update should send immediately after size-aware add
 	err := emitter.Update(secret)
 	if err != nil {
-		t.Errorf("Update() error = %v", err)
+		t.Fatalf("Update() error = %v", err)
 	}
 
-	// Verify event was sent
 	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event to be sent immediately, got %d", len(producer.events))
+		t.Fatalf("expected one event after Update before indexing producer.events[0]; got %d", len(producer.events))
 	}
 
-	// Verify event content
 	event := producer.events[0]
 	if event.Type() != constants.HubHAResourcesMsgKey {
 		t.Errorf("Expected event type %s, got %s", constants.HubHAResourcesMsgKey, event.Type())
 	}
 
-	// Parse bundle from event data
 	var bundle generic.GenericBundle[*unstructured.Unstructured]
 	err = json.Unmarshal(event.Data(), &bundle)
 	if err != nil {
@@ -113,7 +115,6 @@ func TestHubHAEmitter_Update_SendsImmediately(t *testing.T) {
 		t.Errorf("Expected secret name 'test-secret', got %s", bundle.Update[0].GetName())
 	}
 
-	// Bundle should be cleared after send
 	if len(emitter.bundle.Update) != 0 {
 		t.Errorf("Expected bundle to be cleared after send, got %d updates", len(emitter.bundle.Update))
 	}
@@ -130,7 +131,6 @@ func TestHubHAEmitter_Delete_SendsImmediately(t *testing.T) {
 	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
 	emitter.SetEnabled(true)
 
-	// Create an unstructured Secret with required label
 	secret := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "v1",
@@ -145,18 +145,15 @@ func TestHubHAEmitter_Delete_SendsImmediately(t *testing.T) {
 		},
 	}
 
-	// Delete should send immediately
 	err := emitter.Delete(secret)
 	if err != nil {
-		t.Errorf("Delete() error = %v", err)
+		t.Fatalf("Delete() error = %v", err)
 	}
 
-	// Verify event was sent
 	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event to be sent immediately, got %d", len(producer.events))
+		t.Fatalf("expected one event after Delete before indexing producer.events[0]; got %d", len(producer.events))
 	}
 
-	// Parse bundle from event data
 	var bundle generic.GenericBundle[*unstructured.Unstructured]
 	err = json.Unmarshal(producer.events[0].Data(), &bundle)
 	if err != nil {
@@ -203,7 +200,6 @@ func TestHubHAEmitter_Update_FilteredResource(t *testing.T) {
 		t.Errorf("Update() error = %v", err)
 	}
 
-	// Verify event was sent (predicate would have filtered it before calling Update)
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event to be sent, got %d", len(producer.events))
 	}
@@ -211,56 +207,37 @@ func TestHubHAEmitter_Update_FilteredResource(t *testing.T) {
 
 func TestHubHAEmitter_Delete_WithoutLabels(t *testing.T) {
 	producer := &mockProducer{events: []cloudevents.Event{}}
-	transportConfig := &transport.TransportInternalConfig{
-		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic: "spec-topic",
-		},
-	}
-
-	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+	emitter := NewHubHAEmitter(producer, newTransportConfig(), "hub1", "hub2")
 	emitter.SetEnabled(true)
 
-	// Create a Secret WITH required label - simulating a deleted object that was synced
-	// The delete event contains the object's last known state with labels
+	// Filtering is the predicate's job; Delete still emits for unlabeled objects it receives.
 	secret := &unstructured.Unstructured{
 		Object: map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Secret",
 			"metadata": map[string]any{
-				"name":      "test-secret",
+				"name":      "unlabeled-secret",
 				"namespace": "default",
-				"labels": map[string]any{
-					"hive.openshift.io/secret-type": "kubeconfig",
-				},
 			},
 		},
 	}
 
-	// Delete should send because object has required labels (was synced)
-	// This tests direct Delete() call (predicate is bypassed in unit tests)
-	err := emitter.Delete(secret)
-	if err != nil {
-		t.Errorf("Delete() error = %v", err)
+	if err := emitter.Delete(secret); err != nil {
+		t.Fatalf("Delete() error = %v", err)
 	}
-
-	// Verify event was sent
 	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event to be sent for deletion, got %d", len(producer.events))
+		t.Fatalf("expected Delete to send 1 event for unlabeled object, got %d", len(producer.events))
 	}
 
-	// Parse bundle from event data
 	var bundle generic.GenericBundle[*unstructured.Unstructured]
-	err = json.Unmarshal(producer.events[0].Data(), &bundle)
-	if err != nil {
-		t.Errorf("Failed to unmarshal bundle: %v", err)
+	if err := json.Unmarshal(producer.events[0].Data(), &bundle); err != nil {
+		t.Fatalf("Failed to unmarshal bundle: %v", err)
 	}
-
 	if len(bundle.Delete) != 1 {
-		t.Errorf("Expected 1 delete in bundle, got %d", len(bundle.Delete))
+		t.Fatalf("Expected 1 delete in bundle, got %d", len(bundle.Delete))
 	}
-
-	if bundle.Delete[0].Name != "test-secret" {
-		t.Errorf("Expected secret name 'test-secret', got %s", bundle.Delete[0].Name)
+	if bundle.Delete[0].Name != "unlabeled-secret" {
+		t.Errorf("Expected secret name 'unlabeled-secret', got %s", bundle.Delete[0].Name)
 	}
 }
 
@@ -304,37 +281,75 @@ func TestHubHAEmitter_Resync(t *testing.T) {
 		},
 	}
 
-	// Resync should NOT send immediately
+	// Resync sends object batches then a ResyncMetadata bundle for the GVK
 	err := emitter.Resync([]client.Object{secret1, secret2})
 	if err != nil {
-		t.Errorf("Resync() error = %v", err)
+		t.Fatalf("Resync() error = %v", err)
 	}
 
-	// No events should be sent yet
-	if len(producer.events) != 0 {
-		t.Errorf("Expected 0 events after Resync, got %d", len(producer.events))
+	if len(producer.events) != 2 {
+		t.Fatalf("expected 2 events after Resync before indexing producer.events[0]; got %d", len(producer.events))
 	}
 
-	// Now send the bundle
-	err = emitter.Send()
+	var resyncBundle generic.GenericBundle[*unstructured.Unstructured]
+	err = json.Unmarshal(producer.events[0].Data(), &resyncBundle)
 	if err != nil {
-		t.Errorf("Send() error = %v", err)
+		t.Errorf("Failed to unmarshal resync bundle: %v", err)
+	}
+	if len(resyncBundle.Resync) != 2 {
+		t.Errorf("Expected 2 resync items in first bundle, got %d", len(resyncBundle.Resync))
 	}
 
-	// Verify event was sent
+	var metaBundle generic.GenericBundle[*unstructured.Unstructured]
+	err = json.Unmarshal(producer.events[1].Data(), &metaBundle)
+	if err != nil {
+		t.Errorf("Failed to unmarshal metadata bundle: %v", err)
+	}
+	if len(metaBundle.ResyncMetadata) != 4 {
+		t.Errorf("Expected 4 resync metadata items (begin + 2 objects + complete), got %d",
+			len(metaBundle.ResyncMetadata))
+	}
+	hasBegin, hasComplete, named := false, false, 0
+	for _, m := range metaBundle.ResyncMetadata {
+		if m.InventoryBegin {
+			hasBegin = true
+		}
+		if m.Complete {
+			hasComplete = true
+		}
+		if m.Name != "" {
+			named++
+		}
+	}
+	if !hasBegin || !hasComplete {
+		t.Errorf("expected InventoryBegin and Complete markers, begin=%v complete=%v", hasBegin, hasComplete)
+	}
+	if named != 2 {
+		t.Errorf("expected 2 named metadata entries, got %d", named)
+	}
+}
+
+func TestHubHAEmitter_Resync_EmptyActiveResource_EmitsCompletionFrame(t *testing.T) {
+	producer := &mockProducer{events: []cloudevents.Event{}}
+	emitter := NewHubHAEmitter(producer, newTransportConfig(), "hub1", "hub2")
+	emitter.SetEnabled(true)
+	emitter.SetActiveResources([]schema.GroupVersionKind{{Group: "", Version: "v1", Kind: "Secret"}})
+
+	if err := emitter.Resync([]client.Object{}); err != nil {
+		t.Fatalf("Resync() error = %v", err)
+	}
 	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event after Send, got %d", len(producer.events))
+		t.Fatalf("expected 1 metadata event for empty inventory, got %d", len(producer.events))
 	}
-
-	// Parse bundle
-	var bundle generic.GenericBundle[*unstructured.Unstructured]
-	err = json.Unmarshal(producer.events[0].Data(), &bundle)
-	if err != nil {
-		t.Errorf("Failed to unmarshal bundle: %v", err)
+	var metaBundle generic.GenericBundle[*unstructured.Unstructured]
+	if err := json.Unmarshal(producer.events[0].Data(), &metaBundle); err != nil {
+		t.Fatalf("unmarshal: %v", err)
 	}
-
-	if len(bundle.Resync) != 2 {
-		t.Errorf("Expected 2 resync items in sent bundle, got %d", len(bundle.Resync))
+	if len(metaBundle.ResyncMetadata) != 2 {
+		t.Fatalf("expected begin+complete markers, got %d entries", len(metaBundle.ResyncMetadata))
+	}
+	if !metaBundle.ResyncMetadata[0].InventoryBegin || !metaBundle.ResyncMetadata[1].Complete {
+		t.Fatalf("expected begin then complete, got %+v", metaBundle.ResyncMetadata)
 	}
 }
 
@@ -399,7 +414,7 @@ func TestHubHAEmitter_SetEnabled_TogglesState(t *testing.T) {
 		t.Fatalf("expected 0 events while disabled, got %d", len(producer.events))
 	}
 
-	// Enable: events flow
+	// Enable: events flow immediately
 	emitter.SetEnabled(true)
 	if err := emitter.Update(secret); err != nil {
 		t.Fatalf("unexpected error from enabled Update: %v", err)
@@ -657,9 +672,12 @@ func TestHubHAEmitter_Delete_RemovesExistingUpdate(t *testing.T) {
 	if err := emitter.Delete(toDelete); err != nil {
 		t.Fatalf("Delete() returned unexpected error: %v", err)
 	}
-	// After Delete the Update list should be empty.
+	// After Delete the Update list should be empty (and delete already sent).
 	if len(emitter.bundle.Update) != 0 {
 		t.Errorf("expected empty Update list after Delete, got %d items", len(emitter.bundle.Update))
+	}
+	if len(emitter.bundle.Delete) != 0 {
+		t.Errorf("expected empty Delete list after send, got %d items", len(emitter.bundle.Delete))
 	}
 }
 
@@ -704,5 +722,173 @@ func TestHubHAEmitter_ToUnstructured_TypedObject(t *testing.T) {
 	}
 	if uObj.GetName() != "typed-cm" {
 		t.Errorf("expected name 'typed-cm', got %s", uObj.GetName())
+	}
+}
+
+// Covers size-aware flush on Update (auto-send current batch when MaxBundleBytes would be exceeded).
+func TestHubHAEmitter_Update_FlushesWhenBundleFull(t *testing.T) {
+	producer := &mockProducer{events: []cloudevents.Event{}}
+	emitter := NewHubHAEmitter(producer, newTransportConfig(), "hub1", "hub2")
+	emitter.SetEnabled(true)
+
+	payload := string(make([]byte, 100*1024))
+	for i := 0; ; i++ {
+		obj := &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "v1",
+				"kind":       "Secret",
+				"metadata": map[string]any{
+					"name":      fmt.Sprintf("fill-%d", i),
+					"namespace": "default",
+					"labels":    map[string]any{"hive.openshift.io/secret-type": "kubeconfig"},
+				},
+				"data": map[string]any{"kubeconfig": payload},
+			},
+		}
+		added, err := emitter.bundle.AddUpdate(obj)
+		if err != nil {
+			t.Fatalf("AddUpdate fill error: %v", err)
+		}
+		if !added {
+			break
+		}
+		if i > 20 {
+			t.Fatal("bundle never filled")
+		}
+	}
+
+	overflow := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]any{
+				"name":      "overflow",
+				"namespace": "default",
+				"labels":    map[string]any{"hive.openshift.io/secret-type": "kubeconfig"},
+			},
+			"data": map[string]any{"kubeconfig": payload},
+		},
+	}
+	if err := emitter.Update(overflow); err != nil {
+		t.Fatalf("Update() after full bundle: %v", err)
+	}
+	if len(producer.events) < 2 {
+		t.Fatalf("expected at least 2 events after size flush, got %d", len(producer.events))
+	}
+}
+
+// TestHubHAEmitter_Resync_RetriesWhenDeleteBetweenListAndSend ensures a Delete that
+// lands after self-list but before resync emission invalidates the snapshot so the
+// deleted object is not recreated / marked live in ResyncMetadata.
+func TestHubHAEmitter_Resync_RetriesWhenDeleteBetweenListAndSend(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	secret := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata": map[string]any{
+				"name":      "to-delete",
+				"namespace": "default",
+				"labels": map[string]any{
+					"hive.openshift.io/secret-type": "kubeconfig",
+				},
+			},
+			"data": map[string]any{"kubeconfig": "dGVzdA=="},
+		},
+	}
+
+	listStarted := make(chan struct{})
+	listContinue := make(chan struct{})
+	var listCount atomic.Int32
+
+	base := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
+	cl := interceptor.NewClient(base, interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if err := c.List(ctx, list, opts...); err != nil {
+				return err
+			}
+			if listCount.Add(1) == 1 {
+				close(listStarted)
+				<-listContinue
+			}
+			return nil
+		},
+	})
+
+	producer := &mockProducer{events: []cloudevents.Event{}}
+	emitter := NewHubHAEmitter(producer, newTransportConfig(), "hub1", "hub2")
+	emitter.SetEnabled(true)
+	emitter.SetClient(cl)
+	emitter.SetActiveResources([]schema.GroupVersionKind{
+		{Group: "", Version: "v1", Kind: "Secret"},
+	})
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- emitter.Resync(nil)
+	}()
+
+	const waitTimeout = 5 * time.Second
+	select {
+	case <-listStarted:
+	case err := <-errCh:
+		t.Fatalf("Resync finished before list started: %v", err)
+	case <-time.After(waitTimeout):
+		t.Fatal("timed out waiting for self-list to start")
+	}
+
+	if err := emitter.Delete(secret); err != nil {
+		t.Fatalf("Delete during self-list: %v", err)
+	}
+	if err := cl.Delete(context.Background(), secret); err != nil {
+		t.Fatalf("delete from API during self-list: %v", err)
+	}
+	close(listContinue)
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Resync() error = %v", err)
+		}
+	case <-time.After(waitTimeout):
+		t.Fatal("timed out waiting for Resync to finish after delete")
+	}
+
+	if listCount.Load() < 2 {
+		t.Fatalf("expected Resync to retry self-list after delete, listCount=%d", listCount.Load())
+	}
+
+	var sawDeletedName bool
+	var sawResyncOfDeleted bool
+	for _, evt := range producer.events {
+		var bundle generic.GenericBundle[*unstructured.Unstructured]
+		if err := json.Unmarshal(evt.Data(), &bundle); err != nil {
+			t.Fatalf("unmarshal event: %v", err)
+		}
+		for _, d := range bundle.Delete {
+			if d.Name == "to-delete" {
+				sawDeletedName = true
+			}
+		}
+		for _, obj := range bundle.Resync {
+			if obj.GetName() == "to-delete" {
+				sawResyncOfDeleted = true
+			}
+		}
+		for _, m := range bundle.ResyncMetadata {
+			if m.Name == "to-delete" {
+				sawResyncOfDeleted = true
+			}
+		}
+	}
+	if !sawDeletedName {
+		t.Fatal("expected delete event for to-delete")
+	}
+	if sawResyncOfDeleted {
+		t.Fatal("stale snapshot must not resync or inventory-mark deleted object to-delete")
 	}
 }
