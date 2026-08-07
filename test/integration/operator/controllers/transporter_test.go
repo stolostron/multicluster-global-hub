@@ -266,6 +266,7 @@ var _ = Describe("transporter", Ordered, func() {
 			runtimeManager,
 			mgh,
 			protocol.WithCommunity(false),
+			protocol.WithOLMVersion(config.OLMVersionV0),
 			protocol.WithNamespacedName(types.NamespacedName{
 				Name:      protocol.KafkaClusterName,
 				Namespace: mgh.Namespace,
