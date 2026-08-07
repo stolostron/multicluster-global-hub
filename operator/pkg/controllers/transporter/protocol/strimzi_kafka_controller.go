@@ -118,24 +118,15 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	// use the client ca to sign the csr for the managed hubs
-	if err := config.SetKafkaClientCA(r.trans.ctx, r.trans.mgh.Namespace, KafkaClusterName,
-		r.trans.manager.GetClient()); err != nil {
-		return ctrl.Result{}, err
-	}
-	// update the transporter
 	config.SetTransporter(r.trans)
-	conn, err := getManagerTransportConn(r.trans)
+	synced, err := syncManagerTransportSecretIfReady(ctx, mgh, r.trans, r.c)
 	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if conn == nil {
-		log.Infow("waiting the kafka cluster credential to be ready...", "message", "kafka cluster credential is not ready")
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-	if err := CreateManagerTransportSecret(ctx, mgh, conn, r.c); err != nil {
 		log.Errorf("failed to create manager transport-config secret: %v", err)
 		return ctrl.Result{}, err
+	}
+	if !synced {
+		log.Infow("waiting the kafka cluster credential to be ready...", "message", "kafka cluster credential is not ready")
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -235,31 +226,41 @@ func applyManagerKafkaTopics(conn *transport.KafkaConfig) {
 	conn.StatusTopic = config.ManagerStatusTopic()
 }
 
+// syncManagerTransportSecretIfReady performs the shared readiness check, CA setup,
+// connection lookup, and secret creation used by both the async reconcile loop and
+// the synchronous post-EnsureKafka sync call.
+func syncManagerTransportSecretIfReady(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+	trans *strimziTransporter, c client.Client,
+) (synced bool, err error) {
+	kafkaStatus, err := trans.kafkaClusterReady()
+	if err != nil {
+		return false, err
+	}
+	if !kafkaStatus.kafkaReady {
+		return false, nil
+	}
+	if err := config.SetKafkaClientCA(trans.ctx, trans.mgh.Namespace, KafkaClusterName,
+		trans.manager.GetClient()); err != nil {
+		return false, err
+	}
+	conn, err := getManagerTransportConn(trans)
+	if err != nil {
+		return false, err
+	}
+	if conn == nil {
+		return false, nil
+	}
+	return true, CreateManagerTransportSecret(ctx, mgh, conn, c)
+}
+
 // SyncManagerTransportConfigSecret creates or updates the hub transport-config secret
 // when Kafka is ready. Called from the transport reconciler on MGH spec changes so
 // customized topics propagate without waiting for an async kafka-controller event.
 func SyncManagerTransportConfigSecret(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 	trans *strimziTransporter, c client.Client,
 ) error {
-	kafkaStatus, err := trans.kafkaClusterReady()
-	if err != nil {
-		return err
-	}
-	if !kafkaStatus.kafkaReady {
-		return nil
-	}
-	if err := config.SetKafkaClientCA(trans.ctx, trans.mgh.Namespace, KafkaClusterName,
-		trans.manager.GetClient()); err != nil {
-		return err
-	}
-	conn, err := getManagerTransportConn(trans)
-	if err != nil {
-		return err
-	}
-	if conn == nil {
-		return nil
-	}
-	return CreateManagerTransportSecret(ctx, mgh, conn, c)
+	_, err := syncManagerTransportSecretIfReady(ctx, mgh, trans, c)
+	return err
 }
 
 func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClusterStatus KafkaStatus,

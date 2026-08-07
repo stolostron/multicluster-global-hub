@@ -38,10 +38,10 @@ func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 			ctx:           ctx,
 			runtimeClient: c,
 		}
-		config.SetTransporter(byoTransporter)
 	}
 	byoTransporter.name = namespacedName.Name
 	byoTransporter.namespace = namespacedName.Namespace
+	config.SetTransporter(byoTransporter)
 	return byoTransporter
 }
 

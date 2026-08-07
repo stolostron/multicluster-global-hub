@@ -73,6 +73,45 @@ func TestNewStrimziTransporter(t *testing.T) {
 	if trans.subChannel != "test-channel" {
 		t.Errorf("subChannel name should be test-channel, but %v", trans.subCatalogSourceNamespace)
 	}
+	if config.GetTransporter() != trans {
+		t.Fatal("GetTransporter() should return the active Strimzi transporter")
+	}
+}
+
+func TestTransporterSingletonRefreshOnConstruction(t *testing.T) {
+	ctx := context.Background()
+	testScheme := runtime.NewScheme()
+	_ = v1alpha4.AddToScheme(testScheme)
+	_ = corev1.AddToScheme(testScheme)
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-mgh", Namespace: ns},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).Build()
+
+	t.Cleanup(func() {
+		transporter = nil
+		byoTransporter = nil
+	})
+
+	strimzi := NewStrimziTransporter(nil, mgh)
+	if config.GetTransporter() != strimzi {
+		t.Fatal("expected Strimzi transporter after NewStrimziTransporter")
+	}
+
+	byo := NewBYOTransporter(ctx, types.NamespacedName{Name: "transport", Namespace: ns}, fakeClient)
+	if config.GetTransporter() != byo {
+		t.Fatal("expected BYO transporter after NewBYOTransporter")
+	}
+
+	strimziAgain := NewStrimziTransporter(nil, mgh)
+	if config.GetTransporter() != strimziAgain {
+		t.Fatal("expected Strimzi transporter after switching back from BYO")
+	}
+	if config.GetTransporter() == byo {
+		t.Fatal("GetTransporter() still returns BYO after Strimzi re-construction")
+	}
 }
 
 func TestNewKafkaCluster(t *testing.T) {

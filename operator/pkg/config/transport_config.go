@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,6 +36,7 @@ var (
 	statusTopic           = ""
 	kafkaResourceReady    = false
 	acmResourceReady      = false
+	kafkaClientCAMu       sync.RWMutex
 	kafkaClientCAKey      []byte
 	kafkaClientCACert     []byte
 	inventoryClientCAKey  []byte
@@ -205,6 +207,8 @@ func TransporterProtocol() transport.TransportProtocol {
 
 // GetKafkaClientCA the raw([]byte) of client ca key and ca cert
 func GetKafkaClientCA() ([]byte, []byte) {
+	kafkaClientCAMu.RLock()
+	defer kafkaClientCAMu.RUnlock()
 	return kafkaClientCAKey, kafkaClientCACert
 }
 
@@ -246,11 +250,6 @@ func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 	if err != nil {
 		return err
 	}
-	if kafkaClientCAKey == nil || !bytes.Equal(clientCAKeySecret.Data["ca.key"], kafkaClientCAKey) {
-		log.Infof("set the ca - client key: %s", clientCAKeySecret.Name)
-		kafkaClientCAKey = clientCAKeySecret.Data["ca.key"]
-	}
-
 	clientCACertSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-clients-ca-cert", name),
@@ -262,9 +261,18 @@ func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 		return err
 	}
 
-	if kafkaClientCACert == nil || !bytes.Equal(clientCACertSecret.Data["ca.crt"], kafkaClientCACert) {
+	newKey := clientCAKeySecret.Data["ca.key"]
+	newCert := clientCACertSecret.Data["ca.crt"]
+
+	kafkaClientCAMu.Lock()
+	defer kafkaClientCAMu.Unlock()
+	if kafkaClientCAKey == nil || !bytes.Equal(newKey, kafkaClientCAKey) {
+		log.Infof("set the ca - client key: %s", clientCAKeySecret.Name)
+		kafkaClientCAKey = newKey
+	}
+	if kafkaClientCACert == nil || !bytes.Equal(newCert, kafkaClientCACert) {
 		log.Infof("set the ca - client cert: %s", clientCACertSecret.Name)
-		kafkaClientCACert = clientCACertSecret.Data["ca.crt"]
+		kafkaClientCACert = newCert
 	}
 	return nil
 }

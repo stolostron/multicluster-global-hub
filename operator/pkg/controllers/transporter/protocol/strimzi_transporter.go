@@ -138,7 +138,6 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 
 			manager: mgr,
 		}
-		config.SetTransporter(transporter)
 		if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
 			transporter.topicPartitionReplicas = 1
 		}
@@ -151,6 +150,7 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 	for _, opt := range opts {
 		opt(transporter)
 	}
+	config.SetTransporter(transporter)
 
 	if transporter.subCommunity {
 		transporter.subChannel = CommunityChannel
