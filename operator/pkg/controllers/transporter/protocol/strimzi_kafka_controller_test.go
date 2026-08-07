@@ -171,6 +171,42 @@ func readyKafkaCluster(ns, bootServer, readyType, readyStatus string) *kafkav1be
 	}
 }
 
+func TestKafkaControllerRefreshUsesActiveStrimziTransporter(t *testing.T) {
+	t.Cleanup(func() { config.SetTransporter(nil) })
+
+	ns := utils.GetDefaultNamespace()
+	mgh1 := &operatorv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+		Spec: operatorv1alpha4.MulticlusterGlobalHubSpec{
+			DataLayerSpec: operatorv1alpha4.DataLayerSpec{
+				Kafka: operatorv1alpha4.KafkaSpec{
+					KafkaTopics: operatorv1alpha4.KafkaTopics{SpecTopic: "spec1"},
+				},
+			},
+		},
+	}
+	mgh2 := mgh1.DeepCopy()
+	mgh2.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic = "spec2"
+
+	trans1 := NewStrimziTransporter(nil, mgh1)
+	kc := &KafkaController{trans: trans1}
+
+	trans2 := NewStrimziTransporter(nil, mgh2)
+	if trans2 == trans1 {
+		t.Fatal("expected distinct Strimzi transporter instances")
+	}
+
+	if err := kc.refreshStrimziTransporter(); err != nil {
+		t.Fatalf("refreshStrimziTransporter() error = %v", err)
+	}
+	if kc.trans != trans2 {
+		t.Fatal("KafkaController should reconcile with the active Strimzi transporter")
+	}
+	if got := kc.trans.mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic; got != "spec2" {
+		t.Fatalf("SpecTopic = %q, want spec2", got)
+	}
+}
+
 func TestMulticlusterGlobalHubReconcilerStrimziResources(t *testing.T) {
 	tests := []struct {
 		name         string

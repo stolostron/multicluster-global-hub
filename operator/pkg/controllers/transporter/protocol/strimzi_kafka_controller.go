@@ -80,6 +80,9 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
+	if err := r.refreshStrimziTransporter(); err != nil {
+		return ctrl.Result{}, err
+	}
 	if mgh.DeletionTimestamp != nil {
 		if !config.GetGlobalhubAgentRemoved() {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -118,7 +121,6 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	config.SetTransporter(r.trans)
 	synced, err := syncManagerTransportSecretIfReady(ctx, mgh, r.trans, r.c)
 	if err != nil {
 		log.Errorw("failed to create manager transport-config secret", "error", err)
@@ -168,8 +170,12 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	}
 	log.Info("start kafka controller")
 	r := &KafkaController{
-		c:     mgr.GetClient(),
-		trans: transporter.(*strimziTransporter),
+		c: mgr.GetClient(),
+	}
+	if transporter != nil {
+		if st, ok := transporter.(*strimziTransporter); ok {
+			r.trans = st
+		}
 	}
 
 	// even if the following controller will reconcile the transport, but it's asynchoronized
@@ -188,6 +194,27 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	}
 	startedKafkaController = true
 	log.Info("kafka controller is started")
+	return nil
+}
+
+func activeStrimziTransporter() (*strimziTransporter, error) {
+	transporter := config.GetTransporter()
+	if transporter == nil {
+		return nil, fmt.Errorf("transporter is not configured")
+	}
+	st, ok := transporter.(*strimziTransporter)
+	if !ok {
+		return nil, fmt.Errorf("active transporter is %T, want *strimziTransporter", transporter)
+	}
+	return st, nil
+}
+
+func (r *KafkaController) refreshStrimziTransporter() error {
+	trans, err := activeStrimziTransporter()
+	if err != nil {
+		return err
+	}
+	r.trans = trans
 	return nil
 }
 
