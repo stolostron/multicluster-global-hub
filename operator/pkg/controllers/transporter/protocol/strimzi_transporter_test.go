@@ -128,12 +128,16 @@ func TestTransporterConcurrentConstruction(t *testing.T) {
 	if err := corev1.AddToScheme(testScheme); err != nil {
 		t.Fatalf("add corev1 to test scheme: %v", err)
 	}
+	if err := kafkav1beta2.AddToScheme(testScheme); err != nil {
+		t.Fatalf("add kafkav1beta2 to test scheme: %v", err)
+	}
 
 	ns := utils.GetDefaultNamespace()
 	mgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-mgh", Namespace: ns},
 	}
 	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).Build()
+	fakeMgr := &fakeManager{c: fakeClient}
 
 	t.Cleanup(func() {
 		transporter = nil
@@ -141,22 +145,46 @@ func TestTransporterConcurrentConstruction(t *testing.T) {
 		config.SetTransporter(nil)
 	})
 
-	var wg sync.WaitGroup
+	done := make(chan struct{})
+	var readerWg sync.WaitGroup
+	var writerWg sync.WaitGroup
+
+	for i := 0; i < 8; i++ {
+		readerWg.Add(1)
+		go func() {
+			defer readerWg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					tr := config.GetTransporter()
+					if tr == nil {
+						continue
+					}
+					_, _ = tr.EnsureTopic("hub1")
+					_, _ = tr.EnsureUser("hub1")
+					_, _ = tr.GetConnCredential("hub1")
+				}
+			}
+		}()
+	}
+
 	for i := 0; i < 16; i++ {
-		wg.Add(1)
+		writerWg.Add(1)
 		go func(i int) {
-			defer wg.Done()
+			defer writerWg.Done()
 			if i%2 == 0 {
-				NewStrimziTransporter(nil, mgh)
+				NewStrimziTransporter(fakeMgr, mgh)
 			} else {
 				NewBYOTransporter(ctx, types.NamespacedName{Name: "transport", Namespace: ns}, fakeClient)
 			}
-			if config.GetTransporter() == nil {
-				t.Error("GetTransporter() returned nil during concurrent construction")
-			}
 		}(i)
 	}
-	wg.Wait()
+
+	writerWg.Wait()
+	close(done)
+	readerWg.Wait()
 }
 
 func TestNewKafkaCluster(t *testing.T) {

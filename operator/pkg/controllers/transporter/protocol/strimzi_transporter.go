@@ -120,68 +120,69 @@ var transporterConstructMu sync.Mutex
 
 var transporter *strimziTransporter
 
+func newStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub) *strimziTransporter {
+	t := &strimziTransporter{
+		ctx:                       context.TODO(),
+		kafkaClusterName:          KafkaClusterName,
+		subName:                   DefaultKafkaSubName,
+		subCommunity:              false,
+		subChannel:                DefaultAMQChannel,
+		subPackageName:            DefaultAMQPackageName,
+		subCatalogSourceName:      DefaultCatalogSourceName,
+		subCatalogSourceNamespace: DefaultCatalogSourceNamespace,
+
+		waitReady:              true,
+		enableTLS:              true,
+		sharedTopics:           false,
+		topicPartitionReplicas: DefaultPartitionReplicas,
+
+		mgh:                   mgh,
+		manager:               mgr,
+		kafkaClusterNamespace: mgh.Namespace,
+	}
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+		t.topicPartitionReplicas = 1
+	}
+	return t
+}
+
 func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	opts ...KafkaOption,
 ) *strimziTransporter {
 	transporterConstructMu.Lock()
 	defer transporterConstructMu.Unlock()
 
-	if transporter == nil {
-		transporter = &strimziTransporter{
-			ctx:                       context.TODO(),
-			kafkaClusterName:          KafkaClusterName,
-			subName:                   DefaultKafkaSubName,
-			subCommunity:              false,
-			subChannel:                DefaultAMQChannel,
-			subPackageName:            DefaultAMQPackageName,
-			subCatalogSourceName:      DefaultCatalogSourceName,
-			subCatalogSourceNamespace: DefaultCatalogSourceNamespace,
-
-			waitReady:              true,
-			enableTLS:              true,
-			sharedTopics:           false,
-			topicPartitionReplicas: DefaultPartitionReplicas,
-
-			manager: mgr,
-		}
-		if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
-			transporter.topicPartitionReplicas = 1
-		}
-	}
-
-	transporter.mgh = mgh
-	transporter.manager = mgr
-	transporter.kafkaClusterNamespace = mgh.Namespace
-	// apply options
+	t := newStrimziTransporter(mgr, mgh)
 	for _, opt := range opts {
-		opt(transporter)
+		opt(t)
 	}
 
-	if transporter.subCommunity {
-		transporter.subChannel = CommunityChannel
-		transporter.subPackageName = CommunityPackageName
-		transporter.subCatalogSourceName = CommunityCatalogSourceName
+	if t.subCommunity {
+		t.subChannel = CommunityChannel
+		t.subPackageName = CommunityPackageName
+		t.subCatalogSourceName = CommunityCatalogSourceName
 	}
 	// user could customize the catalog config
 	catalogSourceName, ok := mgh.Annotations[operatorconstants.CatalogSourceNameKey]
 	if ok && catalogSourceName != "" {
-		transporter.subCatalogSourceName = catalogSourceName
+		t.subCatalogSourceName = catalogSourceName
 	}
 	catalogSourceNamespace, ok := mgh.Annotations[operatorconstants.CatalogSourceNamespaceKey]
 	if ok && catalogSourceNamespace != "" {
-		transporter.subCatalogSourceNamespace = catalogSourceNamespace
+		t.subCatalogSourceNamespace = catalogSourceNamespace
 	}
 	subscriptionChannel, ok := mgh.Annotations[operatorconstants.SubscriptionChannel]
 	if ok && catalogSourceNamespace != "" {
-		transporter.subChannel = subscriptionChannel
+		t.subChannel = subscriptionChannel
 	}
 	subscriptionPackageName, ok := mgh.Annotations[operatorconstants.SubscriptionPackageName]
 	if ok && catalogSourceNamespace != "" {
-		transporter.subPackageName = subscriptionPackageName
+		t.subPackageName = subscriptionPackageName
 	}
 
-	config.SetTransporter(transporter)
-	return transporter
+	transporter = t
+	config.SetTransporter(t)
+	return t
 }
 
 func (k *strimziTransporter) getCurrentReplicas() (int32, error) {

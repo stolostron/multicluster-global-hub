@@ -35,17 +35,16 @@ func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 	transporterConstructMu.Lock()
 	defer transporterConstructMu.Unlock()
 
-	if byoTransporter == nil {
-		byoTransporter = &BYOTransporter{
-			log:           logger.ZaprLogger(),
-			ctx:           ctx,
-			runtimeClient: c,
-		}
+	t := &BYOTransporter{
+		log:           logger.ZaprLogger(),
+		ctx:           ctx,
+		runtimeClient: c,
+		name:          namespacedName.Name,
+		namespace:     namespacedName.Namespace,
 	}
-	byoTransporter.name = namespacedName.Name
-	byoTransporter.namespace = namespacedName.Namespace
-	config.SetTransporter(byoTransporter)
-	return byoTransporter
+	byoTransporter = t
+	config.SetTransporter(t)
+	return t
 }
 
 func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
