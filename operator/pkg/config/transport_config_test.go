@@ -9,6 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestGetMigrationTopic(t *testing.T) {
@@ -79,5 +81,45 @@ func TestSetKafkaClientCAConcurrentAccess(t *testing.T) {
 	key, cert := GetKafkaClientCA()
 	if string(key) != "key-v1" || string(cert) != "cert-v1" {
 		t.Fatalf("GetKafkaClientCA() = (%q, %q), want (key-v1, cert-v1)", key, cert)
+	}
+}
+
+type stubTransporter struct {
+	id int
+}
+
+func (s *stubTransporter) EnsureUser(string) (string, error) { return "", nil }
+
+func (s *stubTransporter) EnsureTopic(string) (*transport.ClusterTopic, error) {
+	return &transport.ClusterTopic{}, nil
+}
+
+func (s *stubTransporter) EnsureKafka() (bool, error) { return false, nil }
+
+func (s *stubTransporter) Prune(string) error { return nil }
+
+func (s *stubTransporter) GetConnCredential(string) (*transport.KafkaConfig, error) {
+	return &transport.KafkaConfig{}, nil
+}
+
+func TestSetTransporterConcurrentAccess(t *testing.T) {
+	original := GetTransporter()
+	t.Cleanup(func() { SetTransporter(original) })
+
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			SetTransporter(&stubTransporter{id: id})
+			if GetTransporter() == nil {
+				t.Error("GetTransporter() returned nil during concurrent access")
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	if GetTransporter() == nil {
+		t.Fatal("GetTransporter() returned nil after concurrent updates")
 	}
 }

@@ -28,6 +28,7 @@ const (
 
 var (
 	transporterProtocol   transport.TransportProtocol
+	transporterInstanceMu sync.RWMutex
 	transporterInstance   transport.Transporter
 	enableInventory       = false
 	isBYOKafka            = false
@@ -44,10 +45,14 @@ var (
 )
 
 func SetTransporter(p transport.Transporter) {
+	transporterInstanceMu.Lock()
+	defer transporterInstanceMu.Unlock()
 	transporterInstance = p
 }
 
 func GetTransporter() transport.Transporter {
+	transporterInstanceMu.RLock()
+	defer transporterInstanceMu.RUnlock()
 	return transporterInstance
 }
 
