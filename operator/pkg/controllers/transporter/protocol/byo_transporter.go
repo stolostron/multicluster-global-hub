@@ -24,8 +24,6 @@ type BYOTransporter struct {
 	runtimeClient client.Client
 }
 
-var byoTransporter *BYOTransporter
-
 // create the transport with secret(BYO case), it should meet the following conditions
 // 1. name: "multicluster-global-hub-transport"
 // 2. properties: "bootstrap_server", "ca.crt", "client.crt" and "client.key"
@@ -42,7 +40,6 @@ func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 		name:          namespacedName.Name,
 		namespace:     namespacedName.Namespace,
 	}
-	byoTransporter = t
 	config.SetTransporter(t)
 	return t
 }

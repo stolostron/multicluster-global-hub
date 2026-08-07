@@ -49,10 +49,7 @@ func TestNewStrimziTransporter(t *testing.T) {
 		},
 	}
 
-	t.Cleanup(func() {
-		transporter = nil
-		config.SetTransporter(nil)
-	})
+	t.Cleanup(func() { config.SetTransporter(nil) })
 	trans := NewStrimziTransporter(
 		nil,
 		mgh,
@@ -94,11 +91,7 @@ func TestTransporterSingletonRefreshOnConstruction(t *testing.T) {
 	}
 	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).Build()
 
-	t.Cleanup(func() {
-		transporter = nil
-		byoTransporter = nil
-		config.SetTransporter(nil)
-	})
+	t.Cleanup(func() { config.SetTransporter(nil) })
 
 	strimzi := NewStrimziTransporter(nil, mgh)
 	if config.GetTransporter() != strimzi {
@@ -139,11 +132,7 @@ func TestTransporterConcurrentConstruction(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).Build()
 	fakeMgr := &fakeManager{c: fakeClient}
 
-	t.Cleanup(func() {
-		transporter = nil
-		byoTransporter = nil
-		config.SetTransporter(nil)
-	})
+	t.Cleanup(func() { config.SetTransporter(nil) })
 
 	done := make(chan struct{})
 	var readerWg sync.WaitGroup
@@ -502,10 +491,7 @@ func TestNewKafkaCluster(t *testing.T) {
 }
 
 func TestWithOLMVersion(t *testing.T) {
-	t.Cleanup(func() {
-		transporter = nil
-		config.SetTransporter(nil)
-	})
+	t.Cleanup(func() { config.SetTransporter(nil) })
 	mgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-mgh",
@@ -522,13 +508,11 @@ func TestWithOLMVersion(t *testing.T) {
 		t.Errorf("expected olmVersion %q, got %q", config.OLMVersionV1, trans.olmVersion)
 	}
 
-	transporter = nil
 	trans = NewStrimziTransporter(nil, mgh, WithOLMVersion(config.OLMVersionV0))
 	if trans.olmVersion != config.OLMVersionV0 {
 		t.Errorf("expected olmVersion %q, got %q", config.OLMVersionV0, trans.olmVersion)
 	}
 
-	transporter = nil
 	trans = NewStrimziTransporter(nil, mgh)
 	if trans.olmVersion != "" {
 		t.Errorf("expected empty olmVersion, got %q", trans.olmVersion)
@@ -570,11 +554,7 @@ func TestNewClusterExtension(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			transporter = nil
-			t.Cleanup(func() {
-				transporter = nil
-				config.SetTransporter(nil)
-			})
+			t.Cleanup(func() { config.SetTransporter(nil) })
 			trans := NewStrimziTransporter(
 				nil, mgh,
 				WithCommunity(tt.community),

@@ -118,8 +118,6 @@ type KafkaOption func(*strimziTransporter)
 
 var transporterConstructMu sync.Mutex
 
-var transporter *strimziTransporter
-
 func newStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub) *strimziTransporter {
 	t := &strimziTransporter{
 		ctx:                       context.TODO(),
@@ -180,7 +178,6 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 		t.subPackageName = subscriptionPackageName
 	}
 
-	transporter = t
 	config.SetTransporter(t)
 	return t
 }
