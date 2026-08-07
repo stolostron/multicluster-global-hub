@@ -209,6 +209,10 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		options = append(options, consumer.SetTopicMetadataRefreshInterval(constants.TopicMetadataRefreshInterval))
 	} else {
 		c.consumerTopics = []string{c.transportConfig.KafkaCredential.SpecTopic}
+		if migrationTopic := c.transportConfig.KafkaCredential.GetMigrationTopic(); migrationTopic != "" &&
+			migrationTopic != c.transportConfig.KafkaCredential.SpecTopic {
+			c.consumerTopics = append(c.consumerTopics, migrationTopic)
+		}
 	}
 
 	consumerGroupID := c.transportConfig.KafkaCredential.ConsumerGroupID
