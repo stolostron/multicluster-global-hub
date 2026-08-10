@@ -509,15 +509,15 @@ func UpdateKafkaClusterReady(ctx context.Context, c client.Client, ns string) er
 		},
 	}
 
-	if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 1*time.Minute, true, func(pollCtx context.Context) (bool, error) {
 		existkafkaCluster := &kafkav1beta2.Kafka{}
-		err := c.Get(context.Background(), types.NamespacedName{
+		err := c.Get(pollCtx, types.NamespacedName{
 			Name:      kafkaClusterName,
 			Namespace: ns,
 		}, existkafkaCluster)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				if e := c.Create(context.Background(), statusKafkaCluster); e != nil {
+				if e := c.Create(pollCtx, statusKafkaCluster); e != nil {
 					klog.Errorf("Failed to create kafka cluster, error: %v", e)
 					return false, nil
 				}
@@ -542,7 +542,7 @@ func UpdateKafkaClusterReady(ctx context.Context, c client.Client, ns string) er
 				},
 			},
 		}
-		err = c.Status().Update(context.Background(), existkafkaCluster)
+		err = c.Status().Update(pollCtx, existkafkaCluster)
 		if err != nil {
 			klog.Errorf("Failed to update Kafka cluster, error:%v", err)
 			return false, nil
@@ -586,11 +586,17 @@ func createSecret(ctx context.Context, c client.Client, ns, name string, data ma
 	err := c.Get(ctx, client.ObjectKeyFromObject(secret), secret)
 	if errors.IsNotFound(err) {
 		secret.Data = data
-		return c.Create(ctx, secret)
+		if err := c.Create(ctx, secret); err != nil {
+			return fmt.Errorf("create secret %s/%s: %w", ns, name, err)
+		}
+		return nil
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("get secret %s/%s: %w", ns, name, err)
 	}
 	secret.Data = data
-	return c.Update(ctx, secret)
+	if err := c.Update(ctx, secret); err != nil {
+		return fmt.Errorf("update secret %s/%s: %w", ns, name, err)
+	}
+	return nil
 }
