@@ -301,7 +301,7 @@ func (m *MigrationController) ensureManagedServiceAccount(ctx context.Context,
 			Rotation: v1beta1.ManagedServiceAccountRotation{
 				Enabled: true,
 				Validity: metav1.Duration{
-					Duration: 86400 * time.Hour,
+					Duration: 24 * time.Hour,
 				},
 			},
 		},
