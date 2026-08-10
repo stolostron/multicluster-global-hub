@@ -98,7 +98,7 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			d.log.Debugf("received event: %s", evt)
 			if !sourceMatchesTopic(evt, d.statusTopic) {
 				d.log.Warnw("dropping status event: source does not match Kafka topic",
-					"source", evt.Source(), "type", evt.Type(),
+					"source", evt.Source(),
 					"topic", evt.Extensions()[kafka_confluent.KafkaTopicKey])
 				continue
 			}
