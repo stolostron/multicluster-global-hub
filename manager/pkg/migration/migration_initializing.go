@@ -231,8 +231,15 @@ func (m *ClusterMigrationController) ensureManagedServiceAccount(ctx context.Con
 		Spec: v1beta1.ManagedServiceAccountSpec{
 			Rotation: v1beta1.ManagedServiceAccountRotation{
 				Enabled: true,
+				// The MSA token is embedded in the bootstrap kubeconfig
+				// that is broadcast on the shared gh-spec topic to which
+				// every managed hub holds a Read ACL, so it must be
+				// short-lived. 24h comfortably covers all migration
+				// stage timeouts (5–12 min each) and matches the spec
+				// topic's default retention; the MSA itself is removed
+				// in the cleaning phase.
 				Validity: metav1.Duration{
-					Duration: 86400 * time.Hour,
+					Duration: 24 * time.Hour,
 				},
 			},
 		},
