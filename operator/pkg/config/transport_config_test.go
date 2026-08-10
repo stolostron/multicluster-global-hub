@@ -212,6 +212,13 @@ func TestSetKafkaClientCAUpdatesWhenSecretsChange(t *testing.T) {
 }
 
 func TestSetKafkaClientCAMissingCertSecret(t *testing.T) {
+	originalKey := kafkaClientCAKey
+	originalCert := kafkaClientCACert
+	t.Cleanup(func() {
+		kafkaClientCAKey = originalKey
+		kafkaClientCACert = originalCert
+	})
+
 	ctx := context.Background()
 	testScheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(testScheme); err != nil {

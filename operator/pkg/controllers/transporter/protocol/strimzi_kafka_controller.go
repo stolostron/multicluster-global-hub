@@ -197,6 +197,7 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	return nil
 }
 
+// activeStrimziTransporter returns the currently registered Strimzi transporter instance.
 func activeStrimziTransporter() (*strimziTransporter, error) {
 	transporter := config.GetTransporter()
 	if transporter == nil {
@@ -209,6 +210,7 @@ func activeStrimziTransporter() (*strimziTransporter, error) {
 	return st, nil
 }
 
+// refreshStrimziTransporter reloads the active Strimzi transporter from the shared registry.
 func (r *KafkaController) refreshStrimziTransporter() error {
 	trans, err := activeStrimziTransporter()
 	if err != nil {
@@ -218,6 +220,7 @@ func (r *KafkaController) refreshStrimziTransporter() error {
 	return nil
 }
 
+// getManagerTransportConn builds the manager Kafka connection from cluster and user credentials.
 func getManagerTransportConn(trans *strimziTransporter) (
 	*transport.KafkaConfig, error,
 ) {

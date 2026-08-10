@@ -1,8 +1,8 @@
 package config
 
 import (
-	"bytes"
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"regexp"
 	"strings"
@@ -233,17 +233,19 @@ func SetInventoryClientCA(ctx context.Context, namespace, name string, c client.
 		return err
 	}
 
-	if inventoryClientCAKey == nil || !bytes.Equal(clientCASecret.Data["tls.key"], inventoryClientCAKey) {
+	if inventoryClientCAKey == nil || !secretBytesEqual(clientCASecret.Data["tls.key"], inventoryClientCAKey) {
 		log.Infof("set the inventory clientCA - key: %s", clientCASecret.Name)
 		inventoryClientCAKey = clientCASecret.Data["tls.key"]
 	}
-	if inventoryClientCACert == nil || !bytes.Equal(clientCASecret.Data["tls.crt"], inventoryClientCACert) {
+	if inventoryClientCACert == nil || !secretBytesEqual(clientCASecret.Data["tls.crt"], inventoryClientCACert) {
 		log.Infof("set the inventory clientCA - cert: %s", clientCASecret.Name)
 		inventoryClientCACert = clientCASecret.Data["tls.crt"]
 	}
 	return nil
 }
 
+// SetKafkaClientCA loads and caches the Strimzi Kafka client CA key and certificate
+// from the cluster secrets when they change.
 func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Client) error {
 	clientCAKeySecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -274,15 +276,80 @@ func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 
 	kafkaClientCAMu.Lock()
 	defer kafkaClientCAMu.Unlock()
-	if kafkaClientCAKey == nil || !bytes.Equal(newKey, kafkaClientCAKey) {
+	if kafkaClientCAKey == nil || !secretBytesEqual(newKey, kafkaClientCAKey) {
 		log.Infof("set the ca - client key: %s", clientCAKeySecret.Name)
 		kafkaClientCAKey = newKey
 	}
-	if kafkaClientCACert == nil || !bytes.Equal(newCert, kafkaClientCACert) {
+	if kafkaClientCACert == nil || !secretBytesEqual(newCert, kafkaClientCACert) {
 		log.Infof("set the ca - client cert: %s", clientCACertSecret.Name)
 		kafkaClientCACert = newCert
 	}
 	return nil
+}
+
+// TransportConfigTestSnapshot captures in-memory transport config for test isolation.
+type TransportConfigTestSnapshot struct {
+	specTopic           string
+	statusTopic         string
+	migrationTopic      string
+	enableInventory     bool
+	isBYOKafka          bool
+	transporterProtocol transport.TransportProtocol
+	kafkaClientCAKey    []byte
+	kafkaClientCACert   []byte
+	transporterInstance transport.Transporter
+}
+
+// SnapshotTransportConfigForTest returns the current in-memory transport config state.
+// Tests that mutate shared config should restore it with RestoreTransportConfigForTest in t.Cleanup.
+func SnapshotTransportConfigForTest() TransportConfigTestSnapshot {
+	kafkaClientCAMu.RLock()
+	key := append([]byte(nil), kafkaClientCAKey...)
+	cert := append([]byte(nil), kafkaClientCACert...)
+	kafkaClientCAMu.RUnlock()
+
+	transporterInstanceMu.RLock()
+	transporter := transporterInstance
+	transporterInstanceMu.RUnlock()
+
+	return TransportConfigTestSnapshot{
+		specTopic:           specTopic,
+		statusTopic:         statusTopic,
+		migrationTopic:      migrationTopic,
+		enableInventory:     enableInventory,
+		isBYOKafka:          isBYOKafka,
+		transporterProtocol: transporterProtocol,
+		kafkaClientCAKey:    key,
+		kafkaClientCACert:   cert,
+		transporterInstance: transporter,
+	}
+}
+
+// RestoreTransportConfigForTest restores transport config captured by SnapshotTransportConfigForTest.
+func RestoreTransportConfigForTest(snapshot TransportConfigTestSnapshot) {
+	specTopic = snapshot.specTopic
+	statusTopic = snapshot.statusTopic
+	migrationTopic = snapshot.migrationTopic
+	enableInventory = snapshot.enableInventory
+	isBYOKafka = snapshot.isBYOKafka
+	transporterProtocol = snapshot.transporterProtocol
+
+	kafkaClientCAMu.Lock()
+	kafkaClientCAKey = append([]byte(nil), snapshot.kafkaClientCAKey...)
+	kafkaClientCACert = append([]byte(nil), snapshot.kafkaClientCACert...)
+	kafkaClientCAMu.Unlock()
+
+	SetTransporter(snapshot.transporterInstance)
+}
+
+func secretBytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	if len(a) == 0 {
+		return true
+	}
+	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
 func EnableInventory() bool {

@@ -27,7 +27,16 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+func restoreTransportConfigAfterTest(t *testing.T) {
+	t.Helper()
+	snapshot := config.SnapshotTransportConfigForTest()
+	t.Cleanup(func() {
+		config.RestoreTransportConfigForTest(snapshot)
+	})
+}
+
 func TestApplyManagerKafkaTopics(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	ctx := context.Background()
 	testScheme := runtime.NewScheme()
 	_ = operatorv1alpha4.AddToScheme(testScheme)
@@ -69,6 +78,7 @@ func TestApplyManagerKafkaTopics(t *testing.T) {
 }
 
 func TestCreateManagerTransportSecretAppliesCustomSpecTopic(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	ctx := context.Background()
 	testScheme := runtime.NewScheme()
 	_ = operatorv1alpha4.AddToScheme(testScheme)
@@ -172,7 +182,7 @@ func readyKafkaCluster(ns, bootServer, readyType, readyStatus string) *kafkav1be
 }
 
 func TestKafkaControllerRefreshUsesActiveStrimziTransporter(t *testing.T) {
-	t.Cleanup(func() { config.SetTransporter(nil) })
+	restoreTransportConfigAfterTest(t)
 
 	ns := utils.GetDefaultNamespace()
 	mgh1 := &operatorv1alpha4.MulticlusterGlobalHub{
@@ -208,8 +218,8 @@ func TestKafkaControllerRefreshUsesActiveStrimziTransporter(t *testing.T) {
 }
 
 func TestActiveStrimziTransporter(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	config.SetTransporter(nil)
-	t.Cleanup(func() { config.SetTransporter(nil) })
 
 	if _, err := activeStrimziTransporter(); err == nil {
 		t.Fatal("activeStrimziTransporter() expected error when transporter is nil")
@@ -254,6 +264,7 @@ func TestApplyManagerKafkaTopicsNilConn(t *testing.T) {
 }
 
 func TestSyncManagerTransportSecretIfReadyKafkaNotReady(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	ctx := context.Background()
 	testScheme := runtime.NewScheme()
 	_ = operatorv1alpha4.AddToScheme(testScheme)
@@ -306,6 +317,7 @@ func TestSyncManagerTransportSecretIfReadyKafkaNotReady(t *testing.T) {
 }
 
 func TestSyncManagerTransportSecretIfReadyRejectsIncompleteCA(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	ctx := context.Background()
 	testScheme := runtime.NewScheme()
 	_ = operatorv1alpha4.AddToScheme(testScheme)
@@ -347,6 +359,7 @@ func TestSyncManagerTransportSecretIfReadyRejectsIncompleteCA(t *testing.T) {
 }
 
 func TestSyncManagerTransportSecretIfReadyWaitsForUserCredential(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	ctx := context.Background()
 	testScheme := runtime.NewScheme()
 	_ = operatorv1alpha4.AddToScheme(testScheme)
@@ -388,6 +401,7 @@ func TestSyncManagerTransportSecretIfReadyWaitsForUserCredential(t *testing.T) {
 }
 
 func TestCreateManagerTransportSecretUpdatesExistingTopics(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	ctx := context.Background()
 	testScheme := runtime.NewScheme()
 	_ = operatorv1alpha4.AddToScheme(testScheme)
@@ -469,6 +483,7 @@ func TestCreateManagerTransportSecretUpdatesExistingTopics(t *testing.T) {
 }
 
 func TestGetManagerTransportConn(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	ctx := context.Background()
 	testScheme := runtime.NewScheme()
 	_ = operatorv1alpha4.AddToScheme(testScheme)
