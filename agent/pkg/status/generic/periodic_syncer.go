@@ -125,20 +125,24 @@ func (p *PeriodicSyncer) Resync(ctx context.Context, eventType string) error {
 				return nil
 			}
 			err = state.Registration.Emitter.Resync(objects)
-			if err == nil {
-				log.Infof("resynced %d objects for event type: %s", len(objects), enum.ShortenEventType(registeredType))
+			if err != nil {
+				return fmt.Errorf("failed to resync objects for event type %s: %w", registeredType, err)
 			}
+			// Flush any remaining delta/resync payload for ListFunc-based emitters.
+			if err = state.Registration.Emitter.Send(); err != nil {
+				return fmt.Errorf("failed to send resync bundle for event type %s: %w", registeredType, err)
+			}
+			log.Infof("resynced %d objects for event type: %s", len(objects), enum.ShortenEventType(registeredType))
 		} else {
-			// Emitter handles its own listing internally via Resync(nil)
+			// Emitter handles its own listing and flushing internally via Resync(nil)
+			// (e.g. Hub HA size-aware batching + ResyncMetadata).
 			err = state.Registration.Emitter.Resync(nil)
-			if err == nil {
-				log.Infof("resynced (self-listing) for event type: %s", enum.ShortenEventType(registeredType))
+			if err != nil {
+				return fmt.Errorf("failed to resync objects for event type %s: %w", registeredType, err)
 			}
+			log.Infof("resynced (self-listing) for event type: %s", enum.ShortenEventType(registeredType))
 		}
 
-		if err != nil {
-			return fmt.Errorf("failed to resync objects for event type %s: %w", registeredType, err)
-		}
 		resynced = true
 		state.NextResyncAt = time.Now().Add(configmap.GetResyncInterval(enum.EventType(registeredType)))
 	}

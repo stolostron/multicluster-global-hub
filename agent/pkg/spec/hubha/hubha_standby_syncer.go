@@ -7,9 +7,11 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/retry"
@@ -19,16 +21,31 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // HubHAStandbySyncer receives ACM resources from active hub and applies them to standby hub
 type HubHAStandbySyncer struct {
-	client client.Client
+	client         client.Client
+	resourceFilter *utils.HubHAResourceFilter
+
+	mu sync.Mutex
+	// pendingResyncSessions accumulates live object metadata per GVK until cleanup after
+	// Complete succeeds. Partial ResyncMetadata frames must not trigger stale cleanup.
+	pendingResyncSessions map[string]*resyncInventorySession
+}
+
+// resyncInventorySession tracks one per-GVK inventory across size-split frames.
+type resyncInventorySession struct {
+	items     map[string]generic.ObjectMetadata
+	beginSeen bool
 }
 
 func NewHubHAStandbySyncer(c client.Client) *HubHAStandbySyncer {
 	return &HubHAStandbySyncer{
-		client: c,
+		client:                c,
+		resourceFilter:        utils.NewHubHAResourceFilter(),
+		pendingResyncSessions: make(map[string]*resyncInventorySession),
 	}
 }
 
@@ -92,8 +109,18 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 		}
 	}
 
-	log.Infof("standby hub processed Hub HA bundle from %s: created=%d, updated=%d, resynced=%d, deleted=%d",
-		sourceHub, len(bundle.Create), len(bundle.Update), len(bundle.Resync), len(bundle.Delete))
+	// Handle resync metadata: accumulate inventory frames; cleanup only after Complete.
+	if len(bundle.ResyncMetadata) > 0 {
+		if err := s.handleResyncMetadata(ctx, bundle.ResyncMetadata, sourceHub); err != nil {
+			log.Errorw("failed to handle resync metadata", "sourceHub", sourceHub, "error", err)
+			syncErrs = append(syncErrs, err)
+		}
+	}
+
+	log.Infof("standby hub processed Hub HA bundle from %s: created=%d, updated=%d, "+
+		"resynced=%d, deleted=%d, resync_metadata=%d",
+		sourceHub, len(bundle.Create), len(bundle.Update), len(bundle.Resync), len(bundle.Delete),
+		len(bundle.ResyncMetadata))
 
 	if len(syncErrs) > 0 {
 		return fmt.Errorf("failed to apply Hub HA bundle from %s: %w", sourceHub, stderrors.Join(syncErrs...))
@@ -148,6 +175,8 @@ func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructur
 	// Owner resources may not exist on standby hub, and ownership will be
 	// recreated by controllers on standby if needed
 	obj.SetOwnerReferences(nil)
+	// Status is hub-local; including it in a full Update can fail ManagedCluster apply.
+	unstructured.RemoveNestedField(obj.Object, "status")
 
 	// For ManagedCluster resources, set hubAcceptsClient to false
 	// This prevents standby hub from accepting client connections while active hub is healthy
@@ -167,9 +196,10 @@ func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructur
 			return s.client.Create(ctx, obj)
 		}
 
-		// Preserve some metadata from existing resource
+		// Preserve standby identity and controller-owned finalizers.
 		obj.SetResourceVersion(existing.GetResourceVersion())
 		obj.SetUID(existing.GetUID())
+		obj.SetFinalizers(existing.GetFinalizers())
 
 		return s.client.Update(ctx, obj)
 	})
@@ -213,6 +243,201 @@ func (s *HubHAStandbySyncer) deleteResource(ctx context.Context, meta *generic.O
 	}
 
 	log.Infof("successfully deleted resource %s/%s from standby hub", meta.Namespace, meta.Name)
+	return nil
+}
+
+// handleResyncMetadata processes inventory frames for a GVK.
+// Frames may include InventoryBegin (start/reset session) and/or Complete (run stale cleanup).
+// Markerless middle frames append to an existing session; without a session they are treated
+// as a legacy single-shot inventory. The session is retained until cleanup succeeds so a
+// retried Complete frame still has the full inventory. Complete without an observed
+// InventoryBegin is ignored (not treated as an empty inventory).
+func (s *HubHAStandbySyncer) handleResyncMetadata(
+	ctx context.Context, metadata []generic.ObjectMetadata, sourceHub string,
+) error {
+	hasBegin := false
+	hasComplete := false
+	var gvk schema.GroupVersionKind
+	for _, m := range metadata {
+		if m.Kind != "" {
+			gvk = schema.GroupVersionKind{Group: m.Group, Version: m.Version, Kind: m.Kind}
+		}
+		if m.InventoryBegin {
+			hasBegin = true
+		}
+		if m.Complete {
+			hasComplete = true
+		}
+	}
+
+	if gvk.Kind == "" {
+		log.Warnw("no valid GVK found in resync metadata", "sourceHub", sourceHub)
+		return nil
+	}
+	gvkKey := gvk.String()
+
+	s.mu.Lock()
+	if s.pendingResyncSessions == nil {
+		s.pendingResyncSessions = make(map[string]*resyncInventorySession)
+	}
+	session, sessionExists := s.pendingResyncSessions[gvkKey]
+
+	// Markerless frame: append to an in-flight session, otherwise legacy single-shot cleanup.
+	if !hasBegin && !hasComplete {
+		if !sessionExists {
+			s.mu.Unlock()
+			return s.cleanupStaleResources(ctx, metadata, sourceHub)
+		}
+		s.appendInventoryEntries(session, metadata)
+		s.mu.Unlock()
+		return nil
+	}
+
+	if hasBegin {
+		session = &resyncInventorySession{
+			items:     make(map[string]generic.ObjectMetadata),
+			beginSeen: true,
+		}
+		s.pendingResyncSessions[gvkKey] = session
+		sessionExists = true
+	}
+
+	if !sessionExists {
+		// Complete (or other markers) without an open session / InventoryBegin must not
+		// run empty-inventory cleanup.
+		s.mu.Unlock()
+		if hasComplete {
+			log.Warnw("ignoring ResyncMetadata Complete without InventoryBegin",
+				"sourceHub", sourceHub, "gvk", gvk.String())
+		}
+		return nil
+	}
+
+	s.appendInventoryEntries(session, metadata)
+
+	if !hasComplete {
+		s.mu.Unlock()
+		return nil
+	}
+
+	if !session.beginSeen {
+		s.mu.Unlock()
+		log.Warnw("ignoring ResyncMetadata Complete without InventoryBegin",
+			"sourceHub", sourceHub, "gvk", gvk.String())
+		return nil
+	}
+
+	// Copy inventory for cleanup; keep the session until cleanup succeeds so retries
+	// of the Complete frame still see the full accumulated set.
+	full := make([]generic.ObjectMetadata, 0, len(session.items)+1)
+	for _, m := range session.items {
+		full = append(full, m)
+	}
+	full = append(full, generic.ObjectMetadata{
+		Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind,
+	})
+	s.mu.Unlock()
+
+	if err := s.cleanupStaleResources(ctx, full, sourceHub); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	delete(s.pendingResyncSessions, gvkKey)
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *HubHAStandbySyncer) appendInventoryEntries(
+	session *resyncInventorySession, metadata []generic.ObjectMetadata,
+) {
+	for _, m := range metadata {
+		if m.InventoryBegin || m.Complete || m.Name == "" {
+			continue
+		}
+		session.items[m.Key()] = m
+	}
+}
+
+// cleanupStaleResources deletes local resources of the metadata GVK that are not listed
+// in the active hub's ResyncMetadata set (i.e., stale copies removed from active).
+func (s *HubHAStandbySyncer) cleanupStaleResources(
+	ctx context.Context, metadata []generic.ObjectMetadata, sourceHub string,
+) error {
+	activeKeys := make(map[string]bool, len(metadata))
+	var gvk schema.GroupVersionKind
+	for _, m := range metadata {
+		if m.Kind == "" {
+			continue
+		}
+		if gvk.Kind == "" {
+			gvk = schema.GroupVersionKind{Group: m.Group, Version: m.Version, Kind: m.Kind}
+		}
+		if m.InventoryBegin || m.Complete || m.Name == "" {
+			continue
+		}
+		activeKeys[m.Key()] = true
+	}
+
+	if gvk.Kind == "" {
+		log.Warnw("no valid GVK found in resync metadata", "sourceHub", sourceHub)
+		return nil
+	}
+
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind + "List",
+	})
+	if err := s.client.List(ctx, list); err != nil {
+		if meta.IsNoMatchError(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to list %s for stale cleanup: %w", gvk, err)
+	}
+
+	var deleteErrs []error
+	for i := range list.Items {
+		obj := &list.Items[i]
+		if s.resourceFilter != nil && !s.resourceFilter.ShouldSyncResource(obj, gvk) {
+			continue
+		}
+		// Global Hub standby also hosts topology ManagedClusters (imported hubs,
+		// local-cluster). Those are not copies of the active regional hub inventory
+		// and must not be deleted by ResyncMetadata stale cleanup.
+		if gvk.Group == clusterv1.GroupName && gvk.Kind == "ManagedCluster" &&
+			shouldSkipHAAnnotation(obj) {
+			log.Debugf("skipping Hub HA stale cleanup for global-hub topology ManagedCluster %s",
+				obj.GetName())
+			continue
+		}
+		key := generic.ObjectMetadata{
+			Namespace: obj.GetNamespace(),
+			Name:      obj.GetName(),
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Kind:      gvk.Kind,
+		}.Key()
+		if activeKeys[key] {
+			continue
+		}
+		objMeta := generic.ObjectMetadata{
+			Namespace: obj.GetNamespace(),
+			Name:      obj.GetName(),
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Kind:      gvk.Kind,
+		}
+		if err := s.deleteResource(ctx, &objMeta, sourceHub); err != nil {
+			log.Errorw("failed to delete stale resource",
+				"namespace", obj.GetNamespace(), "name", obj.GetName(),
+				"kind", gvk.Kind, "error", err)
+			deleteErrs = append(deleteErrs, fmt.Errorf("failed to delete stale %s/%s (%s): %w",
+				obj.GetNamespace(), obj.GetName(), gvk.Kind, err))
+		}
+	}
+	if len(deleteErrs) > 0 {
+		return stderrors.Join(deleteErrs...)
+	}
 	return nil
 }
 

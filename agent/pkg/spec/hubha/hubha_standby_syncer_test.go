@@ -617,6 +617,103 @@ func TestHubHAStandbySyncer_UpdateManagedCluster_SetsHubAcceptsClient(t *testing
 	}
 }
 
+// Regression for e2e: ManagedCluster updates from active still carry status, and standby
+// already has controller finalizers. Apply must succeed and sync labels/spec.
+func TestHubHAStandbySyncer_UpdateManagedCluster_AppliesLabelsWithStatusAndFinalizers(t *testing.T) {
+	scheme := runtime.NewScheme()
+
+	existing := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": managedClusterAPIVersion,
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "hubha-test-cluster",
+				"labels": map[string]interface{}{
+					"env": "test",
+				},
+				"finalizers": []interface{}{
+					"cluster.open-cluster-management.io/api-resource-cleanup",
+				},
+			},
+			"spec": map[string]interface{}{
+				"hubAcceptsClient": false,
+				"managedClusterClientConfigs": []interface{}{
+					map[string]interface{}{
+						"url": "https://test-cluster-v1.example.com:6443",
+					},
+				},
+			},
+			"status": map[string]interface{}{
+				"version": map[string]interface{}{"kubernetes": "v1.28.0"},
+			},
+		},
+	}
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	updated := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": managedClusterAPIVersion,
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "hubha-test-cluster",
+				"labels": map[string]interface{}{
+					"env": "production",
+				},
+			},
+			"spec": map[string]interface{}{
+				"hubAcceptsClient": true,
+				"managedClusterClientConfigs": []interface{}{
+					map[string]interface{}{
+						"url": "https://test-cluster-v2.example.com:6443",
+					},
+				},
+			},
+			"status": map[string]interface{}{
+				"version": map[string]interface{}{"kubernetes": "v1.29.0"},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	if err := syncer.updateResource(ctx, updated, "hub1"); err != nil {
+		t.Fatalf(errUpdateResource, err)
+	}
+
+	result := &unstructured.Unstructured{}
+	result.SetGroupVersionKind(updated.GroupVersionKind())
+	if err := cl.Get(ctx, types.NamespacedName{Name: "hubha-test-cluster"}, result); err != nil {
+		t.Fatalf("Failed to get updated ManagedCluster: %v", err)
+	}
+
+	if result.GetLabels()["env"] != "production" {
+		t.Errorf("label env = %q, want production", result.GetLabels()["env"])
+	}
+
+	hubAcceptsClient, found, err := unstructured.NestedBool(result.Object, "spec", "hubAcceptsClient")
+	if err != nil || !found || hubAcceptsClient {
+		t.Errorf("hubAcceptsClient = %v (found=%v err=%v), want false", hubAcceptsClient, found, err)
+	}
+
+	configs, found, err := unstructured.NestedSlice(result.Object, "spec", "managedClusterClientConfigs")
+	if err != nil || !found || len(configs) == 0 {
+		t.Fatalf("Failed to get client configs: found=%v len=%d err=%v", found, len(configs), err)
+	}
+	cfg, ok := configs[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("client config[0] type = %T, want map", configs[0])
+	}
+	if url, _ := cfg["url"].(string); url != "https://test-cluster-v2.example.com:6443" {
+		t.Errorf("URL = %q, want v2 URL", url)
+	}
+
+	finalizers := result.GetFinalizers()
+	if len(finalizers) != 1 || finalizers[0] != "cluster.open-cluster-management.io/api-resource-cleanup" {
+		t.Errorf("finalizers = %v, want standby finalizer preserved", finalizers)
+	}
+}
+
 func TestHubHAStandbySyncer_Sync_ReturnsAggregateErrors(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
@@ -676,4 +773,482 @@ func TestHubHAStandbySyncer_Sync_ReturnsAggregateErrors(t *testing.T) {
 
 	err := syncer.Sync(context.Background(), &evt)
 	assertSyncAggregateErrors(t, err, 2, "delete failure one", "delete failure two")
+}
+
+func hubHALabeledConfigMap(name, namespace string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+				"labels": map[string]interface{}{
+					"hive.openshift.io/secret-type": "kubeconfig",
+				},
+			},
+			"data": map[string]interface{}{
+				"key": "value",
+			},
+		},
+	}
+}
+
+func TestHubHAStandbySyncer_Sync_ResyncMetadata_CleansStaleResources(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	keep := hubHALabeledConfigMap("keep-cm", "default")
+	stale := hubHALabeledConfigMap("stale-cm", "default")
+	// Unlabeled ConfigMap should not be deleted by Hub HA cleanup.
+	localOnly := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      "local-only-cm",
+				"namespace": "default",
+			},
+			"data": map[string]interface{}{"key": "value"},
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(keep, stale, localOnly).
+		Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+	bundle.ResyncMetadata = []generic.ObjectMetadata{
+		{Namespace: "default", Name: "keep-cm", Group: "", Version: "v1", Kind: "ConfigMap"},
+	}
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubHAResourcesMsgKey)
+	evt.SetSource("hub1")
+	if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+
+	if err := syncer.Sync(context.Background(), &evt); err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+
+	ctx := context.Background()
+	keepObj := &unstructured.Unstructured{}
+	keepObj.SetAPIVersion("v1")
+	keepObj.SetKind("ConfigMap")
+	if err := cl.Get(ctx, types.NamespacedName{Name: "keep-cm", Namespace: "default"}, keepObj); err != nil {
+		t.Fatalf("expected keep-cm to remain: %v", err)
+	}
+
+	staleObj := &unstructured.Unstructured{}
+	staleObj.SetAPIVersion("v1")
+	staleObj.SetKind("ConfigMap")
+	err := cl.Get(ctx, types.NamespacedName{Name: "stale-cm", Namespace: "default"}, staleObj)
+	if err == nil {
+		t.Fatal("expected stale-cm to be deleted")
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound for stale-cm, got: %v", err)
+	}
+
+	localObj := &unstructured.Unstructured{}
+	localObj.SetAPIVersion("v1")
+	localObj.SetKind("ConfigMap")
+	if err := cl.Get(ctx, types.NamespacedName{Name: "local-only-cm", Namespace: "default"}, localObj); err != nil {
+		t.Fatalf("expected unlabeled local-only-cm to remain: %v", err)
+	}
+}
+
+func TestHubHAStandbySyncer_Sync_ResyncMetadata_WaitsForComplete(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	stale := hubHALabeledConfigMap("stale-cm", "default")
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(stale).Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	partial := generic.NewGenericBundle[*unstructured.Unstructured]()
+	partial.ResyncMetadata = []generic.ObjectMetadata{
+		{Group: "", Version: "v1", Kind: "ConfigMap", InventoryBegin: true},
+		{Namespace: "default", Name: "keep-cm", Group: "", Version: "v1", Kind: "ConfigMap"},
+	}
+	partialEvt := cloudevents.NewEvent()
+	partialEvt.SetType(constants.HubHAResourcesMsgKey)
+	partialEvt.SetSource("hub1")
+	if err := partialEvt.SetData(cloudevents.ApplicationJSON, partial); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+	if err := syncer.Sync(context.Background(), &partialEvt); err != nil {
+		t.Fatalf("Sync() partial error = %v", err)
+	}
+
+	ctx := context.Background()
+	staleObj := &unstructured.Unstructured{}
+	staleObj.SetAPIVersion("v1")
+	staleObj.SetKind("ConfigMap")
+	if err := cl.Get(ctx, types.NamespacedName{Name: "stale-cm", Namespace: "default"}, staleObj); err != nil {
+		t.Fatalf("stale-cm should still exist before Complete, got: %v", err)
+	}
+
+	final := generic.NewGenericBundle[*unstructured.Unstructured]()
+	final.ResyncMetadata = []generic.ObjectMetadata{
+		{Group: "", Version: "v1", Kind: "ConfigMap", Complete: true},
+	}
+	finalEvt := cloudevents.NewEvent()
+	finalEvt.SetType(constants.HubHAResourcesMsgKey)
+	finalEvt.SetSource("hub1")
+	if err := finalEvt.SetData(cloudevents.ApplicationJSON, final); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+	if err := syncer.Sync(context.Background(), &finalEvt); err != nil {
+		t.Fatalf("Sync() complete error = %v", err)
+	}
+
+	err := cl.Get(ctx, types.NamespacedName{Name: "stale-cm", Namespace: "default"}, staleObj)
+	if err == nil {
+		t.Fatal("expected stale-cm to be deleted after Complete")
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound for stale-cm, got: %v", err)
+	}
+}
+
+func TestHubHAStandbySyncer_Sync_ResyncMetadata_EmptyInventory_DeletesAll(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	stale := hubHALabeledConfigMap("stale-cm", "default")
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(stale).Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+	bundle.ResyncMetadata = []generic.ObjectMetadata{
+		{Group: "", Version: "v1", Kind: "ConfigMap", InventoryBegin: true},
+		{Group: "", Version: "v1", Kind: "ConfigMap", Complete: true},
+	}
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubHAResourcesMsgKey)
+	evt.SetSource("hub1")
+	if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+	if err := syncer.Sync(context.Background(), &evt); err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+
+	staleObj := &unstructured.Unstructured{}
+	staleObj.SetAPIVersion("v1")
+	staleObj.SetKind("ConfigMap")
+	err := cl.Get(context.Background(), types.NamespacedName{Name: "stale-cm", Namespace: "default"}, staleObj)
+	if err == nil {
+		t.Fatal("expected stale-cm to be deleted for empty inventory")
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound for stale-cm, got: %v", err)
+	}
+}
+
+func TestHubHAStandbySyncer_Sync_ResyncMetadata_BeginMiddleComplete(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	keep1 := hubHALabeledConfigMap("keep-1", "default")
+	keep2 := hubHALabeledConfigMap("keep-2", "default")
+	stale := hubHALabeledConfigMap("stale-cm", "default")
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(keep1, keep2, stale).Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	syncMeta := func(metas []generic.ObjectMetadata) {
+		t.Helper()
+		bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+		bundle.ResyncMetadata = metas
+		evt := cloudevents.NewEvent()
+		evt.SetType(constants.HubHAResourcesMsgKey)
+		evt.SetSource("hub1")
+		if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+			t.Fatalf("SetData() error = %v", err)
+		}
+		if err := syncer.Sync(context.Background(), &evt); err != nil {
+			t.Fatalf("Sync() error = %v", err)
+		}
+	}
+
+	// Begin frame with first live object.
+	syncMeta([]generic.ObjectMetadata{
+		{Group: "", Version: "v1", Kind: "ConfigMap", InventoryBegin: true},
+		{Namespace: "default", Name: "keep-1", Group: "", Version: "v1", Kind: "ConfigMap"},
+	})
+	// Markerless middle frame must append, not run legacy cleanup (which would delete keep-1).
+	syncMeta([]generic.ObjectMetadata{
+		{Namespace: "default", Name: "keep-2", Group: "", Version: "v1", Kind: "ConfigMap"},
+	})
+	syncMeta([]generic.ObjectMetadata{
+		{Group: "", Version: "v1", Kind: "ConfigMap", Complete: true},
+	})
+
+	ctx := context.Background()
+	for _, name := range []string{"keep-1", "keep-2"} {
+		obj := &unstructured.Unstructured{}
+		obj.SetAPIVersion("v1")
+		obj.SetKind("ConfigMap")
+		if err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: "default"}, obj); err != nil {
+			t.Fatalf("expected %s to remain after Begin/middle/Complete: %v", name, err)
+		}
+	}
+	staleObj := &unstructured.Unstructured{}
+	staleObj.SetAPIVersion("v1")
+	staleObj.SetKind("ConfigMap")
+	err := cl.Get(ctx, types.NamespacedName{Name: "stale-cm", Namespace: "default"}, staleObj)
+	if err == nil {
+		t.Fatal("expected stale-cm to be deleted after Complete")
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound for stale-cm, got: %v", err)
+	}
+}
+
+func TestHubHAStandbySyncer_Sync_ResyncMetadata_RetryAfterCleanupFailure(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	keep := hubHALabeledConfigMap("keep-cm", "default")
+	stale := hubHALabeledConfigMap("stale-cm", "default")
+	base := fake.NewClientBuilder().WithScheme(scheme).WithObjects(keep, stale).Build()
+
+	var deleteCalls atomicInt
+	cl := interceptor.NewClient(base, interceptor.Funcs{
+		Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+			if obj.GetName() == "stale-cm" {
+				if deleteCalls.add(1) == 1 {
+					return fmt.Errorf("transient delete failure")
+				}
+			}
+			return c.Delete(ctx, obj, opts...)
+		},
+	})
+	syncer := NewHubHAStandbySyncer(cl)
+
+	syncMeta := func(metas []generic.ObjectMetadata) error {
+		bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+		bundle.ResyncMetadata = metas
+		evt := cloudevents.NewEvent()
+		evt.SetType(constants.HubHAResourcesMsgKey)
+		evt.SetSource("hub1")
+		if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+			return err
+		}
+		return syncer.Sync(context.Background(), &evt)
+	}
+
+	if err := syncMeta([]generic.ObjectMetadata{
+		{Group: "", Version: "v1", Kind: "ConfigMap", InventoryBegin: true},
+		{Namespace: "default", Name: "keep-cm", Group: "", Version: "v1", Kind: "ConfigMap"},
+		{Group: "", Version: "v1", Kind: "ConfigMap", Complete: true},
+	}); err == nil {
+		t.Fatal("expected cleanup failure on first Complete")
+	}
+
+	ctx := context.Background()
+	staleObj := &unstructured.Unstructured{}
+	staleObj.SetAPIVersion("v1")
+	staleObj.SetKind("ConfigMap")
+	if err := cl.Get(ctx, types.NamespacedName{Name: "stale-cm", Namespace: "default"}, staleObj); err != nil {
+		t.Fatalf("stale-cm should remain after failed cleanup: %v", err)
+	}
+
+	// Retry Complete only — session must still hold keep-cm so cleanup does not delete it.
+	if err := syncMeta([]generic.ObjectMetadata{
+		{Group: "", Version: "v1", Kind: "ConfigMap", Complete: true},
+	}); err != nil {
+		t.Fatalf("retry Complete error = %v", err)
+	}
+
+	keepObj := &unstructured.Unstructured{}
+	keepObj.SetAPIVersion("v1")
+	keepObj.SetKind("ConfigMap")
+	if err := cl.Get(ctx, types.NamespacedName{Name: "keep-cm", Namespace: "default"}, keepObj); err != nil {
+		t.Fatalf("expected keep-cm to remain after retry: %v", err)
+	}
+	err := cl.Get(ctx, types.NamespacedName{Name: "stale-cm", Namespace: "default"}, staleObj)
+	if err == nil {
+		t.Fatal("expected stale-cm to be deleted after successful retry")
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound for stale-cm, got: %v", err)
+	}
+}
+
+func TestHubHAStandbySyncer_Sync_ResyncMetadata_CompleteWithoutBegin_Ignored(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	stale := hubHALabeledConfigMap("stale-cm", "default")
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(stale).Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+	bundle.ResyncMetadata = []generic.ObjectMetadata{
+		{Group: "", Version: "v1", Kind: "ConfigMap", Complete: true},
+	}
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubHAResourcesMsgKey)
+	evt.SetSource("hub1")
+	if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+	if err := syncer.Sync(context.Background(), &evt); err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+
+	staleObj := &unstructured.Unstructured{}
+	staleObj.SetAPIVersion("v1")
+	staleObj.SetKind("ConfigMap")
+	err := cl.Get(context.Background(), types.NamespacedName{
+		Name: "stale-cm", Namespace: "default",
+	}, staleObj)
+	if err != nil {
+		t.Fatalf("Complete without Begin must not empty-delete inventory, got: %v", err)
+	}
+}
+
+// TestHubHAStandbySyncer_Sync_ResyncMetadata_PreservesGlobalHubTopologyManagedClusters
+// ensures ResyncMetadata stale cleanup on the global-hub standby does not delete
+// imported hubs / local-cluster ManagedClusters that are not part of the active
+// regional hub's spoke inventory (regression for Hub HA e2e BeforeAll).
+func TestHubHAStandbySyncer_Sync_ResyncMetadata_PreservesGlobalHubTopologyManagedClusters(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add corev1 to scheme: %v", err)
+	}
+
+	keepSpoke := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": managedClusterAPIVersion,
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "spoke-keep",
+			},
+		},
+	}
+	staleSpoke := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": managedClusterAPIVersion,
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "spoke-stale",
+			},
+		},
+	}
+	importedHub := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": managedClusterAPIVersion,
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "hub1",
+				"labels": map[string]interface{}{
+					constants.GHDeployModeLabelKey: "default",
+					constants.GHHubRoleLabelKey:    constants.GHHubRoleActive,
+				},
+			},
+		},
+	}
+	otherHub := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": managedClusterAPIVersion,
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "hub2",
+				"labels": map[string]interface{}{
+					constants.GHDeployModeLabelKey: "default",
+				},
+			},
+		},
+	}
+	localCluster := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": managedClusterAPIVersion,
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": constants.LocalClusterName,
+				"labels": map[string]interface{}{
+					constants.LocalClusterName: "true",
+				},
+			},
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(keepSpoke, staleSpoke, importedHub, otherHub, localCluster).
+		Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+	bundle.ResyncMetadata = []generic.ObjectMetadata{
+		{
+			Group: "cluster.open-cluster-management.io", Version: "v1",
+			Kind: "ManagedCluster", InventoryBegin: true,
+		},
+		{
+			Name: "spoke-keep", Group: "cluster.open-cluster-management.io",
+			Version: "v1", Kind: "ManagedCluster",
+		},
+		{
+			Group: "cluster.open-cluster-management.io", Version: "v1",
+			Kind: "ManagedCluster", Complete: true,
+		},
+	}
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubHAResourcesMsgKey)
+	evt.SetSource("hub1")
+	if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+	if err := syncer.Sync(context.Background(), &evt); err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+
+	ctx := context.Background()
+	for _, name := range []string{"spoke-keep", "hub1", "hub2", constants.LocalClusterName} {
+		obj := &unstructured.Unstructured{}
+		obj.SetAPIVersion(managedClusterAPIVersion)
+		obj.SetKind("ManagedCluster")
+		if err := cl.Get(ctx, types.NamespacedName{Name: name}, obj); err != nil {
+			t.Fatalf("expected ManagedCluster %s to remain: %v", name, err)
+		}
+	}
+
+	staleObj := &unstructured.Unstructured{}
+	staleObj.SetAPIVersion(managedClusterAPIVersion)
+	staleObj.SetKind("ManagedCluster")
+	err := cl.Get(ctx, types.NamespacedName{Name: "spoke-stale"}, staleObj)
+	if err == nil {
+		t.Fatal("expected spoke-stale ManagedCluster to be deleted")
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound for spoke-stale, got: %v", err)
+	}
+}
+
+// atomicInt is a tiny counter for interceptor tests without importing sync/atomic in assertions.
+type atomicInt struct{ v int }
+
+func (a *atomicInt) add(n int) int {
+	a.v += n
+	return a.v
 }
