@@ -269,7 +269,7 @@ func syncManagerTransportSecretIfReady(ctx context.Context, mgh *v1alpha4.Multic
 	if !kafkaStatus.kafkaReady {
 		return false, nil
 	}
-	if err := config.SetKafkaClientCA(trans.ctx, trans.mgh.Namespace, KafkaClusterName,
+	if err := config.SetKafkaClientCA(ctx, trans.mgh.Namespace, KafkaClusterName,
 		trans.manager.GetClient()); err != nil {
 		return false, fmt.Errorf("set Kafka client CA: %w", err)
 	}

@@ -215,7 +215,7 @@ var _ = Describe("transporter", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// update the kafka resource to make it ready
-		err = UpdateKafkaClusterReady(runtimeClient, mgh.Namespace)
+		err = UpdateKafkaClusterReady(ctx, runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
 
 		// verify the metrics resources and pod monitor
@@ -458,7 +458,7 @@ var _ = Describe("transporter", Ordered, func() {
 	})
 })
 
-func UpdateKafkaClusterReady(c client.Client, ns string) error {
+func UpdateKafkaClusterReady(ctx context.Context, c client.Client, ns string) error {
 	kafkaVersion := "4.1.0"
 	kafkaClusterName := "kafka"
 	globalHubKafkaUser := "global-hub-kafka-user"
@@ -552,7 +552,7 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		return err
 	}
 
-	err := createSecret(c, ns, globalHubKafkaUser, map[string][]byte{
+	err := createSecret(ctx, c, ns, globalHubKafkaUser, map[string][]byte{
 		"user.crt": []byte("usercrt"),
 		"user.key": []byte("userkey"),
 	})
@@ -560,14 +560,14 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		return err
 	}
 
-	err = createSecret(c, ns, clientCAKeySecret, map[string][]byte{
+	err = createSecret(ctx, c, ns, clientCAKeySecret, map[string][]byte{
 		"ca.key": []byte("cakey"),
 	})
 	if err != nil {
 		return err
 	}
 
-	err = createSecret(c, ns, clientCACertSecret, map[string][]byte{
+	err = createSecret(ctx, c, ns, clientCACertSecret, map[string][]byte{
 		"ca.crt": []byte("cacert"),
 	})
 	if err != nil {
@@ -576,21 +576,21 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 	return nil
 }
 
-func createSecret(c client.Client, ns, name string, data map[string][]byte) error {
+func createSecret(ctx context.Context, c client.Client, ns, name string, data map[string][]byte) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      name,
 		},
 	}
-	err := c.Get(context.Background(), client.ObjectKeyFromObject(secret), secret)
+	err := c.Get(ctx, client.ObjectKeyFromObject(secret), secret)
 	if errors.IsNotFound(err) {
 		secret.Data = data
-		return c.Create(context.Background(), secret)
+		return c.Create(ctx, secret)
 	}
 	if err != nil {
 		return err
 	}
 	secret.Data = data
-	return c.Update(context.Background(), secret)
+	return c.Update(ctx, secret)
 }

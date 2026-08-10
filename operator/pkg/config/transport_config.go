@@ -234,11 +234,11 @@ func SetInventoryClientCA(ctx context.Context, namespace, name string, c client.
 	}
 
 	if inventoryClientCAKey == nil || !secretBytesEqual(clientCASecret.Data["tls.key"], inventoryClientCAKey) {
-		log.Infof("set the inventory clientCA - key: %s", clientCASecret.Name)
+		log.Infow("set the inventory clientCA - key", "secret", clientCASecret.Name)
 		inventoryClientCAKey = clientCASecret.Data["tls.key"]
 	}
 	if inventoryClientCACert == nil || !secretBytesEqual(clientCASecret.Data["tls.crt"], inventoryClientCACert) {
-		log.Infof("set the inventory clientCA - cert: %s", clientCASecret.Name)
+		log.Infow("set the inventory clientCA - cert", "secret", clientCASecret.Name)
 		inventoryClientCACert = clientCASecret.Data["tls.crt"]
 	}
 	return nil
@@ -277,11 +277,11 @@ func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 	kafkaClientCAMu.Lock()
 	defer kafkaClientCAMu.Unlock()
 	if kafkaClientCAKey == nil || !secretBytesEqual(newKey, kafkaClientCAKey) {
-		log.Infof("set the ca - client key: %s", clientCAKeySecret.Name)
+		log.Infow("set the ca - client key", "secret", clientCAKeySecret.Name)
 		kafkaClientCAKey = newKey
 	}
 	if kafkaClientCACert == nil || !secretBytesEqual(newCert, kafkaClientCACert) {
-		log.Infof("set the ca - client cert: %s", clientCACertSecret.Name)
+		log.Infow("set the ca - client cert", "secret", clientCACertSecret.Name)
 		kafkaClientCACert = newCert
 	}
 	return nil
