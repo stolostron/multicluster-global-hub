@@ -2,6 +2,8 @@ package dispatcher
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -97,9 +99,9 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			d.statistic.ReceivedEvent(evt)
 			d.log.Debugf("received event: %s", evt)
 			if !sourceMatchesTopic(evt, d.statusTopic) {
+				sourceHash := sha256.Sum256([]byte(evt.Source()))
 				d.log.Warnw("dropping status event: source does not match Kafka topic",
-					"source", evt.Source(),
-					"topic", evt.Extensions()[kafka_confluent.KafkaTopicKey])
+					"sourceHash", hex.EncodeToString(sourceHash[:8]))
 				continue
 			}
 			d.conflationManager.Insert(evt)
