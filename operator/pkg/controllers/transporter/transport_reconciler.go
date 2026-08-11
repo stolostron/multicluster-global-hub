@@ -215,10 +215,12 @@ func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1
 	if needRequeue {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	// deliver the transport resources and config secret to the kafka controller
-	// TODO: may need to wait the kafka resources to be ready before delivering the config secret
-	err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
+	// Start the async kafka controller; sync transport-config when Kafka is already ready.
+	err = protocol.StartKafkaController(ctx, r.Manager, strimziTransporter)
 	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := protocol.SyncManagerTransportConfigSecret(ctx, mgh, strimziTransporter, r.GetClient()); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil

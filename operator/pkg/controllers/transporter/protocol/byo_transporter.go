@@ -24,25 +24,24 @@ type BYOTransporter struct {
 	runtimeClient client.Client
 }
 
-var byoTransporter *BYOTransporter
-
 // create the transport with secret(BYO case), it should meet the following conditions
 // 1. name: "multicluster-global-hub-transport"
 // 2. properties: "bootstrap_server", "ca.crt", "client.crt" and "client.key"
 func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 	c client.Client,
 ) *BYOTransporter {
-	if byoTransporter == nil {
-		byoTransporter = &BYOTransporter{
-			log:           logger.ZaprLogger(),
-			ctx:           ctx,
-			runtimeClient: c,
-		}
-		config.SetTransporter(byoTransporter)
+	transporterConstructMu.Lock()
+	defer transporterConstructMu.Unlock()
+
+	t := &BYOTransporter{
+		log:           logger.ZaprLogger(),
+		ctx:           ctx,
+		runtimeClient: c,
+		name:          namespacedName.Name,
+		namespace:     namespacedName.Namespace,
 	}
-	byoTransporter.name = namespacedName.Name
-	byoTransporter.namespace = namespacedName.Namespace
-	return byoTransporter
+	config.SetTransporter(t)
+	return t
 }
 
 func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
