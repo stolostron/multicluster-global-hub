@@ -63,7 +63,7 @@ jobs:
           fi
           echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
           case "${TARGET}" in
-            main|release-5.0)
+            main|release-5.0|release-5.1)
               echo "skip=true" >> "$GITHUB_OUTPUT"
               ;;
             *)
