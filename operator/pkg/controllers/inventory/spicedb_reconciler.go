@@ -135,6 +135,7 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			Image           string
 			ImagePullPolicy string
 			ImagePullSecret string
+			PostgresName    string
 			NodeSelector    map[string]string
 			Tolerations     []corev1.Toleration
 		}{
@@ -143,6 +144,7 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			Image:           config.GetImage(config.SpiceDBOperatorImageKey),
 			ImagePullPolicy: string(operandConfig.ImagePullPolicy),
 			ImagePullSecret: operandConfig.ImagePullSecret,
+			PostgresName:    config.COMPONENTS_POSTGRES_NAME,
 			NodeSelector:    operandConfig.NodeSelector,
 			Tolerations:     operandConfig.Tolerations,
 		}, nil

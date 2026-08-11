@@ -99,4 +99,4 @@ options:
   relationshttpurl: $relations_http_url
 EOF
 
-ginkgo -v --fail-fast "$TEST_DIR/e2e/kessel" --output-dir="$CONFIG_DIR" --junit-report=report.xml -- -options="$OPTION_FILE"
+ginkgo -v --fail-fast --output-dir="$CONFIG_DIR" --junit-report=report.xml "$TEST_DIR/e2e/kessel" -- -options="$OPTION_FILE"

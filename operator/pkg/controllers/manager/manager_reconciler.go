@@ -13,6 +13,7 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/utils/ptr"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -66,6 +68,7 @@ import (
 // +kubebuilder:rbac:groups=policy.open-cluster-management.io,resources=placementbindings,verbs=get;list;patch;update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkausers,verbs=get;watch;update
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
 
 //go:embed manifests
 var fs embed.FS
@@ -143,7 +146,9 @@ func (r *ManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&rbacv1.RoleBinding{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Watches(&routev1.Route{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate))
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&networkingv1.NetworkPolicy{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(networkPolicyPred))
 
 	if config.IsACMResourceReady() {
 		mgrBuilder = mgrBuilder.
@@ -154,6 +159,21 @@ func (r *ManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 var deploymentPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_MANAGER_NAME
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == config.COMPONENTS_MANAGER_NAME
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_MANAGER_NAME
+	},
+}
+
+var networkPolicyPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == config.COMPONENTS_MANAGER_NAME
@@ -312,6 +332,8 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			Resources:                 utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedSpec),
 			WithACM:                   config.IsACMResourceReady(),
 			TransportFailureThreshold: r.operatorConfig.TransportFailureThreshold,
+			StorageLabel:              config.COMPONENTS_POSTGRES_NAME,
+			KafkaCluster:              "kafka",
 		}, nil
 	})
 	if err != nil {
@@ -402,11 +424,7 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 				},
 			},
 			Endpoints: []promv1.Endpoint{
-				{
-					Port:     "metrics",
-					Path:     "/metrics",
-					Interval: promv1.Duration(config.GetMetricsScrapeInterval(mgh)),
-				},
+				managerMetricsEndpoint(config.GetMetricsScrapeInterval(mgh)),
 			},
 		},
 	}
@@ -426,6 +444,24 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// managerMetricsEndpoint builds the ServiceMonitor scrape endpoint for manager
+// metrics. SecureServing uses a controller-runtime self-signed cert, so scrape
+// uses InsecureSkipVerify until a serving-cert secret is wired (ACM-30175
+// follow-up: replace skip-verify with CA-backed scrape TLS).
+func managerMetricsEndpoint(interval string) promv1.Endpoint {
+	return promv1.Endpoint{
+		Port:     "metrics",
+		Path:     "/metrics",
+		Scheme:   "https",
+		Interval: promv1.Duration(interval),
+		TLSConfig: &promv1.TLSConfig{
+			SafeTLSConfig: promv1.SafeTLSConfig{
+				InsecureSkipVerify: ptr.To(true),
+			},
+		},
+	}
 }
 
 func storageConnectionUpdated(storageConn *config.PostgresConnection) bool {
@@ -464,4 +500,6 @@ type ManagerVariables struct {
 	Resources                 *corev1.ResourceRequirements
 	WithACM                   bool
 	TransportFailureThreshold int
+	StorageLabel              string
+	KafkaCluster              string
 }

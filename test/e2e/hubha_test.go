@@ -97,10 +97,11 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 			return getAgentHubRole(ctx, activeHubClient, "multicluster-global-hub-agent")
 		}, 2*time.Minute, 5*time.Second).Should(Equal(constants.GHHubRoleActive))
 
-		By("Waiting for active hub agent to receive standby hub configuration")
+		By("Waiting for active hub agent to receive prefixed standby hub configuration")
 		Eventually(func() string {
 			return getStandByHub(ctx, activeHubClient, "multicluster-global-hub-agent")
-		}, 2*time.Minute, 5*time.Second).Should(Equal("local-cluster"))
+		}, 2*time.Minute, 5*time.Second).Should(Equal("global-hub/local-cluster"),
+			"active hub agent must receive the prefixed standbyHub value for global-hub local standby routing")
 
 		By("Waiting for local agent on global hub to receive role configuration")
 		Eventually(func() string {
@@ -1051,6 +1052,9 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 					return nil
 				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
 
+				By("Waiting for ManagedCluster resourceVersion to stabilize after initial sync")
+				waitForManagedClusterStable(ctx, activeHubClient, testClusterName, 10*time.Second)
+
 				By("Updating ManagedCluster on active hub (changing URL and labels)")
 				Eventually(func() error {
 					activeCluster := &clusterv1.ManagedCluster{}
@@ -1061,6 +1065,9 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 					activeCluster.Spec.ManagedClusterClientConfigs[0].URL = "https://test-cluster-v2.example.com:6443"
 					return activeHubClient.Update(ctx, activeCluster)
 				}, 1*time.Minute, 5*time.Second).Should(Succeed())
+
+				By("Waiting for ManagedCluster resourceVersion to stabilize after update")
+				waitForManagedClusterStable(ctx, activeHubClient, testClusterName, 10*time.Second)
 
 				By("Verifying update is synced with hubAcceptsClient still false")
 				Eventually(func() error {
@@ -1086,11 +1093,38 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 
 					klog.Infof("ManagedCluster %s update synced correctly with hubAcceptsClient=false maintained", testClusterName)
 					return nil
-				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+				}, 2*time.Minute, 5*time.Second).Should(Succeed())
 			})
 		})
 	})
 })
+
+// waitForManagedClusterStable waits until the ManagedCluster resourceVersion on the
+// active hub stops changing for stableDuration. This reduces races with create-time
+// webhook churn before Hub HA update bundles are emitted.
+func waitForManagedClusterStable(ctx context.Context, c client.Client, name string, stableDuration time.Duration) {
+	var lastRV string
+	stableSince := time.Time{}
+
+	Eventually(func() error {
+		cluster := &clusterv1.ManagedCluster{}
+		if err := c.Get(ctx, types.NamespacedName{Name: name}, cluster); err != nil {
+			return err
+		}
+
+		rv := cluster.ResourceVersion
+		now := time.Now()
+		if rv != lastRV {
+			lastRV = rv
+			stableSince = now
+			return fmt.Errorf("resourceVersion changed to %s, waiting for stability", rv)
+		}
+		if now.Sub(stableSince) < stableDuration {
+			return fmt.Errorf("resourceVersion %s stable for %v, need %v", rv, now.Sub(stableSince), stableDuration)
+		}
+		return nil
+	}, 2*time.Minute, 2*time.Second).Should(Succeed())
+}
 
 // getHubRoleLabel retrieves the hub role label from a managed cluster
 func getHubRoleLabel(ctx context.Context, c client.Client, clusterName string) string {

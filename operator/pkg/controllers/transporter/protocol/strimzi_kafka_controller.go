@@ -11,7 +11,9 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -63,6 +65,9 @@ func IsResourceRemoved() bool {
 
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;create;delete;update;list;watch
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;delete;list;watch
+// +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=get;create;delete;patch;list;watch
+// +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clustercatalogs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;create;delete;list;watch
 // +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers;kafkanodepools,verbs=get;create;list;watch;update;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;prometheusrules;podmonitors,verbs=get;create;delete;update;list;watch
 
@@ -74,6 +79,9 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
+	}
+	if err := r.refreshStrimziTransporter(); err != nil {
+		return ctrl.Result{}, err
 	}
 	if mgh.DeletionTimestamp != nil {
 		if !config.GetGlobalhubAgentRemoved() {
@@ -113,27 +121,14 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	// use the client ca to sign the csr for the managed hubs
-	if err := config.SetKafkaClientCA(r.trans.ctx, r.trans.mgh.Namespace, KafkaClusterName,
-		r.trans.manager.GetClient()); err != nil {
-		return ctrl.Result{}, err
-	}
-	// update the transporter
-	config.SetTransporter(r.trans)
-	// update the transport connection, if conn is nil, requeue to let it ready
-	conn, err := getManagerTransportConn(r.trans)
+	synced, err := syncManagerTransportSecretIfReady(ctx, mgh, r.trans, r.c)
 	if err != nil {
+		log.Errorw("failed to create manager transport-config secret", "error", err)
 		return ctrl.Result{}, err
 	}
-	if conn == nil {
+	if !synced {
 		log.Infow("waiting the kafka cluster credential to be ready...", "message", "kafka cluster credential is not ready")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	// Create/update transport-config secret for manager
-	if err := CreateManagerTransportSecret(ctx, mgh, conn, r.c); err != nil {
-		log.Errorf("failed to create manager transport-config secret: %v", err)
-		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -175,8 +170,12 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	}
 	log.Info("start kafka controller")
 	r := &KafkaController{
-		c:     mgr.GetClient(),
-		trans: transporter.(*strimziTransporter),
+		c: mgr.GetClient(),
+	}
+	if transporter != nil {
+		if st, ok := transporter.(*strimziTransporter); ok {
+			r.trans = st
+		}
 	}
 
 	// even if the following controller will reconcile the transport, but it's asynchoronized
@@ -198,6 +197,30 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	return nil
 }
 
+// activeStrimziTransporter returns the currently registered Strimzi transporter instance.
+func activeStrimziTransporter() (*strimziTransporter, error) {
+	transporter := config.GetTransporter()
+	if transporter == nil {
+		return nil, fmt.Errorf("transporter is not configured")
+	}
+	st, ok := transporter.(*strimziTransporter)
+	if !ok {
+		return nil, fmt.Errorf("active transporter is %T, want *strimziTransporter", transporter)
+	}
+	return st, nil
+}
+
+// refreshStrimziTransporter reloads the active Strimzi transporter from the shared registry.
+func (r *KafkaController) refreshStrimziTransporter() error {
+	trans, err := activeStrimziTransporter()
+	if err != nil {
+		return err
+	}
+	r.trans = trans
+	return nil
+}
+
+// getManagerTransportConn builds the manager Kafka connection from cluster and user credentials.
 func getManagerTransportConn(trans *strimziTransporter) (
 	*transport.KafkaConfig, error,
 ) {
@@ -221,6 +244,53 @@ func getManagerTransportConn(trans *strimziTransporter) (
 	conn.ConsumerGroupID = config.GetConsumerGroupID(trans.mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix,
 		constants.CloudEventGlobalHubClusterName)
 	return conn, nil
+}
+
+// applyManagerKafkaTopics refreshes kafka.yaml topic fields from the transport config
+// populated by SetTransportConfig on the latest MGH spec.
+func applyManagerKafkaTopics(conn *transport.KafkaConfig) {
+	if conn == nil {
+		return
+	}
+	conn.SpecTopic = config.GetSpecTopic()
+	conn.StatusTopic = config.ManagerStatusTopic()
+}
+
+// syncManagerTransportSecretIfReady performs the shared readiness check, CA setup,
+// connection lookup, and secret creation used by both the async reconcile loop and
+// the synchronous post-EnsureKafka sync call.
+func syncManagerTransportSecretIfReady(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+	trans *strimziTransporter, c client.Client,
+) (synced bool, err error) {
+	kafkaStatus, err := trans.kafkaClusterReady()
+	if err != nil {
+		return false, fmt.Errorf("check Kafka cluster readiness: %w", err)
+	}
+	if !kafkaStatus.kafkaReady {
+		return false, nil
+	}
+	if err := config.SetKafkaClientCA(ctx, trans.mgh.Namespace, KafkaClusterName,
+		trans.manager.GetClient()); err != nil {
+		return false, fmt.Errorf("set Kafka client CA: %w", err)
+	}
+	conn, err := getManagerTransportConn(trans)
+	if err != nil {
+		return false, fmt.Errorf("get manager transport connection: %w", err)
+	}
+	if conn == nil {
+		return false, nil
+	}
+	return true, CreateManagerTransportSecret(ctx, mgh, conn, c)
+}
+
+// SyncManagerTransportConfigSecret creates or updates the hub transport-config secret
+// when Kafka is ready. Called from the transport reconciler on MGH spec changes so
+// customized topics propagate without waiting for an async kafka-controller event.
+func SyncManagerTransportConfigSecret(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+	trans *strimziTransporter, c client.Client,
+) error {
+	_, err := syncManagerTransportSecretIfReady(ctx, mgh, trans, c)
+	return err
 }
 
 func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClusterStatus KafkaStatus,
@@ -273,6 +343,7 @@ func CreateManagerTransportSecret(ctx context.Context, mgh *v1alpha4.Multicluste
 	secretData := make(map[string][]byte)
 	// Build kafka config yaml
 	if kafkaConfig != nil {
+		applyManagerKafkaTopics(kafkaConfig)
 		kafkaConfigYaml, err := kafkaConfig.YamlMarshal(true)
 		if err != nil {
 			return fmt.Errorf("failed to marshal kafka config: %w", err)
@@ -387,6 +458,18 @@ func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Resul
 		}
 	}
 
+	switch r.trans.olmVersion {
+	case config.OLMVersionV1:
+		return r.pruneClusterExtensionResources(ctx)
+	case config.OLMVersionV0:
+		return r.pruneSubscriptionResources(ctx)
+	default:
+		isResourceRemoved = true
+		return ctrl.Result{}, nil
+	}
+}
+
+func (r *KafkaController) pruneSubscriptionResources(ctx context.Context) (ctrl.Result, error) {
 	kafkaSub := &subv1alpha1.Subscription{}
 	err := r.c.Get(ctx, types.NamespacedName{
 		Namespace: utils.GetDefaultNamespace(),
@@ -419,6 +502,45 @@ func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Resul
 		return ctrl.Result{}, err
 	}
 	log.Infof("kafka subscription deleted")
+	isResourceRemoved = true
+	return ctrl.Result{}, nil
+}
+
+func (r *KafkaController) pruneClusterExtensionResources(ctx context.Context) (ctrl.Result, error) {
+	ce := &ocv1.ClusterExtension{}
+	err := r.c.Get(ctx, types.NamespacedName{Name: StrimziClusterExtensionName}, ce)
+	if err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("get strimzi ClusterExtension %q: %w", StrimziClusterExtensionName, err)
+	}
+	if err == nil {
+		log.Infow("delete Strimzi ClusterExtension", "name", ce.Name)
+		if err := r.c.Delete(ctx, ce); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, fmt.Errorf("delete strimzi ClusterExtension %q: %w", ce.Name, err)
+		}
+		// requeue until the CE is fully removed so OLMv1 can use the installer SA for finalizer work
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// CE is gone — safe to remove installer SA and CRB
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: StrimziInstallerCRBName},
+	}
+	if err := r.c.Delete(ctx, crb); err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("delete strimzi installer ClusterRoleBinding %q: %w", StrimziInstallerCRBName, err)
+	}
+
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      StrimziInstallerSAName,
+			Namespace: r.trans.mgh.Namespace,
+		},
+	}
+	if err := r.c.Delete(ctx, sa); err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("delete strimzi installer ServiceAccount %s/%s: %w",
+			r.trans.mgh.Namespace, StrimziInstallerSAName, err)
+	}
+
+	log.Infof("strimzi ClusterExtension and installer resources deleted")
 	isResourceRemoved = true
 	return ctrl.Result{}, nil
 }

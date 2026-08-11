@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+const errClientCertKeyMismatch = "client certificate and key must be provided together"
 
 func GetSaramaConfig(kafkaConfig *transport.KafkaInternalConfig) (*sarama.Config, error) {
 	saramaConfig := sarama.NewConfig()
@@ -30,32 +33,35 @@ func GetSaramaConfig(kafkaConfig *transport.KafkaInternalConfig) (*sarama.Config
 }
 
 func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config, error) {
-	// #nosec G402
-	tlsConfig := tls.Config{}
+	tlsConfig := tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
-	// Load client cert
+	// Load client cert for mutual TLS (optional)
 	_, validCert := utils.Validate(clientCertFile)
 	_, validKey := utils.Validate(clientKeyFile)
+	if validCert != validKey {
+		return &tlsConfig, fmt.Errorf("%s", errClientCertKeyMismatch)
+	}
 	if validCert && validKey {
 		cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 		if err != nil {
-			return &tlsConfig, err
+			return &tlsConfig, fmt.Errorf("failed to load client certificate: %w", err)
 		}
 		tlsConfig.Certificates = []tls.Certificate{cert}
-	} else {
-		// #nosec
-		tlsConfig.InsecureSkipVerify = true
 	}
 
-	// Load CA cert
+	// Load CA cert - this is required to verify the server
 	caCert, err := os.ReadFile(filepath.Clean(caCertFile))
 	if err != nil {
-		return &tlsConfig, err
+		return &tlsConfig, fmt.Errorf("failed to read CA certificate: %w", err)
 	}
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		return &tlsConfig, fmt.Errorf("failed to parse CA certificate")
+	}
 	tlsConfig.RootCAs = caCertPool
 
 	tlsConfig.BuildNameToCertificate()
-	return &tlsConfig, err
+	return &tlsConfig, nil
 }

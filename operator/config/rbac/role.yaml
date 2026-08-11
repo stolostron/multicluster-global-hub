@@ -323,8 +323,15 @@ rules:
 - apiGroups:
   - config.openshift.io
   resources:
+  - apiservers
+  verbs:
+  - get
+- apiGroups:
+  - config.openshift.io
+  resources:
   - clusterversions
   - infrastructures
+  - networks
   verbs:
   - get
   - list
@@ -340,6 +347,14 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - extensions.hive.openshift.io
@@ -451,6 +466,17 @@ rules:
   - get
   - update
 - apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - observability.open-cluster-management.io
   resources:
   - observabilityaddons
@@ -459,6 +485,25 @@ rules:
   - get
   - list
   - update
+- apiGroups:
+  - olm.operatorframework.io
+  resources:
+  - clustercatalogs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - olm.operatorframework.io
+  resources:
+  - clusterextensions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
@@ -499,6 +544,14 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - ingresscontrollers
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - operators.coreos.com
   resources:

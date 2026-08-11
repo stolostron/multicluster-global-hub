@@ -97,6 +97,15 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 			return err
 		}
 
+		// Stale reconciles can still be running when another worker marks the migration
+		// terminal; never regress Completed/Failed to an earlier phase.
+		if mcm.Status.Phase == migrationv1alpha1.PhaseCompleted && phase != migrationv1alpha1.PhaseCompleted {
+			return nil
+		}
+		if mcm.Status.Phase == migrationv1alpha1.PhaseFailed && phase != migrationv1alpha1.PhaseFailed {
+			return nil
+		}
+
 		if migrationv1alpha1.SetMigrationCondition(&mcm.Status.Conditions, condition) || mcm.Status.Phase != phase {
 			mcm.Status.Phase = phase
 

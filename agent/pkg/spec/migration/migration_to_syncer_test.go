@@ -292,7 +292,8 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 		},
 		{
-			name: "migration with cluster manager having registration configuration with other feature gates and auto approve users",
+			name: "migration with cluster manager having registration configuration " +
+				"with other feature gates and auto approve users",
 			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
@@ -844,7 +845,11 @@ func TestMigrationToSyncer(t *testing.T) {
 									Mode:    operatorv1.FeatureGateModeTypeEnable,
 								},
 							},
-							AutoApproveUsers: []string{"system:serviceaccount:other:user", "system:serviceaccount:test:test", "system:serviceaccount:another:user"},
+							AutoApproveUsers: []string{
+								"system:serviceaccount:other:user",
+								"system:serviceaccount:test:test",
+								"system:serviceaccount:another:user",
+							},
 						},
 					},
 				},
@@ -909,7 +914,10 @@ func TestMigrationToSyncer(t *testing.T) {
 								Mode:    operatorv1.FeatureGateModeTypeEnable,
 							},
 						},
-						AutoApproveUsers: []string{"system:serviceaccount:other:user", "system:serviceaccount:another:user"}, // Only migration user should be removed
+						AutoApproveUsers: []string{
+							"system:serviceaccount:other:user",
+							"system:serviceaccount:another:user",
+						}, // Only migration user should be removed
 					},
 				},
 			},
@@ -1334,12 +1342,13 @@ func TestDeploying(t *testing.T) {
 	evt.SetExtension(constants.CloudEventExtensionKeyMigrationStage, migrationv1alpha1.PhaseDeploying)
 	evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 
-	scheme := configs.GetRuntimeScheme()
+	scheme := migrationTestScheme()
 	ctx := context.Background()
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(
 		&clusterv1.ManagedCluster{},
 		&addonv1.KlusterletAddonConfig{},
-	).Build()
+		&migrationv1alpha1.ManagedClusterMigration{},
+	).WithObjects(deployingMigrationCR("hub1", "hub2")).Build()
 	// set agent config
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	// set tranport config
@@ -1350,7 +1359,7 @@ func TestDeploying(t *testing.T) {
 	transportClient.SetProducer(&producer)
 	agentConfig := &configs.AgentConfig{
 		TransportConfig: transportConfig,
-		LeafHubName:     "hub1",
+		LeafHubName:     "hub2",
 	}
 	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
 	syncer.processingMigrationId = migrationId
@@ -1516,7 +1525,7 @@ func TestRegistering(t *testing.T) {
 // TestDeployingBatchReceiving tests receiving multiple batches of resources during deploying stage
 func TestDeployingBatchReceiving(t *testing.T) {
 	migrationId := "test-migration-batch-456"
-	scheme := configs.GetRuntimeScheme()
+	scheme := migrationTestScheme()
 	ctx := context.Background()
 
 	cases := []struct {
@@ -1550,7 +1559,8 @@ func TestDeployingBatchReceiving(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(
 				&clusterv1.ManagedCluster{},
 				&addonv1.KlusterletAddonConfig{},
-			).Build()
+				&migrationv1alpha1.ManagedClusterMigration{},
+			).WithObjects(deployingMigrationCR("hub1", "hub2")).Build()
 			configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 
 			transportConfig := &transport.TransportInternalConfig{
@@ -1562,7 +1572,7 @@ func TestDeployingBatchReceiving(t *testing.T) {
 			transportClient.SetProducer(&producer)
 			agentConfig := &configs.AgentConfig{
 				TransportConfig: transportConfig,
-				LeafHubName:     "hub1",
+				LeafHubName:     "hub2",
 			}
 
 			syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
@@ -2634,7 +2644,11 @@ func TestInitializing(t *testing.T) {
 				assert.True(t, hasAutoApprove, "ManagedClusterAutoApproval feature should be enabled")
 
 				// Check that the MSA user is in auto-approve list
-				expectedUser := fmt.Sprintf("system:serviceaccount:%s:%s", c.event.ManagedServiceAccountInstallNamespace, c.event.ManagedServiceAccountName)
+				expectedUser := fmt.Sprintf(
+					"system:serviceaccount:%s:%s",
+					c.event.ManagedServiceAccountInstallNamespace,
+					c.event.ManagedServiceAccountName,
+				)
 				assert.Contains(t, cm.Spec.RegistrationConfiguration.AutoApproveUsers, expectedUser)
 			}
 		})
@@ -2644,11 +2658,13 @@ func TestInitializing(t *testing.T) {
 // TestDeployingBatchReceivingError tests error handling during batch receiving
 func TestDeployingBatchReceivingError(t *testing.T) {
 	migrationId := "test-migration-error-789"
-	scheme := configs.GetRuntimeScheme()
+	scheme := migrationTestScheme()
 	ctx := context.Background()
 
 	t.Run("Receive bundle with mismatched migration ID", func(t *testing.T) {
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
+			WithObjects(deployingMigrationCR("hub1", "hub2")).Build()
 		configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 
 		transportConfig := &transport.TransportInternalConfig{
@@ -2660,7 +2676,7 @@ func TestDeployingBatchReceivingError(t *testing.T) {
 		transportClient.SetProducer(&producer)
 		agentConfig := &configs.AgentConfig{
 			TransportConfig: transportConfig,
-			LeafHubName:     "hub1",
+			LeafHubName:     "hub2",
 		}
 
 		syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
@@ -2803,13 +2819,7 @@ func TestAddPauseAnnotationBeforeDeletion(t *testing.T) {
 				assert.Equal(t, "true", annotations[HivePauseAnnotation])
 
 				// Verify existing annotations are preserved
-				if origAnnotations := c.resource.GetAnnotations(); origAnnotations != nil {
-					for key, value := range origAnnotations {
-						if key != HivePauseAnnotation {
-							assert.Equal(t, value, annotations[key], "Original annotation %s should be preserved", key)
-						}
-					}
-				}
+				assertOriginalAnnotationsPreserved(t, c.resource.GetAnnotations(), annotations)
 			}
 		})
 	}
@@ -3161,7 +3171,8 @@ func parseResourceIdentifier(identifier string) resourceIdentifier {
 	}
 }
 
-// TestRemoveVeleroRestoreLabelFromImageClusterInstall tests the removeVeleroRestoreLabelFromImageClusterInstall function
+// TestRemoveVeleroRestoreLabelFromImageClusterInstall tests
+// removeVeleroRestoreLabelFromImageClusterInstall.
 func TestRemoveVeleroRestoreLabelFromImageClusterInstall(t *testing.T) {
 	scheme := configs.GetRuntimeScheme()
 	ctx := context.Background()
@@ -3489,7 +3500,11 @@ func TestInitializingWithOCMClusterRole(t *testing.T) {
 
 	// Verify ClusterRoleBinding was created with OCM ClusterRole
 	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
-	err = fakeClient.Get(ctx, types.NamespacedName{Name: GetAgentRegistrationClusterRoleBindingName("test")}, foundClusterRoleBinding)
+	err = fakeClient.Get(
+		ctx,
+		types.NamespacedName{Name: GetAgentRegistrationClusterRoleBindingName("test")},
+		foundClusterRoleBinding,
+	)
 	assert.Nil(t, err)
 	assert.Equal(t, DefaultOCMBootstrapClusterRole, foundClusterRoleBinding.RoleRef.Name)
 }
@@ -4471,8 +4486,9 @@ func TestQueryFailedClusters(t *testing.T) {
 			expectedFailedClusters: []string{},
 		},
 		{
-			name:                   "Mixed status - one success, one ManifestWork failed, one ManifestWork ready but cluster unavailable",
-			expectedFailedClusters: []string{"cluster2"}, // Only cluster2 fails (ManifestWork not applied), cluster3 is success (ManifestWork ready)
+			name: "Mixed status - one success, one ManifestWork failed, " +
+				"one ManifestWork ready but cluster unavailable",
+			expectedFailedClusters: []string{"cluster2"},
 			managedClusters:        []string{"cluster1", "cluster2", "cluster3"},
 			initObjects: []client.Object{
 				// Cluster 1 - fully successful
@@ -4710,7 +4726,8 @@ func TestDeleteBMHAndDependentResources(t *testing.T) {
 			expectedSecretExist: false,
 		},
 		{
-			name: "BareMetalHost with credentialsName and secret exists with finalizers - should remove finalizers and delete secret",
+			name: "BareMetalHost with credentialsName and secret exists with finalizers - " +
+				"should remove finalizers and delete secret",
 			bmh: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "metal3.io/v1alpha1",
@@ -4799,5 +4816,18 @@ func TestDeleteBMHAndDependentResources(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func assertOriginalAnnotationsPreserved(t *testing.T, original, updated map[string]string) {
+	t.Helper()
+	if original == nil {
+		return
+	}
+	for key, value := range original {
+		if key == HivePauseAnnotation {
+			continue
+		}
+		assert.Equal(t, value, updated[key], "Original annotation %s should be preserved", key)
 	}
 }

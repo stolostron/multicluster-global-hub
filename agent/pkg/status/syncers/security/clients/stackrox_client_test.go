@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"io"
@@ -23,6 +24,10 @@ var _ = Describe("StackRox client", func() {
 				Build()
 			Expect(client).ToNot(BeNil())
 			Expect(err).ToNot(HaveOccurred())
+			transport, ok := client.client.Transport.(*http.Transport)
+			Expect(ok).To(BeTrue())
+			Expect(transport.TLSClientConfig).ToNot(BeNil())
+			Expect(transport.TLSClientConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
 		})
 
 		It("Can be created without the optional CA", func() {

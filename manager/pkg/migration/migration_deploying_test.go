@@ -77,6 +77,32 @@ func TestDeploying(t *testing.T) {
 			expectedConditionReason: "",                               // No reason change expected
 		},
 		{
+			name: "Should wait for migration transport ACL before triggering deploying",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-acl-wait"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                    "source-hub",
+					To:                      "target-hub",
+					IncludedManagedClusters: []string{"cluster1"},
+				},
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Phase: migrationv1alpha1.PhaseDeploying,
+				},
+			},
+			setupState: func(migrationID string) {
+				AddMigrationStatus(migrationID)
+			},
+			expectedRequeue:         true,
+			expectedError:           false,
+			expectedPhase:           migrationv1alpha1.PhaseDeploying,
+			expectedConditionStatus: metav1.ConditionFalse,
+			expectedConditionReason: ConditionReasonWaiting,
+		},
+		{
 			name: "Should wait for source hub to complete deploying",
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{

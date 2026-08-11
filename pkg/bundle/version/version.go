@@ -1,3 +1,4 @@
+// Package version provides generation/value semantics for status bundle versioning.
 package version
 
 import (
@@ -130,3 +131,5 @@ func (v *Version) Reset() {
 func (v *Version) InitGen() bool {
 	return v.Generation == 0
 }
+
+// konflux-rebuild-touch

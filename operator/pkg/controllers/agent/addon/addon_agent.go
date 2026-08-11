@@ -28,6 +28,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // GlobalHubAddonAgent defines the manifests of agent deployed on managed cluster
@@ -221,47 +222,7 @@ func (a *GlobalHubAddonAgent) setImagePullSecret(mgh *globalhubv1alpha4.Multiclu
 	return nil
 }
 
-// findStandbyHub returns the standby hub name
-// If a ManagedCluster has the standby label, return that cluster name
-// If no ManagedCluster has the standby label, return "local-cluster" (local agent is standby)
+// findStandbyHub returns the Kafka subject / config value for the global-hub standby target.
 func (a *GlobalHubAddonAgent) findStandbyHub() (string, error) {
-	managedClusterList := &clusterv1.ManagedClusterList{}
-	err := a.client.List(a.ctx, managedClusterList, client.MatchingLabels{
-		constants.GHHubRoleLabelKey: constants.GHHubRoleStandby,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	// If exactly one standby hub found, return it
-	if len(managedClusterList.Items) == 1 {
-		return managedClusterList.Items[0].Name, nil
-	}
-
-	// If no standby hub found, local-cluster is the standby
-	if len(managedClusterList.Items) == 0 {
-		return constants.LocalClusterName, nil
-	}
-
-	// More than one standby hub found - this is a configuration error
-	// Choose the first one alphabetically for deterministic behavior and log a warning
-	hubNames := make([]string, len(managedClusterList.Items))
-	for i, hub := range managedClusterList.Items {
-		hubNames[i] = hub.Name
-	}
-
-	// Sort to ensure deterministic selection
-	chosen := managedClusterList.Items[0].Name
-	for _, name := range hubNames {
-		if name < chosen {
-			chosen = name
-		}
-	}
-
-	log.Warnw("multiple standby hubs found - using alphabetically first one. Only one standby hub should be configured",
-		"count", len(managedClusterList.Items),
-		"standbyHubs", hubNames,
-		"chosen", chosen)
-
-	return chosen, nil
+	return commonutils.FindStandbyHubTarget(a.ctx, a.client, config.GetLocalClusterName())
 }

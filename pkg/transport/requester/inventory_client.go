@@ -38,10 +38,13 @@ func (c *InventoryClient) RefreshClient(ctx context.Context, restfulConn *transp
 		return fmt.Errorf("failed to append CA certificate to pool")
 	}
 
-	// #nosec G402
+	// For external services like Kessel Inventory, we use TLS 1.2 as minimum version
+	// to ensure compatibility while maintaining security. External services may not
+	// support TLS 1.3 yet, unlike OpenShift components.
 	tlsConfig := tls.Config{
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      caCertPool,
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	c.httpUrl = restfulConn.Host

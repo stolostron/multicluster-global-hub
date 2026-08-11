@@ -60,7 +60,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		)
 
 		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.GetDefaultNamespace()}}
-		Expect(runtimeClient.Create(testCtx, namespace)).Should(Succeed())
+		Expect(client.IgnoreAlreadyExists(runtimeClient.Create(testCtx, namespace))).Should(Succeed())
 
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
@@ -116,7 +116,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			&mchv1.MultiClusterHub{ObjectMeta: metav1.ObjectMeta{Name: "multiclusterhub"}},
 			&addonv1.KlusterletAddonConfig{ObjectMeta: metav1.ObjectMeta{Name: testClusterName, Namespace: testClusterName}},
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}},
-			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.GetDefaultNamespace()}},
 		}
 		// delete the configmap using the test's namespace (not global config which may have changed)
 		_ = runtimeClient.Delete(testCtx, &corev1.ConfigMap{
@@ -128,6 +127,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		for _, resource := range resources {
 			_ = runtimeClient.Delete(testCtx, resource)
 		}
+		// Keep multicluster-global-hub namespace: MigrationToSyncer reuses it for shadow migration CRs.
 		testCtxCancel()
 	})
 

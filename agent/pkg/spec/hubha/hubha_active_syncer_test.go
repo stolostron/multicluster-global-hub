@@ -5,9 +5,7 @@ package hubha
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
-	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -18,12 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestGetHubHAResourcesToSync(t *testing.T) {
-	resources := getHubHAResourcesToSync()
+	resources := GetHubHAResourcesToSync()
 
 	// Verify we have resources to sync
 	if len(resources) == 0 {
@@ -67,6 +64,7 @@ func TestHubHAController_Reconcile_Update(t *testing.T) {
 		},
 	}
 	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+	emitter.SetEnabled(true) // hub is in active role
 
 	// Create controller
 	controller := &hubHAController{
@@ -177,6 +175,7 @@ func TestHubHAController_Reconcile_FilteredResource(t *testing.T) {
 		},
 	}
 	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
+	emitter.SetEnabled(true) // hub is in active role
 
 	// Create controller
 	controller := &hubHAController{
@@ -227,136 +226,6 @@ func TestHubHAController_Reconcile_FilteredResource(t *testing.T) {
 	// In production, predicate filters before Reconcile is called
 	if len(producer.events) != 1 {
 		t.Errorf("Expected 1 event when calling Reconcile directly, got %d", len(producer.events))
-	}
-}
-
-func TestPerformFullResync(t *testing.T) {
-	// Create fake client
-	scheme := newTestScheme()
-
-	// Create test secrets
-	secret1 := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]interface{}{
-				"name":      "secret1",
-				"namespace": "default",
-				"labels": map[string]interface{}{
-					"hive.openshift.io/secret-type": "kubeconfig",
-				},
-			},
-		},
-	}
-
-	secret2 := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]interface{}{
-				"name":      "secret2",
-				"namespace": "default",
-				"labels": map[string]interface{}{
-					"cluster.open-cluster-management.io/type": "managed",
-				},
-			},
-		},
-	}
-
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(secret1, secret2).
-		Build()
-
-	// Create mock producer and emitter
-	producer := &mockProducer{events: []cloudevents.Event{}}
-	transportConfig := &transport.TransportInternalConfig{
-		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic: "spec-topic",
-		},
-	}
-	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
-
-	// Perform resync
-	resourcesToSync := []schema.GroupVersionKind{
-		{Group: "", Version: "v1", Kind: "Secret"},
-	}
-
-	err := performFullResync(context.Background(), fakeClient, emitter, resourcesToSync)
-	if err != nil {
-		t.Errorf("performFullResync() error = %v", err)
-	}
-
-	// Verify event was sent
-	if len(producer.events) != 1 {
-		t.Errorf("Expected 1 event to be sent after resync, got %d", len(producer.events))
-	}
-
-	// Parse bundle
-	var bundle generic.GenericBundle[*unstructured.Unstructured]
-	err = json.Unmarshal(producer.events[0].Data(), &bundle)
-	if err != nil {
-		t.Errorf("Failed to unmarshal bundle: %v", err)
-	}
-
-	// Should have 2 secrets in resync
-	if len(bundle.Resync) != 2 {
-		t.Errorf("Expected 2 secrets in resync bundle, got %d", len(bundle.Resync))
-	}
-}
-
-func TestPeriodicResync(t *testing.T) {
-	// Create fake client
-	scheme := newTestScheme()
-	secret := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Secret",
-			"metadata": map[string]interface{}{
-				"name":      "test-secret",
-				"namespace": "default",
-				"labels": map[string]interface{}{
-					"hive.openshift.io/secret-type": "kubeconfig",
-				},
-			},
-		},
-	}
-
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(secret).
-		Build()
-
-	// Create mock producer and emitter
-	producer := &mockProducer{events: []cloudevents.Event{}}
-	transportConfig := &transport.TransportInternalConfig{
-		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic: "spec-topic",
-		},
-	}
-	emitter := NewHubHAEmitter(producer, transportConfig, "hub1", "hub2")
-
-	resourcesToSync := []schema.GroupVersionKind{
-		{Group: "", Version: "v1", Kind: "Secret"},
-	}
-
-	// Start periodic resync with very short interval for testing
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Use very short interval for testing
-	interval := 100 * time.Millisecond
-	go periodicResync(ctx, fakeClient, emitter, resourcesToSync, interval)
-
-	// Wait for at least one resync cycle
-	time.Sleep(200 * time.Millisecond)
-
-	// Cancel to stop goroutine
-	cancel()
-
-	// Verify at least one resync event was sent
-	if len(producer.events) < 1 {
-		t.Errorf("Expected at least 1 resync event, got %d", len(producer.events))
 	}
 }
 

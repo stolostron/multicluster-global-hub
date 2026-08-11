@@ -91,23 +91,32 @@ func (s *HubStatusSyncer) Sync(ctx context.Context, evt *cloudevents.Event) erro
 func (s *HubStatusSyncer) updateManagedClusterHubAcceptsClient(ctx context.Context, clusterName string,
 	hubAcceptsClient bool,
 ) error {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// Get the ManagedCluster
-		managedCluster := &clusterv1.ManagedCluster{}
-		if err := s.client.Get(ctx, client.ObjectKey{Name: clusterName}, managedCluster); err != nil {
-			if errors.IsNotFound(err) {
-				log.Debugw("ManagedCluster not found, skipping update", "cluster", clusterName)
-				return nil
-			}
-			return fmt.Errorf("failed to get ManagedCluster: %w", err)
+	// First, try to get the cluster without retry to check if it exists
+	managedCluster := &clusterv1.ManagedCluster{}
+	if err := s.client.Get(ctx, client.ObjectKey{Name: clusterName}, managedCluster); err != nil {
+		if errors.IsNotFound(err) {
+			// Return NotFound error - this will cause Sync() to return error
+			// triggering message-level retry with proper backoff, giving cache time to sync
+			log.Debugw("ManagedCluster not found, will retry message later",
+				"cluster", clusterName)
+			return fmt.Errorf("ManagedCluster not found (may be cache sync delay): %s", clusterName)
 		}
+		return fmt.Errorf("failed to get ManagedCluster: %w", err)
+	}
 
-		// Check if update is needed
-		if managedCluster.Spec.HubAcceptsClient == hubAcceptsClient {
-			log.Debugw("ManagedCluster hubAcceptsClient already set to desired value",
-				"cluster", clusterName,
-				"hubAcceptsClient", hubAcceptsClient)
-			return nil
+	// Check if update is needed
+	if managedCluster.Spec.HubAcceptsClient == hubAcceptsClient {
+		log.Debugw("ManagedCluster hubAcceptsClient already set to desired value",
+			"cluster", clusterName,
+			"hubAcceptsClient", hubAcceptsClient)
+		return nil
+	}
+
+	// Use retry for update conflicts only
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Re-get the latest version before update
+		if err := s.client.Get(ctx, client.ObjectKey{Name: clusterName}, managedCluster); err != nil {
+			return fmt.Errorf("failed to get ManagedCluster: %w", err)
 		}
 
 		// Set hubAcceptsClient
@@ -118,12 +127,15 @@ func (s *HubStatusSyncer) updateManagedClusterHubAcceptsClient(ctx context.Conte
 			return fmt.Errorf("failed to update ManagedCluster: %w", err)
 		}
 
-		log.Infow("updated ManagedCluster hubAcceptsClient",
-			"cluster", clusterName,
-			"hubAcceptsClient", hubAcceptsClient)
-
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
-	return err
+	log.Infow("updated ManagedCluster hubAcceptsClient",
+		"cluster", clusterName,
+		"hubAcceptsClient", hubAcceptsClient)
+
+	return nil
 }

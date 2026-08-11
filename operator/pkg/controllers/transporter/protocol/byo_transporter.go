@@ -24,25 +24,24 @@ type BYOTransporter struct {
 	runtimeClient client.Client
 }
 
-var byoTransporter *BYOTransporter
-
 // create the transport with secret(BYO case), it should meet the following conditions
 // 1. name: "multicluster-global-hub-transport"
 // 2. properties: "bootstrap_server", "ca.crt", "client.crt" and "client.key"
 func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 	c client.Client,
 ) *BYOTransporter {
-	if byoTransporter == nil {
-		byoTransporter = &BYOTransporter{
-			log:           logger.ZaprLogger(),
-			ctx:           ctx,
-			runtimeClient: c,
-		}
-		config.SetTransporter(byoTransporter)
+	transporterConstructMu.Lock()
+	defer transporterConstructMu.Unlock()
+
+	t := &BYOTransporter{
+		log:           logger.ZaprLogger(),
+		ctx:           ctx,
+		runtimeClient: c,
+		name:          namespacedName.Name,
+		namespace:     namespacedName.Namespace,
 	}
-	byoTransporter.name = namespacedName.Name
-	byoTransporter.namespace = namespacedName.Namespace
-	return byoTransporter
+	config.SetTransporter(t)
+	return t
 }
 
 func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
@@ -51,8 +50,9 @@ func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
 
 func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	return &transport.ClusterTopic{
-		SpecTopic:   config.GetSpecTopic(),
-		StatusTopic: config.GetStatusTopic(clusterName),
+		SpecTopic:      config.GetSpecTopic(),
+		MigrationTopic: config.GetMigrationTopic(),
+		StatusTopic:    config.GetStatusTopic(clusterName),
 	}, nil
 }
 
@@ -90,10 +90,11 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 		ConsumerGroupID: config.GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix, clusterName),
 
 		// for the byo case, the status topic isn't change by the clusterName
-		StatusTopic: config.GetStatusTopic(""),
-		SpecTopic:   config.GetSpecTopic(),
-		CACert:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
-		ClientCert:  base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
-		ClientKey:   base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
+		StatusTopic:    config.GetStatusTopic(""),
+		SpecTopic:      config.GetSpecTopic(),
+		MigrationTopic: config.GetMigrationTopic(),
+		CACert:         base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
+		ClientCert:     base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
+		ClientKey:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
 	}, nil
 }
