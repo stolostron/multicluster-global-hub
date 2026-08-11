@@ -131,3 +131,5 @@ func (v *Version) Reset() {
 func (v *Version) InitGen() bool {
 	return v.Generation == 0
 }
+
+// konflux-rebuild-touch
