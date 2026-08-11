@@ -1167,7 +1167,8 @@ data:
               "text": "0.0.0",
               "value": "0.0.0"
             },
-            "hide": 1,
+            "hide": 0,
+            "label": "Version",
             "name": "version",
             "options": [
               {
