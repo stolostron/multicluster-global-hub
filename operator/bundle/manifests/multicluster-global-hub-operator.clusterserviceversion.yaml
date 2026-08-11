@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2026-04-02T04:32:41Z"
+    createdAt: "2026-08-04T11:00:08Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -53,7 +53,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    olm.skipRange: '>=1.7.0 <1.8.0'
+    olm.skipRange: '>=1.8.0 <5.0.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
       "kind":"MulticlusterGlobalHub","metadata":{"name":"multiclusterglobalhub","namespace":"multicluster-global-hub"},
       "spec": {}}'
@@ -71,7 +71,7 @@ metadata:
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
     operatorframework.io/os.linux: supported
-  name: multicluster-global-hub-operator.v1.8.0-dev
+  name: multicluster-global-hub-operator.v5.0.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -350,6 +350,20 @@ spec:
           - apps
           resources:
           - deployments
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - apiservers
+          verbs:
+          - get
+        - apiGroups:
+          - operator.openshift.io
+          resources:
+          - ingresscontrollers
           verbs:
           - get
           - list
@@ -964,8 +978,15 @@ spec:
         - apiGroups:
           - config.openshift.io
           resources:
+          - apiservers
+          verbs:
+          - get
+        - apiGroups:
+          - config.openshift.io
+          resources:
           - clusterversions
           - infrastructures
+          - networks
           verbs:
           - get
           - list
@@ -981,6 +1002,14 @@ spec:
           - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - discovery.k8s.io
+          resources:
+          - endpointslices
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - extensions.hive.openshift.io
@@ -1092,6 +1121,17 @@ spec:
           - get
           - update
         - apiGroups:
+          - networking.k8s.io
+          resources:
+          - networkpolicies
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
           - observability.open-cluster-management.io
           resources:
           - observabilityaddons
@@ -1100,6 +1140,25 @@ spec:
           - get
           - list
           - update
+        - apiGroups:
+          - olm.operatorframework.io
+          resources:
+          - clustercatalogs
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - olm.operatorframework.io
+          resources:
+          - clusterextensions
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - watch
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
@@ -1140,6 +1199,14 @@ spec:
           - get
           - patch
           - update
+        - apiGroups:
+          - operator.openshift.io
+          resources:
+          - ingresscontrollers
+          verbs:
+          - get
+          - list
+          - watch
         - apiGroups:
           - operators.coreos.com
           resources:
@@ -1432,8 +1499,8 @@ spec:
   maintainers:
   - email: acm-contact@redhat.com
     name: acm-contact
-  maturity: release-1.8
+  maturity: release-5.0
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 1.8.0-dev
+  version: 5.0.0-dev

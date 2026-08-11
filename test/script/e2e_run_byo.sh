@@ -65,6 +65,7 @@ wait_cmd "kubectl get kafka kafka -n ${kafka_namespace} --kubeconfig ${KAFKA_KUB
 
 # wait the byo kafkatopic and kafkauser
 wait_cmd "kubectl get kafkatopic gh-spec -n ${kafka_namespace} --kubeconfig ${KAFKA_KUBECONFIG} | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-migration -n ${kafka_namespace} --kubeconfig ${KAFKA_KUBECONFIG} | grep -C 1 True"
 wait_cmd "kubectl get kafkatopic gh-status -n ${kafka_namespace} --kubeconfig ${KAFKA_KUBECONFIG} | grep -C 1 True"
 wait_cmd "kubectl get kafkauser ${byo_user} -n ${kafka_namespace} --kubeconfig ${KAFKA_KUBECONFIG} | grep -C 1 True"
 echo "Kafka topic and user is ready"

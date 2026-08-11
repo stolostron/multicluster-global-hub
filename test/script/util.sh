@@ -8,8 +8,8 @@ export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=1.1.1
 export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
-export GO_VERSION=go1.25.7
-export GINKGO_VERSION=v2.17.2
+export GO_VERSION=go1.26.4
+export GINKGO_VERSION=v2.31.0
 
 # Environment Variables
 CURRENT_DIR=$(
@@ -82,14 +82,83 @@ check_kustomize() {
   echo "kustomize version: $(kustomize version)"
 }
 
+install_clusteradm() {
+  local version="v${CLUSTERADM_VERSION}"
+  local os arch artifact url tmp_root artifact_file cli_file
+  local max_retries=5
+  local attempt=0
+  local curl_connect_timeout=30
+  local curl_max_time=300
+
+  os=$(uname | tr '[:upper:]' '[:lower:]')
+  arch=$(uname -m)
+  case $arch in
+    armv7*) arch="arm" ;;
+    aarch64) arch="arm64" ;;
+    x86_64) arch="amd64" ;;
+  esac
+
+  artifact="clusteradm_${os}_${arch}.tar.gz"
+  url="https://github.com/open-cluster-management-io/clusteradm/releases/download/${version}/${artifact}"
+  cli_file="${INSTALL_DIR}/clusteradm"
+
+  while [ $attempt -lt $max_retries ]; do
+    attempt=$((attempt + 1))
+    tmp_root=$(mktemp -dt clusteradm-install-XXXXXX)
+    artifact_file="${tmp_root}/${artifact}"
+
+    echo "Downloading clusteradm ${version} (attempt ${attempt}/${max_retries})..."
+    if ! curl -fSL --connect-timeout "${curl_connect_timeout}" --max-time "${curl_max_time}" \
+      --retry 3 --retry-delay 2 "$url" -o "$artifact_file"; then
+      echo "clusteradm download failed (curl error)"
+      rm -rf "$tmp_root"
+      sleep 5
+      continue
+    fi
+
+    if ! gzip -t "$artifact_file" 2>/dev/null; then
+      echo "clusteradm download is not a valid gzip archive ($(wc -c <"$artifact_file") bytes)"
+      rm -rf "$tmp_root"
+      sleep 5
+      continue
+    fi
+
+    if ! tar -xf "$artifact_file" -C "$tmp_root" clusteradm 2>/dev/null; then
+      echo "clusteradm archive failed to unpack"
+      rm -rf "$tmp_root"
+      sleep 5
+      continue
+    fi
+
+    chmod +x "${tmp_root}/clusteradm"
+    if [ -w "$INSTALL_DIR" ]; then
+      if ! install -m 0755 "${tmp_root}/clusteradm" "$cli_file"; then
+        echo "failed to install clusteradm to ${INSTALL_DIR}"
+        rm -rf "$tmp_root"
+        sleep 5
+        continue
+      fi
+    elif ! sudo install -m 0755 "${tmp_root}/clusteradm" "$cli_file"; then
+      echo "failed to install clusteradm to ${INSTALL_DIR} (sudo)"
+      rm -rf "$tmp_root"
+      sleep 5
+      continue
+    fi
+    rm -rf "$tmp_root"
+
+    if command -v clusteradm >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
+
+  echo "Failed to install clusteradm after ${max_retries} attempts"
+  return 1
+}
+
 check_clusteradm() {
   if ! command -v clusteradm >/dev/null 2>&1; then
-    # curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash
-    curl -LO https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/v$CLUSTERADM_VERSION/install.sh
-    chmod +x ./install.sh
-    export INSTALL_DIR=$INSTALL_DIR
-    source ./install.sh $CLUSTERADM_VERSION
-    rm ./install.sh
+    install_clusteradm || exit 1
   fi
   echo "clusteradm path: $(which clusteradm)"
 }
@@ -714,8 +783,11 @@ check_golang() {
     sudo tar -C /usr/local/ -xvf $GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
     sudo rm $GO_VERSION.linux-amd64.tar.gz
   fi
-  if [[ $(go version) < "go version go1.24" ]]; then
-    echo "go version is less than 1.24, update to $GO_VERSION"
+  installed_version=$(go version | awk '{print $3}' | sed 's/^go//')
+  required_version=${GO_VERSION#go}
+  version_compare "$installed_version" "$required_version"
+  if [[ $? -eq 2 ]]; then
+    echo "go version is less than ${required_version}, update to $GO_VERSION"
     sudo rm -rf /usr/local/go
     wget https://dl.google.com/go/$GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
     sudo tar -C /usr/local/ -xvf $GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1

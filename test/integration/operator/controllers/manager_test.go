@@ -9,6 +9,7 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -104,13 +105,36 @@ var _ = Describe("manager", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			// service monitor
+			// ServiceMonitor must scrape manager metrics over HTTPS with
+			// skip-verify for the controller-runtime self-signed cert (ACM-30175).
 			serviceMonitor := &promv1.ServiceMonitor{}
 			err = runtimeClient.Get(ctx, types.NamespacedName{
 				Namespace: mgh.Namespace,
 				Name:      operatorconstants.GHServiceMonitorName,
 			}, serviceMonitor)
-			return err
+			if err != nil {
+				return err
+			}
+			if len(serviceMonitor.Spec.Endpoints) == 0 {
+				return fmt.Errorf("ServiceMonitor has no endpoints")
+			}
+			ep := serviceMonitor.Spec.Endpoints[0]
+			if ep.Scheme != "https" {
+				return fmt.Errorf("expected ServiceMonitor scheme https, got %q", ep.Scheme)
+			}
+			if ep.TLSConfig == nil || ep.TLSConfig.InsecureSkipVerify == nil || !*ep.TLSConfig.InsecureSkipVerify {
+				return fmt.Errorf("expected ServiceMonitor insecureSkipVerify=true for SecureServing metrics")
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		// NetworkPolicy is rendered alongside other manager manifests; verify it is created
+		Eventually(func() error {
+			np := &networkingv1.NetworkPolicy{}
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      "multicluster-global-hub-manager",
+				Namespace: mgh.Namespace,
+			}, np)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 

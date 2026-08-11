@@ -12,6 +12,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	nputils "github.com/stolostron/multicluster-global-hub/operator/pkg/networkpolicy"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -47,6 +48,18 @@ func setTransportConfigs(manifestsConfig *config.ManifestsConfig,
 	// render the cluster ca whether under the BYO cases
 	manifestsConfig.KafkaClusterCASecret = kafkaConnection.CASecretName
 	manifestsConfig.KafkaClusterCACert = kafkaConnection.CACert
+
+	mgh, err := config.GetMulticlusterGlobalHub(context.Background(), c)
+	if err != nil {
+		return err
+	}
+	hubNamespace := config.GetMGHNamespacedName().Namespace
+	if mgh != nil && mgh.Namespace != "" {
+		hubNamespace = mgh.Namespace
+	}
+	externalKafkaCIDRs := nputils.BuildAddonAgentValues(context.Background(), c,
+		kafkaConnection.BootstrapServer, hubNamespace)
+	manifestsConfig.ExternalKafkaCIDRs = externalKafkaCIDRs
 	return nil
 }
 

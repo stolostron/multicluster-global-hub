@@ -3196,7 +3196,7 @@ func TestProcessResourceByType(t *testing.T) {
 			}(),
 		},
 		{
-			name: "BareMetalHost: should remove pause annotation",
+			name: "BareMetalHost: should remove pause annotation and add backup label",
 			resource: func() *unstructured.Unstructured {
 				bmh := &unstructured.Unstructured{}
 				bmh.SetGroupVersionKind(schema.GroupVersionKind{
@@ -3230,6 +3230,9 @@ func TestProcessResourceByType(t *testing.T) {
 				bmh.SetNamespace("test-cluster")
 				bmh.SetAnnotations(map[string]string{
 					"other-annotation": "should-remain",
+				})
+				bmh.SetLabels(map[string]string{
+					constants.BackupKey: constants.BackupActivationValue,
 				})
 				return bmh
 			}(),
@@ -3274,7 +3277,7 @@ func TestProcessResourceByType(t *testing.T) {
 			}(),
 		},
 		{
-			name: "ImageClusterInstall: should add velero restore label when not present",
+			name: "ImageClusterInstall: should add velero restore label and annotation when not present",
 			resource: func() *unstructured.Unstructured {
 				ici := &unstructured.Unstructured{}
 				ici.SetGroupVersionKind(schema.GroupVersionKind{
@@ -3305,11 +3308,14 @@ func TestProcessResourceByType(t *testing.T) {
 				ici.SetLabels(map[string]string{
 					VeleroRestoreNameLabel: GlobalHubRestoreName,
 				})
+				ici.SetAnnotations(map[string]string{
+					VeleroRestoreStatusAnnotation: "true",
+				})
 				return ici
 			}(),
 		},
 		{
-			name: "ImageClusterInstall: should not override existing velero restore label",
+			name: "ImageClusterInstall: should correct existing velero restore label and annotation values",
 			resource: func() *unstructured.Unstructured {
 				ici := &unstructured.Unstructured{}
 				ici.SetGroupVersionKind(schema.GroupVersionKind{
@@ -3322,6 +3328,10 @@ func TestProcessResourceByType(t *testing.T) {
 				ici.SetLabels(map[string]string{
 					VeleroRestoreNameLabel: "existing-restore",
 					"other-label":          "should-remain",
+				})
+				ici.SetAnnotations(map[string]string{
+					VeleroRestoreStatusAnnotation: "false",
+					"other-annotation":            "should-remain",
 				})
 				return ici
 			}(),
@@ -3342,14 +3352,18 @@ func TestProcessResourceByType(t *testing.T) {
 				ici.SetName("test-ici")
 				ici.SetNamespace("test-cluster")
 				ici.SetLabels(map[string]string{
-					VeleroRestoreNameLabel: "existing-restore",
+					VeleroRestoreNameLabel: GlobalHubRestoreName,
 					"other-label":          "should-remain",
+				})
+				ici.SetAnnotations(map[string]string{
+					VeleroRestoreStatusAnnotation: "true",
+					"other-annotation":            "should-remain",
 				})
 				return ici
 			}(),
 		},
 		{
-			name: "ImageClusterInstall: should preserve existing labels when adding velero label",
+			name: "ImageClusterInstall: should preserve existing labels and annotations when adding velero label and annotation",
 			resource: func() *unstructured.Unstructured {
 				ici := &unstructured.Unstructured{}
 				ici.SetGroupVersionKind(schema.GroupVersionKind{
@@ -3361,6 +3375,9 @@ func TestProcessResourceByType(t *testing.T) {
 				ici.SetNamespace("test-cluster")
 				ici.SetLabels(map[string]string{
 					"existing-label": "value",
+				})
+				ici.SetAnnotations(map[string]string{
+					"existing-annotation": "value",
 				})
 				return ici
 			}(),
@@ -3383,6 +3400,10 @@ func TestProcessResourceByType(t *testing.T) {
 				ici.SetLabels(map[string]string{
 					"existing-label":       "value",
 					VeleroRestoreNameLabel: GlobalHubRestoreName,
+				})
+				ici.SetAnnotations(map[string]string{
+					"existing-annotation":         "value",
+					VeleroRestoreStatusAnnotation: "true",
 				})
 				return ici
 			}(),

@@ -2,6 +2,7 @@ package configs
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,10 +32,18 @@ func GetSyncStateConfigMap(ctx context.Context, c client.Client) (*corev1.Config
 	err := c.Get(ctx, client.ObjectKeyFromObject(agentStateConfigMap), agentStateConfigMap)
 	if err != nil && errors.IsNotFound(err) {
 		if e := c.Create(ctx, agentStateConfigMap); e != nil {
-			return nil, e
+			if !errors.IsAlreadyExists(e) {
+				return nil, fmt.Errorf("create sync-state ConfigMap: %w", e)
+			}
+			getErr := retry.OnError(retry.DefaultBackoff, errors.IsNotFound, func() error {
+				return c.Get(ctx, client.ObjectKeyFromObject(agentStateConfigMap), agentStateConfigMap)
+			})
+			if getErr != nil {
+				return nil, fmt.Errorf("get sync-state ConfigMap after AlreadyExists: %w", getErr)
+			}
 		}
 	} else if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get sync-state ConfigMap: %w", err)
 	}
 	return agentStateConfigMap, nil
 }

@@ -1,0 +1,37 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spicedb
+  namespace: {{.Namespace}}
+  labels:
+    global-hub.open-cluster-management.io/managed-by: global-hub-operator
+spec:
+  podSelector:
+    matchLabels:
+      authzed.com/cluster: spicedb
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow incoming connections to SpiceDB ports
+  - ports:
+    - protocol: TCP
+      port: 50051  # gRPC API
+    - protocol: TCP
+      port: 8443   # HTTP Gateway
+    - protocol: TCP
+      port: 9090   # Metrics
+    - protocol: TCP
+      port: 50053  # Dispatch cluster
+  egress:
+  # Allow connections to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          name: {{.PostgresName}}
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow all other egress for external dependencies
+  - to:
+    - namespaceSelector: {}

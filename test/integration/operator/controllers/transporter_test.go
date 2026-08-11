@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -91,7 +92,7 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
 		Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
 
-		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
+		reconciler := operatortrans.NewTransportReconciler(runtimeManager, config.OLMVersionV0)
 
 		Eventually(func() error {
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
@@ -146,7 +147,7 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
 		Expect(config.GetRawStatusTopic()).To(Equal("gh-status.*"))
 
-		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
+		reconciler := operatortrans.NewTransportReconciler(runtimeManager, config.OLMVersionV0)
 
 		// blocking until get the connection
 		go func() {
@@ -196,8 +197,25 @@ var _ = Describe("transporter", Ordered, func() {
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
+		// NetworkPolicies are rendered alongside the kafka manifests; verify both are created
+		Eventually(func() error {
+			np := &networkingv1.NetworkPolicy{}
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      protocol.KafkaClusterName,
+				Namespace: mgh.Namespace,
+			}, np)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		Eventually(func() error {
+			np := &networkingv1.NetworkPolicy{}
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      "strimzi-cluster-operator",
+				Namespace: mgh.Namespace,
+			}, np)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
 		// update the kafka resource to make it ready
-		err = UpdateKafkaClusterReady(runtimeClient, mgh.Namespace)
+		err = UpdateKafkaClusterReady(ctx, runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
 
 		// verify the metrics resources and pod monitor
@@ -248,6 +266,7 @@ var _ = Describe("transporter", Ordered, func() {
 			runtimeManager,
 			mgh,
 			protocol.WithCommunity(false),
+			protocol.WithOLMVersion(config.OLMVersionV0),
 			protocol.WithNamespacedName(types.NamespacedName{
 				Name:      protocol.KafkaClusterName,
 				Namespace: mgh.Namespace,
@@ -410,13 +429,14 @@ var _ = Describe("transporter", Ordered, func() {
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
 		// utils.PrettyPrint(kafkaUser.Spec.Authorization)
-		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)
 		Expect(err).To(Succeed())
 		Expect("gh-spec").To(Equal(clusterTopic.SpecTopic))
 		Expect(config.GetStatusTopic(clusterName)).To(Equal(clusterTopic.StatusTopic))
+		Expect(config.GetMigrationTopic()).To(Equal(clusterTopic.MigrationTopic))
 
 		// topic: update
 		_, err = trans.EnsureTopic(clusterName)
@@ -438,12 +458,12 @@ var _ = Describe("transporter", Ordered, func() {
 	})
 })
 
-func UpdateKafkaClusterReady(c client.Client, ns string) error {
+func UpdateKafkaClusterReady(ctx context.Context, c client.Client, ns string) error {
 	kafkaVersion := "4.1.0"
 	kafkaClusterName := "kafka"
 	globalHubKafkaUser := "global-hub-kafka-user"
-	clientCa := "kafka-clients-ca-cert"
-	clientCaCert := "kafka-clients-ca"
+	clientCAKeySecret := "kafka-clients-ca"
+	clientCACertSecret := "kafka-clients-ca-cert"
 
 	readyCondition := "Ready"
 	trueCondition := "True"
@@ -489,15 +509,15 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		},
 	}
 
-	if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 1*time.Minute, true, func(pollCtx context.Context) (bool, error) {
 		existkafkaCluster := &kafkav1beta2.Kafka{}
-		err := c.Get(context.Background(), types.NamespacedName{
+		err := c.Get(pollCtx, types.NamespacedName{
 			Name:      kafkaClusterName,
 			Namespace: ns,
 		}, existkafkaCluster)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				if e := c.Create(context.Background(), statusKafkaCluster); e != nil {
+				if e := c.Create(pollCtx, statusKafkaCluster); e != nil {
 					klog.Errorf("Failed to create kafka cluster, error: %v", e)
 					return false, nil
 				}
@@ -522,7 +542,7 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 				},
 			},
 		}
-		err = c.Status().Update(context.Background(), existkafkaCluster)
+		err = c.Status().Update(pollCtx, existkafkaCluster)
 		if err != nil {
 			klog.Errorf("Failed to update Kafka cluster, error:%v", err)
 			return false, nil
@@ -532,7 +552,7 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		return err
 	}
 
-	err := createSecret(c, ns, globalHubKafkaUser, map[string][]byte{
+	err := createSecret(ctx, c, ns, globalHubKafkaUser, map[string][]byte{
 		"user.crt": []byte("usercrt"),
 		"user.key": []byte("userkey"),
 	})
@@ -540,14 +560,14 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		return err
 	}
 
-	err = createSecret(c, ns, clientCa, map[string][]byte{
+	err = createSecret(ctx, c, ns, clientCAKeySecret, map[string][]byte{
 		"ca.key": []byte("cakey"),
 	})
 	if err != nil {
 		return err
 	}
 
-	err = createSecret(c, ns, clientCaCert, map[string][]byte{
+	err = createSecret(ctx, c, ns, clientCACertSecret, map[string][]byte{
 		"ca.crt": []byte("cacert"),
 	})
 	if err != nil {
@@ -556,22 +576,27 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 	return nil
 }
 
-func createSecret(c client.Client, ns, name string, data map[string][]byte) error {
-	clientCaCertSecret := &corev1.Secret{
+func createSecret(ctx context.Context, c client.Client, ns, name string, data map[string][]byte) error {
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      name,
 		},
-		Data: data,
 	}
-	err := c.Get(context.Background(), client.ObjectKeyFromObject(clientCaCertSecret), clientCaCertSecret)
+	err := c.Get(ctx, client.ObjectKeyFromObject(secret), secret)
 	if errors.IsNotFound(err) {
-		e := c.Create(context.Background(), clientCaCertSecret)
-		if e != nil {
-			return e
+		secret.Data = data
+		if err := c.Create(ctx, secret); err != nil {
+			return fmt.Errorf("create secret %s/%s: %w", ns, name, err)
 		}
-	} else if err != nil {
-		return err
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("get secret %s/%s: %w", ns, name, err)
+	}
+	secret.Data = data
+	if err := c.Update(ctx, secret); err != nil {
+		return fmt.Errorf("update secret %s/%s: %w", ns, name, err)
 	}
 	return nil
 }

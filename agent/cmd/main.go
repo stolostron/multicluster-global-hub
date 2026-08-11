@@ -23,7 +23,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
@@ -204,10 +203,24 @@ func createManager(restConfig *rest.Config, agentConfig *configs.AgentConfig) (
 		}
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	tlsConfigFunc, profileType, err := utils.BuildMetricsTLSConfigFunc(ctx, restConfig)
+	if err != nil {
+		return nil, err
+	}
+	if profileType != "" {
+		logger.DefaultZapLogger().Info(
+			"Configuring metrics server TLS from cluster APIServer profile",
+			"profileType", profileType,
+		)
+	} else {
+		logger.DefaultZapLogger().Info("Using TLS 1.3 for metrics server (cluster APIServer profile unavailable)")
+	}
+
 	options := ctrl.Options{
-		Metrics: metricsserver.Options{
-			BindAddress: agentConfig.MetricsAddress,
-		},
+		// SecureServing + TLSOpts via helper (covered in pkg/utils); cmd wiring is one line.
+		Metrics:                 utils.NewSecureMetricsServerOptions(agentConfig.MetricsAddress, tlsConfigFunc),
 		LeaderElection:          true,
 		Scheme:                  configs.GetRuntimeScheme(),
 		LeaderElectionConfig:    leaderElectionConfig,

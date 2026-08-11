@@ -301,6 +301,51 @@ var _ = Describe("Deployer", Ordered, func() {
 		})
 	})
 
+	Context("with NetworkPolicy objects", func() {
+		It("should deploy, update on spec change, and no-op when unchanged", func() {
+			By("load NetworkPolicy object")
+			npObjects, err := loadObjects(manifestsFS, "testdata/networkpolicyv1")
+			Expect(err).NotTo(HaveOccurred())
+
+			By("deploy NetworkPolicy (create path)")
+			for _, obj := range npObjects {
+				Expect(hohdeployer.Deploy(obj)).NotTo(HaveOccurred())
+			}
+
+			By("redeploy with updated spec (update path — ingress port changed)")
+			for _, obj := range npObjects {
+				spec, _, _ := unstructured.NestedMap(obj.Object, "spec")
+				ingress := []interface{}{
+					map[string]interface{}{
+						"ports": []interface{}{
+							map[string]interface{}{"protocol": "TCP", "port": int64(9090)},
+						},
+					},
+				}
+				spec["ingress"] = ingress
+				Expect(unstructured.SetNestedMap(obj.Object, spec, "spec")).To(Succeed())
+				Expect(hohdeployer.Deploy(obj)).NotTo(HaveOccurred())
+			}
+
+			By("verify spec was updated")
+			for _, obj := range npObjects {
+				got := &unstructured.Unstructured{}
+				got.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+				Expect(k8sClient.Get(ctx, types.NamespacedName{
+					Namespace: obj.GetNamespace(),
+					Name:      obj.GetName(),
+				}, got)).NotTo(HaveOccurred())
+				ports, _, _ := unstructured.NestedSlice(got.Object, "spec", "ingress")
+				Expect(ports).NotTo(BeEmpty())
+			}
+
+			By("redeploy with no changes (no-op path)")
+			for _, obj := range npObjects {
+				Expect(hohdeployer.Deploy(obj)).NotTo(HaveOccurred())
+			}
+		})
+	})
+
 	Context("with untyped objects", func() {
 		It("should be updated when new annotations are added", func() {
 			By("load untyped objects")

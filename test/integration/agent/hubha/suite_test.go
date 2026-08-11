@@ -22,7 +22,9 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
+	hubhastatus "github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/hubha"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -114,10 +116,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Adding configmap controller")
-	// Initialize agent config for the controller
+	// Initialize agent config for the controller.
+	// TransportConfig is included so that the Hub HA emitter created by
+	// enableSyncer has a valid config for any PeriodicSyncer ticks that fire.
 	agentConfig := &configs.AgentConfig{
-		LeafHubName:  "hub1",
-		PodNamespace: constants.GHAgentNamespace,
+		LeafHubName:     "hub1",
+		PodNamespace:    constants.GHAgentNamespace,
+		TransportConfig: transportConfig,
 	}
 	configs.SetAgentConfig(agentConfig)
 
@@ -125,15 +130,17 @@ var _ = BeforeSuite(func() {
 	err = configmap.AddConfigMapController(mgr, agentConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	By("Setting up Hub HA syncer manager")
-	// Create suite-level mock producer for all lifecycle tests
+	By("Setting up Hub HA lifecycle controller")
+	// Create suite-level mock producer for lifecycle tests.
 	suiteProducer = newMockProducer()
-	// Initialize Hub HA syncer manager once for all tests
-	// Use suite-level context for long-lived syncer goroutines
-	configmap.SetHubHASyncerManager(ctx, mgr, suiteProducer, func(ctx context.Context, m ctrl.Manager, prod transport.Producer) error {
-		// Mock start function for testing - doesn't actually start syncers
-		return nil
-	})
+	// Register the Hub HA lifecycle controller (replaces the removed SetHubHASyncerManager).
+	// Use WithNoOpStartResourceSyncerFn so the lifecycle controller does not attempt to
+	// register the "hubha" GVK-watching controller — the syncer tests do that directly via
+	// StartHubHAResourceSyncer, and controller names must be unique within the manager.
+	suitePeriodicSyncer := &generic.PeriodicSyncer{}
+	err = hubhastatus.AddHubHAController(mgr, suitePeriodicSyncer, suiteProducer, agentConfig,
+		hubhastatus.WithNoOpStartResourceSyncerFn())
+	Expect(err).NotTo(HaveOccurred(), "failed to register Hub HA lifecycle controller during integration suite setup")
 
 	go func() {
 		defer GinkgoRecover()

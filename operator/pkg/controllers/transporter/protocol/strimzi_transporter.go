@@ -8,11 +8,14 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	jsonpatch "github.com/evanphx/json-patch"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -50,8 +53,11 @@ const (
 	// Global hub kafkaUser name
 	DefaultGlobalHubKafkaUserName = "global-hub-kafka-user"
 
+	// Strimzi operator package/subscription/ClusterExtension name (shared across OLM install paths).
+	StrimziOperatorName = "strimzi-kafka-operator"
+
 	// subscription - common
-	DefaultKafkaSubName           = "strimzi-kafka-operator"
+	DefaultKafkaSubName           = StrimziOperatorName
 	DefaultInstallPlanApproval    = subv1alpha1.ApprovalAutomatic
 	DefaultCatalogSourceNamespace = "openshift-marketplace"
 
@@ -62,8 +68,13 @@ const (
 
 	// subscription - community
 	CommunityChannel           = "strimzi-0.49.x"
-	CommunityPackageName       = "strimzi-kafka-operator"
+	CommunityPackageName       = StrimziOperatorName
 	CommunityCatalogSourceName = "community-operators"
+
+	// OLMv1 ClusterExtension
+	StrimziClusterExtensionName = StrimziOperatorName
+	StrimziInstallerSAName      = "strimzi-kafka-installer"
+	StrimziInstallerCRBName     = "strimzi-kafka-installer"
 )
 
 var (
@@ -95,6 +106,9 @@ type strimziTransporter struct {
 	mgh     *operatorv1alpha4.MulticlusterGlobalHub
 	manager ctrl.Manager
 
+	// OLM version: "v0", "v1", or "" (no OLM)
+	olmVersion string
+
 	// wait until kafka cluster status is ready when initialize
 	waitReady bool
 	enableTLS bool
@@ -105,66 +119,70 @@ type strimziTransporter struct {
 
 type KafkaOption func(*strimziTransporter)
 
-var transporter *strimziTransporter
+var transporterConstructMu sync.Mutex
+
+func newStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub) *strimziTransporter {
+	t := &strimziTransporter{
+		ctx:                       context.TODO(),
+		kafkaClusterName:          KafkaClusterName,
+		subName:                   DefaultKafkaSubName,
+		subCommunity:              false,
+		subChannel:                DefaultAMQChannel,
+		subPackageName:            DefaultAMQPackageName,
+		subCatalogSourceName:      DefaultCatalogSourceName,
+		subCatalogSourceNamespace: DefaultCatalogSourceNamespace,
+
+		waitReady:              true,
+		enableTLS:              true,
+		sharedTopics:           false,
+		topicPartitionReplicas: DefaultPartitionReplicas,
+
+		mgh:                   mgh,
+		manager:               mgr,
+		kafkaClusterNamespace: mgh.Namespace,
+	}
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+		t.topicPartitionReplicas = 1
+	}
+	return t
+}
 
 func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	opts ...KafkaOption,
 ) *strimziTransporter {
-	if transporter == nil {
-		transporter = &strimziTransporter{
-			ctx:                       context.TODO(),
-			kafkaClusterName:          KafkaClusterName,
-			subName:                   DefaultKafkaSubName,
-			subCommunity:              false,
-			subChannel:                DefaultAMQChannel,
-			subPackageName:            DefaultAMQPackageName,
-			subCatalogSourceName:      DefaultCatalogSourceName,
-			subCatalogSourceNamespace: DefaultCatalogSourceNamespace,
+	transporterConstructMu.Lock()
+	defer transporterConstructMu.Unlock()
 
-			waitReady:              true,
-			enableTLS:              true,
-			sharedTopics:           false,
-			topicPartitionReplicas: DefaultPartitionReplicas,
-
-			manager: mgr,
-		}
-		config.SetTransporter(transporter)
-		if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
-			transporter.topicPartitionReplicas = 1
-		}
-	}
-
-	transporter.mgh = mgh
-	transporter.kafkaClusterNamespace = mgh.Namespace
-	// apply options
+	t := newStrimziTransporter(mgr, mgh)
 	for _, opt := range opts {
-		opt(transporter)
+		opt(t)
 	}
 
-	if transporter.subCommunity {
-		transporter.subChannel = CommunityChannel
-		transporter.subPackageName = CommunityPackageName
-		transporter.subCatalogSourceName = CommunityCatalogSourceName
+	if t.subCommunity {
+		t.subChannel = CommunityChannel
+		t.subPackageName = CommunityPackageName
+		t.subCatalogSourceName = CommunityCatalogSourceName
 	}
 	// user could customize the catalog config
 	catalogSourceName, ok := mgh.Annotations[operatorconstants.CatalogSourceNameKey]
 	if ok && catalogSourceName != "" {
-		transporter.subCatalogSourceName = catalogSourceName
+		t.subCatalogSourceName = catalogSourceName
 	}
 	catalogSourceNamespace, ok := mgh.Annotations[operatorconstants.CatalogSourceNamespaceKey]
 	if ok && catalogSourceNamespace != "" {
-		transporter.subCatalogSourceNamespace = catalogSourceNamespace
+		t.subCatalogSourceNamespace = catalogSourceNamespace
 	}
 	subscriptionChannel, ok := mgh.Annotations[operatorconstants.SubscriptionChannel]
-	if ok && catalogSourceNamespace != "" {
-		transporter.subChannel = subscriptionChannel
+	if ok && subscriptionChannel != "" {
+		t.subChannel = subscriptionChannel
 	}
 	subscriptionPackageName, ok := mgh.Annotations[operatorconstants.SubscriptionPackageName]
-	if ok && catalogSourceNamespace != "" {
-		transporter.subPackageName = subscriptionPackageName
+	if ok && subscriptionPackageName != "" {
+		t.subPackageName = subscriptionPackageName
 	}
 
-	return transporter
+	config.SetTransporter(t)
+	return t
 }
 
 func (k *strimziTransporter) getCurrentReplicas() (int32, error) {
@@ -208,15 +226,34 @@ func WithSubName(name string) KafkaOption {
 	}
 }
 
-// EnsureKafka the kafka subscription, cluster, metrics, global hub user and topic
+func WithOLMVersion(version string) KafkaOption {
+	return func(sk *strimziTransporter) {
+		sk.olmVersion = version
+	}
+}
+
+// EnsureKafka the kafka subscription/ClusterExtension, cluster, metrics, global hub user and topic
 func (k *strimziTransporter) EnsureKafka() (bool, error) {
 	log.Debug("reconcile global hub kafka transport...")
-	err := k.ensureSubscription(k.mgh)
-	if err != nil {
-		return false, err
-	}
 
-	installed, err := k.isCSVInstalled()
+	var installed bool
+	var err error
+	switch k.olmVersion {
+	case config.OLMVersionV1:
+		err = k.ensureClusterExtension(k.mgh)
+		if err != nil {
+			return false, err
+		}
+		installed, err = k.isClusterExtensionInstalled()
+	case config.OLMVersionV0:
+		err = k.ensureSubscription(k.mgh)
+		if err != nil {
+			return false, err
+		}
+		installed, err = k.isCSVInstalled()
+	default:
+		return false, fmt.Errorf("no OLM detected; cannot install Kafka operator")
+	}
 	if err != nil {
 		return false, err
 	}
@@ -268,6 +305,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				KafkaCluster           string
 				GlobalHubKafkaUser     string
 				SpecTopic              string
+				MigrationTopic         string
 				StatusTopic            string
 				StatusTopicPattern     string
 				StatusPlaceholderTopic string
@@ -283,6 +321,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				KafkaCluster:           KafkaClusterName,
 				GlobalHubKafkaUser:     DefaultGlobalHubKafkaUserName,
 				SpecTopic:              config.GetSpecTopic(),
+				MigrationTopic:         config.GetMigrationTopic(),
 				StatusTopic:            statusTopic,
 				StatusTopicPattern:     string(topicPattern),
 				StatusPlaceholderTopic: statusPlaceholderTopic,
@@ -357,6 +396,11 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		}),
+		// consume migration deploying bundles from the dedicated migration topic
+		utils.GetTopicACL(clusterTopic.MigrationTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
 		}),
 		// report status into gh: allow the current hub to write messages to the specific status topic
 		utils.GetTopicACL(clusterTopic.StatusTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
@@ -443,6 +487,8 @@ func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
+	// gh-migration is a shared hub topic provisioned once by renderKafkaResources; do not
+	// reconcile it per managed cluster (spec differs from newKafkaTopic and causes conflicts).
 	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.StatusTopic}
 	for _, topicName := range topicNames {
 		if err := k.ensureTopic(topicName, nil); err != nil {
@@ -530,8 +576,9 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 
 func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.ClusterTopic {
 	topic := &transport.ClusterTopic{
-		SpecTopic:   config.GetSpecTopic(),
-		StatusTopic: config.GetStatusTopic(clusterName),
+		SpecTopic:      config.GetSpecTopic(),
+		MigrationTopic: config.GetMigrationTopic(),
+		StatusTopic:    config.GetStatusTopic(clusterName),
 	}
 	return topic
 }
@@ -551,6 +598,7 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	// topics
 	credential.StatusTopic = config.GetStatusTopic(clusterName)
 	credential.SpecTopic = config.GetSpecTopic()
+	credential.MigrationTopic = config.GetMigrationTopic()
 
 	// consumer group id
 	credential.ConsumerGroupID = config.GetConsumerGroupID(k.mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix,
@@ -1154,6 +1202,168 @@ func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.Multiclust
 		existingSub.Spec.StartingCSV = startingCSV
 		return k.manager.GetClient().Update(k.ctx, existingSub)
 	})
+}
+
+// ensureClusterExtension creates/updates the ServiceAccount, ClusterRoleBinding, and ClusterExtension for OLMv1
+func (k *strimziTransporter) ensureClusterExtension(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
+	c := k.manager.GetClient()
+
+	// ensure installer ServiceAccount
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      StrimziInstallerSAName,
+			Namespace: mgh.Namespace,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+	}
+	existingSA := &corev1.ServiceAccount{}
+	if err := c.Get(k.ctx, types.NamespacedName{
+		Name: sa.Name, Namespace: sa.Namespace,
+	}, existingSA); err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get strimzi installer ServiceAccount %s/%s: %w", sa.Namespace, sa.Name, err)
+		}
+		if err := c.Create(k.ctx, sa); err != nil {
+			return fmt.Errorf("create strimzi installer ServiceAccount %s/%s: %w", sa.Namespace, sa.Name, err)
+		}
+	}
+
+	// ensure ClusterRoleBinding with cluster-admin
+	expectedSubjects := []rbacv1.Subject{
+		{
+			Kind:      rbacv1.ServiceAccountKind,
+			Name:      StrimziInstallerSAName,
+			Namespace: mgh.Namespace,
+		},
+	}
+	expectedRoleRef := rbacv1.RoleRef{
+		APIGroup: rbacv1.GroupName,
+		Kind:     "ClusterRole",
+		Name:     "cluster-admin",
+	}
+	existingCRB := &rbacv1.ClusterRoleBinding{}
+	if err := c.Get(k.ctx, types.NamespacedName{Name: StrimziInstallerCRBName}, existingCRB); err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get strimzi installer ClusterRoleBinding %q: %w", StrimziInstallerCRBName, err)
+		}
+		crb := &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: StrimziInstallerCRBName,
+				Labels: map[string]string{
+					constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+				},
+			},
+			Subjects: expectedSubjects,
+			RoleRef:  expectedRoleRef,
+		}
+		if err := c.Create(k.ctx, crb); err != nil {
+			return fmt.Errorf("create strimzi installer ClusterRoleBinding %q: %w", StrimziInstallerCRBName, err)
+		}
+	} else if !equality.Semantic.DeepEqual(existingCRB.Subjects, expectedSubjects) ||
+		existingCRB.RoleRef != expectedRoleRef {
+		// RoleRef is immutable — delete and requeue to recreate
+		if err := c.Delete(k.ctx, existingCRB); err != nil {
+			return fmt.Errorf("delete strimzi installer ClusterRoleBinding %q: %w", StrimziInstallerCRBName, err)
+		}
+		return fmt.Errorf("deleted strimzi installer ClusterRoleBinding due to drift, requeueing to recreate")
+	}
+
+	// ensure ClusterExtension
+	expectedCE := k.newClusterExtension(mgh)
+	existingCE := &ocv1.ClusterExtension{}
+	if err := c.Get(k.ctx, types.NamespacedName{Name: expectedCE.Name}, existingCE); err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get strimzi ClusterExtension %q: %w", expectedCE.Name, err)
+		}
+		if err := c.Create(k.ctx, expectedCE); err != nil {
+			return fmt.Errorf("create strimzi ClusterExtension %q: %w", expectedCE.Name, err)
+		}
+		return nil
+	}
+
+	var existingPkg string
+	if existingCE.Spec.Source.Catalog != nil {
+		existingPkg = existingCE.Spec.Source.Catalog.PackageName
+	}
+	expectedPkg := expectedCE.Spec.Source.Catalog.PackageName
+
+	// packageName and namespace are immutable — delete and let next reconcile recreate
+	if existingPkg != expectedPkg || existingCE.Spec.Namespace != expectedCE.Spec.Namespace {
+		if err := c.Delete(k.ctx, existingCE); err != nil {
+			return fmt.Errorf("delete strimzi ClusterExtension %q: %w", existingCE.Name, err)
+		}
+		return fmt.Errorf("deleted strimzi ClusterExtension due to immutable field change, requeueing to recreate")
+	}
+
+	// Compare only the fields we manage to avoid hot loops from server-defaulted fields
+	needsUpdate := existingCE.Spec.ServiceAccount.Name != expectedCE.Spec.ServiceAccount.Name
+	needsUpdate = needsUpdate || !equality.Semantic.DeepEqual(
+		existingCE.Spec.Source.Catalog.Channels, expectedCE.Spec.Source.Catalog.Channels,
+	)
+
+	if needsUpdate {
+		patch := client.MergeFrom(existingCE.DeepCopy())
+		existingCE.Spec.ServiceAccount = expectedCE.Spec.ServiceAccount
+		if expectedCE.Spec.Source.Catalog != nil && existingCE.Spec.Source.Catalog != nil {
+			existingCE.Spec.Source.Catalog.Channels = expectedCE.Spec.Source.Catalog.Channels
+		}
+		if err := c.Patch(k.ctx, existingCE, patch); err != nil {
+			return fmt.Errorf("patch strimzi ClusterExtension %q: %w", existingCE.Name, err)
+		}
+	}
+	return nil
+}
+
+// isClusterExtensionInstalled checks if the Strimzi ClusterExtension has been successfully installed
+func (k *strimziTransporter) isClusterExtensionInstalled() (bool, error) {
+	ce := &ocv1.ClusterExtension{}
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+		Name: StrimziClusterExtensionName,
+	}, ce)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	for _, cond := range ce.Status.Conditions {
+		if cond.Type == ocv1.TypeInstalled && cond.Status == metav1.ConditionTrue &&
+			cond.ObservedGeneration == ce.Generation {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (k *strimziTransporter) newClusterExtension(
+	mgh *operatorv1alpha4.MulticlusterGlobalHub,
+) *ocv1.ClusterExtension {
+	ce := &ocv1.ClusterExtension{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: StrimziClusterExtensionName,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+		Spec: ocv1.ClusterExtensionSpec{
+			Namespace: mgh.Namespace,
+			ServiceAccount: ocv1.ServiceAccountReference{
+				Name: StrimziInstallerSAName,
+			},
+			Source: ocv1.SourceConfig{
+				SourceType: ocv1.SourceTypeCatalog,
+				Catalog: &ocv1.CatalogFilter{
+					PackageName: k.subPackageName,
+				},
+			},
+		},
+	}
+	if k.subChannel != "" {
+		ce.Spec.Source.Catalog.Channels = []string{k.subChannel}
+	}
+	return ce
 }
 
 // newSubscription returns an CrunchyPostgres subscription with desired default values

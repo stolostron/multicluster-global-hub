@@ -306,7 +306,9 @@ func TestPeriodicSyncer_Resync(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create fake client with test objects
 			scheme := runtime.NewScheme()
-			_ = corev1.AddToScheme(scheme)
+			if err := corev1.AddToScheme(scheme); err != nil {
+				t.Fatalf("failed to add corev1 to test scheme: %v", err)
+			}
 
 			fakeClient := fake.NewClientBuilder().
 				WithScheme(scheme).
@@ -403,4 +405,117 @@ func contains(s, substr string) bool {
 			}
 			return false
 		}()
+}
+
+// TestPeriodicSyncer_Register_NilListFunc verifies that an emitter with a nil ListFunc
+// can be registered (the "self-listing" pattern used by Hub HA).
+func TestPeriodicSyncer_Register_NilListFunc(t *testing.T) {
+	syncer := &PeriodicSyncer{}
+	emitter := &ResyncMockEmitter{eventType: "hubha-event"}
+
+	syncer.Register(&EmitterRegistration{
+		Emitter:  emitter,
+		ListFunc: nil, // self-listing emitter
+	})
+
+	if len(syncer.syncStates) != 1 {
+		t.Fatalf("expected 1 registered state, got %d", len(syncer.syncStates))
+	}
+	if syncer.syncStates[0].Registration.Emitter.EventType() != "hubha-event" {
+		t.Errorf("unexpected event type %s", syncer.syncStates[0].Registration.Emitter.EventType())
+	}
+}
+
+// TestPeriodicSyncer_Resync_NilListFunc verifies that Resync calls Emitter.Resync(nil)
+// when ListFunc is nil, letting the emitter self-list.
+func TestPeriodicSyncer_Resync_NilListFunc(t *testing.T) {
+	emitter := &ResyncMockEmitter{eventType: "hubha-event"}
+	syncer := &PeriodicSyncer{
+		syncStates: []*SyncState{
+			{
+				Registration: &EmitterRegistration{
+					Emitter:  emitter,
+					ListFunc: nil,
+				},
+			},
+		},
+	}
+
+	if err := syncer.Resync(context.Background(), "hubha-event"); err != nil {
+		t.Fatalf("Resync() unexpected error: %v", err)
+	}
+	if !emitter.resyncCalled {
+		t.Error("expected Resync to be called on emitter")
+	}
+	if emitter.resyncObjects != nil {
+		t.Errorf("expected nil objects passed to Resync, got %v", emitter.resyncObjects)
+	}
+}
+
+// TestPeriodicSyncer_Unregister removes an emitter and verifies subsequent Resync is a no-op.
+func TestPeriodicSyncer_Unregister(t *testing.T) {
+	emitter1 := &ResyncMockEmitter{eventType: "event-a"}
+	emitter2 := &ResyncMockEmitter{eventType: "event-b"}
+
+	testScheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(testScheme); err != nil {
+		t.Fatalf("failed to add corev1 to test scheme: %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).Build()
+
+	syncer := &PeriodicSyncer{
+		syncStates: []*SyncState{
+			{
+				Registration: &EmitterRegistration{
+					Emitter: emitter1,
+					ListFunc: func() ([]client.Object, error) {
+						return []client.Object{}, nil
+					},
+				},
+			},
+			{
+				Registration: &EmitterRegistration{
+					Emitter: emitter2,
+					ListFunc: func() ([]client.Object, error) {
+						_ = fakeClient
+						return []client.Object{}, nil
+					},
+				},
+			},
+		},
+	}
+
+	// Unregister event-a
+	syncer.Unregister("event-a")
+
+	if len(syncer.syncStates) != 1 {
+		t.Fatalf("expected 1 state after unregister, got %d", len(syncer.syncStates))
+	}
+	if syncer.syncStates[0].Registration.Emitter.EventType() != "event-b" {
+		t.Errorf("wrong emitter remaining: %s", syncer.syncStates[0].Registration.Emitter.EventType())
+	}
+
+	// Resync event-a should be a no-op (not error)
+	if err := syncer.Resync(context.Background(), "event-a"); err != nil {
+		t.Fatalf("Resync after Unregister should be no-op, got error: %v", err)
+	}
+	if emitter1.resyncCalled {
+		t.Error("emitter1 Resync should not have been called after Unregister")
+	}
+}
+
+// TestPeriodicSyncer_Register_NilEmitter verifies that a nil emitter is rejected.
+func TestPeriodicSyncer_Register_NilEmitter(t *testing.T) {
+	syncer := &PeriodicSyncer{}
+	syncer.Register(&EmitterRegistration{Emitter: nil, ListFunc: nil})
+	if len(syncer.syncStates) != 0 {
+		t.Errorf("expected 0 states for nil emitter, got %d", len(syncer.syncStates))
+	}
+}
+
+// TestPeriodicSyncer_Unregister_NoMatch is a no-op for unknown event types.
+func TestPeriodicSyncer_Unregister_NoMatch(t *testing.T) {
+	syncer := &PeriodicSyncer{}
+	// Should not panic
+	syncer.Unregister("non-existent-type")
 }

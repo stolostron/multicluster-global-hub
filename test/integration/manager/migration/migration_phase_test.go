@@ -267,9 +267,10 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 		}, "10s", "200ms").Should(Succeed())
 
 		By("Completing Cleaning -> Completed")
-		simulateHubConfirmation(m.GetUID(), fromHubName, migrationv1alpha1.PhaseCleaning)
-		simulateHubConfirmation(m.GetUID(), toHubName, migrationv1alpha1.PhaseCleaning)
 		Eventually(func() error {
+			simulateHubConfirmation(m.GetUID(), fromHubName, migrationv1alpha1.PhaseCleaning)
+			simulateHubConfirmation(m.GetUID(), toHubName, migrationv1alpha1.PhaseCleaning)
+
 			if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
 				return fmt.Errorf("failed to get migration: %v", err)
 			}

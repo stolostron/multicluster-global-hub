@@ -27,8 +27,9 @@ func GetSaramaConfig() (string, *sarama.Config, error) {
 	bootstrapSever := kafkaSecret.Data["bootstrap_server"]
 	caCrt := kafkaSecret.Data["ca.crt"]
 
-	// #nosec G402
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
 	// Load CA cert
 	caCertPool := x509.NewCertPool()
@@ -80,8 +81,9 @@ func GetSaramaConfigFromKafkaUser() (string, *sarama.Config, error) {
 		return "", nil, fmt.Errorf("failed to get runtime client")
 	}
 
-	// #nosec G402
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err = c.Get(context.TODO(), types.NamespacedName{
@@ -162,8 +164,9 @@ func GetSaramaConfigByClient(namespace string, c client.Client) (string, *sarama
 		return "", nil, err
 	}
 
-	// #nosec G402
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
 
 	// Load CA cert
 	caCertPool := x509.NewCertPool()

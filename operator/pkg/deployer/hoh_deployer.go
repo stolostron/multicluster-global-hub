@@ -7,6 +7,7 @@ import (
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -43,6 +44,7 @@ func NewHoHDeployer(client client.Client) Deployer {
 		"ClusterRole":        deployer.deployClusterRole,
 		"ClusterRoleBinding": deployer.deployClusterRoleBinding,
 		"PodMonitor":         deployer.deployPodMonitor,
+		"NetworkPolicy":      deployer.deployNetworkPolicy,
 	}
 	return deployer
 }
@@ -50,20 +52,33 @@ func NewHoHDeployer(client client.Client) Deployer {
 func (d *HoHDeployer) Deploy(unsObj *unstructured.Unstructured) error {
 	foundObj := &unstructured.Unstructured{}
 	foundObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
-	err := d.client.Get(
-		context.TODO(),
-		types.NamespacedName{Name: unsObj.GetName(), Namespace: unsObj.GetNamespace()},
-		foundObj,
-	)
+	namespacedName := types.NamespacedName{Name: unsObj.GetName(), Namespace: unsObj.GetNamespace()}
+	err := d.client.Get(context.TODO(), namespacedName, foundObj)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return d.client.Create(context.TODO(), unsObj)
+			if createErr := d.client.Create(context.TODO(), unsObj); createErr != nil {
+				if !errors.IsAlreadyExists(createErr) {
+					return createErr
+				}
+				foundObj = &unstructured.Unstructured{}
+				foundObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
+				if getErr := d.client.Get(context.TODO(), namespacedName, foundObj); getErr != nil {
+					return getErr
+				}
+			} else {
+				return nil
+			}
+		} else {
+			return err
 		}
-		return err
 	}
 
+	return d.deployExisting(unsObj, foundObj)
+}
+
+func (d *HoHDeployer) deployExisting(desiredObj, foundObj *unstructured.Unstructured) error {
 	// if resource has annotation skip-creation-if-exist: true, then it will not be updated
-	metadata, ok := unsObj.Object["metadata"].(map[string]interface{})
+	metadata, ok := desiredObj.Object["metadata"].(map[string]interface{})
 	if ok {
 		annotations, ok := metadata["annotations"].(map[string]interface{})
 		if ok && annotations != nil && annotations["skip-creation-if-exist"] != nil {
@@ -75,13 +90,13 @@ func (d *HoHDeployer) Deploy(unsObj *unstructured.Unstructured) error {
 
 	deployFunction, ok := d.deployFuncs[foundObj.GetKind()]
 	if ok {
-		return deployFunction(unsObj, foundObj)
-	} else {
-		if !apiequality.Semantic.DeepDerivative(unsObj, foundObj) {
-			unsObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
-			unsObj.SetResourceVersion(foundObj.GetResourceVersion())
-			return d.client.Update(context.TODO(), unsObj)
-		}
+		return deployFunction(desiredObj, foundObj)
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredObj, foundObj) {
+		desiredObj.SetGroupVersionKind(desiredObj.GetObjectKind().GroupVersionKind())
+		desiredObj.SetResourceVersion(foundObj.GetResourceVersion())
+		return d.client.Update(context.TODO(), desiredObj)
 	}
 
 	return nil
@@ -322,6 +337,31 @@ func (d *HoHDeployer) deployClusterRoleBinding(desiredObj, existingObj *unstruct
 		!apiequality.Semantic.DeepDerivative(desiredCRB.GetLabels(), existingCRB.GetLabels()) ||
 		!apiequality.Semantic.DeepDerivative(desiredCRB.GetAnnotations(), existingCRB.GetAnnotations()) {
 		return d.client.Update(context.TODO(), desiredCRB)
+	}
+
+	return nil
+}
+
+func (d *HoHDeployer) deployNetworkPolicy(desiredObj, existingObj *unstructured.Unstructured) error {
+	existingJSON, _ := existingObj.MarshalJSON()
+	existingNP := &networkingv1.NetworkPolicy{}
+	err := json.Unmarshal(existingJSON, existingNP)
+	if err != nil {
+		return err
+	}
+
+	desiredJSON, _ := desiredObj.MarshalJSON()
+	desiredNP := &networkingv1.NetworkPolicy{}
+	err = json.Unmarshal(desiredJSON, desiredNP)
+	if err != nil {
+		return err
+	}
+
+	if !apiequality.Semantic.DeepDerivative(desiredNP.Spec, existingNP.Spec) ||
+		!apiequality.Semantic.DeepDerivative(desiredNP.GetLabels(), existingNP.GetLabels()) ||
+		!apiequality.Semantic.DeepDerivative(desiredNP.GetAnnotations(), existingNP.GetAnnotations()) {
+		desiredNP.ResourceVersion = existingNP.ResourceVersion
+		return d.client.Update(context.TODO(), desiredNP)
 	}
 
 	return nil

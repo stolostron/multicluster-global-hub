@@ -10,22 +10,28 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var addToMgr = false
 
+const maxConcurrentSpecValidations = 32
+
 type genericDispatcher struct {
-	log         *zap.SugaredLogger
-	consumer    transport.Consumer
-	agentConfig *configs.AgentConfig
-	syncers     map[string]Syncer
-	mu          sync.RWMutex
-	wg          sync.WaitGroup // Track in-flight syncer goroutines for graceful shutdown
+	log           *zap.SugaredLogger
+	client        client.Client
+	consumer      transport.Consumer
+	agentConfig   *configs.AgentConfig
+	syncers       map[string]Syncer
+	mu            sync.RWMutex
+	wg            sync.WaitGroup // Track in-flight syncer goroutines for graceful shutdown
+	validationSem chan struct{}  // Bounds concurrent async source validation
 }
 
 func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config *configs.AgentConfig,
@@ -34,10 +40,12 @@ func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config 
 		return nil, nil
 	}
 	dispatcher := &genericDispatcher{
-		log:         logger.DefaultZapLogger(),
-		consumer:    consumer,
-		agentConfig: config,
-		syncers:     make(map[string]Syncer),
+		log:           logger.DefaultZapLogger(),
+		client:        mgr.GetClient(),
+		consumer:      consumer,
+		agentConfig:   config,
+		syncers:       make(map[string]Syncer),
+		validationSem: make(chan struct{}, maxConcurrentSpecValidations),
 	}
 	if err := mgr.Add(dispatcher); err != nil {
 		return nil, err
@@ -95,13 +103,13 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				d.log.Infow("event dropped due to missing subject", "type", evt.Type())
 				continue
 			}
-			if subject != transport.Broadcast && subject != d.agentConfig.LeafHubName {
+			if subject != transport.Broadcast &&
+				!utils.MatchesGlobalHubStandbySubject(subject, d.agentConfig.LeafHubName) {
 				d.log.Infow("event dropped due to subject mismatch", "type", evt.Type(), "subject", subject)
 				continue
 			}
-			if expired, expiry := isEventExpired(evt); expired {
-				d.log.Infow("event dropped due to expiry",
-					"type", evt.Type(), "source", evt.Source(), "subject", subject, "expiry", expiry)
+			if expired, _ := isEventExpired(evt); expired {
+				d.log.Infow("event dropped due to expiry", "type", evt.Type())
 				continue
 			}
 			d.mu.RLock()
@@ -116,16 +124,32 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 					"syncer", syncer, "event", evt)
 				continue
 			}
-			// Async call - don't block dispatcher for long-running syncers (e.g., migration)
+			// Async validation and sync - don't block the dispatch loop on K8s API calls.
+			select {
+			case d.validationSem <- struct{}{}:
+			default:
+				d.log.Warnw("event dropped due to validation backlog", "type", evt.Type())
+				continue
+			}
 			d.wg.Add(1)
-			go func(ctx context.Context, evt *cloudevents.Event, syncer Syncer) {
-				defer d.wg.Done()
+			go func(ctx context.Context, evt *cloudevents.Event, syncer Syncer, subject string) {
+				defer func() {
+					<-d.validationSem
+					d.wg.Done()
+				}()
+				validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				allowed := specEventSourceAllowed(validationCtx, d.client, d.agentConfig, evt, subject)
+				cancel()
+				if !allowed {
+					d.log.Warnw("event dropped due to untrusted source", "type", evt.Type())
+					return
+				}
 				if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 					return syncer.Sync(ctx, evt)
 				}); err != nil {
 					d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
 				}
-			}(ctx, evt, syncer)
+			}(ctx, evt, syncer, subject)
 		}
 	}
 }

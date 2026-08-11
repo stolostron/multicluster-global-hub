@@ -20,7 +20,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
@@ -134,11 +133,26 @@ func createManager(ctx context.Context,
 	leaseDuration := time.Duration(managerConfig.ElectionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(managerConfig.ElectionConfig.RetryPeriod) * time.Second
+
+	tlsCtx, tlsCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer tlsCancel()
+	tlsConfigFunc, profileType, err := utils.BuildMetricsTLSConfigFunc(tlsCtx, restConfig)
+	if err != nil {
+		return nil, err
+	}
+	if profileType != "" {
+		logger.DefaultZapLogger().Info(
+			"Configuring metrics server TLS from cluster APIServer profile",
+			"profileType", profileType,
+		)
+	} else {
+		logger.DefaultZapLogger().Info("Using TLS 1.3 for metrics server (cluster APIServer profile unavailable)")
+	}
+
+	metricsBindAddress := fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	options := ctrl.Options{
-		Scheme: configs.GetRuntimeScheme(),
-		Metrics: metricsserver.Options{
-			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		},
+		Scheme:                  configs.GetRuntimeScheme(),
+		Metrics:                 utils.NewSecureMetricsServerOptions(metricsBindAddress, tlsConfigFunc),
 		LeaderElection:          true,
 		LeaderElectionNamespace: managerConfig.ManagerNamespace,
 		LeaderElectionID:        leaderElectionLockID,

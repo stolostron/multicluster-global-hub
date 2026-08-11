@@ -73,8 +73,76 @@ func TestFindStandbyHub(t *testing.T) {
 					},
 				},
 			},
-			expectedHub:   localClusterName,
+			expectedHub:   "global-hub/local-cluster",
 			expectedError: false,
+		},
+		{
+			name: "labeled local MC preferred over stale standby MC",
+			clusters: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "acm-local-cluster",
+						Labels: map[string]string{
+							constants.LocalClusterName: "true",
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: localClusterName,
+						Labels: map[string]string{
+							constants.GHHubRoleLabelKey: constants.GHHubRoleStandby,
+						},
+					},
+				},
+			},
+			expectedHub:   "global-hub/acm-local-cluster",
+			expectedError: false,
+		},
+		{
+			name: "no standby hub - returns labeled local cluster MC name",
+			clusters: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "acm-local-cluster",
+						Labels: map[string]string{
+							constants.LocalClusterName: "true",
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hub1",
+						Labels: map[string]string{
+							constants.GHHubRoleLabelKey: constants.GHHubRoleActive,
+						},
+					},
+				},
+			},
+			expectedHub:   "global-hub/acm-local-cluster",
+			expectedError: false,
+		},
+		{
+			name: "no standby hub - multiple local clusters returns wrapped error",
+			clusters: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "local-a",
+						Labels: map[string]string{
+							constants.LocalClusterName: "true",
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "local-b",
+						Labels: map[string]string{
+							constants.LocalClusterName: "true",
+						},
+					},
+				},
+			},
+			expectedError: true,
 		},
 		{
 			name: "multiple standby hubs - returns first one",
@@ -102,7 +170,7 @@ func TestFindStandbyHub(t *testing.T) {
 		{
 			name:          "no clusters",
 			clusters:      []client.Object{},
-			expectedHub:   localClusterName,
+			expectedHub:   "global-hub/local-cluster",
 			expectedError: false,
 		},
 	}
@@ -121,6 +189,7 @@ func TestFindStandbyHub(t *testing.T) {
 			hub, err := hm.findStandbyHub(context.Background())
 			if tt.expectedError {
 				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "failed to resolve local ManagedCluster name")
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedHub, hub)
@@ -250,10 +319,11 @@ func TestSendHubStatusUpdate_NoStandbyHub(t *testing.T) {
 		producer: mockProducer,
 	}
 
-	// This should fallback to local-cluster
+	// When no standby MC exists, findStandbyHub should return the prefixed default local-cluster subject.
 	standbyHub, err := hm.findStandbyHub(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, localClusterName, standbyHub)
+	assert.Equal(t, "global-hub/local-cluster", standbyHub,
+		"findStandbyHub should return prefixed global-hub/local-cluster when no standby MC is labeled")
 
 	// Setup test cluster in database
 	testCluster := models.ManagedCluster{
@@ -432,11 +502,11 @@ func TestSendHubStatusUpdate_NoStandbyHubAvailable(t *testing.T) {
 		producer: mockProducer,
 	}
 
-	// findStandbyHub returns local-cluster when no standby found
-	// sendHubStatusUpdate should still work
+	// findStandbyHub should still resolve a prefixed fallback when no standby MC exists.
 	standbyHub, err := hm.findStandbyHub(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, localClusterName, standbyHub)
+	assert.Equal(t, "global-hub/local-cluster", standbyHub,
+		"findStandbyHub should return prefixed global-hub/local-cluster when no standby hub is available")
 }
 
 // mockProducer implements transport.Producer for testing

@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -48,6 +49,7 @@ import (
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
 // +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=operator.openshift.io,resources=ingresscontrollers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
@@ -58,6 +60,7 @@ import (
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheuses/api,resourceNames=k8s,verbs=get;create;update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
 
 //go:embed manifests
 var fs embed.FS
@@ -169,7 +172,9 @@ func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&rbacv1.ClusterRoleBinding{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Watches(&routev1.Route{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate))
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&networkingv1.NetworkPolicy{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(networkPolicyPred))
 
 	if _, err := mgr.GetRESTMapper().KindFor(schema.GroupVersionResource{
 		Group:    "image.openshift.io",
@@ -186,6 +191,21 @@ func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 var deploymentPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+}
+
+var networkPolicyPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
@@ -269,6 +289,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
+	r.logGrafanaIngressTLSProfile(ctx)
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
 	if err != nil {
@@ -284,7 +305,6 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
 		replicas = 2
 	}
-	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.GetClient())
 	grafanaObjects, err := grafanaRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
@@ -325,7 +345,6 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		reconcileErr = fmt.Errorf("failed to render grafana manifests: %w", err)
 		return ctrl.Result{}, reconcileErr
 	}
-	// create restmapper for deployer to find GVR
 	dc, err := discovery.NewDiscoveryClientForConfig(r.GetConfig())
 	if err != nil {
 		reconcileErr = err
@@ -366,6 +385,22 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *GrafanaReconciler) logGrafanaIngressTLSProfile(ctx context.Context) {
+	ingressCtx, ingressCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer ingressCancel()
+	ingressSpec, err := commonutils.FetchIngressControllerTLSProfileSpec(ingressCtx, r.client)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			log.Debugf("unable to read IngressController TLS profile: %v", err)
+		} else {
+			log.Warnf("unable to read IngressController TLS profile: %v", err)
+		}
+		return
+	}
+	log.Infof("Grafana Route edge TLS uses IngressController profile minTLSVersion=%s ciphers=%d",
+		ingressSpec.MinTLSVersion, len(ingressSpec.Ciphers))
 }
 
 // generateGranafaIni append the custom grafana.ini to default grafana.ini

@@ -1,11 +1,12 @@
 package config
 
 import (
-	"bytes"
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,19 +21,23 @@ import (
 
 const (
 	DEFAULT_SPEC_TOPIC          = "gh-spec"
+	DEFAULT_MIGRATION_TOPIC     = "gh-migration"
 	DEFAULT_STATUS_TOPIC        = "gh-status.*"
 	DEFAULT_SHARED_STATUS_TOPIC = "gh-status"
 )
 
 var (
 	transporterProtocol   transport.TransportProtocol
+	transporterInstanceMu sync.RWMutex
 	transporterInstance   transport.Transporter
 	enableInventory       = false
 	isBYOKafka            = false
 	specTopic             = ""
+	migrationTopic        = ""
 	statusTopic           = ""
 	kafkaResourceReady    = false
 	acmResourceReady      = false
+	kafkaClientCAMu       sync.RWMutex
 	kafkaClientCAKey      []byte
 	kafkaClientCACert     []byte
 	inventoryClientCAKey  []byte
@@ -40,10 +45,14 @@ var (
 )
 
 func SetTransporter(p transport.Transporter) {
+	transporterInstanceMu.Lock()
+	defer transporterInstanceMu.Unlock()
 	transporterInstance = p
 }
 
 func GetTransporter() transport.Transporter {
+	transporterInstanceMu.RLock()
+	defer transporterInstanceMu.RUnlock()
 	return transporterInstance
 }
 
@@ -85,11 +94,18 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 	// set the topic
 	specTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic
 	statusTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic
+	migrationTopic = DEFAULT_MIGRATION_TOPIC
+	if specTopic == "" {
+		specTopic = DEFAULT_SPEC_TOPIC
+	}
+	if statusTopic == "" {
+		statusTopic = DEFAULT_STATUS_TOPIC
+	}
 	if !isValidKafkaTopicName(specTopic) {
 		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
 	}
 	if !isValidKafkaTopicName(statusTopic) {
-		return fmt.Errorf("the specTopic is invalid: %s", statusTopic)
+		return fmt.Errorf("the statusTopic is invalid: %s", statusTopic)
 	}
 
 	// BYO Case:
@@ -136,6 +152,10 @@ func GetSpecTopic() string {
 	return specTopic
 }
 
+func GetMigrationTopic() string {
+	return migrationTopic
+}
+
 // GetStatusTopic return the status topic with clusterName, like 'gh-status.<clusterName>'
 func GetStatusTopic(clusterName string) string {
 	return strings.ReplaceAll(statusTopic, "*", clusterName)
@@ -178,6 +198,10 @@ func SetBYOKafka(byoKafka bool) {
 	isBYOKafka = byoKafka
 }
 
+func SetMigrationTopic(topic string) {
+	migrationTopic = topic
+}
+
 func IsBYOKafka() bool {
 	return isBYOKafka
 }
@@ -188,6 +212,8 @@ func TransporterProtocol() transport.TransportProtocol {
 
 // GetKafkaClientCA the raw([]byte) of client ca key and ca cert
 func GetKafkaClientCA() ([]byte, []byte) {
+	kafkaClientCAMu.RLock()
+	defer kafkaClientCAMu.RUnlock()
 	return kafkaClientCAKey, kafkaClientCACert
 }
 
@@ -207,17 +233,19 @@ func SetInventoryClientCA(ctx context.Context, namespace, name string, c client.
 		return err
 	}
 
-	if inventoryClientCAKey == nil || !bytes.Equal(clientCASecret.Data["tls.key"], inventoryClientCAKey) {
-		log.Infof("set the inventory clientCA - key: %s", clientCASecret.Name)
+	if inventoryClientCAKey == nil || !secretBytesEqual(clientCASecret.Data["tls.key"], inventoryClientCAKey) {
+		log.Infow("set the inventory clientCA - key", "secret", clientCASecret.Name)
 		inventoryClientCAKey = clientCASecret.Data["tls.key"]
 	}
-	if inventoryClientCACert == nil || !bytes.Equal(clientCASecret.Data["tls.crt"], inventoryClientCACert) {
-		log.Infof("set the inventory clientCA - cert: %s", clientCASecret.Name)
+	if inventoryClientCACert == nil || !secretBytesEqual(clientCASecret.Data["tls.crt"], inventoryClientCACert) {
+		log.Infow("set the inventory clientCA - cert", "secret", clientCASecret.Name)
 		inventoryClientCACert = clientCASecret.Data["tls.crt"]
 	}
 	return nil
 }
 
+// SetKafkaClientCA loads and caches the Strimzi Kafka client CA key and certificate
+// from the cluster secrets when they change.
 func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Client) error {
 	clientCAKeySecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -229,11 +257,6 @@ func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 	if err != nil {
 		return err
 	}
-	if kafkaClientCAKey == nil || !bytes.Equal(clientCAKeySecret.Data["ca.key"], kafkaClientCAKey) {
-		log.Infof("set the ca - client key: %s", clientCAKeySecret.Name)
-		kafkaClientCAKey = clientCAKeySecret.Data["ca.key"]
-	}
-
 	clientCACertSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-clients-ca-cert", name),
@@ -245,11 +268,88 @@ func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 		return err
 	}
 
-	if kafkaClientCACert == nil || !bytes.Equal(clientCACertSecret.Data["ca.crt"], kafkaClientCACert) {
-		log.Infof("set the ca - client cert: %s", clientCACertSecret.Name)
-		kafkaClientCACert = clientCACertSecret.Data["ca.crt"]
+	newKey := clientCAKeySecret.Data["ca.key"]
+	newCert := clientCACertSecret.Data["ca.crt"]
+	if len(newKey) == 0 || len(newCert) == 0 {
+		return fmt.Errorf("kafka client CA secrets must contain ca.key and ca.crt")
+	}
+
+	kafkaClientCAMu.Lock()
+	defer kafkaClientCAMu.Unlock()
+	if kafkaClientCAKey == nil || !secretBytesEqual(newKey, kafkaClientCAKey) {
+		log.Infow("set the ca - client key", "secret", clientCAKeySecret.Name)
+		kafkaClientCAKey = newKey
+	}
+	if kafkaClientCACert == nil || !secretBytesEqual(newCert, kafkaClientCACert) {
+		log.Infow("set the ca - client cert", "secret", clientCACertSecret.Name)
+		kafkaClientCACert = newCert
 	}
 	return nil
+}
+
+// TransportConfigTestSnapshot captures in-memory transport config for test isolation.
+type TransportConfigTestSnapshot struct {
+	specTopic           string
+	statusTopic         string
+	migrationTopic      string
+	enableInventory     bool
+	isBYOKafka          bool
+	transporterProtocol transport.TransportProtocol
+	kafkaClientCAKey    []byte
+	kafkaClientCACert   []byte
+	transporterInstance transport.Transporter
+}
+
+// SnapshotTransportConfigForTest returns the current in-memory transport config state.
+// Tests that mutate shared config should restore it with RestoreTransportConfigForTest in t.Cleanup.
+func SnapshotTransportConfigForTest() TransportConfigTestSnapshot {
+	kafkaClientCAMu.RLock()
+	key := append([]byte(nil), kafkaClientCAKey...)
+	cert := append([]byte(nil), kafkaClientCACert...)
+	kafkaClientCAMu.RUnlock()
+
+	transporterInstanceMu.RLock()
+	transporter := transporterInstance
+	transporterInstanceMu.RUnlock()
+
+	return TransportConfigTestSnapshot{
+		specTopic:           specTopic,
+		statusTopic:         statusTopic,
+		migrationTopic:      migrationTopic,
+		enableInventory:     enableInventory,
+		isBYOKafka:          isBYOKafka,
+		transporterProtocol: transporterProtocol,
+		kafkaClientCAKey:    key,
+		kafkaClientCACert:   cert,
+		transporterInstance: transporter,
+	}
+}
+
+// RestoreTransportConfigForTest restores transport config captured by SnapshotTransportConfigForTest.
+func RestoreTransportConfigForTest(snapshot TransportConfigTestSnapshot) {
+	specTopic = snapshot.specTopic
+	statusTopic = snapshot.statusTopic
+	migrationTopic = snapshot.migrationTopic
+	enableInventory = snapshot.enableInventory
+	isBYOKafka = snapshot.isBYOKafka
+	transporterProtocol = snapshot.transporterProtocol
+
+	kafkaClientCAMu.Lock()
+	kafkaClientCAKey = append([]byte(nil), snapshot.kafkaClientCAKey...)
+	kafkaClientCACert = append([]byte(nil), snapshot.kafkaClientCACert...)
+	kafkaClientCAMu.Unlock()
+
+	SetTransporter(snapshot.transporterInstance)
+}
+
+func secretBytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	if len(a) == 0 {
+		return true
+	}
+	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
 func EnableInventory() bool {

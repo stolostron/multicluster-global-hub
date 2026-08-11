@@ -5,6 +5,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers;kafkanodepools,verbs=get;create;list;watch;update;delete
@@ -28,20 +30,29 @@ import (
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=podmonitors,verbs=get;create;delete;update;list;watch
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
 
 var WatchedSecret = sets.NewString(
 	constants.GHTransportSecretName,
 )
 
+const (
+	StrimziClusterLabel = "strimzi.io/cluster"
+	StrimziKindLabel    = "strimzi.io/kind"
+	StrimziKindUser     = "KafkaUser"
+)
+
 var (
-	log                 = logger.DefaultZapLogger()
-	isResourceRemoved   = true
-	transportReconciler *TransportReconciler
+	log                              = logger.DefaultZapLogger()
+	isResourceRemoved                = true
+	transportReconciler              *TransportReconciler
+	kafkaNetworkPolicyWatchNamespace string
 )
 
 type TransportReconciler struct {
 	ctrl.Manager
 	transporter transport.Transporter
+	olmVersion  string
 }
 
 func (c *TransportReconciler) IsResourceRemoved() bool {
@@ -51,19 +62,39 @@ func (c *TransportReconciler) IsResourceRemoved() bool {
 
 func StartController(controllerOption config.ControllerOption) (config.ControllerInterface, error) {
 	if transportReconciler != nil {
+		if !migrationACLControllerStarted {
+			if err := migrationACLReconcilerSetup(controllerOption.Manager); err != nil {
+				return nil, err
+			}
+		}
 		return transportReconciler, nil
 	}
 	log.Info("start transport controller")
 
-	transportReconciler = NewTransportReconciler(controllerOption.Manager)
+	if controllerOption.MulticlusterGlobalHub != nil {
+		kafkaNetworkPolicyWatchNamespace = controllerOption.MulticlusterGlobalHub.Namespace
+	} else if controllerOption.OperatorConfig != nil && controllerOption.OperatorConfig.PodNamespace != "" {
+		kafkaNetworkPolicyWatchNamespace = controllerOption.OperatorConfig.PodNamespace
+	}
+
+	olmVersion := ""
+	if controllerOption.OperatorConfig != nil {
+		olmVersion = controllerOption.OperatorConfig.OLMVersion
+	}
+	transportReconciler = NewTransportReconciler(controllerOption.Manager, olmVersion)
 	err := transportReconciler.SetupWithManager(controllerOption.Manager)
 	if err != nil {
 		transportReconciler = nil
 		return nil, err
 	}
+	if err := migrationACLReconcilerSetup(controllerOption.Manager); err != nil {
+		return nil, err
+	}
 	log.Infof("inited transport controller")
 	return transportReconciler, nil
 }
+
+var migrationACLReconcilerSetup = setupMigrationACLReconciler
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TransportReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -72,6 +103,8 @@ func (r *TransportReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(config.MGHPred)).
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
+		Watches(&networkingv1.NetworkPolicy{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(networkPolicyPred)).
 		Complete(r)
 }
 
@@ -87,19 +120,39 @@ var secretPred = predicate.Funcs{
 	},
 }
 
+var networkPolicyPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return networkPolicyCond(e.Object)
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return networkPolicyCond(e.ObjectNew)
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return networkPolicyCond(e.Object)
+	},
+}
+
+func networkPolicyCond(obj client.Object) bool {
+	ns := kafkaNetworkPolicyWatchNamespace
+	if ns == "" {
+		ns = commonutils.GetDefaultNamespace()
+	}
+	return obj.GetNamespace() == ns && obj.GetName() == protocol.KafkaClusterName
+}
+
 func secretCond(obj client.Object) bool {
 	if WatchedSecret.Has(obj.GetName()) {
 		return true
 	}
-	if obj.GetLabels()["strimzi.io/cluster"] == protocol.KafkaClusterName &&
-		obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
+	if obj.GetLabels()[StrimziClusterLabel] == protocol.KafkaClusterName &&
+		obj.GetLabels()[StrimziKindLabel] == StrimziKindUser {
 		return true
 	}
 	return false
 }
 
-func NewTransportReconciler(mgr ctrl.Manager) *TransportReconciler {
-	return &TransportReconciler{Manager: mgr}
+func NewTransportReconciler(mgr ctrl.Manager, olmVersion string) *TransportReconciler {
+	return &TransportReconciler{Manager: mgr, olmVersion: olmVersion}
 }
 
 // Resources reconcile the transport resources and also update transporter on the configuration
@@ -150,6 +203,7 @@ func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1
 		mgh,
 		protocol.WithContext(ctx),
 		protocol.WithCommunity(operatorutils.IsCommunityMode()),
+		protocol.WithOLMVersion(r.olmVersion),
 	)
 	r.transporter = strimziTransporter
 
@@ -161,10 +215,12 @@ func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1
 	if needRequeue {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	// deliver the transport resources and config secret to the kafka controller
-	// TODO: may need to wait the kafka resources to be ready before delivering the config secret
-	err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
+	// Start the async kafka controller; sync transport-config when Kafka is already ready.
+	err = protocol.StartKafkaController(ctx, r.Manager, strimziTransporter)
 	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := protocol.SyncManagerTransportConfigSecret(ctx, mgh, strimziTransporter, r.GetClient()); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil

@@ -6,8 +6,10 @@ import (
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	configv1 "github.com/openshift/api/config/v1"
 	imagev1 "github.com/openshift/api/image/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	agentv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
@@ -33,6 +35,7 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
+	utilruntime.Must(operatorv1.Install(scheme))
 	utilruntime.Must(clusterv1.Install(scheme))
 	utilruntime.Must(clusterv1beta1.Install(scheme))
 	utilruntime.Must(clusterv1beta2.Install(scheme))
@@ -51,6 +54,7 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(imagev1.AddToScheme(scheme))
 	utilruntime.Must(spicedbv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(migrationv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(ocv1.AddToScheme(scheme))
 
 	// add Kafka scheme
 	utilruntime.Must(kafkav1beta2.AddToScheme(scheme))

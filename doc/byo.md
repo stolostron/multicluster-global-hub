@@ -20,11 +20,61 @@ kubectl create secret generic multicluster-global-hub-transport -n multicluster-
 
 *Prerequisite:*  See the following requirements for bringing your own Kafka: 
 
-- Unless you configured your Kafka to automatically create topics, you must manually create two topics for spec and status(The default topics are `gh-spec` and `gh-status`). When you create these topics, ensure that the Kafka user can to read and write data to the these topics. And also make sure the topic names in the Global Hub operand is aligned with the topics you created.
+- Unless you configured your Kafka to automatically create topics, you must manually create the transport topics `gh-spec`, `gh-migration`, and `gh-status`. By default, all managed hubs publish status to the shared topic `gh-status`. If you set a different `statusTopic` in `spec.dataLayer.kafka.topics`, create that topic instead. See [Kafka topics and ACLs](#kafka-topics-and-acls) below.
 
 - Kafka 3.3 or later is tested.\
 
 - Suggest to have persistent volume for your Kafka.
+
+### Kafka topics and ACLs
+
+Global Hub uses three Kafka topics for transport:
+
+| Topic | Purpose |
+|-------|---------|
+| `gh-spec` | Policy and spec sync from the global hub manager to managed hub agents |
+| `gh-migration` | Cluster migration deploying-phase bundles (source hub to target hub) |
+| `gh-status` | Status and compliance events from managed hubs to the global hub manager (shared topic by default) |
+
+When you manage Kafka ACLs yourself, grant permissions for your deployment:
+
+| Principal | `gh-spec` | `gh-migration` | Status topic |
+|-----------|-----------|----------------|--------------|
+| Global hub manager | Describe, Read, **Write** | Describe, Read, **Write** | Describe, Read on `gh-status` (or on each custom status topic) |
+| Managed hub agent | Describe, Read, Write | Describe, Read; **Write** on the source hub only while a cluster migration is in the Deploying phase | Describe, Read, **Write** on `gh-status` (or on a custom status topic if configured) |
+
+Notes:
+
+- The global hub manager publishes to `gh-spec`. Managed hub agents consume from `gh-spec`.
+- During cluster migration, the source hub publishes deploying bundles to `gh-migration`. The target hub agent consumes from `gh-migration` as well as `gh-spec`.
+- Grant **Write** on `gh-migration` to the source managed hub only for the duration of an active migration Deploying phase, then revoke it. With built-in Strimzi Kafka, the operator applies and removes that ACL automatically; with BYO Kafka, you must update ACLs yourself or through your Kafka administration tooling.
+- For more information about cluster migration, see [Managed Cluster Migration](./migration/global_hub_cluster_migration.md).
+- Built-in Strimzi Kafka uses per-hub status topics such as `gh-status.<cluster-name>` with a prefix ACL on `gh-status`. BYO Kafka uses the shared topic `gh-status` with a literal ACL unless you override `statusTopic`.
+
+Example Strimzi `KafkaUser` ACL entries for the global hub transport user (BYO defaults shown):
+
+```yaml
+# gh-spec — manager publishes policy/spec sync
+- operations: [Describe, Read, Write]
+  resource:
+    type: topic
+    name: gh-spec
+    patternType: literal
+# gh-migration — manager oversight; source hub writes during migration Deploying
+- operations: [Describe, Read, Write]
+  resource:
+    type: topic
+    name: gh-migration
+    patternType: literal
+# gh-status — manager consumes status from the shared BYO topic (use literal unless you override statusTopic)
+- operations: [Describe, Read]
+  resource:
+    type: topic
+    name: gh-status
+    patternType: literal
+```
+
+Managed hub agents also need **Read** on `gh-spec` and `gh-migration`, **Write** on `gh-status` (or on a custom status topic), and temporary **Write** on `gh-migration` when that hub is the source of an in-progress migration.
 
 ## Bring your own Postgres
 

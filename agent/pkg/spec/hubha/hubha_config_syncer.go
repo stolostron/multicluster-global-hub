@@ -1,3 +1,20 @@
+/*
+Copyright (c) 2026 Red Hat, Inc.
+Copyright Contributors to the Open Cluster Management project
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package hubha
 
 import (
@@ -19,6 +36,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	haconfigbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/haconfig"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -30,6 +48,7 @@ const (
 type HAConfigSyncer struct {
 	client      client.Client
 	leafHubName string
+	standbyHub  string
 }
 
 func NewHAConfigSyncer(client client.Client,
@@ -38,16 +57,33 @@ func NewHAConfigSyncer(client client.Client,
 	return &HAConfigSyncer{
 		client:      client,
 		leafHubName: agentConfig.LeafHubName,
+		standbyHub:  agentConfig.GetStandbyHub(),
 	}
 }
 
 func (s *HAConfigSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+	// Dispatcher-level haConfigSourceAllowed already filters untrusted sources; keep
+	// these checks as defense-in-depth for direct syncer invocation paths.
 	bundle := &haconfigbundle.HAConfigBundle{}
 	if err := json.Unmarshal(evt.Data(), bundle); err != nil {
 		return fmt.Errorf("failed to unmarshal HA config bundle: %w", err)
 	}
 	activeHub := evt.Subject()
 	standbyHub := evt.Source()
+	if activeHub != s.leafHubName {
+		log.Warnw("dropping HA config event for unexpected subject", "subject", activeHub, "leafHub", s.leafHubName)
+		return nil
+	}
+	if standbyHub == "" || standbyHub == activeHub {
+		log.Warnw("dropping HA config event with untrusted source", "source", standbyHub, "subject", activeHub)
+		return nil
+	}
+	if standbyHub != constants.CloudEventGlobalHubClusterName && s.standbyHub != "" &&
+		!utils.StandbyHubSourceMatches(standbyHub, s.standbyHub) {
+		log.Warnw("dropping HA config event from unexpected standby hub",
+			"source", standbyHub, "expectedStandby", s.standbyHub)
+		return nil
+	}
 	log.Infof("received HA config event: activeHub=%s, standbyHub=%s", activeHub, standbyHub)
 
 	if bundle.BootstrapSecret == nil {
@@ -172,29 +208,11 @@ func (s *HAConfigSyncer) annotateAllManagedClusters(ctx context.Context, kluster
 
 	for i := range mcList.Items {
 		mc := &mcList.Items[i]
-		if mc.Name == "local-cluster" {
+		if shouldSkipHAAnnotation(mc) {
 			continue
 		}
 
-		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := s.client.Get(ctx, client.ObjectKeyFromObject(mc), mc); err != nil {
-				return err
-			}
-			annotations := mc.GetAnnotations()
-			if annotations == nil {
-				annotations = make(map[string]string)
-			}
-			if annotations[klusterletConfigAnnotation] == klusterletConfigName {
-				return nil
-			}
-			annotations[klusterletConfigAnnotation] = klusterletConfigName
-			mc.SetAnnotations(annotations)
-			if err := s.client.Update(ctx, mc); err != nil {
-				return err
-			}
-			log.Infof("annotated managed cluster %s with klusterlet-config=%s", mc.Name, klusterletConfigName)
-			return nil
-		}); err != nil {
+		if err := annotateManagedCluster(ctx, s.client, mc, klusterletConfigName); err != nil {
 			return fmt.Errorf("failed to annotate managed cluster %s: %w", mc.Name, err)
 		}
 	}
