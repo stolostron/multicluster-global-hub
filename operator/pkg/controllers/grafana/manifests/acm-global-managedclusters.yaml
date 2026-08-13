@@ -1163,22 +1163,30 @@ data:
             "type": "custom"
           },
           {
+            "allValue": "0.0.0",
             "current": {
-              "text": "0.0.0",
-              "value": "0.0.0"
+              "text": "All",
+              "value": [
+                "$__all"
+              ]
             },
-            "hide": 1,
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "SELECT version\nFROM (\n  SELECT DISTINCT payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' AS version\n  FROM status.managed_clusters\n  WHERE deleted_at IS NULL\n    AND payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NOT NULL\n) versions\nORDER BY string_to_array(version, '.')::int[] DESC",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Version",
+            "multi": false,
             "name": "version",
-            "options": [
-              {
-                "selected": true,
-                "text": "0.0.0",
-                "value": "0.0.0"
-              }
-            ],
-            "query": "0.0.0",
+            "options": [],
+            "query": "SELECT version\nFROM (\n  SELECT DISTINCT payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' AS version\n  FROM status.managed_clusters\n  WHERE deleted_at IS NULL\n    AND payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NOT NULL\n) versions\nORDER BY string_to_array(version, '.')::int[] DESC",
+            "refresh": 1,
+            "regex": "",
             "skipUrlSync": true,
-            "type": "textbox"
+            "sort": 0,
+            "type": "query"
           }
         ]
       },
