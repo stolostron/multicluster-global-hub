@@ -47,12 +47,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: bundle
-        run: cd operator && make bundle
-
-      # main and release-5.0 use dev bundle versions (e.g. 5.0.0-dev) while the
-      # matching release-* branches in multicluster-global-hub-operator-bundle
-      # carry GA z-stream versions — skip external sync on those branches.
       - name: resolve bundle comparison branch
         id: bundle-branch
         run: |
@@ -70,6 +64,21 @@ jobs:
               echo "skip=false" >> "$GITHUB_OUTPUT"
               ;;
           esac
+
+      - name: bundle
+        run: |
+          case "${{ steps.bundle-branch.outputs.target }}" in
+            release-5.1)
+              cd operator && make bundle RELEASE_LINE=5.1
+              ;;
+            *)
+              cd operator && make bundle
+              ;;
+          esac
+
+      # main and release-5.0 use dev bundle versions (e.g. 5.0.0-dev) while the
+      # matching release-* branches in multicluster-global-hub-operator-bundle
+      # carry GA z-stream versions — skip external sync on those branches.
 
       - name: compare bundle with stolostron/multicluster-global-hub-operator-bundle
         if: steps.bundle-branch.outputs.skip != 'true'

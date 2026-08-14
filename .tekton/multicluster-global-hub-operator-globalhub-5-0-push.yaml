@@ -41,7 +41,10 @@ spec:
   - name: prefetch-input
     value: '[ {"type": "gomod", "path": "."} ]'
   - name: build-args
-    value: ["GIT_COMMIT={{revision}}"]
+    value:
+      - "GIT_COMMIT={{revision}}"
+      - "RELEASE_CPE=cpe:/a:redhat:multicluster_globalhub:5.0::el9"
+      - "RELEASE_VERSION=release-5.0"
   - name: send-slack-notification
     value: "true"
   - name: konflux-application-name
