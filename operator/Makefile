@@ -1,7 +1,8 @@
-# RELEASE_LINE selects the OLM channel/version family (e.g. 5.0, 5.1).
+# RELEASE_LINE selects the OLM channel/version family for `make bundle` (e.g. 5.0, 5.1).
 # Override at build time: make bundle RELEASE_LINE=5.1
-# Defaults stay on 5.0 so main→release-* ffwd stays clean; CI and Konflux pass
-# RELEASE_LINE=5.1 for the 5.1 line (see .github/workflows/go.yml).
+# Defaults stay on 5.0 so main→release-* ffwd stays clean; CI passes RELEASE_LINE=5.1
+# on release-5.1 (see .github/workflows/go.yml). Konflux operand images use
+# RELEASE_CPE / RELEASE_VERSION build args in Containerfile.* (see .tekton/*).
 RELEASE_LINE ?= 5.0
 
 # VERSION defines the project version for the bundle.
