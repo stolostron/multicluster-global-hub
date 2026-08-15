@@ -33,7 +33,7 @@ clean-vendor:
 build-operator-image: vendor
 	cd operator && make
 	docker build -t ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG} . \
-		-f operator/Containerfile.operator $(IMAGE_BUILD_ARGS)
+		-f operator/Dockerfile $(IMAGE_BUILD_ARGS)
 
 push-operator-image:
 	docker push ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG}
@@ -47,7 +47,7 @@ undeploy-operator:
 build-manager-image: vendor
 	cd manager && make
 	docker build -t ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG} . \
-		-f manager/Containerfile.manager $(IMAGE_BUILD_ARGS)
+		-f manager/Dockerfile $(IMAGE_BUILD_ARGS)
 
 push-manager-image:
 	docker push ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG}
@@ -55,7 +55,7 @@ push-manager-image:
 build-agent-image: vendor
 	cd agent && make
 	docker build -t ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG} . \
-		-f agent/Containerfile.agent $(IMAGE_BUILD_ARGS)
+		-f agent/Dockerfile $(IMAGE_BUILD_ARGS)
 
 push-agent-image:
 	docker push ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG}

@@ -61,7 +61,7 @@ jobs:
           fi
           echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
           case "$TARGET" in
-            main|release-5.0|release-5.1)
+            main|release-*)
               echo "skip=true" >> "$GITHUB_OUTPUT"
               ;;
             *)
@@ -74,15 +74,15 @@ jobs:
           TARGET: ${{ steps.bundle-branch.outputs.target }}
         run: |
           case "$TARGET" in
-            release-5.1)
-              cd operator && make bundle RELEASE_LINE=5.1
+            release-*)
+              cd operator && make bundle RELEASE_LINE=${TARGET#release-}
               ;;
             *)
               cd operator && make bundle
               ;;
           esac
 
-      # main, release-5.0, and release-5.1 use dev bundle versions (e.g. 5.0.0-dev / 5.1.0-dev) while the
+      # main and release-* branches use dev bundle versions (e.g. 5.0.0-dev / 5.1.0-dev) while the
       # matching release-* branches in multicluster-global-hub-operator-bundle
       # carry GA z-stream versions — skip external sync on those branches.
 
