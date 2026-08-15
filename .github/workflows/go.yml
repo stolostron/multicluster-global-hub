@@ -47,23 +47,21 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: bundle
-        run: cd operator && make bundle
-
-      # main and release-5.0 use dev bundle versions (e.g. 5.0.0-dev) while the
-      # matching release-* branches in multicluster-global-hub-operator-bundle
-      # carry GA z-stream versions — skip external sync on those branches.
       - name: resolve bundle comparison branch
         id: bundle-branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            TARGET="${{ github.base_ref }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            TARGET="$BASE_REF"
           else
-            TARGET="${GITHUB_REF#refs/heads/}"
+            TARGET="$HEAD_REF"
           fi
           echo "target=${TARGET}" >> "$GITHUB_OUTPUT"
-          case "${TARGET}" in
-            main|release-5.0|release-5.1)
+          case "$TARGET" in
+            main|release-*)
               echo "skip=true" >> "$GITHUB_OUTPUT"
               ;;
             *)
@@ -71,14 +69,38 @@ jobs:
               ;;
           esac
 
+      - name: bundle
+        env:
+          TARGET: ${{ steps.bundle-branch.outputs.target }}
+        run: |
+          case "$TARGET" in
+            release-*)
+              if [[ ! "$TARGET" =~ ^release-[0-9]+\.[0-9]+$ ]]; then
+                echo "Unsupported release branch format: $TARGET" >&2
+                exit 1
+              fi
+              RELEASE_LINE="${TARGET#release-}"
+              cd operator && make bundle RELEASE_LINE="$RELEASE_LINE"
+              ;;
+            *)
+              cd operator && make bundle
+              ;;
+          esac
+
+      # main and release-* branches use dev bundle versions (e.g. 5.0.0-dev / 5.1.0-dev) while the
+      # matching release-* branches in multicluster-global-hub-operator-bundle
+      # carry GA z-stream versions — skip external sync on those branches.
+
       - name: compare bundle with stolostron/multicluster-global-hub-operator-bundle
         if: steps.bundle-branch.outputs.skip != 'true'
+        env:
+          TARGET: ${{ steps.bundle-branch.outputs.target }}
         run: |
           # Ensure the committed bundle matches the release branch in the bundle repo.
           # ignore createdAt updated in csv by `make bundle`
           git checkout . -f
           git clone https://github.com/stolostron/multicluster-global-hub-operator-bundle.git \
-            -b "${{ steps.bundle-branch.outputs.target }}"
+            -b "$TARGET"
 
           diff -I 'createdAt' -ruN operator/bundle multicluster-global-hub-operator-bundle/bundle
 

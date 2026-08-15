@@ -9,6 +9,15 @@ TMP_BIN ?= /tmp/cr-tests-bin
 GO_TEST ?= go test -v
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 
+# Match operator/Makefile RELEASE_LINE; override for local 5.1 builds:
+#   make build-operator-image RELEASE_LINE=5.1
+RELEASE_LINE ?= 5.0
+RELEASE_CPE ?= cpe:/a:redhat:multicluster_globalhub:$(RELEASE_LINE)::el9
+RELEASE_VERSION ?= release-$(RELEASE_LINE)
+IMAGE_BUILD_ARGS = --build-arg GIT_COMMIT=$(GIT_COMMIT) \
+	--build-arg RELEASE_CPE=$(RELEASE_CPE) \
+	--build-arg RELEASE_VERSION=$(RELEASE_VERSION)
+
 .PHONY: vendor			##download all third party libraries and puts them inside vendor directory
 vendor:
 	@go mod vendor
@@ -23,7 +32,8 @@ clean-vendor:
 
 build-operator-image: vendor
 	cd operator && make
-	docker build -t ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG} . -f operator/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT)
+	docker build -t ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG} . \
+		-f operator/Dockerfile $(IMAGE_BUILD_ARGS)
 
 push-operator-image:
 	docker push ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG}
@@ -36,14 +46,16 @@ undeploy-operator:
 
 build-manager-image: vendor
 	cd manager && make
-	docker build -t ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG} . -f manager/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT)
+	docker build -t ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG} . \
+		-f manager/Dockerfile $(IMAGE_BUILD_ARGS)
 
 push-manager-image:
 	docker push ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG}
 
 build-agent-image: vendor
 	cd agent && make
-	docker build -t ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG} . -f agent/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT)
+	docker build -t ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG} . \
+		-f agent/Dockerfile $(IMAGE_BUILD_ARGS)
 
 push-agent-image:
 	docker push ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG}

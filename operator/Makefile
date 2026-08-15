@@ -1,16 +1,23 @@
+# RELEASE_LINE selects the OLM channel/version family for `make bundle` (e.g. 5.0, 5.1).
+# Override at build time: make bundle RELEASE_LINE=5.1
+# Defaults stay on 5.0 so main→release-* ffwd stays clean; CI passes RELEASE_LINE=5.1
+# on release-5.1 (see .github/workflows/go.yml). Konflux operand images use
+# RELEASE_CPE / RELEASE_VERSION build args in Containerfile.* (see .tekton/*).
+RELEASE_LINE ?= 5.0
+
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 5.0.0-dev
+VERSION ?= $(RELEASE_LINE).0-dev
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
-CHANNELS = "release-5.0"
+CHANNELS = "release-$(RELEASE_LINE)"
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
@@ -20,7 +27,7 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-DEFAULT_CHANNEL = "release-5.0"
+DEFAULT_CHANNEL = "release-$(RELEASE_LINE)"
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
