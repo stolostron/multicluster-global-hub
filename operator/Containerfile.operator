@@ -12,7 +12,7 @@ COPY ./pkg ./pkg
 RUN CGO_ENABLED=1 GOFLAGS="-p=4" go build -mod=readonly -tags strictfipsruntime -a -v -o bin/multicluster-global-hub-operator operator/cmd/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM registry.redhat.io/ubi9/ubi-minimal-pqc:latest
 
 
 # Red Hat annotations.
