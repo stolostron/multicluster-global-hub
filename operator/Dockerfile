@@ -12,7 +12,7 @@ COPY ./pkg ./pkg
 RUN CGO_ENABLED=1 go build -a -installsuffix cgo -o bin/multicluster-global-hub-operator operator/cmd/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
-FROM registry.redhat.io/ubi9/ubi-minimal-pqc:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG GIT_COMMIT
 ENV OPERATOR=/usr/local/bin/multicluster-global-hub-operator \
   USER_UID=1001 \
