@@ -628,8 +628,9 @@ func TestManagedHubUserACLs(t *testing.T) {
 		aclByResource[*acl.Resource.Name] = acl.Operations
 	}
 
-	if got := aclByResource["hub1"]; len(got) != 1 || got[0] != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead {
-		t.Fatalf("consumer group ACL = %#v, want Read on hub1", got)
+	hub1Ops := aclByResource["hub1"]
+	if len(hub1Ops) != 1 || hub1Ops[0] != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead {
+		t.Fatalf("consumer group ACL = %#v, want Read on hub1", hub1Ops)
 	}
 
 	specOps := aclByResource["gh-spec"]
@@ -674,27 +675,7 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 	merged := combineACLs(filterObsoleteManagedHubACLs(legacyACLs, clusterTopic.SpecTopic),
 		managedHubUserACLs(clusterTopic, "hub1"))
 
-	hasWildcardGroup := false
-	specOps := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{}
-	migrationOps := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{}
-	for _, acl := range merged {
-		if acl.Resource.Name == nil {
-			t.Fatal("expected ACL resource name to be set")
-		}
-		switch acl.Resource.Type {
-		case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup:
-			if *acl.Resource.Name == "*" {
-				hasWildcardGroup = true
-			}
-		case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic:
-			switch *acl.Resource.Name {
-			case clusterTopic.SpecTopic:
-				specOps = append(specOps, acl.Operations...)
-			case clusterTopic.MigrationTopic:
-				migrationOps = append(migrationOps, acl.Operations...)
-			}
-		}
-	}
+	hasWildcardGroup, specOps, migrationOps := collectManagedHubACLTopicOps(merged, clusterTopic)
 
 	if hasWildcardGroup {
 		t.Fatal("wildcard consumer group ACL should be removed on upgrade")
@@ -710,6 +691,33 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 	if !containsOperation(migrationOps, kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead) {
 		t.Fatal("managed hub must retain Read on gh-migration after upgrade")
 	}
+}
+
+func collectManagedHubACLTopicOps(
+	merged []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+	clusterTopic *transport.ClusterTopic,
+) (hasWildcardGroup bool, specOps, migrationOps []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem) {
+	for _, acl := range merged {
+		if acl.Resource.Name == nil {
+			continue
+		}
+		if acl.Resource.Type == kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup {
+			if *acl.Resource.Name == "*" {
+				hasWildcardGroup = true
+			}
+			continue
+		}
+		if acl.Resource.Type != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic {
+			continue
+		}
+		switch *acl.Resource.Name {
+		case clusterTopic.SpecTopic:
+			specOps = append(specOps, acl.Operations...)
+		case clusterTopic.MigrationTopic:
+			migrationOps = append(migrationOps, acl.Operations...)
+		}
+	}
+	return hasWildcardGroup, specOps, migrationOps
 }
 
 func containsOperation(ops []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
