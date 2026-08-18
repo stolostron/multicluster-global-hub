@@ -13,6 +13,7 @@ spec:
   partitions: {{.TopicPartition}}
   replicas: {{.TopicReplicas}}
 
+{{ if .CreateStatusPlaceholder }}
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
@@ -31,6 +32,7 @@ spec:
     retention.bytes: "1073741824"
   partitions: {{.TopicPartition}}
   replicas: {{.TopicReplicas}}
+{{ end }}
 
 ---
 {{ if .EnableInventoryAPI }}

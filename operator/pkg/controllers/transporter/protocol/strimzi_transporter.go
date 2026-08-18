@@ -288,9 +288,11 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 	statusTopic := config.GetRawStatusTopic()
 	statusPlaceholderTopic := config.GetRawStatusTopic()
 	topicPattern := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	isPatternBasedStatusTopic := false
 	if strings.Contains(config.GetRawStatusTopic(), "*") {
+		isPatternBasedStatusTopic = true
 		statusTopic = strings.ReplaceAll(config.GetRawStatusTopic(), "*", "")
-		statusPlaceholderTopic = strings.ReplaceAll(config.GetRawStatusTopic(), "*", "global-hub")
+		statusPlaceholderTopic = ""
 		topicPattern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
 	topicReplicas := k.topicPartitionReplicas
@@ -300,37 +302,39 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 	kafkaObjects, err := kafkaRenderer.Render("manifests", "",
 		func(profile string) (interface{}, error) {
 			return struct {
-				EnableMetrics          bool
-				Namespace              string
-				KafkaCluster           string
-				GlobalHubKafkaUser     string
-				SpecTopic              string
-				MigrationTopic         string
-				StatusTopic            string
-				StatusTopicPattern     string
-				StatusPlaceholderTopic string
-				TopicPartition         int32
-				TopicReplicas          int32
-				EnableInventoryAPI     bool
-				KafkaInventoryTopic    string
-				StorageSize            string
-				StorageClass           string
+				EnableMetrics           bool
+				Namespace               string
+				KafkaCluster            string
+				GlobalHubKafkaUser      string
+				SpecTopic               string
+				MigrationTopic          string
+				StatusTopic             string
+				StatusTopicPattern      string
+				StatusPlaceholderTopic  string
+				CreateStatusPlaceholder bool
+				TopicPartition          int32
+				TopicReplicas           int32
+				EnableInventoryAPI      bool
+				KafkaInventoryTopic     string
+				StorageSize             string
+				StorageClass            string
 			}{
-				EnableMetrics:          mgh.Spec.EnableMetrics,
-				Namespace:              mgh.GetNamespace(),
-				KafkaCluster:           KafkaClusterName,
-				GlobalHubKafkaUser:     DefaultGlobalHubKafkaUserName,
-				SpecTopic:              config.GetSpecTopic(),
-				MigrationTopic:         config.GetMigrationTopic(),
-				StatusTopic:            statusTopic,
-				StatusTopicPattern:     string(topicPattern),
-				StatusPlaceholderTopic: statusPlaceholderTopic,
-				TopicPartition:         DefaultPartition,
-				TopicReplicas:          topicReplicas,
-				EnableInventoryAPI:     config.WithInventory(mgh),
-				KafkaInventoryTopic:    "kessel-inventory",
-				StorageSize:            config.GetKafkaStorageSize(mgh),
-				StorageClass:           mgh.Spec.DataLayerSpec.StorageClass,
+				EnableMetrics:           mgh.Spec.EnableMetrics,
+				Namespace:               mgh.GetNamespace(),
+				KafkaCluster:            KafkaClusterName,
+				GlobalHubKafkaUser:      DefaultGlobalHubKafkaUserName,
+				SpecTopic:               config.GetSpecTopic(),
+				MigrationTopic:          config.GetMigrationTopic(),
+				StatusTopic:             statusTopic,
+				StatusTopicPattern:      string(topicPattern),
+				StatusPlaceholderTopic:  statusPlaceholderTopic,
+				CreateStatusPlaceholder: !isPatternBasedStatusTopic,
+				TopicPartition:          DefaultPartition,
+				TopicReplicas:           topicReplicas,
+				EnableInventoryAPI:      config.WithInventory(mgh),
+				KafkaInventoryTopic:     "kessel-inventory",
+				StorageSize:             config.GetKafkaStorageSize(mgh),
+				StorageClass:            mgh.Spec.DataLayerSpec.StorageClass,
 			}, nil
 		})
 	if err != nil {
