@@ -25,6 +25,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -602,6 +603,53 @@ func TestNewClusterExtension(t *testing.T) {
 				t.Errorf("expected channel [%q], got %v", tt.expectedChannel, ce.Spec.Source.Catalog.Channels)
 			}
 		})
+	}
+}
+
+func TestManagedHubUserACLs(t *testing.T) {
+	t.Parallel()
+
+	clusterTopic := &transport.ClusterTopic{
+		SpecTopic:      "gh-spec",
+		MigrationTopic: "gh-migration",
+		StatusTopic:    "gh-status.hub1",
+	}
+	acls := managedHubUserACLs(clusterTopic, "hub1")
+
+	if len(acls) != 4 {
+		t.Fatalf("expected 4 ACLs, got %d", len(acls))
+	}
+
+	aclByResource := map[string][]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{}
+	for _, acl := range acls {
+		if acl.Resource.Name == nil {
+			t.Fatal("expected ACL resource name to be set")
+		}
+		aclByResource[*acl.Resource.Name] = acl.Operations
+	}
+
+	if got := aclByResource["hub1"]; len(got) != 1 || got[0] != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead {
+		t.Fatalf("consumer group ACL = %#v, want Read on hub1", got)
+	}
+
+	specOps := aclByResource["gh-spec"]
+	if len(specOps) != 2 {
+		t.Fatalf("gh-spec ACL = %#v, want Describe+Read", specOps)
+	}
+	for _, op := range specOps {
+		if op == kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite {
+			t.Fatal("managed hub must not have Write on gh-spec")
+		}
+	}
+
+	migrationOps := aclByResource["gh-migration"]
+	if len(migrationOps) != 2 {
+		t.Fatalf("gh-migration ACL = %#v, want Describe+Read", migrationOps)
+	}
+
+	statusOps := aclByResource["gh-status.hub1"]
+	if len(statusOps) != 1 || statusOps[0] != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite {
+		t.Fatalf("status topic ACL = %#v, want Write", statusOps)
 	}
 }
 

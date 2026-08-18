@@ -382,24 +382,13 @@ func (k *strimziTransporter) isCSVInstalled() (bool, error) {
 	return true, nil
 }
 
-// EnsureUser to reconcile the kafkaUser's setting(authn and authz)
-// set the user can write to status
-func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
-	userName := config.GetKafkaUserName(clusterName)
-	clusterTopic := k.getClusterTopic(clusterName)
-
-	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
-	if clusterName == config.GetLocalClusterName() || clusterName == constants.LocalClusterName {
-		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
-	}
-
-	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		utils.ConsumeGroupReadACL(),
-		// migration resource into mh: write access to the spec topic is required for cluster migration.
+func managedHubUserACLs(clusterTopic *transport.ClusterTopic, consumerGroupID string) []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	return []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		utils.ConsumeGroupReadACL(consumerGroupID),
+		// consume spec bundles from the global hub (read-only; managed hubs must not produce to gh-spec)
 		utils.GetTopicACL(clusterTopic.SpecTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
 		}),
 		// consume migration deploying bundles from the dedicated migration topic
 		utils.GetTopicACL(clusterTopic.MigrationTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
@@ -411,6 +400,21 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
 		}),
 	}
+}
+
+// EnsureUser to reconcile the kafkaUser's setting(authn and authz)
+// set the user can write to status
+func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
+	userName := config.GetKafkaUserName(clusterName)
+	clusterTopic := k.getClusterTopic(clusterName)
+
+	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
+	if clusterName == config.GetLocalClusterName() || clusterName == constants.LocalClusterName {
+		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
+	}
+
+	consumerGroupID := config.GetConsumerGroupID(k.mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix, clusterName)
+	simpleACLs := managedHubUserACLs(clusterTopic, consumerGroupID)
 
 	desiredKafkaUser := newKafkaUser(k.kafkaClusterNamespace, k.kafkaClusterName, userName, authnType, simpleACLs)
 

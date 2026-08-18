@@ -428,8 +428,42 @@ var _ = Describe("transporter", Ordered, func() {
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
-		// utils.PrettyPrint(kafkaUser.Spec.Authorization)
 		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+
+		aclByTopic := map[string][]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{}
+		consumerGroupACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}
+		for _, acl := range kafkaUser.Spec.Authorization.Acls {
+			switch acl.Resource.Type {
+			case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic:
+				Expect(acl.Resource.Name).NotTo(BeNil())
+				aclByTopic[*acl.Resource.Name] = acl.Operations
+			case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup:
+				consumerGroupACLs = append(consumerGroupACLs, acl)
+			}
+		}
+
+		specOps := aclByTopic["gh-spec"]
+		Expect(specOps).To(ConsistOf(
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		))
+		Expect(specOps).NotTo(ContainElement(kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite))
+
+		migrationOps := aclByTopic[config.GetMigrationTopic()]
+		Expect(migrationOps).To(ConsistOf(
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		))
+
+		statusOps := aclByTopic[config.GetStatusTopic(clusterName)]
+		Expect(statusOps).To(Equal([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		}))
+
+		Expect(consumerGroupACLs).To(HaveLen(1))
+		Expect(consumerGroupACLs[0].Resource.Name).NotTo(BeNil())
+		Expect(*consumerGroupACLs[0].Resource.Name).To(Equal(config.GetConsumerGroupID("", clusterName)))
+		Expect(*consumerGroupACLs[0].Resource.Name).NotTo(Equal("*"))
 
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)
