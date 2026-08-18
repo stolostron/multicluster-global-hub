@@ -3,6 +3,7 @@ package protocol
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -620,38 +621,59 @@ func TestManagedHubUserACLs(t *testing.T) {
 		t.Fatalf("expected 4 ACLs, got %d", len(acls))
 	}
 
-	aclByResource := map[string][]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{}
-	for _, acl := range acls {
-		if acl.Resource.Name == nil {
-			t.Fatal("expected ACL resource name to be set")
-		}
-		aclByResource[*acl.Resource.Name] = acl.Operations
+	groupACL, ok := findGroupACL(acls, "hub1")
+	if !ok {
+		t.Fatal("expected consumer-group ACL for hub1")
 	}
+	assertACLContract(t, groupACL,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup,
+		"hub1",
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	)
 
-	hub1Ops := aclByResource["hub1"]
-	if len(hub1Ops) != 1 || hub1Ops[0] != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead {
-		t.Fatalf("consumer group ACL = %#v, want Read on hub1", hub1Ops)
+	specACL, ok := findTopicACL(acls, clusterTopic.SpecTopic)
+	if !ok {
+		t.Fatal("expected gh-spec topic ACL")
 	}
+	assertACLContract(t, specACL,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+		clusterTopic.SpecTopic,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	)
 
-	specOps := aclByResource["gh-spec"]
-	if len(specOps) != 2 {
-		t.Fatalf("gh-spec ACL = %#v, want Describe+Read", specOps)
+	migrationACL, ok := findTopicACL(acls, clusterTopic.MigrationTopic)
+	if !ok {
+		t.Fatal("expected gh-migration topic ACL")
 	}
-	for _, op := range specOps {
-		if op == kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite {
-			t.Fatal("managed hub must not have Write on gh-spec")
-		}
-	}
+	assertACLContract(t, migrationACL,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+		clusterTopic.MigrationTopic,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	)
 
-	migrationOps := aclByResource["gh-migration"]
-	if len(migrationOps) != 2 {
-		t.Fatalf("gh-migration ACL = %#v, want Describe+Read", migrationOps)
+	statusACL, ok := findTopicACL(acls, clusterTopic.StatusTopic)
+	if !ok {
+		t.Fatal("expected status topic ACL")
 	}
-
-	statusOps := aclByResource["gh-status.hub1"]
-	if len(statusOps) != 1 || statusOps[0] != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite {
-		t.Fatalf("status topic ACL = %#v, want Write", statusOps)
-	}
+	assertACLContract(t, statusACL,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+		clusterTopic.StatusTopic,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		},
+	)
 }
 
 func TestCombineManagedHubACLsUpgrade(t *testing.T) {
@@ -680,14 +702,61 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 	if hasWildcardGroup {
 		t.Fatal("wildcard consumer group ACL should be removed on upgrade")
 	}
+
+	specACL, ok := findTopicACL(merged, clusterTopic.SpecTopic)
+	if !ok {
+		t.Fatal("expected gh-spec topic ACL after upgrade")
+	}
+	assertACLContract(t, specACL,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+		clusterTopic.SpecTopic,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	)
 	for _, op := range specOps {
 		if op == kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite {
 			t.Fatal("legacy gh-spec Write ACL must be removed on upgrade")
 		}
 	}
-	if !containsOperation(migrationOps, kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite) {
+
+	migrationReadACL, ok := findTopicACLWithOperations(merged, clusterTopic.MigrationTopic,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	)
+	if !ok {
+		t.Fatal("expected gh-migration Describe+Read ACL after upgrade")
+	}
+	assertACLContract(t, migrationReadACL,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+		clusterTopic.MigrationTopic,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	)
+
+	migrationWriteACL, ok := findTopicACLWithOperations(merged, clusterTopic.MigrationTopic,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		},
+	)
+	if !ok {
 		t.Fatal("migration topic Write ACL from migration watcher must be preserved on upgrade")
 	}
+	assertACLContract(t, migrationWriteACL,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+		clusterTopic.MigrationTopic,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		},
+	)
 	if !containsOperation(migrationOps, kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead) {
 		t.Fatal("managed hub must retain Read on gh-migration after upgrade")
 	}
@@ -718,6 +787,106 @@ func collectManagedHubACLTopicOps(
 		}
 	}
 	return hasWildcardGroup, specOps, migrationOps
+}
+
+func findTopicACL(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, topicName string) (
+	kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, bool,
+) {
+	for _, acl := range acls {
+		if acl.Resource.Name == nil || *acl.Resource.Name != topicName {
+			continue
+		}
+		if acl.Resource.Type != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic {
+			continue
+		}
+		return acl, true
+	}
+	return kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}, false
+}
+
+func findGroupACL(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, groupName string) (
+	kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, bool,
+) {
+	for _, acl := range acls {
+		if acl.Resource.Name == nil || *acl.Resource.Name != groupName {
+			continue
+		}
+		if acl.Resource.Type != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup {
+			continue
+		}
+		return acl, true
+	}
+	return kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}, false
+}
+
+func findTopicACLWithOperations(
+	acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+	topicName string,
+	wantOps []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+) (kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, bool) {
+	for _, acl := range acls {
+		if acl.Resource.Name == nil || *acl.Resource.Name != topicName {
+			continue
+		}
+		if acl.Resource.Type != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic {
+			continue
+		}
+		if aclOperationsEqual(acl.Operations, wantOps) {
+			return acl, true
+		}
+	}
+	return kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}, false
+}
+
+func assertACLContract(
+	t *testing.T,
+	acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+	wantType kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceType,
+	wantName string,
+	wantPattern kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternType,
+	wantOps []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+) {
+	t.Helper()
+	if acl.Resource.Name == nil {
+		t.Fatal("ACL resource name must be set")
+	}
+	if *acl.Resource.Name != wantName {
+		t.Fatalf("ACL resource name = %q, want %q", *acl.Resource.Name, wantName)
+	}
+	if acl.Resource.Type != wantType {
+		t.Fatalf("ACL resource type = %q, want %q", acl.Resource.Type, wantType)
+	}
+	if acl.Resource.PatternType == nil {
+		t.Fatal("ACL pattern type must be set")
+	}
+	if *acl.Resource.PatternType != wantPattern {
+		t.Fatalf("ACL pattern type = %q, want %q", *acl.Resource.PatternType, wantPattern)
+	}
+	if !aclOperationsEqual(acl.Operations, wantOps) {
+		t.Fatalf("ACL operations = %#v, want %#v", acl.Operations, wantOps)
+	}
+}
+
+func aclOperationsEqual(got, want []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	gotCopy := append([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem(nil), got...)
+	wantCopy := append([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem(nil), want...)
+	sortOperations(gotCopy)
+	sortOperations(wantCopy)
+	for i := range gotCopy {
+		if gotCopy[i] != wantCopy[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func sortOperations(ops []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem) {
+	sort.Slice(ops, func(i, j int) bool {
+		return ops[i] < ops[j]
+	})
 }
 
 func containsOperation(ops []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
