@@ -625,7 +625,8 @@ func TestManagedHubUserACLs(t *testing.T) {
 	if !ok {
 		t.Fatal("expected consumer-group ACL for hub1")
 	}
-	assertACLContract(t, groupACL,
+	assertACLContract(
+		t, groupACL,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup,
 		"hub1",
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
@@ -638,7 +639,8 @@ func TestManagedHubUserACLs(t *testing.T) {
 	if !ok {
 		t.Fatal("expected gh-spec topic ACL")
 	}
-	assertACLContract(t, specACL,
+	assertACLContract(
+		t, specACL,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
 		clusterTopic.SpecTopic,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
@@ -652,7 +654,8 @@ func TestManagedHubUserACLs(t *testing.T) {
 	if !ok {
 		t.Fatal("expected gh-migration topic ACL")
 	}
-	assertACLContract(t, migrationACL,
+	assertACLContract(
+		t, migrationACL,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
 		clusterTopic.MigrationTopic,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
@@ -666,7 +669,8 @@ func TestManagedHubUserACLs(t *testing.T) {
 	if !ok {
 		t.Fatal("expected status topic ACL")
 	}
-	assertACLContract(t, statusACL,
+	assertACLContract(
+		t, statusACL,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
 		clusterTopic.StatusTopic,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
@@ -703,11 +707,26 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 		t.Fatal("wildcard consumer group ACL should be removed on upgrade")
 	}
 
+	groupACL, ok := findGroupACL(merged, "hub1")
+	if !ok {
+		t.Fatal("expected literal consumer-group ACL for hub1 after upgrade")
+	}
+	assertACLContract(
+		t, groupACL,
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup,
+		"hub1",
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
+		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	)
+
 	specACL, ok := findTopicACL(merged, clusterTopic.SpecTopic)
 	if !ok {
 		t.Fatal("expected gh-spec topic ACL after upgrade")
 	}
-	assertACLContract(t, specACL,
+	assertACLContract(
+		t, specACL,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
 		clusterTopic.SpecTopic,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
@@ -722,7 +741,8 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 		}
 	}
 
-	migrationReadACL, ok := findTopicACLWithOperations(merged, clusterTopic.MigrationTopic,
+	migrationReadACL, ok := findTopicACLWithOperations(
+		merged, clusterTopic.MigrationTopic,
 		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
@@ -731,7 +751,8 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 	if !ok {
 		t.Fatal("expected gh-migration Describe+Read ACL after upgrade")
 	}
-	assertACLContract(t, migrationReadACL,
+	assertACLContract(
+		t, migrationReadACL,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
 		clusterTopic.MigrationTopic,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
@@ -741,7 +762,8 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 		},
 	)
 
-	migrationWriteACL, ok := findTopicACLWithOperations(merged, clusterTopic.MigrationTopic,
+	migrationWriteACL, ok := findTopicACLWithOperations(
+		merged, clusterTopic.MigrationTopic,
 		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
 		},
@@ -749,7 +771,8 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 	if !ok {
 		t.Fatal("migration topic Write ACL from migration watcher must be preserved on upgrade")
 	}
-	assertACLContract(t, migrationWriteACL,
+	assertACLContract(
+		t, migrationWriteACL,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
 		clusterTopic.MigrationTopic,
 		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
