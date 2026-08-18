@@ -17,7 +17,7 @@ COPY ./pkg/ ./pkg/
 
 RUN PKG_CONFIG_PATH=/usr/local/lib/pkgconfig CGO_ENABLED=1 GOFLAGS="-p=4" go build -mod=readonly -tags dynamic,strictfipsruntime -a -v -o bin/agent ./agent/cmd/main.go
 # Stage 2: Copy the binaries from the image builder to the base image
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM registry.redhat.io/ubi9/ubi-minimal-pqc:latest
 
 # Red Hat annotations.
 LABEL com.redhat.component="multicluster-globalhub-agent-rhel9"
