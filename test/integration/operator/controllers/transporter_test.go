@@ -428,14 +428,14 @@ var _ = Describe("transporter", Ordered, func() {
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
-		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+		Expect(len(kafkaUser.Spec.Authorization.Acls)).To(Equal(4), "managed hub KafkaUser should have four ACL entries")
 
 		aclByTopic := map[string][]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{}
 		consumerGroupACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}
 		for _, acl := range kafkaUser.Spec.Authorization.Acls {
 			switch acl.Resource.Type {
 			case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic:
-				Expect(acl.Resource.Name).NotTo(BeNil())
+				Expect(acl.Resource.Name).NotTo(BeNil(), "topic ACL must name its resource")
 				aclByTopic[*acl.Resource.Name] = acl.Operations
 			case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup:
 				consumerGroupACLs = append(consumerGroupACLs, acl)
@@ -446,24 +446,27 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(specOps).To(ConsistOf(
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		))
-		Expect(specOps).NotTo(ContainElement(kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite))
+		), "gh-spec ACL should grant Describe and Read only")
+		Expect(specOps).NotTo(ContainElement(kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite),
+			"gh-spec ACL must not grant Write to managed hubs")
 
 		migrationOps := aclByTopic[config.GetMigrationTopic()]
 		Expect(migrationOps).To(ConsistOf(
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		))
+		), "gh-migration ACL should grant Describe and Read for managed hub consumers")
 
 		statusOps := aclByTopic[config.GetStatusTopic(clusterName)]
 		Expect(statusOps).To(Equal([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
-		}))
+		}), "status topic ACL should grant Write only to the hub status topic")
 
-		Expect(consumerGroupACLs).To(HaveLen(1))
-		Expect(consumerGroupACLs[0].Resource.Name).NotTo(BeNil())
-		Expect(*consumerGroupACLs[0].Resource.Name).To(Equal(config.GetConsumerGroupID("", clusterName)))
-		Expect(*consumerGroupACLs[0].Resource.Name).NotTo(Equal("*"))
+		Expect(consumerGroupACLs).To(HaveLen(1), "managed hub should have one consumer-group ACL")
+		Expect(consumerGroupACLs[0].Resource.Name).NotTo(BeNil(), "consumer-group ACL must name its group")
+		Expect(*consumerGroupACLs[0].Resource.Name).To(Equal(config.GetConsumerGroupID("", clusterName)),
+			"consumer-group ACL must be scoped to the hub consumer group")
+		Expect(*consumerGroupACLs[0].Resource.Name).NotTo(Equal("*"),
+			"consumer-group ACL must not use wildcard group authorization")
 
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)

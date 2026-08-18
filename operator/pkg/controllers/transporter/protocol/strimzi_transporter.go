@@ -445,8 +445,9 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 		if err := operatorutils.MergeObjects(latestKafkaUser, desiredKafkaUser, updatedKafkaUser); err != nil {
 			return err
 		}
-		// combine the acls of kafkaUser and the acls of desiredKafkaUser
-		updatedKafkaUser.Spec.Authorization.Acls = combineACLs(latestKafkaUser.Spec.Authorization.Acls,
+		// combine the acls of kafkaUser and the desired acls of desiredKafkaUser
+		existingACLs := filterObsoleteManagedHubACLs(currentKafkaUserACLs(latestKafkaUser), clusterTopic.SpecTopic)
+		updatedKafkaUser.Spec.Authorization.Acls = combineACLs(existingACLs,
 			desiredKafkaUser.Spec.Authorization.Acls)
 
 		if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, latestKafkaUser.Spec) {
@@ -460,6 +461,46 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 		return "", retryErr
 	}
 	return userName, nil
+}
+
+func filterObsoleteManagedHubACLs(
+	acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+	specTopic string,
+) []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	if len(acls) == 0 {
+		return nil
+	}
+
+	filtered := make([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, 0, len(acls))
+	for _, acl := range acls {
+		if isObsoleteManagedHubACL(acl, specTopic) {
+			continue
+		}
+		filtered = append(filtered, acl)
+	}
+	return filtered
+}
+
+func isObsoleteManagedHubACL(acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, specTopic string) bool {
+	if acl.Resource.Name == nil {
+		return false
+	}
+
+	switch acl.Resource.Type {
+	case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup:
+		return *acl.Resource.Name == "*"
+	case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic:
+		if *acl.Resource.Name != specTopic {
+			return false
+		}
+		for _, op := range acl.Operations {
+			if op == kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // combineACLs combines the existing acls and the desired acls
