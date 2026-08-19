@@ -410,13 +410,13 @@ arches:
     name: libcom_err
     evr: 1.46.5-8.el9
     sourcerpm: e2fsprogs-1.46.5-8.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/l/libcurl-7.76.1-40.el9.aarch64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/l/libcurl-7.76.1-40.el9_8.5.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 291404
-    checksum: sha256:4d77a96282b20b10d8e221e1208f0be8ec21274c090ee44866f36646e7b7206a
+    size: 292322
+    checksum: sha256:ea6c3ade86939df7a985ae71e4c5100731962add54295fd40660a2f2c2f85f1d
     name: libcurl
-    evr: 7.76.1-40.el9
-    sourcerpm: curl-7.76.1-40.el9.src.rpm
+    evr: 7.76.1-40.el9_8.5
+    sourcerpm: curl-7.76.1-40.el9_8.5.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/l/libdb-5.3.28-57.el9_6.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
     size: 727417
@@ -1282,13 +1282,13 @@ arches:
     name: libcom_err
     evr: 1.46.5-8.el9
     sourcerpm: e2fsprogs-1.46.5-8.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/l/libcurl-7.76.1-40.el9.ppc64le.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/l/libcurl-7.76.1-40.el9_8.5.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
-    size: 328257
-    checksum: sha256:b23aab9d17501c04bb804a17f03bae178a302d0f9b65a41fbd6c1da62a76e799
+    size: 329146
+    checksum: sha256:1101e1698ca9b9d1b67332cf81c29ffbfbcd4342b053a3e3d4304d8d86e73bc2
     name: libcurl
-    evr: 7.76.1-40.el9
-    sourcerpm: curl-7.76.1-40.el9.src.rpm
+    evr: 7.76.1-40.el9_8.5
+    sourcerpm: curl-7.76.1-40.el9_8.5.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/l/libdb-5.3.28-57.el9_6.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
     size: 837087
@@ -2168,13 +2168,13 @@ arches:
     name: libcom_err
     evr: 1.46.5-8.el9
     sourcerpm: e2fsprogs-1.46.5-8.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/l/libcurl-7.76.1-40.el9.s390x.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/l/libcurl-7.76.1-40.el9_8.5.s390x.rpm
     repoid: ubi-9-for-s390x-baseos-rpms
-    size: 290979
-    checksum: sha256:dd1f17e0adff14cc28fb642e6d0e2fef7cf0bb5a300f10730175f16d917d65e2
+    size: 291750
+    checksum: sha256:27ec5fc1d1420007c387595e76ce70f944ac51b19f5afe7b867f4f528da43ee4
     name: libcurl
-    evr: 7.76.1-40.el9
-    sourcerpm: curl-7.76.1-40.el9.src.rpm
+    evr: 7.76.1-40.el9_8.5
+    sourcerpm: curl-7.76.1-40.el9_8.5.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/l/libdb-5.3.28-57.el9_6.s390x.rpm
     repoid: ubi-9-for-s390x-baseos-rpms
     size: 721041
@@ -3026,13 +3026,13 @@ arches:
     name: libcom_err
     evr: 1.46.5-8.el9
     sourcerpm: e2fsprogs-1.46.5-8.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/l/libcurl-7.76.1-40.el9.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/l/libcurl-7.76.1-40.el9_8.5.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
-    size: 296527
-    checksum: sha256:d89db646d90f8342e097cf03c7979d0da1c2df45bcb4e2b9fe7437b7895a7df5
+    size: 297551
+    checksum: sha256:428b87ca3eb808d769f6f0f68019a97d3c487c86268ccff2ab7ad7223beab01e
     name: libcurl
-    evr: 7.76.1-40.el9
-    sourcerpm: curl-7.76.1-40.el9.src.rpm
+    evr: 7.76.1-40.el9_8.5
+    sourcerpm: curl-7.76.1-40.el9_8.5.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/l/libdb-5.3.28-57.el9_6.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
     size: 755192
@@ -3110,13 +3110,13 @@ arches:
     name: libmount
     evr: 2.37.4-25.el9
     sourcerpm: util-linux-2.37.4-25.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/l/libnghttp2-1.43.0-6.el9_8.1.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/l/libnghttp2-1.43.0-6.el9_8.2.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
-    size: 80371
-    checksum: sha256:3e99ec9ac85e7b1bf8348a503b14eb8d41e6df788c181202484a8cbc399f630a
+    size: 80410
+    checksum: sha256:adb3260b6610917c07bda0a6bc521d5628bb1892a66d008f0fea81dc022ac699
     name: libnghttp2
-    evr: 1.43.0-6.el9_8.1
-    sourcerpm: nghttp2-1.43.0-6.el9_8.1.src.rpm
+    evr: 1.43.0-6.el9_8.2
+    sourcerpm: nghttp2-1.43.0-6.el9_8.2.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/l/libpkgconf-1.7.3-10.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
     size: 38387
