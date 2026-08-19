@@ -124,28 +124,25 @@ spec:
   imagePullPolicy: IfNotPresent
 EOF
 
-# Trap exit for debug on failure
+# Trap exit for debug on failure - sanitize logs to avoid exposing secrets
 trap 'on_error' EXIT
 on_error() {
-  echo "Error occurred. Printing debug info..."
+  echo "Error occurred. Collecting diagnostics..."
 
-  echo "=== ClusterExtension ==="
-  kubectl get clusterextension -oyaml --context "$cluster_name" || true
+  echo "=== ClusterExtension Status ==="
+  kubectl get clusterextension -o wide --context "$cluster_name" 2>/dev/null | head -10 || true
 
-  echo "=== ClusterCatalog ==="
-  kubectl get clustercatalog -oyaml --context "$cluster_name" || true
+  echo "=== ClusterCatalog Status ==="
+  kubectl get clustercatalog -o wide --context "$cluster_name" 2>/dev/null | head -10 || true
 
   echo "=== Pods ==="
-  kubectl get pod -n "$GH_NAMESPACE" --context "$cluster_name" || true
-
-  echo "=== MCGH ==="
-  kubectl get mcgh -n "$GH_NAMESPACE" -oyaml --context "$cluster_name" || true
-
-  echo "=== Operator Logs ==="
-  kubectl logs deploy/multicluster-global-hub-operator -n "$GH_NAMESPACE" --context "$cluster_name" --tail=50 || true
+  kubectl get pod -n "$GH_NAMESPACE" --context "$cluster_name" 2>/dev/null | head -20 || true
 
   echo "=== Deployments ==="
-  kubectl get deploy -n "$GH_NAMESPACE" --context "$cluster_name" || true
+  kubectl get deploy -n "$GH_NAMESPACE" --context "$cluster_name" 2>/dev/null || true
+
+  echo "=== Operator Status (redacted logs - check cluster logs for details) ==="
+  kubectl get deploy multicluster-global-hub-operator -n "$GH_NAMESPACE" --context "$cluster_name" 2>/dev/null || true
 }
 
 # ── 11. Wait for components ─────────────────────────────────────────────────
