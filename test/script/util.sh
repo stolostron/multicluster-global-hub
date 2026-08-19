@@ -645,6 +645,269 @@ enable_olm() {
   ./install.sh v0.28.0
 }
 
+# OLMv1 component versions
+export CERT_MANAGER_VERSION=${CERT_MANAGER_VERSION:-v1.16.2}
+export OLMV1_VERSION=${OLMV1_VERSION:-v1.2.1}
+
+install_olmv1() {
+  local context="$1"
+  echo -e "${YELLOW}Installing OLMv1 components on ${context}${NC}"
+  kubectl config use-context "$context"
+
+  # cert-manager is a prerequisite for catalogd and operator-controller
+  echo -e "${YELLOW}Installing cert-manager ${CERT_MANAGER_VERSION}${NC}"
+  kubectl apply -f "https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml"
+  kubectl wait --for=condition=Available deploy --all -n cert-manager --timeout=120s
+
+  # Install operator-controller (includes catalogd)
+  echo -e "${YELLOW}Installing operator-controller ${OLMV1_VERSION}${NC}"
+  kubectl apply -f "https://github.com/operator-framework/operator-controller/releases/download/${OLMV1_VERSION}/operator-controller.yaml"
+  kubectl wait --for=condition=Available deploy --all -n olmv1-system --timeout=120s
+
+  echo -e "${GREEN}OLMv1 components installed successfully${NC}"
+}
+
+start_local_registry() {
+  local registry_name="${1:-kind-registry}"
+  if docker inspect "$registry_name" &>/dev/null; then
+    echo -e "${YELLOW}Registry ${registry_name} already running${NC}"
+    return 0
+  fi
+  echo -e "${YELLOW}Starting local Docker registry: ${registry_name}${NC}"
+  docker run -d --name "$registry_name" --network kind -p 5001:5000 registry:2
+  echo -e "${GREEN}Local registry started at localhost:5001${NC}"
+}
+
+stop_local_registry() {
+  local registry_name="${1:-kind-registry}"
+  docker stop "$registry_name" 2>/dev/null && docker rm "$registry_name" 2>/dev/null || true
+}
+
+build_fbc_catalog() {
+  local version="$1"
+  local replaces="${2:-}"
+  local registry="${3:-localhost:5001}"
+  local catalog_dir
+  catalog_dir=$(mktemp -d)
+  local bundle_img="${registry}/ghub-bundle:v${version}"
+  local catalog_img="${registry}/ghub-catalog:v${version}"
+
+  echo -e "${YELLOW}Building FBC catalog for version ${version}${NC}"
+
+  # Render the bundle image into FBC JSON
+  opm render "$bundle_img" -o yaml > "${catalog_dir}/catalog.yaml"
+
+  # Append package and channel entries
+  local channel_entry="    - name: multicluster-global-hub-operator.v${version}"
+  if [[ -n "$replaces" ]]; then
+    channel_entry="${channel_entry}
+      replaces: ${replaces}"
+  fi
+
+  cat >> "${catalog_dir}/catalog.yaml" <<EOF
+---
+schema: olm.package
+name: multicluster-global-hub-operator
+defaultChannel: release-5.0
+---
+schema: olm.channel
+package: multicluster-global-hub-operator
+name: release-5.0
+entries:
+${channel_entry}
+EOF
+
+  opm validate "${catalog_dir}"
+
+  # Build catalog image with opm serve as entrypoint
+  cat > "${catalog_dir}/Dockerfile" <<DEOF
+FROM registry.access.redhat.com/ubi9/ubi-micro:latest
+COPY catalog.yaml /configs/catalog.yaml
+LABEL operators.operatorframework.io.index.configs.v1=/configs
+DEOF
+
+  docker build -t "$catalog_img" "$catalog_dir"
+  docker push "$catalog_img"
+  rm -rf "$catalog_dir"
+
+  echo -e "${GREEN}FBC catalog image pushed: ${catalog_img}${NC}"
+}
+
+build_fbc_catalog_upgrade() {
+  local new_version="$1"
+  local old_version="$2"
+  local registry="${3:-localhost:5001}"
+  local catalog_dir
+  catalog_dir=$(mktemp -d)
+  local old_bundle_img="${registry}/ghub-bundle:v${old_version}"
+  local new_bundle_img="${registry}/ghub-bundle:v${new_version}"
+  local catalog_img="${registry}/ghub-catalog:v${new_version}"
+
+  echo -e "${YELLOW}Building upgrade FBC catalog: v${old_version} → v${new_version}${NC}"
+
+  # Render both bundle images into FBC
+  opm render "$old_bundle_img" -o yaml > "${catalog_dir}/catalog.yaml"
+  echo "---" >> "${catalog_dir}/catalog.yaml"
+  opm render "$new_bundle_img" -o yaml >> "${catalog_dir}/catalog.yaml"
+
+  # Append package and channel with upgrade edge
+  cat >> "${catalog_dir}/catalog.yaml" <<EOF
+---
+schema: olm.package
+name: multicluster-global-hub-operator
+defaultChannel: release-5.0
+---
+schema: olm.channel
+package: multicluster-global-hub-operator
+name: release-5.0
+entries:
+    - name: multicluster-global-hub-operator.v${old_version}
+    - name: multicluster-global-hub-operator.v${new_version}
+      replaces: multicluster-global-hub-operator.v${old_version}
+EOF
+
+  opm validate "${catalog_dir}"
+
+  cat > "${catalog_dir}/Dockerfile" <<DEOF
+FROM registry.access.redhat.com/ubi9/ubi-micro:latest
+COPY catalog.yaml /configs/catalog.yaml
+LABEL operators.operatorframework.io.index.configs.v1=/configs
+DEOF
+
+  docker build -t "$catalog_img" "$catalog_dir"
+  docker push "$catalog_img"
+  rm -rf "$catalog_dir"
+
+  echo -e "${GREEN}Upgrade catalog image pushed: ${catalog_img}${NC}"
+}
+
+create_cluster_catalog() {
+  local version="$1"
+  local registry="${2:-localhost:5001}"
+  local catalog_img="${registry}/ghub-catalog:v${version}"
+  local context="${3:-}"
+
+  echo -e "${YELLOW}Creating ClusterCatalog for ${catalog_img}${NC}"
+
+  local ctx_flag=""
+  if [[ -n "$context" ]]; then
+    ctx_flag="--context $context"
+  fi
+
+  kubectl apply $ctx_flag -f - <<EOF
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterCatalog
+metadata:
+  name: global-hub-catalog
+spec:
+  source:
+    type: Image
+    image:
+      ref: ${catalog_img}
+      pollInterval: 10s
+EOF
+
+  kubectl wait $ctx_flag clustercatalog/global-hub-catalog --for=condition=Serving=True --timeout=120s
+  echo -e "${GREEN}ClusterCatalog is serving${NC}"
+}
+
+update_cluster_catalog() {
+  local version="$1"
+  local registry="${2:-localhost:5001}"
+  local catalog_img="${registry}/ghub-catalog:v${version}"
+  local context="${3:-}"
+
+  echo -e "${YELLOW}Updating ClusterCatalog to ${catalog_img}${NC}"
+
+  local ctx_flag=""
+  if [[ -n "$context" ]]; then
+    ctx_flag="--context $context"
+  fi
+
+  kubectl patch $ctx_flag clustercatalog/global-hub-catalog --type=merge -p \
+    "{\"spec\":{\"source\":{\"image\":{\"ref\":\"${catalog_img}\"}}}}"
+
+  sleep 5
+  kubectl wait $ctx_flag clustercatalog/global-hub-catalog --for=condition=Serving=True --timeout=120s
+  echo -e "${GREEN}ClusterCatalog updated and serving${NC}"
+}
+
+install_operator_clusterextension() {
+  local namespace="${1:-multicluster-global-hub}"
+  local context="${2:-}"
+
+  echo -e "${YELLOW}Installing Global Hub operator via ClusterExtension${NC}"
+
+  local ctx_flag=""
+  if [[ -n "$context" ]]; then
+    ctx_flag="--context $context"
+  fi
+
+  kubectl create namespace "$namespace" $ctx_flag --dry-run=client -o yaml | kubectl apply $ctx_flag -f -
+
+  # ServiceAccount for the installer
+  kubectl apply $ctx_flag -f - <<EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: global-hub-installer
+  namespace: ${namespace}
+EOF
+
+  # ClusterRoleBinding
+  kubectl apply $ctx_flag -f - <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: global-hub-installer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: global-hub-installer
+    namespace: ${namespace}
+EOF
+
+  # ClusterExtension
+  kubectl apply $ctx_flag -f - <<EOF
+apiVersion: olm.operatorframework.io/v1
+kind: ClusterExtension
+metadata:
+  name: multicluster-global-hub-operator
+spec:
+  namespace: ${namespace}
+  serviceAccount:
+    name: global-hub-installer
+  source:
+    sourceType: Catalog
+    catalog:
+      packageName: multicluster-global-hub-operator
+      channels:
+        - release-5.0
+EOF
+
+  echo -e "${YELLOW}Waiting for ClusterExtension to be installed...${NC}"
+  kubectl wait $ctx_flag clusterextension/multicluster-global-hub-operator \
+    --for=condition=Installed=True --timeout=300s
+  echo -e "${GREEN}Global Hub operator installed via ClusterExtension${NC}"
+}
+
+verify_operator_version() {
+  local context="${1:-}"
+  local ctx_flag=""
+  if [[ -n "$context" ]]; then
+    ctx_flag="--context $context"
+  fi
+
+  kubectl get $ctx_flag clusterextension/multicluster-global-hub-operator \
+    -o jsonpath='{.status.install.bundle.version}' 2>/dev/null || \
+  kubectl get $ctx_flag clusterextension/multicluster-global-hub-operator \
+    -o jsonpath='{.status.installedBundle.version}' 2>/dev/null || \
+  echo "unknown"
+}
+
 wait_secret_ready() {
   secretName=$1
   secretNamespace=$2
