@@ -118,6 +118,24 @@ fi
 
 echo -e "${YELLOW} installing ocm and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
+# The multicluster-global-hub-agent unconditionally watches policy.open-cluster-management.io
+# Policy CRs (see agent/cmd/main.go initCache), including when running in "local" deploy mode
+# (installAgentOnLocal) directly on the global-hub cluster. POLICY_INIT is intentionally false
+# for the global-hub<->hub join above (policy propagation isn't needed there), so the Policy
+# CRDs are otherwise never installed on global-hub, which makes the local agent's manager
+# creation fail fatally with "no matches for kind Policy". Install just the CRDs (not the full
+# propagator deployment) so the local agent's RESTMapper can resolve the kind.
+propagator_dir="${CURRENT_DIR}/governance-policy-propagator"
+if [ -d "$propagator_dir/deploy/crds" ]; then
+  echo -e "${YELLOW}Installing Policy CRDs on global-hub (required by local agent cache)${NC}"
+  kubectl --context "$GH_NAME" apply -f "$propagator_dir/deploy/crds/policy.open-cluster-management.io_policies.yaml"
+  kubectl --context "$GH_NAME" apply -f "$propagator_dir/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml"
+  kubectl --context "$GH_NAME" apply -f "$propagator_dir/deploy/crds/policy.open-cluster-management.io_policyautomations.yaml"
+  kubectl --context "$GH_NAME" apply -f "$propagator_dir/deploy/crds/policy.open-cluster-management.io_policysets.yaml"
+else
+  echo -e "${RED}governance-policy-propagator CRDs not found at $propagator_dir, skipping Policy CRD install on global-hub${NC}"
+fi
+
 # Install managed-serviceaccount addon on global hub
 # This is required for migration functionality to create ServiceAccounts and collect tokens
 echo -e "${YELLOW}Installing managed-serviceaccount addon on global hub${NC}"
