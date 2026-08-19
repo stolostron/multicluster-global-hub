@@ -493,23 +493,29 @@ func isObsoleteManagedHubACL(acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 		if *acl.Resource.Name != specTopic {
 			return false
 		}
-		hasWrite := false
-		hasReadOrDescribe := false
-		for _, op := range acl.Operations {
-			switch op {
-			case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite:
-				hasWrite = true
-			case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-				kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe:
-				hasReadOrDescribe = true
-			}
-		}
 		// Legacy managed-hub ACL bundled Describe+Read+Write on gh-spec.
 		// Write-only entries are managed by the Hub HA ACL watcher.
-		return hasWrite && hasReadOrDescribe
+		return topicACLHasLegacyCombinedWrite(acl.Operations)
 	}
 
 	return false
+}
+
+func topicACLHasLegacyCombinedWrite(
+	operations []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+) bool {
+	hasWrite := false
+	hasReadOrDescribe := false
+	for _, op := range operations {
+		switch op {
+		case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite:
+			hasWrite = true
+		case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe:
+			hasReadOrDescribe = true
+		}
+	}
+	return hasWrite && hasReadOrDescribe
 }
 
 // combineACLs combines the existing acls and the desired acls
