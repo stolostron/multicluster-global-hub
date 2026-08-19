@@ -47,8 +47,11 @@ func (r *HubHAACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
-	if err != nil || mgh == nil || config.IsPaused(mgh) {
-		return ctrl.Result{}, err
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("get MulticlusterGlobalHub for Hub HA ACL reconciler: %w", err)
+	}
+	if mgh == nil || config.IsPaused(mgh) {
+		return ctrl.Result{}, nil
 	}
 
 	cluster := &clusterv1.ManagedCluster{}
@@ -56,7 +59,7 @@ func (r *HubHAACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, r.syncHubHASpecWriteACL(ctx, mgh, req.Name, false)
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("get ManagedCluster %q for Hub HA ACL reconciler: %w", req.Name, err)
 	}
 
 	grant := cluster.DeletionTimestamp == nil &&
@@ -103,7 +106,7 @@ func setupHubHAACLReconciler(mgr ctrl.Manager) error {
 		Client: mgr.GetClient(),
 	}
 	if err := reconciler.SetupWithManager(mgr); err != nil {
-		return err
+		return fmt.Errorf("setup Hub HA ACL reconciler: %w", err)
 	}
 	hubHAACLControllerStarted = true
 	return nil

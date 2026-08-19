@@ -2,6 +2,7 @@ package transporter
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -69,7 +70,7 @@ func StartController(controllerOption config.ControllerOption) (config.Controlle
 		}
 		if !hubHAACLControllerStarted {
 			if err := hubHAACLReconcilerSetup(controllerOption.Manager); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("setup Hub HA ACL reconciler: %w", err)
 			}
 		}
 		return transportReconciler, nil
@@ -96,7 +97,7 @@ func StartController(controllerOption config.ControllerOption) (config.Controlle
 		return nil, err
 	}
 	if err := hubHAACLReconcilerSetup(controllerOption.Manager); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("setup Hub HA ACL reconciler: %w", err)
 	}
 	log.Infof("inited transport controller")
 	return transportReconciler, nil

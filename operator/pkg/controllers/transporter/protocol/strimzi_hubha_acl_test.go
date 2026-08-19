@@ -41,8 +41,7 @@ func TestHubHASpecWriteACLKey(t *testing.T) {
 }
 
 func TestHasHubHASpecWriteACL(t *testing.T) {
-	t.Parallel()
-
+	restoreTransportConfigAfterTest(t)
 	operatorconfig.SetSpecTopic("gh-spec")
 	transporter := &strimziTransporter{}
 	withACL := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
@@ -57,6 +56,7 @@ func TestHasHubHASpecWriteACL(t *testing.T) {
 }
 
 func TestSyncHubHASpecWriteACLGrantAndRevoke(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	operatorconfig.SetSpecTopic("gh-spec")
 
 	scheme := runtime.NewScheme()
@@ -126,6 +126,7 @@ func TestSyncHubHASpecWriteACLSkipsEmptyHub(t *testing.T) {
 }
 
 func TestSyncHubHASpecWriteACLNotFoundWhenGranting(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	operatorconfig.SetSpecTopic("gh-spec")
 
 	scheme := runtime.NewScheme()
@@ -145,6 +146,7 @@ func TestSyncHubHASpecWriteACLNotFoundWhenGranting(t *testing.T) {
 }
 
 func TestSyncHubHASpecWriteACLNotFoundWhenRevoking(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	operatorconfig.SetSpecTopic("gh-spec")
 
 	scheme := runtime.NewScheme()
@@ -164,6 +166,7 @@ func TestSyncHubHASpecWriteACLNotFoundWhenRevoking(t *testing.T) {
 }
 
 func TestSyncHubHASpecWriteACLGrantWithNilAuthorization(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	operatorconfig.SetSpecTopic("gh-spec")
 
 	scheme := runtime.NewScheme()
@@ -204,6 +207,7 @@ func TestSyncHubHASpecWriteACLGrantWithNilAuthorization(t *testing.T) {
 }
 
 func TestSyncHubHASpecWriteACLWrapper(t *testing.T) {
+	restoreTransportConfigAfterTest(t)
 	operatorconfig.SetSpecTopic("gh-spec")
 
 	scheme := runtime.NewScheme()

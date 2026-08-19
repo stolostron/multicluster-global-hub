@@ -33,10 +33,19 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+func restoreTransportConfigAfterTest(t *testing.T) {
+	t.Helper()
+	snapshot := operatorconfig.SnapshotTransportConfigForTest()
+	t.Cleanup(func() {
+		operatorconfig.RestoreTransportConfigForTest(snapshot)
+	})
+}
+
 func TestHubHAACLReconcilerReconcileActiveRoleGrantsACL(t *testing.T) {
 	originalBYO := operatorconfig.IsBYOKafka()
 	t.Cleanup(func() { operatorconfig.SetBYOKafka(originalBYO) })
 	operatorconfig.SetBYOKafka(false)
+	restoreTransportConfigAfterTest(t)
 	operatorconfig.SetSpecTopic("gh-spec")
 
 	_, fakeClient, _, kafkaUser := newHubHAACLReconcilerFixtures(t)
@@ -96,6 +105,7 @@ func TestHubHAACLReconcilerReconcileNotFound(t *testing.T) {
 	originalBYO := operatorconfig.IsBYOKafka()
 	t.Cleanup(func() { operatorconfig.SetBYOKafka(originalBYO) })
 	operatorconfig.SetBYOKafka(false)
+	restoreTransportConfigAfterTest(t)
 	operatorconfig.SetSpecTopic("gh-spec")
 
 	_, fakeClient, _, kafkaUser := newHubHAACLReconcilerFixtures(t)
@@ -134,6 +144,7 @@ func TestHubHAACLReconcilerReconcileStandbyRevokesACL(t *testing.T) {
 	originalBYO := operatorconfig.IsBYOKafka()
 	t.Cleanup(func() { operatorconfig.SetBYOKafka(originalBYO) })
 	operatorconfig.SetBYOKafka(false)
+	restoreTransportConfigAfterTest(t)
 	operatorconfig.SetSpecTopic("gh-spec")
 
 	_, fakeClient, _, kafkaUser := newHubHAACLReconcilerFixtures(t)

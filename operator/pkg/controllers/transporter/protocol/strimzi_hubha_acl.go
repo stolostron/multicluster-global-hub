@@ -63,7 +63,7 @@ func (k *strimziTransporter) SyncHubHASpecWriteACL(activeHub string, grant bool)
 		return fmt.Errorf("kafka user %s not found for Hub HA spec write ACL", userName)
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("get kafka user %s for Hub HA spec write ACL: %w", userName, err)
 	}
 
 	specTopic := config.GetSpecTopic()
@@ -75,7 +75,7 @@ func (k *strimziTransporter) SyncHubHASpecWriteACL(activeHub string, grant bool)
 			Name:      userName,
 			Namespace: k.kafkaClusterNamespace,
 		}, latestKafkaUser); err != nil {
-			return err
+			return fmt.Errorf("get kafka user %s for Hub HA spec write ACL update: %w", userName, err)
 		}
 
 		currentACLs := currentKafkaUserACLs(latestKafkaUser)
@@ -107,6 +107,9 @@ func (k *strimziTransporter) SyncHubHASpecWriteACL(activeHub string, grant bool)
 			}
 			latestKafkaUser.Spec.Authorization.Acls = updatedACLs
 		}
-		return k.manager.GetClient().Update(k.ctx, latestKafkaUser)
+		if err := k.manager.GetClient().Update(k.ctx, latestKafkaUser); err != nil {
+			return fmt.Errorf("update kafka user %s Hub HA spec write ACL: %w", userName, err)
+		}
+		return nil
 	})
 }
