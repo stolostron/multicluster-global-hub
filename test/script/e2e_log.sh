@@ -47,13 +47,6 @@ if [ "$COMPONENT" = "multicluster-global-hub-operator" ]; then
 
   echo ">>>> KafkaTopics"
   kubectl get kafkatopics -n "$NAMESPACE" -oyaml 2>/dev/null || echo "KafkaTopic CRD not found or no resources, skipping..."
-
-  # If installAgentOnLocal is enabled, also dump the local agent deployment/pod, since it
-  # is never covered by the "e2e-log/agent" target (that only fetches hub1/hub2 agents).
-  echo ">>>> local agent (multicluster-global-hub-agent on global-hub)"
-  kubectl describe deploy multicluster-global-hub-agent -n "$NAMESPACE" 2>/dev/null || echo "local agent deployment not found, skipping..."
-  kubectl logs deployment/multicluster-global-hub-agent -n "$NAMESPACE" --all-containers=true --tail=-1 2>/dev/null || echo "local agent logs not found, skipping..."
-  kubectl logs deployment/multicluster-global-hub-agent -n "$NAMESPACE" --all-containers=true --previous --tail=-1 2>/dev/null || echo "no previous local agent logs, skipping..."
 fi
 
 # Print describe and logs at the end
