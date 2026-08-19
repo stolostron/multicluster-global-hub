@@ -336,24 +336,13 @@ func (k *strimziTransporter) isCSVInstalled() (bool, error) {
 	return true, nil
 }
 
-// EnsureUser to reconcile the kafkaUser's setting(authn and authz)
-// set the user can write to status
-func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
-	userName := config.GetKafkaUserName(clusterName)
-	clusterTopic := k.getClusterTopic(clusterName)
-
-	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
-	if clusterName == config.GetLocalClusterName() || clusterName == constants.LocalClusterName {
-		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
-	}
-
-	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		utils.ConsumeGroupReadACL(),
-		// migration resource into mh: write access to the spec topic is required for cluster migration.
+func managedHubUserACLs(clusterTopic *transport.ClusterTopic, consumerGroupID string) []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	return []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		utils.ConsumeGroupReadACL(consumerGroupID),
+		// consume spec bundles from the global hub (read-only; managed hubs must not produce to gh-spec)
 		utils.GetTopicACL(clusterTopic.SpecTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
 		}),
 		// consume migration deploying bundles from the dedicated migration topic
 		utils.GetTopicACL(clusterTopic.MigrationTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
@@ -365,6 +354,21 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
 		}),
 	}
+}
+
+// EnsureUser to reconcile the kafkaUser's setting(authn and authz)
+// set the user can write to status
+func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
+	userName := config.GetKafkaUserName(clusterName)
+	clusterTopic := k.getClusterTopic(clusterName)
+
+	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
+	if clusterName == config.GetLocalClusterName() || clusterName == constants.LocalClusterName {
+		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
+	}
+
+	consumerGroupID := config.GetConsumerGroupID(k.mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix, clusterName)
+	simpleACLs := managedHubUserACLs(clusterTopic, consumerGroupID)
 
 	desiredKafkaUser := newKafkaUser(k.kafkaClusterNamespace, k.kafkaClusterName, userName, authnType, simpleACLs)
 
@@ -395,8 +399,9 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 		if err := operatorutils.MergeObjects(latestKafkaUser, desiredKafkaUser, updatedKafkaUser); err != nil {
 			return err
 		}
-		// combine the acls of kafkaUser and the acls of desiredKafkaUser
-		updatedKafkaUser.Spec.Authorization.Acls = combineACLs(latestKafkaUser.Spec.Authorization.Acls,
+		// combine the acls of kafkaUser and the desired acls of desiredKafkaUser
+		existingACLs := filterObsoleteManagedHubACLs(currentKafkaUserACLs(latestKafkaUser), clusterTopic.SpecTopic)
+		updatedKafkaUser.Spec.Authorization.Acls = combineACLs(existingACLs,
 			desiredKafkaUser.Spec.Authorization.Acls)
 
 		if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, latestKafkaUser.Spec) {
@@ -410,6 +415,59 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 		return "", retryErr
 	}
 	return userName, nil
+}
+
+func filterObsoleteManagedHubACLs(
+	acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+	specTopic string,
+) []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	if len(acls) == 0 {
+		return nil
+	}
+
+	filtered := make([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, 0, len(acls))
+	for _, acl := range acls {
+		if isObsoleteManagedHubACL(acl, specTopic) {
+			continue
+		}
+		filtered = append(filtered, acl)
+	}
+	return filtered
+}
+
+func isObsoleteManagedHubACL(acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, specTopic string) bool {
+	if acl.Resource.Name == nil {
+		return false
+	}
+
+	switch acl.Resource.Type {
+	case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup:
+		return *acl.Resource.Name == "*"
+	case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic:
+		if *acl.Resource.Name != specTopic {
+			return false
+		}
+		return topicACLHasLegacyCombinedWrite(acl.Operations)
+	}
+
+	return false
+}
+
+func topicACLHasLegacyCombinedWrite(
+	operations []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+) bool {
+	hasWrite := false
+	hasReadOrDescribe := false
+	for _, op := range operations {
+		switch op {
+		case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite:
+			hasWrite = true
+		case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe:
+			hasReadOrDescribe = true
+		}
+	}
+	return hasWrite && hasReadOrDescribe
 }
 
 // combineACLs combines the existing acls and the desired acls
