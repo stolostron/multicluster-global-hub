@@ -46,8 +46,8 @@ func TestHubHAACLReconcilerReconcileActiveRoleGrantsACL(t *testing.T) {
 	if err := operatorv1alpha4.AddToScheme(scheme); err != nil {
 		t.Fatalf("AddToScheme() error = %v", err)
 	}
-	if err := clusterv1.AddToScheme(scheme); err != nil {
-		t.Fatalf("AddToScheme() error = %v", err)
+	if err := clusterv1.Install(scheme); err != nil {
+		t.Fatalf("Install() error = %v", err)
 	}
 
 	mgh := &operatorv1alpha4.MulticlusterGlobalHub{
