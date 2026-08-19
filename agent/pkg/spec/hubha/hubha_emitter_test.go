@@ -17,11 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -895,52 +893,95 @@ func TestHubHAEmitter_Resync_RetriesWhenDeleteBetweenListAndSend(t *testing.T) {
 	}
 }
 
-func TestHubHAEmitter_RefreshLocalClusterFilter_ExcludesLocalClusterResources(t *testing.T) {
-	scheme := runtime.NewScheme()
-	if err := clusterv1.Install(scheme); err != nil {
-		t.Fatalf("clusterv1.Install() error = %v", err)
+// managedClusterUnstructured builds a ManagedCluster with the given name and labels.
+func managedClusterUnstructured(name string, labels map[string]any) *unstructured.Unstructured {
+	meta := map[string]any{"name": name}
+	if labels != nil {
+		meta["labels"] = labels
 	}
-
-	localCluster := &clusterv1.ManagedCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "regionalhub-local-cluster",
-			Labels: map[string]string{
-				constants.LocalClusterName: "true",
-			},
-		},
-	}
-	localClusterUnstructured := &unstructured.Unstructured{}
-	localClusterUnstructured.SetGroupVersionKind(schema.GroupVersionKind{
-		Group: "cluster.open-cluster-management.io", Version: "v1", Kind: "ManagedCluster",
-	})
-	localClusterUnstructured.SetName(localCluster.Name)
-	localClusterUnstructured.SetLabels(localCluster.Labels)
-
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(localCluster).Build()
-	producer := &mockProducer{events: []cloudevents.Event{}}
-	emitter := NewHubHAEmitter(producer, &transport.TransportInternalConfig{
-		KafkaCredential: &transport.KafkaConfig{SpecTopic: "spec-topic"},
-	}, "hub1", "hub2")
-	emitter.SetClient(cl)
-	if err := emitter.RefreshLocalClusterFilter(context.Background()); err != nil {
-		t.Fatalf("RefreshLocalClusterFilter() error = %v", err)
-	}
-
-	addon := &unstructured.Unstructured{
+	return &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "addon.open-cluster-management.io/v1beta1",
-			"kind":       "ManagedClusterAddOn",
-			"metadata": map[string]any{
-				"name":      "governance-policy-framework",
-				"namespace": "regionalhub-local-cluster",
-			},
+			"apiVersion": "cluster.open-cluster-management.io/v1",
+			"kind":       "ManagedCluster",
+			"metadata":   meta,
 		},
 	}
+}
 
-	if emitter.Predicate().Create(event.CreateEvent{Object: localClusterUnstructured}) {
-		t.Fatal("predicate should exclude local cluster ManagedCluster")
+// TestHubHAEmitter_SkipsTopologyManagedClusters verifies that the active hub never emits its
+// own topology ManagedClusters (local-cluster and imported Global Hub hubs) to the standby.
+// These collide with the standby's own topology; the delete bundle in particular carries only
+// ObjectMetadata, so the standby cannot re-filter them (ACM-41773).
+func TestHubHAEmitter_SkipsTopologyManagedClusters(t *testing.T) {
+	topology := map[string]*unstructured.Unstructured{
+		"local-cluster by name": managedClusterUnstructured("local-cluster", nil),
+		"local-cluster by label": managedClusterUnstructured("cluster-a", map[string]any{
+			constants.LocalClusterName: "true",
+		}),
+		"imported hub by deploy-mode label": managedClusterUnstructured("regional-hub-1", map[string]any{
+			constants.GHDeployModeLabelKey: "default",
+		}),
+		"imported hub by hub-role label": managedClusterUnstructured("regional-hub-2", map[string]any{
+			constants.GHHubRoleLabelKey: "active",
+		}),
 	}
-	if emitter.Predicate().Create(event.CreateEvent{Object: addon}) {
-		t.Fatal("predicate should exclude resources in local cluster namespace")
+
+	for name, mc := range topology {
+		t.Run(name, func(t *testing.T) {
+			producer := &mockProducer{events: []cloudevents.Event{}}
+			emitter := NewHubHAEmitter(producer, newTransportConfig(), "hub1", "hub2")
+			emitter.SetEnabled(true)
+
+			if err := emitter.Update(mc); err != nil {
+				t.Fatalf("Update() error = %v", err)
+			}
+			if err := emitter.Delete(mc); err != nil {
+				t.Fatalf("Delete() error = %v", err)
+			}
+			if len(producer.events) != 0 {
+				t.Fatalf("expected no events for topology ManagedCluster %q, got %d",
+					mc.GetName(), len(producer.events))
+			}
+
+			// Resync must also skip the topology cluster while still emitting a regular one.
+			regular := managedClusterUnstructured("regional-managed-cluster", nil)
+			if err := emitter.Resync([]client.Object{mc, regular}); err != nil {
+				t.Fatalf("Resync() error = %v", err)
+			}
+			var resynced []string
+			for _, evt := range producer.events {
+				var bundle generic.GenericBundle[*unstructured.Unstructured]
+				if err := json.Unmarshal(evt.Data(), &bundle); err != nil {
+					t.Fatalf("failed to unmarshal resync bundle: %v", err)
+				}
+				for _, obj := range bundle.Resync {
+					resynced = append(resynced, obj.GetName())
+				}
+			}
+			if len(resynced) != 1 || resynced[0] != "regional-managed-cluster" {
+				t.Fatalf("expected only the regular ManagedCluster to be resynced, got %v", resynced)
+			}
+		})
+	}
+}
+
+// TestHubHAEmitter_EmitsRegularManagedCluster is the counter-case: an ordinary ManagedCluster
+// (not part of the Global Hub topology) is still emitted on update and delete.
+func TestHubHAEmitter_EmitsRegularManagedCluster(t *testing.T) {
+	producer := &mockProducer{events: []cloudevents.Event{}}
+	emitter := NewHubHAEmitter(producer, newTransportConfig(), "hub1", "hub2")
+	emitter.SetEnabled(true)
+
+	mc := managedClusterUnstructured("regional-managed-cluster", nil)
+
+	if err := emitter.Update(mc); err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if err := emitter.Delete(mc); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if len(producer.events) != 2 {
+		t.Fatalf("expected update and delete events for a regular ManagedCluster, got %d",
+			len(producer.events))
 	}
 }

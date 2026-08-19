@@ -125,6 +125,14 @@ func shouldSkipHAAnnotation(obj client.Object) bool {
 	return isGlobalHubManagedHub(obj)
 }
 
+// isTopologyManagedCluster reports whether obj is a ManagedCluster that represents the
+// Global Hub topology (local-cluster or an imported hub) rather than a regional cluster
+// synced by Hub HA. These must not be emitted to or applied/deleted on the standby, since
+// they collide with the standby's own topology (e.g. its own local-cluster).
+func isTopologyManagedCluster(gvk schema.GroupVersionKind, obj client.Object) bool {
+	return gvk.Group == clusterv1.GroupName && gvk.Kind == "ManagedCluster" && shouldSkipHAAnnotation(obj)
+}
+
 func hasHAKlusterletConfigAnnotation(obj client.Object) bool {
 	return obj.GetAnnotations()[klusterletConfigAnnotation] != ""
 }
