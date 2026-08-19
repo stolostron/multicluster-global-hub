@@ -306,14 +306,17 @@ func TestStartControllerSingleton(t *testing.T) {
 	// Save and restore the singleton so we don't affect other tests.
 	original := transportReconciler
 	originalMigrationACL := migrationACLControllerStarted
+	originalHubHAACL := hubHAACLControllerStarted
 	t.Cleanup(func() {
 		transportReconciler = original
 		migrationACLControllerStarted = originalMigrationACL
+		hubHAACLControllerStarted = originalHubHAACL
 	})
 
 	existing := &TransportReconciler{}
 	transportReconciler = existing
 	migrationACLControllerStarted = true
+	hubHAACLControllerStarted = true
 
 	// Second call must return the pre-existing instance without error.
 	controller, err := StartController(config.ControllerOption{})
