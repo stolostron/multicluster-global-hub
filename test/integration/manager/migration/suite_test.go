@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/rest"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	v1beta1 "open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -316,6 +317,13 @@ func ensureManagedServiceAccount(migrationName, toHub string) error {
 	}
 
 	return nil
+}
+
+func waitForMigrationManagedServiceAccount(ctx context.Context, migrationName, toHub string) {
+	Eventually(func() error {
+		msa := &v1beta1.ManagedServiceAccount{}
+		return mgr.GetClient().Get(ctx, client.ObjectKey{Name: migrationName, Namespace: toHub}, msa)
+	}, "15s", "200ms").Should(Succeed())
 }
 
 // cleanupHubAndClusters removes all resources created for a test.
