@@ -46,25 +46,34 @@ echo -e "${GREEN}Manager: Available${NC}"
 
 # ── 5. Validate Kafka ───────────────────────────────────────────────────────
 echo -e "${YELLOW}--- Checking Kafka ---${NC}"
-kubectl get kafka -n "$GH_NAMESPACE" --context "$cluster_name" || echo "Kafka not yet available"
+kubectl wait kafka -n "$GH_NAMESPACE" --all --for=condition=Ready=True --timeout=300s --context "$cluster_name"
+echo -e "${GREEN}Kafka: Ready${NC}"
 
 # ── 6. Validate Postgres ────────────────────────────────────────────────────
 echo -e "${YELLOW}--- Checking Postgres ---${NC}"
-kubectl get statefulset -n "$GH_NAMESPACE" --context "$cluster_name" | grep -i postgres || echo "Postgres not yet available"
+kubectl wait statefulset -n "$GH_NAMESPACE" -l postgres-operator.crunchydata.com/cluster --for=jsonpath='{.status.readyReplicas}'=3 --timeout=300s --context "$cluster_name"
+echo -e "${GREEN}Postgres: Ready${NC}"
 
 # ── 7. Validate Grafana ─────────────────────────────────────────────────────
 echo -e "${YELLOW}--- Checking Grafana ---${NC}"
-kubectl get deploy -n "$GH_NAMESPACE" --context "$cluster_name" | grep -i grafana || echo "Grafana not yet available"
+kubectl wait deploy/multicluster-global-hub-grafana -n "$GH_NAMESPACE" --for=condition=Available=True --timeout=120s --context "$cluster_name"
+echo -e "${GREEN}Grafana: Available${NC}"
 
 # ── 8. Validate MCGH status ─────────────────────────────────────────────────
 echo -e "${YELLOW}--- Checking MulticlusterGlobalHub status ---${NC}"
-kubectl get mcgh -n "$GH_NAMESPACE" --context "$cluster_name" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Phase not set"
+mcgh_phase=$(kubectl get mcgh -n "$GH_NAMESPACE" --context "$cluster_name" -o jsonpath='{.items[0].status.phase}')
+if [[ "$mcgh_phase" != "Running" ]]; then
+  echo "ERROR: MulticlusterGlobalHub phase is '${mcgh_phase}', expected 'Running'"
+  exit 1
+fi
+echo -e "${GREEN}MulticlusterGlobalHub: ${mcgh_phase}${NC}"
 
-# ── 9. OLMv0/OLMv1 coexistence check ───────────────────────────────────────
-echo -e "${YELLOW}--- Checking OLMv0/OLMv1 coexistence ---${NC}"
-echo "OLMv0 Subscriptions:"
-kubectl get subscriptions.operators.coreos.com --all-namespaces --context "$cluster_name" 2>/dev/null || echo "No OLMv0 subscriptions"
-echo "OLMv1 ClusterExtensions:"
+# ── 9. Validate Strimzi ClusterExtension (OLMv1 coexistence) ────────────────
+echo -e "${YELLOW}--- Checking Strimzi ClusterExtension (OLMv1) ---${NC}"
+kubectl wait clusterextension/strimzi-kafka-operator --for=condition=Installed=True --timeout=60s --context "$cluster_name"
+echo -e "${GREEN}Strimzi: Installed via OLMv1 ClusterExtension${NC}"
+
+echo "All ClusterExtensions:"
 kubectl get clusterextension --context "$cluster_name"
 
 echo -e "${GREEN}=== OLMv1 E2E Validation Complete ===${NC}"

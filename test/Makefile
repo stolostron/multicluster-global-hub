@@ -32,6 +32,8 @@ e2e-test-cluster e2e-test-local-agent e2e-test-localpolicy e2e-test-grafana e2e-
 e2e-prow-tests:
 	./test/script/e2e_prow.sh
 
+.PHONY: olmv1-e2e-setup olmv1-e2e-run olmv1-e2e-upgrade olmv1-e2e-cleanup olmv1-e2e-test-all
+
 olmv1-e2e-setup:
 	./test/script/olmv1_e2e_setup.sh
 
@@ -44,7 +46,12 @@ olmv1-e2e-upgrade: tidy vendor
 olmv1-e2e-cleanup:
 	./test/script/olmv1_e2e_cleanup.sh
 
-olmv1-e2e-test-all: olmv1-e2e-setup olmv1-e2e-run olmv1-e2e-upgrade olmv1-e2e-cleanup
+olmv1-e2e-test-all:
+	@trap './test/script/olmv1_e2e_cleanup.sh' EXIT; \
+	./test/script/olmv1_e2e_setup.sh && \
+	./test/script/olmv1_e2e_run.sh && \
+	$(MAKE) tidy vendor && \
+	./test/script/olmv1_e2e_upgrade.sh
 
 e2e-log/operator:
 	./test/script/e2e_log.sh

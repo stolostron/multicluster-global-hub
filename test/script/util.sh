@@ -208,10 +208,24 @@ ensure_cluster() {
     kind delete cluster --name="$cluster_name"
   fi
 
+  # Create KinD config with registry routing for catalogd/operator-controller
+  local kind_config
+  kind_config=$(mktemp)
+  trap "rm -f $kind_config" RETURN
+
+  cat > "$kind_config" <<'EOF'
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]
+    endpoint = ["http://kind-registry:5000"]
+EOF
+
   if [ -n "$kind_image" ]; then
-    kind create cluster --name "$cluster_name" --image "$kind_image" --wait 5m
+    kind create cluster --name "$cluster_name" --image "$kind_image" --config "$kind_config" --wait 5m
   else
-    kind create cluster --name "$cluster_name" --wait 5m
+    kind create cluster --name "$cluster_name" --config "$kind_config" --wait 5m
   fi
 
   if [ $? -ne 0 ]; then
@@ -901,11 +915,23 @@ verify_operator_version() {
     ctx_flag="--context $context"
   fi
 
-  kubectl get $ctx_flag clusterextension/multicluster-global-hub-operator \
-    -o jsonpath='{.status.install.bundle.version}' 2>/dev/null || \
-  kubectl get $ctx_flag clusterextension/multicluster-global-hub-operator \
-    -o jsonpath='{.status.installedBundle.version}' 2>/dev/null || \
-  echo "unknown"
+  # Try first field
+  local version
+  version=$(kubectl get $ctx_flag clusterextension/multicluster-global-hub-operator \
+    -o jsonpath='{.status.install.bundle.version}' 2>/dev/null)
+
+  # If empty, try alternate field
+  if [[ -z "$version" ]]; then
+    version=$(kubectl get $ctx_flag clusterextension/multicluster-global-hub-operator \
+      -o jsonpath='{.status.installedBundle.version}' 2>/dev/null)
+  fi
+
+  # Return version or unknown if both are empty
+  if [[ -z "$version" ]]; then
+    echo "unknown"
+  else
+    echo "$version"
+  fi
 }
 
 wait_secret_ready() {

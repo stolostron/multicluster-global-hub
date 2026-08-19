@@ -64,7 +64,7 @@ sed -i -e "s;imagePullPolicy: Always;imagePullPolicy: IfNotPresent;" ./operator/
 # ── 6. Build OLM bundle ─────────────────────────────────────────────────────
 echo -e "${YELLOW}=== Phase 6: Building OLM bundle ===${NC}"
 cd "$PROJECT_DIR/operator" || exit
-VERSION="${INITIAL_VERSION}" RELEASE_LINE="5.0" make bundle || true
+VERSION="${INITIAL_VERSION}" RELEASE_LINE="5.0" make bundle
 # Build and push the bundle image
 cat > bundle.Dockerfile <<'BEOF'
 FROM scratch
@@ -157,4 +157,4 @@ trap - EXIT
 echo -e "${GREEN}=== OLMv1 E2E setup complete in $(($(date +%s) - start)) seconds ===${NC}"
 echo -e "${GREEN}Operator installed via: ClusterExtension${NC}"
 echo -e "${GREEN}Catalog served via:     ClusterCatalog (catalogd)${NC}"
-echo -e "${GREEN}OLMv0 coexistence:      Strimzi Kafka via Subscription${NC}"
+echo -e "${GREEN}OLMv1 installation:     Strimzi Kafka via ClusterExtension${NC}"

@@ -29,7 +29,10 @@ cd "$PROJECT_DIR/operator" || exit
 # Save original bundle and build the new version
 cp -r bundle bundle-backup
 
-VERSION="${NEW_VERSION}" RELEASE_LINE="5.0" make bundle || true
+# Set trap to restore bundle on any failure
+trap 'cd "$PROJECT_DIR/operator" && rm -rf bundle && mv bundle-backup bundle 2>/dev/null || true' EXIT
+
+VERSION="${NEW_VERSION}" RELEASE_LINE="5.0" make bundle
 
 # Update CSV replaces field for upgrade edge
 sed -i "/^  name: multicluster-global-hub-operator.v${NEW_VERSION}/a\\  replaces: multicluster-global-hub-operator.v${OLD_VERSION}" \
@@ -51,9 +54,10 @@ docker build -f bundle.Dockerfile -t "${REGISTRY}/ghub-bundle:v${NEW_VERSION}" .
 docker push "${REGISTRY}/ghub-bundle:v${NEW_VERSION}"
 rm -f bundle.Dockerfile
 
-# Restore original bundle
+# Restore original bundle and clear trap
 rm -rf bundle
 mv bundle-backup bundle
+trap - EXIT
 
 # ── 3. Build upgrade catalog (contains both versions) ──────────────────────
 echo -e "${YELLOW}Building upgrade catalog...${NC}"
@@ -64,7 +68,22 @@ build_fbc_catalog_upgrade "$NEW_VERSION" "$OLD_VERSION" "$REGISTRY"
 echo -e "${YELLOW}Updating ClusterCatalog to trigger upgrade...${NC}"
 update_cluster_catalog "$NEW_VERSION" "$REGISTRY" "$cluster_name"
 
-# ── 5. Wait for upgrade to complete ────────────────────────────────────────
+# ── 5. Wait for catalog reconciliation and upgrade ─────────────────────────
+echo -e "${YELLOW}Waiting for ClusterCatalog reconciliation...${NC}"
+# Wait for ClusterCatalog to reconcile the new image
+max_wait=120
+waited=0
+while [[ $waited -lt $max_wait ]]; do
+  observed_gen=$(kubectl get clustercatalog/global-hub-catalog --context "$cluster_name" -o jsonpath='{.status.observedGeneration}' 2>/dev/null || echo "0")
+  metadata_gen=$(kubectl get clustercatalog/global-hub-catalog --context "$cluster_name" -o jsonpath='{.metadata.generation}' 2>/dev/null || echo "0")
+  if [[ "$observed_gen" == "$metadata_gen" ]] && [[ "$observed_gen" != "0" ]]; then
+    echo "ClusterCatalog reconciled (generation: $metadata_gen)"
+    break
+  fi
+  sleep 2
+  waited=$((waited + 2))
+done
+
 echo -e "${YELLOW}Waiting for operator upgrade...${NC}"
 # operator-controller detects the new catalog content and upgrades
 kubectl wait clusterextension/multicluster-global-hub-operator \
@@ -74,6 +93,11 @@ kubectl wait clusterextension/multicluster-global-hub-operator \
 echo -e "${YELLOW}Verifying upgraded version...${NC}"
 new_version=$(verify_operator_version "$cluster_name")
 echo -e "Upgraded version: ${new_version}"
+
+if [[ "$new_version" != "v${NEW_VERSION}" ]]; then
+  echo "ERROR: Upgrade failed. Expected v${NEW_VERSION}, got ${new_version}"
+  exit 1
+fi
 
 # ── 7. Verify components are still healthy ──────────────────────────────────
 echo -e "${YELLOW}Verifying components are healthy post-upgrade...${NC}"
