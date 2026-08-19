@@ -458,12 +458,13 @@ var _ = Describe("transporter", Ordered, func() {
 			}
 			mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix = consumerGroupPrefix
 			return runtimeClient.Update(ctx, mgh)
-		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed(),
+			"update MulticlusterGlobalHub with the consumer-group prefix")
 
 		err := config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil, nil)
-		Expect(err).To(Succeed())
+		Expect(err).To(Succeed(), "set managed-hub configuration with the consumer-group prefix")
 		err = config.SetTransportConfig(ctx, runtimeClient, mgh)
-		Expect(err).To(Succeed())
+		Expect(err).To(Succeed(), "set transporter configuration")
 
 		trans := protocol.NewStrimziTransporter(
 			runtimeManager,
@@ -485,11 +486,12 @@ var _ = Describe("transporter", Ordered, func() {
 				return fmt.Errorf("EnsureKafka requires requeue")
 			}
 			return nil
-		}, 30*time.Second, 1*time.Second).Should(Succeed())
+		}, 30*time.Second, 1*time.Second).Should(Succeed(), "ensure Kafka cluster is ready for managed-hub ACL reconciliation")
 
 		userName, err := trans.EnsureUser(clusterName)
-		Expect(err).To(Succeed())
-		Expect(config.GetKafkaUserName(clusterName)).To(Equal(userName))
+		Expect(err).To(Succeed(), "ensure the managed-hub KafkaUser")
+		Expect(config.GetKafkaUserName(clusterName)).To(Equal(userName),
+			"EnsureUser should return the configured KafkaUser name")
 
 		kafkaUser := &kafkav1beta2.KafkaUser{
 			ObjectMeta: metav1.ObjectMeta{
@@ -498,7 +500,7 @@ var _ = Describe("transporter", Ordered, func() {
 			},
 		}
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
-		Expect(err).To(Succeed())
+		Expect(err).To(Succeed(), "get the reconciled managed-hub KafkaUser")
 
 		expectManagedHubKafkaUserACLs(kafkaUser, clusterName, consumerGroupPrefix)
 	})
@@ -572,6 +574,9 @@ func expectManagedHubKafkaUserACLs(
 		"consumer-group ACL must include the configured consumer group prefix")
 	Expect(*consumerGroupACLs[0].Resource.Name).NotTo(Equal("*"),
 		"consumer-group ACL must not use wildcard group authorization")
+	Expect(consumerGroupACLs[0].Operations).To(ConsistOf(
+		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+	), "consumer-group ACL should grant Read only")
 }
 
 func UpdateKafkaClusterReady(ctx context.Context, c client.Client, ns string) error {
