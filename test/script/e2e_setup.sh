@@ -125,7 +125,7 @@ echo -e "${YELLOW} installing ocm and policy:${NC} $(($(date +%s) - start_time))
 # CRDs are otherwise never installed on global-hub, which makes the local agent's manager
 # creation fail fatally with "no matches for kind Policy". Install just the CRDs (not the full
 # propagator deployment) so the local agent's RESTMapper can resolve the kind.
-propagator_dir="${CURRENT_DIR}/governance-policy-propagator"
+propagator_dir="${PROJECT_DIR}/governance-policy-propagator"
 if [ -d "$propagator_dir/deploy/crds" ]; then
   echo -e "${YELLOW}Installing Policy CRDs on global-hub (required by local agent cache)${NC}"
   kubectl --context "$GH_NAME" apply -f "$propagator_dir/deploy/crds/policy.open-cluster-management.io_policies.yaml"
