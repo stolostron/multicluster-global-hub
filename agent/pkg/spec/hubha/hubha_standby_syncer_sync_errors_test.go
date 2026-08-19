@@ -113,6 +113,12 @@ func TestHubHAStandbySyncer_Sync_ReturnsAggregateErrorsOnCreateUpdateResync(t *t
 		WithObjects(existing, resyncCM).
 		WithInterceptorFuncs(interceptor.Funcs{
 			Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+				// The syncer ensures the target namespace exists (via a Namespace Create) before
+				// applying a resource. Let that succeed so the resource create/update failures
+				// under test still surface.
+				if obj.GetObjectKind().GroupVersionKind().Kind == "Namespace" {
+					return nil
+				}
 				return fmt.Errorf("create failure")
 			},
 			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {

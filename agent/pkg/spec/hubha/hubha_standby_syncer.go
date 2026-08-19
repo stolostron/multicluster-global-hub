@@ -135,6 +135,22 @@ func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructur
 	log.Infof("creating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
 
+	gvk := obj.GroupVersionKind()
+
+	// The active hub's own local-cluster (and hubs imported into Global Hub) must not be
+	// applied onto the standby: they collide with the standby's own local-cluster. Mirror
+	// the stale-cleanup guard so apply and cleanup treat these topology clusters the same.
+	if isTopologyManagedCluster(gvk, obj) {
+		log.Debugw("skipping Hub HA apply for global-hub topology ManagedCluster", "name", obj.GetName())
+		return nil
+	}
+
+	// Hub HA does not sync Namespace objects, so the target namespace may be absent on the
+	// standby. Ensure it exists before applying the namespaced resource.
+	if err := s.ensureNamespace(ctx, obj.GetNamespace()); err != nil {
+		return err
+	}
+
 	// Clean ownerReferences to avoid permission issues
 	// Owner resources may not exist on standby hub, and ownership will be
 	// recreated by controllers on standby if needed
@@ -142,7 +158,6 @@ func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructur
 
 	// For ManagedCluster resources, set hubAcceptsClient to false
 	// This prevents standby hub from accepting client connections while active hub is healthy
-	gvk := obj.GroupVersionKind()
 	if gvk.Group == clusterv1.GroupName && gvk.Kind == "ManagedCluster" {
 		if err := s.setHubAcceptsClient(obj, false); err != nil {
 			return fmt.Errorf("failed to set ManagedCluster hubAcceptsClient: %w", err)
@@ -171,6 +186,22 @@ func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructur
 	log.Debugf("updating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
 
+	gvk := obj.GroupVersionKind()
+
+	// The active hub's own local-cluster (and hubs imported into Global Hub) must not be
+	// applied onto the standby: they collide with the standby's own local-cluster. Mirror
+	// the stale-cleanup guard so apply and cleanup treat these topology clusters the same.
+	if isTopologyManagedCluster(gvk, obj) {
+		log.Debugw("skipping Hub HA apply for global-hub topology ManagedCluster", "name", obj.GetName())
+		return nil
+	}
+
+	// Hub HA does not sync Namespace objects, so the target namespace may be absent on the
+	// standby. Ensure it exists before applying the namespaced resource.
+	if err := s.ensureNamespace(ctx, obj.GetNamespace()); err != nil {
+		return err
+	}
+
 	// Clean ownerReferences to avoid permission issues
 	// Owner resources may not exist on standby hub, and ownership will be
 	// recreated by controllers on standby if needed
@@ -180,7 +211,6 @@ func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructur
 
 	// For ManagedCluster resources, set hubAcceptsClient to false
 	// This prevents standby hub from accepting client connections while active hub is healthy
-	gvk := obj.GroupVersionKind()
 	if gvk.Group == clusterv1.GroupName && gvk.Kind == "ManagedCluster" {
 		if err := s.setHubAcceptsClient(obj, false); err != nil {
 			return fmt.Errorf("failed to set ManagedCluster hubAcceptsClient: %w", err)
@@ -404,8 +434,7 @@ func (s *HubHAStandbySyncer) cleanupStaleResources(
 		// Global Hub standby also hosts topology ManagedClusters (imported hubs,
 		// local-cluster). Those are not copies of the active regional hub inventory
 		// and must not be deleted by ResyncMetadata stale cleanup.
-		if gvk.Group == clusterv1.GroupName && gvk.Kind == "ManagedCluster" &&
-			shouldSkipHAAnnotation(obj) {
+		if isTopologyManagedCluster(gvk, obj) {
 			log.Debugf("skipping Hub HA stale cleanup for global-hub topology ManagedCluster %s",
 				obj.GetName())
 			continue
@@ -437,6 +466,34 @@ func (s *HubHAStandbySyncer) cleanupStaleResources(
 	}
 	if len(deleteErrs) > 0 {
 		return stderrors.Join(deleteErrs...)
+	}
+	return nil
+}
+
+// ensureNamespace makes sure a namespaced resource's namespace exists on the standby hub
+// before the resource is applied. Hub HA does not sync Namespace objects, so per-cluster and
+// application namespaces present on the active hub may be absent on the standby, which would
+// otherwise fail the apply with `namespaces "X" not found`. Cluster-scoped resources (empty
+// namespace) are a no-op.
+func (s *HubHAStandbySyncer) ensureNamespace(ctx context.Context, namespace string) error {
+	if namespace == "" {
+		return nil
+	}
+	ns := &unstructured.Unstructured{}
+	ns.SetAPIVersion("v1")
+	ns.SetKind("Namespace")
+	ns.SetName(namespace)
+
+	// Fast path: the namespace almost always already exists in steady state, so read it first
+	// (served from the manager cache) to avoid issuing a write per applied resource.
+	if err := s.client.Get(ctx, client.ObjectKey{Name: namespace}, ns); err == nil {
+		return nil
+	} else if !errors.IsNotFound(err) {
+		return fmt.Errorf("failed to get namespace %q: %w", namespace, err)
+	}
+
+	if err := s.client.Create(ctx, ns); err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to ensure namespace %q: %w", namespace, err)
 	}
 	return nil
 }
