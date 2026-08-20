@@ -88,6 +88,8 @@ rules:
   - list
   - watch
   - update
+# Cluster-wide secrets/namespaces stay: migration writes bootstrap kubeconfig
+# into multicluster-engine and deploying resources into cluster namespaces.
 - apiGroups:
   - ""
   resources:
@@ -114,14 +116,6 @@ rules:
   - update
   - delete
 - apiGroups:
-  - ""
-  resources:
-  - users
-  - groups
-  - serviceaccounts
-  verbs:
-  - impersonate
-- apiGroups:
   - "coordination.k8s.io"
   resources:
   - leases
@@ -133,13 +127,15 @@ rules:
   - patch
   - update
   - watch
+# Migration target syncer creates ClusterRole/ClusterRoleBinding named
+# global-hub-migration-<msa>-sar and global-hub-migration-<msa>-registration.
+# resourceNames cannot be used: names include the migration MSA and Kubernetes
+# does not allow resourceNames with create/list/watch.
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
   - clusterroles
-  - rolebindings
-  - roles
   verbs:
   - create
   - delete
