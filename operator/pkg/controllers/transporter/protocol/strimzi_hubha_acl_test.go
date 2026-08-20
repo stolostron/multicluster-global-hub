@@ -339,7 +339,7 @@ func TestIsObsoleteManagedHubACL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isObsoleteManagedHubACL(tt.acl, specTopic); got != tt.want {
+			if got := isObsoleteManagedHubACL(tt.acl, specTopic, "gh-migration"); got != tt.want {
 				t.Fatalf("isObsoleteManagedHubACL() = %v, want %v", got, tt.want)
 			}
 		})
@@ -349,7 +349,7 @@ func TestIsObsoleteManagedHubACL(t *testing.T) {
 func TestFilterObsoleteManagedHubACLsEmptyInput(t *testing.T) {
 	t.Parallel()
 
-	if got := filterObsoleteManagedHubACLs(nil, "gh-spec"); got != nil {
+	if got := filterObsoleteManagedHubACLs(nil, "gh-spec", "gh-migration"); got != nil {
 		t.Fatalf("filterObsoleteManagedHubACLs(nil) = %#v, want nil", got)
 	}
 }
@@ -368,7 +368,7 @@ func TestFilterObsoleteManagedHubACLPreservesHubHAWrite(t *testing.T) {
 	filtered := filterObsoleteManagedHubACLs([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
 		legacyACL,
 		hubHAWriteACL,
-	}, specTopic)
+	}, specTopic, "gh-migration")
 
 	if len(filtered) != 1 {
 		t.Fatalf("expected one ACL after filtering legacy combined gh-spec Write, got %d", len(filtered))
