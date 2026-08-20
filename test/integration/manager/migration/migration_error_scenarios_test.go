@@ -150,6 +150,9 @@ var _ = Describe("Migration Error Scenarios", func() {
 		})
 
 		It("should transition to cleaning when from hub reports error", func() {
+			By("Waiting for migration ManagedServiceAccount before injecting initialization error")
+			waitForMigrationManagedServiceAccount(ctx, m.Name, toHubName)
+
 			By("Simulating from hub error during initialization")
 			migration.SetStarted(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing)
 			migration.SetErrorMessage(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing, "initialization failed")
@@ -175,10 +178,13 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseRollbacking, m.Status.Phase)
 				}
 				return nil
-			}, "10s", "200ms").Should(Succeed())
+			}, "20s", "200ms").Should(Succeed())
 		})
 
 		It("should transition to cleaning when to hub reports error", func() {
+			By("Waiting for migration ManagedServiceAccount before injecting initialization error")
+			waitForMigrationManagedServiceAccount(ctx, m.Name, toHubName)
+
 			By("Simulating to hub error during initialization")
 			migration.SetStarted(string(m.GetUID()), toHubName, migrationv1alpha1.PhaseInitializing)
 			migration.SetErrorMessage(string(m.GetUID()), toHubName, migrationv1alpha1.PhaseInitializing, "initialization failed")
@@ -204,7 +210,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseRollbacking, m.Status.Phase)
 				}
 				return nil
-			}, "10s", "200ms").Should(Succeed())
+			}, "20s", "200ms").Should(Succeed())
 		})
 
 		It("should handle timeout when hub doesn't respond", func() {

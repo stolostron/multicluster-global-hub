@@ -195,6 +195,10 @@ func SetMigrationTopic(topic string) {
 	migrationTopic = topic
 }
 
+func SetSpecTopic(topic string) {
+	specTopic = topic
+}
+
 func IsBYOKafka() bool {
 	return isBYOKafka
 }
