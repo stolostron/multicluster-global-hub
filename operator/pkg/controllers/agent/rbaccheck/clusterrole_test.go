@@ -60,10 +60,13 @@ func TestAgentClusterRolePhase5RBAC(t *testing.T) {
 					t.Errorf("%s grants impersonate (verbs=%v resources=%v)",
 						file, rule.Verbs, rule.Resources)
 				}
-				if contains(rule.Resources, "roles") ||
-					contains(rule.Resources, "rolebindings") ||
-					contains(rule.Resources, "*") {
-					t.Errorf("%s grants cluster-wide roles/rolebindings (resources=%v)",
+				if contains(rule.Resources, "*") {
+					t.Errorf("%s grants wildcard resources (resources=%v apiGroups=%v)",
+						file, rule.Resources, rule.APIGroups)
+				}
+				if (contains(rule.APIGroups, rbacv1.GroupName) || contains(rule.APIGroups, "*")) &&
+					(contains(rule.Resources, "roles") || contains(rule.Resources, "rolebindings")) {
+					t.Errorf("%s grants rbac.authorization.k8s.io roles/rolebindings (resources=%v)",
 						file, rule.Resources)
 				}
 				if contains(rule.APIGroups, rbacv1.GroupName) &&
