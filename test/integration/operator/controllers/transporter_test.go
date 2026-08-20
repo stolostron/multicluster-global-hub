@@ -520,7 +520,7 @@ func expectManagedHubKafkaUserACLs(
 	clusterName string,
 	consumerGroupPrefix string,
 ) {
-	Expect(len(kafkaUser.Spec.Authorization.Acls)).To(Equal(4), "managed hub KafkaUser should have four ACL entries")
+	Expect(len(kafkaUser.Spec.Authorization.Acls)).To(Equal(3), "managed hub KafkaUser should have three ACL entries")
 
 	aclByTopic := map[string][]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{}
 	consumerGroupACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}
@@ -547,11 +547,10 @@ func expectManagedHubKafkaUserACLs(
 	Expect(specOps).NotTo(ContainElement(kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite),
 		"gh-spec ACL must not grant Write to managed hubs")
 
-	migrationOps := aclByTopic[config.GetMigrationTopic()]
-	Expect(migrationOps).To(ConsistOf(
-		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-	), "gh-migration ACL should grant Describe and Read for managed hub consumers")
+	// Migration topic Read ACL must NOT be statically granted (CVE-2026-71577).
+	// It is managed dynamically by MigrationACLReconciler.
+	Expect(aclByTopic).NotTo(HaveKey(config.GetMigrationTopic()),
+		"migration topic ACL must not be statically granted; it is managed dynamically")
 
 	statusOps := aclByTopic[config.GetStatusTopic(clusterName)]
 	Expect(statusOps).To(Equal([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
