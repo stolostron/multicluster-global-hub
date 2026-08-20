@@ -71,7 +71,8 @@ func TestAgentClusterRolePhase5RBAC(t *testing.T) {
 				}
 				if contains(rule.APIGroups, rbacv1.GroupName) &&
 					contains(rule.Resources, "clusterroles") &&
-					contains(rule.Resources, "clusterrolebindings") {
+					contains(rule.Resources, "clusterrolebindings") &&
+					contains(rule.Verbs, "create") {
 					hasMigrationRBAC = true
 				}
 			}
