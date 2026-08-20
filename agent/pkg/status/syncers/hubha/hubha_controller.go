@@ -202,6 +202,10 @@ func (c *hubHALifecycleController) enableSyncer(ctx context.Context, standbyHub 
 		log.Infof("Hub HA resource syncer started, watching %d GVKs", len(activeGVKs))
 	}
 
+	if err := c.emitter.RefreshLocalClusterFilter(ctx); err != nil {
+		return fmt.Errorf("failed to refresh Hub HA local cluster filter: %w", err)
+	}
+
 	c.emitter.SetEnabled(true)
 
 	if !c.registered {

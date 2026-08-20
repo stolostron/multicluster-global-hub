@@ -13,6 +13,18 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
+// IsLocalManagedCluster reports whether obj is the hub's local ManagedCluster.
+func IsLocalManagedCluster(obj client.Object) bool {
+	if obj == nil {
+		return false
+	}
+	labels := obj.GetLabels()
+	if labels != nil && labels[constants.LocalClusterName] == "true" {
+		return true
+	}
+	return obj.GetName() == constants.LocalClusterName
+}
+
 // ResolveLocalClusterManagedClusterName returns the ManagedCluster name for the
 // cluster labeled local-cluster=true. When no such cluster exists, it falls back
 // to constants.LocalClusterName for environments where the local cluster is

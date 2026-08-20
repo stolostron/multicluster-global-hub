@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"sync"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -11,6 +14,9 @@ import (
 type HubHAResourceFilter struct {
 	// Required label keys for secrets and configmaps
 	requiredSecretConfigMapLabels []string
+	// localClusterName is the ManagedCluster name for this hub's local cluster.
+	localClusterName string
+	mu               sync.RWMutex
 }
 
 // NewHubHAResourceFilter creates a new resource filter for Hub HA
@@ -24,12 +30,24 @@ func NewHubHAResourceFilter() *HubHAResourceFilter {
 	}
 }
 
+// SetLocalClusterName configures the local cluster ManagedCluster name used to
+// exclude hub-local inventory from Hub HA pre-stage sync.
+func (f *HubHAResourceFilter) SetLocalClusterName(name string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.localClusterName = name
+}
+
 // ShouldSyncResource determines if a resource should be synced for Hub HA
 // This is called per-object to filter individual resource instances
 func (f *HubHAResourceFilter) ShouldSyncResource(obj client.Object, gvk schema.GroupVersionKind) bool {
 	// Exclude resources explicitly marked to be excluded from backup
 	labels := obj.GetLabels()
 	if labels != nil && labels["velero.io/exclude-from-backup"] == "true" {
+		return false
+	}
+
+	if f.shouldExcludeLocalClusterResource(obj, gvk) {
 		return false
 	}
 
@@ -59,6 +77,21 @@ func (f *HubHAResourceFilter) shouldSyncSecretOrConfigMap(obj client.Object) boo
 		}
 	}
 
+	return false
+}
+
+func (f *HubHAResourceFilter) shouldExcludeLocalClusterResource(
+	obj client.Object, gvk schema.GroupVersionKind,
+) bool {
+	if gvk.Group == clusterv1.GroupName && gvk.Kind == "ManagedCluster" {
+		return IsLocalManagedCluster(obj)
+	}
+	f.mu.RLock()
+	localClusterName := f.localClusterName
+	f.mu.RUnlock()
+	if localClusterName != "" && obj.GetNamespace() == localClusterName {
+		return true
+	}
 	return false
 }
 

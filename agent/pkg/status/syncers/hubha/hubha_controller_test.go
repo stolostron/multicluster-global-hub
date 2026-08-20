@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -36,6 +37,9 @@ func buildScheme(t *testing.T) *runtime.Scheme {
 	s := runtime.NewScheme()
 	if err := corev1.AddToScheme(s); err != nil {
 		t.Fatalf("failed to add corev1 to test scheme: %v", err)
+	}
+	if err := clusterv1.Install(s); err != nil {
+		t.Fatalf("failed to add clusterv1 to test scheme: %v", err)
 	}
 	return s
 }

@@ -10,12 +10,12 @@ import (
 )
 
 func TestHubHAResourceFilter_ShouldSyncResource(t *testing.T) {
-	filter := NewHubHAResourceFilter()
-
 	tests := []struct {
 		name           string
 		gvk            schema.GroupVersionKind
 		labels         map[string]string
+		namespace      string
+		localCluster   string
 		expectedResult bool
 	}{
 		{
@@ -48,6 +48,30 @@ func TestHubHAResourceFilter_ShouldSyncResource(t *testing.T) {
 			labels: map[string]string{
 				"velero.io/exclude-from-backup": "true",
 			},
+			expectedResult: false,
+		},
+		{
+			name: "local cluster ManagedCluster should not be synced",
+			gvk: schema.GroupVersionKind{
+				Group:   "cluster.open-cluster-management.io",
+				Version: "v1",
+				Kind:    "ManagedCluster",
+			},
+			labels: map[string]string{
+				constants.LocalClusterName: "true",
+			},
+			expectedResult: false,
+		},
+		{
+			name: "resource in local cluster namespace should not be synced",
+			gvk: schema.GroupVersionKind{
+				Group:   "addon.open-cluster-management.io",
+				Version: "v1beta1",
+				Kind:    "ManagedClusterAddOn",
+			},
+			labels:         nil,
+			namespace:      "regionalhub-local-cluster",
+			localCluster:   "regionalhub-local-cluster",
 			expectedResult: false,
 		},
 		{
@@ -118,8 +142,16 @@ func TestHubHAResourceFilter_ShouldSyncResource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			filter := NewHubHAResourceFilter()
+			if tt.localCluster != "" {
+				filter.SetLocalClusterName(tt.localCluster)
+			}
+
 			obj := &unstructured.Unstructured{}
 			obj.SetGroupVersionKind(tt.gvk)
+			if tt.namespace != "" {
+				obj.SetNamespace(tt.namespace)
+			}
 			if tt.labels != nil {
 				obj.SetLabels(tt.labels)
 			}

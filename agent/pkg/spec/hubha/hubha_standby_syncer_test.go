@@ -1245,6 +1245,47 @@ func TestHubHAStandbySyncer_Sync_ResyncMetadata_PreservesGlobalHubTopologyManage
 	}
 }
 
+func TestHubHAStandbySyncer_SkipsLocalClusterManagedClusterApply(t *testing.T) {
+	scheme := newTestScheme()
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	localCluster := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": managedClusterAPIVersion,
+			"kind":       "ManagedCluster",
+			"metadata": map[string]interface{}{
+				"name": "regionalhub-local-cluster",
+				"labels": map[string]interface{}{
+					constants.LocalClusterName: "true",
+				},
+			},
+		},
+	}
+
+	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+	bundle.Update = []*unstructured.Unstructured{localCluster}
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubHAResourcesMsgKey)
+	evt.SetSource("hub1")
+	if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+	if err := syncer.Sync(context.Background(), &evt); err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+
+	obj := &unstructured.Unstructured{}
+	obj.SetAPIVersion(managedClusterAPIVersion)
+	obj.SetKind("ManagedCluster")
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "regionalhub-local-cluster"}, obj); err == nil {
+		t.Fatal("local cluster ManagedCluster should not be created on standby hub")
+	} else if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound, got: %v", err)
+	}
+}
+
 // atomicInt is a tiny counter for interceptor tests without importing sync/atomic in assertions.
 type atomicInt struct{ v int }
 
