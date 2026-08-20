@@ -54,7 +54,8 @@ func TestAgentClusterRolePhase5RBAC(t *testing.T) {
 				t.Fatalf("unmarshal %s: %v", file, err)
 			}
 
-			hasMigrationRBAC := false
+			hasClusterRoleCreate := false
+			hasClusterRoleBindingCreate := false
 			for _, rule := range role.Rules {
 				if contains(rule.Verbs, "impersonate") || contains(rule.Verbs, "*") {
 					t.Errorf("%s grants impersonate (verbs=%v resources=%v)",
@@ -69,15 +70,17 @@ func TestAgentClusterRolePhase5RBAC(t *testing.T) {
 					t.Errorf("%s grants roles/rolebindings for apiGroups=%v (resources=%v)",
 						file, rule.APIGroups, rule.Resources)
 				}
-				if contains(rule.APIGroups, rbacv1.GroupName) &&
-					contains(rule.Resources, "clusterroles") &&
-					contains(rule.Resources, "clusterrolebindings") &&
-					contains(rule.Verbs, "create") {
-					hasMigrationRBAC = true
+				if contains(rule.APIGroups, rbacv1.GroupName) && contains(rule.Verbs, "create") {
+					if contains(rule.Resources, "clusterroles") {
+						hasClusterRoleCreate = true
+					}
+					if contains(rule.Resources, "clusterrolebindings") {
+						hasClusterRoleBindingCreate = true
+					}
 				}
 			}
-			if !hasMigrationRBAC {
-				t.Errorf("%s must keep rbac.authorization.k8s.io clusterroles/clusterrolebindings for migration bootstrap", file)
+			if !hasClusterRoleCreate || !hasClusterRoleBindingCreate {
+				t.Errorf("%s must keep create on rbac.authorization.k8s.io clusterroles and clusterrolebindings for migration bootstrap", file)
 			}
 		})
 	}
