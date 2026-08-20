@@ -66,8 +66,8 @@ func TestAgentClusterRolePhase5RBAC(t *testing.T) {
 				}
 				if (contains(rule.APIGroups, rbacv1.GroupName) || contains(rule.APIGroups, "*")) &&
 					(contains(rule.Resources, "roles") || contains(rule.Resources, "rolebindings")) {
-					t.Errorf("%s grants rbac.authorization.k8s.io roles/rolebindings (resources=%v)",
-						file, rule.Resources)
+					t.Errorf("%s grants roles/rolebindings for apiGroups=%v (resources=%v)",
+						file, rule.APIGroups, rule.Resources)
 				}
 				if contains(rule.APIGroups, rbacv1.GroupName) &&
 					contains(rule.Resources, "clusterroles") &&
