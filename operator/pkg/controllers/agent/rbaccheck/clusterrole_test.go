@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -50,7 +51,7 @@ func TestAgentClusterRolePhase5RBAC(t *testing.T) {
 			}
 
 			role := &rbacv1.ClusterRole{}
-			if err := yaml.Unmarshal(raw, role); err != nil {
+			if err := yaml.Unmarshal(stripGoTemplateDirectives(raw), role); err != nil {
 				t.Fatalf("unmarshal %s: %v", file, err)
 			}
 
@@ -93,4 +94,17 @@ func contains(values []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func stripGoTemplateDirectives(raw []byte) []byte {
+	lines := strings.Split(string(raw), "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "{{") {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	return []byte(strings.Join(filtered, "\n"))
 }
