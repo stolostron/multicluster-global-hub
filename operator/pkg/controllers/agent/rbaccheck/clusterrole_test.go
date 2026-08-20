@@ -19,8 +19,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
+
+	rbacv1 "k8s.io/api/rbac/v1"
+	"sigs.k8s.io/yaml"
 )
 
 func TestAgentClusterRolePhase5RBAC(t *testing.T) {
@@ -46,17 +48,42 @@ func TestAgentClusterRolePhase5RBAC(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read %s: %v", file, err)
 			}
-			content := string(raw)
 
-			if strings.Contains(content, "impersonate") {
-				t.Errorf("%s still grants impersonate", file)
+			role := &rbacv1.ClusterRole{}
+			if err := yaml.Unmarshal(raw, role); err != nil {
+				t.Fatalf("unmarshal %s: %v", file, err)
 			}
-			if strings.Contains(content, "\n  - roles\n") || strings.Contains(content, "\n  - rolebindings\n") {
-				t.Errorf("%s still grants cluster-wide roles/rolebindings", file)
+
+			hasMigrationRBAC := false
+			for _, rule := range role.Rules {
+				if contains(rule.Verbs, "impersonate") || contains(rule.Verbs, "*") {
+					t.Errorf("%s grants impersonate (verbs=%v resources=%v)",
+						file, rule.Verbs, rule.Resources)
+				}
+				if contains(rule.Resources, "roles") ||
+					contains(rule.Resources, "rolebindings") ||
+					contains(rule.Resources, "*") {
+					t.Errorf("%s grants cluster-wide roles/rolebindings (resources=%v)",
+						file, rule.Resources)
+				}
+				if contains(rule.APIGroups, rbacv1.GroupName) &&
+					contains(rule.Resources, "clusterroles") &&
+					contains(rule.Resources, "clusterrolebindings") {
+					hasMigrationRBAC = true
+				}
 			}
-			if !strings.Contains(content, "clusterroles") || !strings.Contains(content, "clusterrolebindings") {
-				t.Errorf("%s must keep clusterroles/clusterrolebindings for migration bootstrap", file)
+			if !hasMigrationRBAC {
+				t.Errorf("%s must keep rbac.authorization.k8s.io clusterroles/clusterrolebindings for migration bootstrap", file)
 			}
 		})
 	}
+}
+
+func contains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }

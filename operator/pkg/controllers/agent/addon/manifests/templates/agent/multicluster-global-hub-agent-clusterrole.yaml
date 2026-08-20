@@ -99,8 +99,9 @@ rules:
   - watch
 # Migration target syncer creates ClusterRole/ClusterRoleBinding named
 # global-hub-migration-<msa>-sar and global-hub-migration-<msa>-registration.
-# resourceNames cannot be used: names include the migration MSA and Kubernetes
-# does not allow resourceNames with create/list/watch.
+# resourceNames cannot constrain create. list/watch can be constrained only when
+# the request includes a matching metadata.name field selector. A static
+# allow-list is not possible because the MSA name is chosen per migration.
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
