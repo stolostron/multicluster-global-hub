@@ -76,7 +76,7 @@ start_time=$(date +%s)
 # gobal-hub: hub1, hub2
 pids=()
 for i in $(seq 1 "${MH_NUM}"); do
-  bash "${CURRENT_DIR}"/ocm.sh "${GH_NAME}" "hub$i" HUB_INIT=false POLICY_INIT=false 2>&1 &
+  HUB_INIT=false POLICY_INIT=false bash "${CURRENT_DIR}"/ocm.sh "${GH_NAME}" "hub$i" 2>&1 &
   pid=$!
   pids+=($pid)
   echo "$pid" >>"$CONFIG_DIR/PID"
@@ -85,7 +85,7 @@ done
 # hub1: cluster1 | hub2: cluster1
 for i in $(seq 1 "${MH_NUM}"); do
   for j in $(seq 1 "${MC_NUM}"); do
-    bash "${CURRENT_DIR}"/ocm.sh "hub$i" "hub$i-cluster$j" HUB_INIT=false 2>&1 &
+    HUB_INIT=false bash "${CURRENT_DIR}"/ocm.sh "hub$i" "hub$i-cluster$j" 2>&1 &
     pid=$!
     pids+=($pid)
     echo "$pid" >>"$CONFIG_DIR/PID"
@@ -117,6 +117,24 @@ if [ $failed -eq 1 ]; then
 fi
 
 echo -e "${YELLOW} installing ocm and policy:${NC} $(($(date +%s) - start_time)) seconds"
+
+# The multicluster-global-hub-agent unconditionally watches policy.open-cluster-management.io
+# Policy CRs (see agent/cmd/main.go initCache), including when running in "local" deploy mode
+# (installAgentOnLocal) directly on the global-hub cluster. POLICY_INIT is intentionally false
+# for the global-hub<->hub join above (policy propagation isn't needed there), so the Policy
+# CRDs are otherwise never installed on global-hub, which makes the local agent's manager
+# creation fail fatally with "no matches for kind Policy". Install just the CRDs (not the full
+# propagator deployment) so the local agent's RESTMapper can resolve the kind.
+propagator_dir="${PROJECT_DIR}/governance-policy-propagator"
+if [ -d "$propagator_dir/deploy/crds" ]; then
+  echo -e "${YELLOW}Installing Policy CRDs on global-hub (required by local agent cache)${NC}"
+  kubectl --context "$GH_NAME" apply -f "$propagator_dir/deploy/crds/policy.open-cluster-management.io_policies.yaml"
+  kubectl --context "$GH_NAME" apply -f "$propagator_dir/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml"
+  kubectl --context "$GH_NAME" apply -f "$propagator_dir/deploy/crds/policy.open-cluster-management.io_policyautomations.yaml"
+  kubectl --context "$GH_NAME" apply -f "$propagator_dir/deploy/crds/policy.open-cluster-management.io_policysets.yaml"
+else
+  echo -e "${RED}governance-policy-propagator CRDs not found at $propagator_dir, skipping Policy CRD install on global-hub${NC}"
+fi
 
 # Install managed-serviceaccount addon on global hub
 # This is required for migration functionality to create ServiceAccounts and collect tokens

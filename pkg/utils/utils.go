@@ -217,9 +217,8 @@ func ReadTopicACL(topicName string, prefixPattern bool) kafkav1beta2.KafkaUserSp
 	}
 }
 
-func ConsumeGroupReadACL() kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+func ConsumeGroupReadACL(consumerGroup string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
 	host := "*"
-	consumerGroup := "*"
 	consumerPatternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
 	consumerAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
 		Host: &host,

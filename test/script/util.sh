@@ -278,6 +278,49 @@ join_cluster() {
   fi
 }
 
+# init_policy is invoked concurrently (once per hub/managed-cluster pair) by
+# e2e_setup.sh, but all invocations clone into the same shared CWD. Without
+# locking, two processes can both see the target directory missing and both
+# run `git clone`, and the loser fails with "destination path already exists".
+# ensure_git_repo serializes the clone+checkout for a given repo across those
+# concurrent invocations using a simple mkdir-based lock (portable, no flock
+# dependency required on the CI host).
+ensure_git_repo() {
+  local repo_dir="$1"
+  local repo_url="$2"
+  local ref="$3"
+
+  (
+    local lock_dir="/tmp/.${repo_dir}.clone.lock"
+    trap 'rmdir "$lock_dir" 2>/dev/null' EXIT
+    local waited=0
+    while ! mkdir "$lock_dir" 2>/dev/null; do
+      sleep 1
+      waited=$((waited + 1))
+      if [ "$waited" -gt 180 ]; then
+        echo -e "${RED}Timed out waiting for clone lock on $repo_dir${NC}"
+        exit 1
+      fi
+    done
+
+    if [ ! -d "$repo_dir" ]; then
+      echo "Cloning $repo_dir repository..."
+      if ! git clone "$repo_url" "$repo_dir"; then
+        echo -e "${RED}Failed to clone $repo_dir repository${NC}"
+        exit 1
+      fi
+    fi
+
+    if ! (cd "$repo_dir" && git checkout "$ref" 2>/dev/null); then
+      echo -e "${RED}Failed to checkout $ref, fetching updates...${NC}"
+      if ! (cd "$repo_dir" && git fetch origin && git checkout "$ref"); then
+        echo -e "${RED}Failed to checkout $ref after fetch${NC}"
+        exit 1
+      fi
+    fi
+  ) || exit 1
+}
+
 init_policy() {
   echo -e "${CYAN} Init Policy $1:$2 $NC"
   local hub=$1
@@ -293,25 +336,7 @@ init_policy() {
   PROPAGATOR_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-propagator.git"
   propagator="governance-policy-propagator"
 
-  # Clone repository if it doesn't exist
-  if [ ! -d $propagator ]; then
-    echo "Cloning $propagator repository..."
-    if ! git clone $PROPAGATOR_GIT_HTTP_PATH; then
-      echo -e "${RED}Failed to clone $propagator repository${NC}"
-      exit 1
-    fi
-  fi
-
-  # Always ensure we're on the correct version
-  cd $propagator || exit 1
-  if ! git checkout $GRC_VERSION 2>/dev/null; then
-    echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
-    if ! git fetch origin && git checkout $GRC_VERSION; then
-      echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
-      exit 1
-    fi
-  fi
-  cd ../ || exit 1
+  ensure_git_repo "$propagator" "$PROPAGATOR_GIT_HTTP_PATH" "$GRC_VERSION"
 
   # Verify required CRD files exist
   required_crds=(
@@ -371,24 +396,7 @@ init_policy() {
   POLICY_ADDON_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-framework-addon.git"
   policy_addon=governance-policy-framework-addon
 
-  # Clone repository if it doesn't exist
-  if [ ! -d $policy_addon ]; then
-    if ! git clone $POLICY_ADDON_GIT_HTTP_PATH; then
-      echo -e "${RED}Failed to clone $policy_addon repository${NC}"
-      exit 1
-    fi
-  fi
-
-  # Always ensure we're on the correct version
-  cd $policy_addon || exit 1
-  if ! git checkout $GRC_VERSION 2>/dev/null; then
-    echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
-    if ! git fetch origin && git checkout $GRC_VERSION; then
-      echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
-      exit 1
-    fi
-  fi
-  cd ../ || exit 1
+  ensure_git_repo "$policy_addon" "$POLICY_ADDON_GIT_HTTP_PATH" "$GRC_VERSION"
 
   retry "(kubectl --context $cluster apply -f $policy_addon/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$policy_addon -n $MANAGED_NAMESPACE)" 10
 
@@ -401,24 +409,7 @@ init_policy() {
   config_policy="config-policy-controller"
   CONFIG_POLICY_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/config-policy-controller.git"
 
-  # Clone repository if it doesn't exist
-  if [ ! -d $config_policy ]; then
-    if ! git clone $CONFIG_POLICY_GIT_HTTP_PATH; then
-      echo -e "${RED}Failed to clone $config_policy repository${NC}"
-      exit 1
-    fi
-  fi
-
-  # Always ensure we're on the correct version
-  cd $config_policy || exit 1
-  if ! git checkout $GRC_VERSION 2>/dev/null; then
-    echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
-    if ! git fetch origin && git checkout $GRC_VERSION; then
-      echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
-      exit 1
-    fi
-  fi
-  cd ../ || exit 1
+  ensure_git_repo "$config_policy" "$CONFIG_POLICY_GIT_HTTP_PATH" "$GRC_VERSION"
 
   kubectl --context "$cluster" apply -f ${config_policy}/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
   # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
