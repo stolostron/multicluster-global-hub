@@ -30,6 +30,10 @@ func migrationWriteACLKey(topic string) string {
 	return GenerateACLKey(WriteTopicACL(topic))
 }
 
+func migrationReadACLKey(topic string) string {
+	return GenerateACLKey(ReadTopicACL(topic, false))
+}
+
 func (k *strimziTransporter) hasMigrationWriteACL(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem) bool {
 	key := migrationWriteACLKey(config.GetMigrationTopic())
 	for _, acl := range acls {
@@ -40,13 +44,45 @@ func (k *strimziTransporter) hasMigrationWriteACL(acls []kafkav1beta2.KafkaUserS
 	return false
 }
 
+func (k *strimziTransporter) hasMigrationReadACL(acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem) bool {
+	key := migrationReadACLKey(config.GetMigrationTopic())
+	for _, acl := range acls {
+		if GenerateACLKey(acl) == key {
+			return true
+		}
+	}
+	return false
+}
+
 // SyncMigrationWriteACL grants or revokes Write on the migration topic for a source hub.
 func (k *strimziTransporter) SyncMigrationWriteACL(fromHub string, grant bool) error {
-	if fromHub == "" {
+	return k.syncMigrationACL(fromHub, grant, k.hasMigrationWriteACL,
+		migrationWriteACLKey, WriteTopicACL)
+}
+
+// SyncMigrationReadACL grants or revokes Read+Describe on the migration topic for a hub
+// involved in an active migration.
+func (k *strimziTransporter) SyncMigrationReadACL(hub string, grant bool) error {
+	return k.syncMigrationACL(hub, grant, k.hasMigrationReadACL,
+		migrationReadACLKey, func(topic string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+			return ReadTopicACL(topic, false)
+		})
+}
+
+// syncMigrationACL is the shared implementation for granting/revoking a single ACL
+// type (Read or Write) on the migration topic for a given hub's KafkaUser.
+func (k *strimziTransporter) syncMigrationACL(
+	hub string,
+	grant bool,
+	hasACL func([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem) bool,
+	keyFn func(string) string,
+	aclFn func(string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+) error {
+	if hub == "" {
 		return nil
 	}
 
-	userName := config.GetKafkaUserName(fromHub)
+	userName := config.GetKafkaUserName(hub)
 	kafkaUser := &kafkav1beta2.KafkaUser{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      userName,
@@ -56,14 +92,14 @@ func (k *strimziTransporter) SyncMigrationWriteACL(fromHub string, grant bool) e
 		if !grant {
 			return nil
 		}
-		return fmt.Errorf("kafka user %s not found for migration write ACL", userName)
+		return fmt.Errorf("kafka user %s not found for migration ACL", userName)
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("get KafkaUser %s/%s: %w", k.kafkaClusterNamespace, userName, err)
 	}
 
 	migrationTopic := config.GetMigrationTopic()
-	desiredWriteACL := WriteTopicACL(migrationTopic)
+	desiredACL := aclFn(migrationTopic)
 
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		latestKafkaUser := &kafkav1beta2.KafkaUser{}
@@ -75,19 +111,19 @@ func (k *strimziTransporter) SyncMigrationWriteACL(fromHub string, grant bool) e
 		}
 
 		currentACLs := currentKafkaUserACLs(latestKafkaUser)
-		if k.hasMigrationWriteACL(currentACLs) == grant {
+		if hasACL(currentACLs) == grant {
 			return nil
 		}
 
 		updatedACLs := make([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, 0, len(currentACLs))
 		for _, acl := range currentACLs {
-			if GenerateACLKey(acl) == migrationWriteACLKey(migrationTopic) {
+			if GenerateACLKey(acl) == keyFn(migrationTopic) {
 				continue
 			}
 			updatedACLs = append(updatedACLs, acl)
 		}
 		if grant {
-			updatedACLs = append(updatedACLs, desiredWriteACL)
+			updatedACLs = append(updatedACLs, desiredACL)
 		}
 
 		if len(updatedACLs) == 0 {

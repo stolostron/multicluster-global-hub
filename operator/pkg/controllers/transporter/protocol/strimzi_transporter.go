@@ -431,7 +431,6 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
 		ConsumeGroupReadACL(),
 		ReadTopicACL(clusterTopic.SpecTopic, false),
-		ReadTopicACL(clusterTopic.MigrationTopic, false),
 		WriteTopicACL(clusterTopic.StatusTopic),
 	}
 
