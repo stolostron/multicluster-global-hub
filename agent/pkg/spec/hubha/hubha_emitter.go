@@ -138,6 +138,15 @@ func (e *HubHAEmitter) Update(obj client.Object) error {
 		return fmt.Errorf("failed to convert object to unstructured: %w", err)
 	}
 	gvk := uObj.GroupVersionKind()
+
+	// Global Hub topology ManagedClusters (local-cluster, imported hubs) collide with the
+	// standby's own topology, so they must not be emitted for apply on the standby.
+	if isTopologyManagedCluster(gvk, uObj) {
+		log.Debugw("skipping Hub HA update emit for global-hub topology ManagedCluster",
+			"name", uObj.GetName())
+		return nil
+	}
+
 	cleanUnstructuredMetadata(uObj)
 
 	added, err := e.bundle.AddUpdate(uObj)
@@ -182,6 +191,15 @@ func (e *HubHAEmitter) Delete(obj client.Object) error {
 		return fmt.Errorf("failed to convert object to unstructured: %w", err)
 	}
 	gvk := uObj.GroupVersionKind()
+
+	// Global Hub topology ManagedClusters (local-cluster, imported hubs) collide with the
+	// standby's own topology. The delete bundle carries only ObjectMetadata (no labels), so
+	// the standby cannot re-apply this guard; filter here at the source.
+	if isTopologyManagedCluster(gvk, uObj) {
+		log.Debugw("skipping Hub HA delete emit for global-hub topology ManagedCluster",
+			"name", uObj.GetName())
+		return nil
+	}
 
 	for i, existingObj := range e.bundle.Update {
 		if existingObj.GetNamespace() == obj.GetNamespace() &&
@@ -299,6 +317,11 @@ func (e *HubHAEmitter) resyncOnce(objects []client.Object) error {
 		}
 		gvk := uObj.GroupVersionKind()
 		if !e.resourceFilter.ShouldSyncResource(obj, gvk) {
+			continue
+		}
+		// Topology ManagedClusters (local-cluster, imported hubs) must not be resynced to the
+		// standby; they collide with the standby's own topology.
+		if isTopologyManagedCluster(gvk, uObj) {
 			continue
 		}
 		cleanUnstructuredMetadata(uObj)
