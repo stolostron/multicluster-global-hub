@@ -503,7 +503,9 @@ func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
-	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.MigrationTopic, clusterTopic.StatusTopic}
+	// gh-migration is a shared hub topic provisioned once by renderKafkaResources; do not
+	// reconcile it per managed cluster (spec differs from newKafkaTopic and causes conflicts).
+	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.StatusTopic}
 	for _, topicName := range topicNames {
 		if err := k.ensureTopic(topicName, nil); err != nil {
 			return nil, err
