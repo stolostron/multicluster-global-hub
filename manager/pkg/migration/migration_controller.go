@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,8 +58,9 @@ var log = logger.DefaultZapLogger()
 type ClusterMigrationController struct {
 	client.Client
 	transport.Producer
-	EventRecorder record.EventRecorder
-	Scheme        *runtime.Scheme
+	EventRecorder  record.EventRecorder
+	Scheme         *runtime.Scheme
+	migrationTopic string
 }
 
 var migrationCtrl *ClusterMigrationController
@@ -66,11 +69,18 @@ func AddMigrationToManager(mgr ctrl.Manager, producer transport.Producer, manage
 	if migrationCtrl != nil {
 		return nil
 	}
+
+	var migrationTopic string
+	if managerConfig.TransportConfig != nil && managerConfig.TransportConfig.KafkaCredential != nil {
+		migrationTopic = managerConfig.TransportConfig.KafkaCredential.GetMigrationTopic()
+	}
+
 	migrationController := &ClusterMigrationController{
-		Client:        mgr.GetClient(),
-		Producer:      producer,
-		EventRecorder: mgr.GetEventRecorderFor("migration-event-recorder"),
-		Scheme:        mgr.GetScheme(),
+		Client:         mgr.GetClient(),
+		Producer:       producer,
+		EventRecorder:  mgr.GetEventRecorderFor("migration-event-recorder"),
+		Scheme:         mgr.GetScheme(),
+		migrationTopic: migrationTopic,
 	}
 
 	err := migrationController.SetupWithManager(mgr)
@@ -289,7 +299,7 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	migrationId := string(migration.GetUID())
 	evt := utils.ToMigrationEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To,
 		migrationId, stage, getTimeout(stage), payloadToBytes)
-	if err := m.SendEvent(ctx, evt); err != nil {
+	if err := m.sendMigrationEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
 	}
@@ -327,6 +337,13 @@ func getTimeout(stage string) time.Duration {
 	default:
 		return migratingTimeout
 	}
+}
+
+func (m *ClusterMigrationController) sendMigrationEvent(ctx context.Context, evt cloudevents.Event) error {
+	if m.migrationTopic != "" {
+		ctx = cecontext.WithTopic(ctx, m.migrationTopic)
+	}
+	return m.SendEvent(ctx, evt)
 }
 
 func setRetry(mcm *migrationv1alpha1.ManagedClusterMigration, stage string, condType string, hubName string) {

@@ -388,8 +388,10 @@ func TestManagedHubUserACLs(t *testing.T) {
 	}
 	acls := managedHubUserACLs(clusterTopic, "hub1")
 
-	if len(acls) != 4 {
-		t.Fatalf("expected 4 ACLs, got %d", len(acls))
+	// 3 ACLs: consumer-group, gh-spec (read-only), gh-status (write).
+	// Migration topic ACLs are granted dynamically by MigrationACLReconciler.
+	if len(acls) != 3 {
+		t.Fatalf("expected 3 ACLs, got %d", len(acls))
 	}
 
 	groupACL, ok := findGroupACL(acls, "hub1")
@@ -421,20 +423,10 @@ func TestManagedHubUserACLs(t *testing.T) {
 		},
 	)
 
-	migrationACL, ok := findTopicACL(acls, clusterTopic.MigrationTopic)
-	if !ok {
-		t.Fatal("expected gh-migration topic ACL")
+	// Migration topic ACL must NOT be statically granted.
+	if _, ok := findTopicACL(acls, clusterTopic.MigrationTopic); ok {
+		t.Fatal("migration topic ACL must not be statically granted; it is managed dynamically")
 	}
-	assertACLContract(
-		t, migrationACL,
-		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
-		clusterTopic.MigrationTopic,
-		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
-		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		},
-	)
 
 	statusACL, ok := findTopicACL(acls, clusterTopic.StatusTopic)
 	if !ok {
@@ -467,9 +459,10 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
 		}),
 		utils.WriteTopicACL(clusterTopic.MigrationTopic),
+		utils.ReadTopicACL(clusterTopic.MigrationTopic, false),
 	}
 
-	merged := combineACLs(filterObsoleteManagedHubACLs(legacyACLs, clusterTopic.SpecTopic),
+	merged := combineACLs(filterObsoleteManagedHubACLs(legacyACLs, clusterTopic.SpecTopic, clusterTopic.MigrationTopic),
 		managedHubUserACLs(clusterTopic, "hub1"))
 
 	hasWildcardGroup, specOps, migrationOps := collectManagedHubACLTopicOps(merged, clusterTopic)
@@ -512,27 +505,20 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 		}
 	}
 
-	migrationReadACL, ok := findTopicACLWithOperations(
+	// Migration Read ACL must NOT be statically granted after upgrade.
+	// It is managed dynamically by MigrationACLReconciler.
+	_, hasStaticMigrationRead := findTopicACLWithOperations(
 		merged, clusterTopic.MigrationTopic,
 		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
 		},
 	)
-	if !ok {
-		t.Fatal("expected gh-migration Describe+Read ACL after upgrade")
+	if hasStaticMigrationRead {
+		t.Fatal("migration topic Read ACL must not be statically granted after upgrade")
 	}
-	assertACLContract(
-		t, migrationReadACL,
-		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
-		clusterTopic.MigrationTopic,
-		kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral,
-		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		},
-	)
 
+	// Migration Write ACL from the MigrationACLReconciler must be preserved.
 	migrationWriteACL, ok := findTopicACLWithOperations(
 		merged, clusterTopic.MigrationTopic,
 		[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
@@ -551,8 +537,8 @@ func TestCombineManagedHubACLsUpgrade(t *testing.T) {
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
 		},
 	)
-	if !containsOperation(migrationOps, kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead) {
-		t.Fatal("managed hub must retain Read on gh-migration after upgrade")
+	if containsOperation(migrationOps, kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead) {
+		t.Fatal("migration topic Read ACL must not be statically retained after upgrade")
 	}
 }
 

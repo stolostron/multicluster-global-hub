@@ -32,3 +32,16 @@ func SyncMigrationWriteACL(
 	trans := NewStrimziTransporter(mgr, mgh, opts...)
 	return trans.SyncMigrationWriteACL(fromHub, grant)
 }
+
+// SyncMigrationReadACL grants or revokes Read+Describe on the migration topic
+// for a hub involved in an active migration.
+func SyncMigrationReadACL(
+	mgr ctrl.Manager,
+	mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	hub string,
+	grant bool,
+	opts ...KafkaOption,
+) error {
+	trans := NewStrimziTransporter(mgr, mgh, opts...)
+	return trans.SyncMigrationReadACL(hub, grant)
+}
