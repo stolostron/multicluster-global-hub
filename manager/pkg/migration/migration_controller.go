@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,15 +51,22 @@ type ClusterMigrationController struct {
 	transport.Producer
 	BootstrapSecret *corev1.Secret
 	managerConfigs  *configs.ManagerConfig
+	migrationTopic  string
 }
 
 func NewMigrationController(client client.Client, producer transport.Producer,
 	managerConfig *configs.ManagerConfig,
 ) *ClusterMigrationController {
+	var migrationTopic string
+	if managerConfig.TransportConfig != nil && managerConfig.TransportConfig.KafkaCredential != nil {
+		migrationTopic = managerConfig.TransportConfig.KafkaCredential.GetMigrationTopic()
+	}
+
 	return &ClusterMigrationController{
 		Client:         client,
 		Producer:       producer,
 		managerConfigs: managerConfig,
+		migrationTopic: migrationTopic,
 	}
 }
 
@@ -369,9 +378,16 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 
 	eventType := constants.MigrationTargetMsgKey
 	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, payloadToBytes)
-	if err := m.Producer.SendEvent(ctx, evt); err != nil {
+	if err := m.sendMigrationEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
 	}
 	return nil
+}
+
+func (m *ClusterMigrationController) sendMigrationEvent(ctx context.Context, evt cloudevents.Event) error {
+	if m.migrationTopic != "" {
+		ctx = cecontext.WithTopic(ctx, m.migrationTopic)
+	}
+	return m.SendEvent(ctx, evt)
 }

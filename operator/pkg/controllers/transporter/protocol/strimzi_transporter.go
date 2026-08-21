@@ -344,11 +344,8 @@ func managedHubUserACLs(clusterTopic *transport.ClusterTopic, consumerGroupID st
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
 		}),
-		// consume migration deploying bundles from the dedicated migration topic
-		utils.GetTopicACL(clusterTopic.MigrationTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		}),
+		// Migration topic ACLs (read + write) are granted dynamically by the
+		// MigrationACLReconciler only to hubs involved in an active migration.
 		// report status into gh: allow the current hub to write messages to the specific status topic
 		utils.GetTopicACL(clusterTopic.StatusTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
 			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
@@ -400,7 +397,8 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 			return err
 		}
 		// combine the acls of kafkaUser and the desired acls of desiredKafkaUser
-		existingACLs := filterObsoleteManagedHubACLs(currentKafkaUserACLs(latestKafkaUser), clusterTopic.SpecTopic)
+		existingACLs := filterObsoleteManagedHubACLs(currentKafkaUserACLs(latestKafkaUser),
+			clusterTopic.SpecTopic, clusterTopic.MigrationTopic)
 		updatedKafkaUser.Spec.Authorization.Acls = combineACLs(existingACLs,
 			desiredKafkaUser.Spec.Authorization.Acls)
 
@@ -419,7 +417,7 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 
 func filterObsoleteManagedHubACLs(
 	acls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
-	specTopic string,
+	specTopic, migrationTopic string,
 ) []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
 	if len(acls) == 0 {
 		return nil
@@ -427,7 +425,7 @@ func filterObsoleteManagedHubACLs(
 
 	filtered := make([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, 0, len(acls))
 	for _, acl := range acls {
-		if isObsoleteManagedHubACL(acl, specTopic) {
+		if isObsoleteManagedHubACL(acl, specTopic, migrationTopic) {
 			continue
 		}
 		filtered = append(filtered, acl)
@@ -435,7 +433,10 @@ func filterObsoleteManagedHubACLs(
 	return filtered
 }
 
-func isObsoleteManagedHubACL(acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem, specTopic string) bool {
+func isObsoleteManagedHubACL(
+	acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+	specTopic, migrationTopic string,
+) bool {
 	if acl.Resource.Name == nil {
 		return false
 	}
@@ -444,13 +445,30 @@ func isObsoleteManagedHubACL(acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 	case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup:
 		return *acl.Resource.Name == "*"
 	case kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic:
-		if *acl.Resource.Name != specTopic {
-			return false
+		if *acl.Resource.Name == specTopic {
+			// Legacy managed-hub ACL bundled Describe+Read+Write on gh-spec.
+			// Write-only entries are managed by the Hub HA ACL watcher.
+			return topicACLHasLegacyCombinedWrite(acl.Operations)
 		}
-		return topicACLHasLegacyCombinedWrite(acl.Operations)
+		if *acl.Resource.Name == migrationTopic {
+			// Strip legacy static Read+Describe on the migration topic.
+			// Write-only ACLs are preserved (managed by MigrationACLReconciler).
+			return !topicACLIsWriteOnly(acl.Operations)
+		}
 	}
 
 	return false
+}
+
+func topicACLIsWriteOnly(
+	operations []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+) bool {
+	for _, op := range operations {
+		if op != kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite {
+			return false
+		}
+	}
+	return len(operations) > 0
 }
 
 func topicACLHasLegacyCombinedWrite(
