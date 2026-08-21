@@ -17,9 +17,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -890,5 +892,55 @@ func TestHubHAEmitter_Resync_RetriesWhenDeleteBetweenListAndSend(t *testing.T) {
 	}
 	if sawResyncOfDeleted {
 		t.Fatal("stale snapshot must not resync or inventory-mark deleted object to-delete")
+	}
+}
+
+func TestHubHAEmitter_RefreshLocalClusterFilter_ExcludesLocalClusterResources(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := clusterv1.Install(scheme); err != nil {
+		t.Fatalf("clusterv1.Install() error = %v", err)
+	}
+
+	localCluster := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "regionalhub-local-cluster",
+			Labels: map[string]string{
+				constants.LocalClusterName: "true",
+			},
+		},
+	}
+	localClusterUnstructured := &unstructured.Unstructured{}
+	localClusterUnstructured.SetGroupVersionKind(schema.GroupVersionKind{
+		Group: "cluster.open-cluster-management.io", Version: "v1", Kind: "ManagedCluster",
+	})
+	localClusterUnstructured.SetName(localCluster.Name)
+	localClusterUnstructured.SetLabels(localCluster.Labels)
+
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(localCluster).Build()
+	producer := &mockProducer{events: []cloudevents.Event{}}
+	emitter := NewHubHAEmitter(producer, &transport.TransportInternalConfig{
+		KafkaCredential: &transport.KafkaConfig{SpecTopic: "spec-topic"},
+	}, "hub1", "hub2")
+	emitter.SetClient(cl)
+	if err := emitter.RefreshLocalClusterFilter(context.Background()); err != nil {
+		t.Fatalf("RefreshLocalClusterFilter() error = %v", err)
+	}
+
+	addon := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "addon.open-cluster-management.io/v1beta1",
+			"kind":       "ManagedClusterAddOn",
+			"metadata": map[string]any{
+				"name":      "governance-policy-framework",
+				"namespace": "regionalhub-local-cluster",
+			},
+		},
+	}
+
+	if emitter.Predicate().Create(event.CreateEvent{Object: localClusterUnstructured}) {
+		t.Fatal("predicate should exclude local cluster ManagedCluster")
+	}
+	if emitter.Predicate().Create(event.CreateEvent{Object: addon}) {
+		t.Fatal("predicate should exclude resources in local cluster namespace")
 	}
 }

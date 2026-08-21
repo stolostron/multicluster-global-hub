@@ -132,6 +132,12 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructured.Unstructured,
 	sourceHub string,
 ) error {
+	if shouldSkipHubHAResourceApply(obj) {
+		log.Debugf("skipping Hub HA create for local cluster resource %s/%s (%s) from active hub %s",
+			obj.GetNamespace(), obj.GetName(), obj.GetKind(), sourceHub)
+		return nil
+	}
+
 	log.Infof("creating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
 
@@ -168,6 +174,12 @@ func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructur
 func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructured.Unstructured,
 	sourceHub string,
 ) error {
+	if shouldSkipHubHAResourceApply(obj) {
+		log.Debugf("skipping Hub HA update for local cluster resource %s/%s (%s) from active hub %s",
+			obj.GetNamespace(), obj.GetName(), obj.GetKind(), sourceHub)
+		return nil
+	}
+
 	log.Debugf("updating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
 
@@ -458,4 +470,12 @@ func (s *HubHAStandbySyncer) setHubAcceptsClient(obj *unstructured.Unstructured,
 
 	log.Debugf("adjusted ManagedCluster %s hubAcceptsClient to %v", obj.GetName(), hubAcceptsClient)
 	return nil
+}
+
+func shouldSkipHubHAResourceApply(obj *unstructured.Unstructured) bool {
+	gvk := obj.GroupVersionKind()
+	if gvk.Group == clusterv1.GroupName && gvk.Kind == "ManagedCluster" {
+		return utils.IsLocalManagedCluster(obj)
+	}
+	return false
 }

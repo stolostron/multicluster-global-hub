@@ -69,7 +69,7 @@ var _ = BeforeSuite(func() {
 				filepath.Join("..", "..", "..", "..", "manifest", "crd",
 					"0000_00_cluster.open-cluster-management.io_placements.crd.yaml"),
 				filepath.Join("..", "..", "..", "..", "manifest", "crd",
-					"0000_02_clusters.open-cluster-management.io_managedclusters.crd.yaml"),
+					"0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml"),
 			},
 		},
 		ErrorIfCRDPathMissing: false,

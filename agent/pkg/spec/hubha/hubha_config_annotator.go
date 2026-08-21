@@ -34,6 +34,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var klusterletConfigGVK = schema.GroupVersionKind{
@@ -118,7 +119,7 @@ func isActiveHub() bool {
 
 // shouldSkipHAAnnotation is true for local-cluster and hubs imported into Global Hub.
 func shouldSkipHAAnnotation(obj client.Object) bool {
-	if isLocalManagedCluster(obj) {
+	if utils.IsLocalManagedCluster(obj) {
 		return true
 	}
 	return isGlobalHubManagedHub(obj)
@@ -126,13 +127,6 @@ func shouldSkipHAAnnotation(obj client.Object) bool {
 
 func hasHAKlusterletConfigAnnotation(obj client.Object) bool {
 	return obj.GetAnnotations()[klusterletConfigAnnotation] != ""
-}
-
-func isLocalManagedCluster(obj client.Object) bool {
-	if obj.GetLabels()[constants.LocalClusterName] == "true" {
-		return true
-	}
-	return obj.GetName() == constants.LocalClusterName
 }
 
 func isGlobalHubManagedHub(obj client.Object) bool {

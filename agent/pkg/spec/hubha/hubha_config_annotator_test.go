@@ -34,6 +34,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func newAnnotatorTestScheme(t *testing.T) *runtime.Scheme {
@@ -357,11 +358,11 @@ func TestFindHAKlusterletConfigName(t *testing.T) {
 }
 
 func TestIsLocalManagedCluster(t *testing.T) {
-	assert.True(t, isLocalManagedCluster(&clusterv1.ManagedCluster{
+	assert.True(t, utils.IsLocalManagedCluster(&clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalClusterName},
 	}), "name local-cluster should be treated as local")
 
-	assert.True(t, isLocalManagedCluster(&clusterv1.ManagedCluster{
+	assert.True(t, utils.IsLocalManagedCluster(&clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "acm-local-cluster",
 			Labels: map[string]string{
@@ -370,7 +371,7 @@ func TestIsLocalManagedCluster(t *testing.T) {
 		},
 	}), "local-cluster=true label should be treated as local")
 
-	assert.False(t, isLocalManagedCluster(&clusterv1.ManagedCluster{
+	assert.False(t, utils.IsLocalManagedCluster(&clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "ks"},
 	}), "regular managed cluster should not be treated as local")
 }

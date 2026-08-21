@@ -93,6 +93,27 @@ func (e *HubHAEmitter) SetClient(c client.Client) {
 	e.client = c
 }
 
+// RefreshLocalClusterFilter resolves this hub's local cluster name and configures
+// the resource filter to exclude it from Hub HA pre-stage sync.
+func (e *HubHAEmitter) RefreshLocalClusterFilter(ctx context.Context) error {
+	e.mu.Lock()
+	cl := e.client
+	e.mu.Unlock()
+	if cl == nil {
+		return nil
+	}
+
+	name, err := utils.ResolveLocalClusterManagedClusterName(ctx, cl)
+	if err != nil {
+		return fmt.Errorf("failed to resolve local cluster name for Hub HA filter: %w", err)
+	}
+
+	e.mu.Lock()
+	e.resourceFilter.SetLocalClusterName(name)
+	e.mu.Unlock()
+	return nil
+}
+
 // SetEnabled controls whether the emitter sends events.
 // Set to true when the hub is in active role; false when standby or transitioning.
 func (e *HubHAEmitter) SetEnabled(enabled bool) {
