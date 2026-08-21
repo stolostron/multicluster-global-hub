@@ -388,7 +388,16 @@ var _ = Describe("transporter", Ordered, func() {
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
 		// utils.PrettyPrint(kafkaUser.Spec.Authorization)
-		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+
+		aclByTopic := make(map[string]bool)
+		for _, acl := range kafkaUser.Spec.Authorization.Acls {
+			if acl.Resource.Name != nil {
+				aclByTopic[*acl.Resource.Name] = true
+			}
+		}
+		// Migration topic Read ACL must NOT be statically granted.
+		Expect(aclByTopic).NotTo(HaveKey(config.GetMigrationTopic()))
 
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)

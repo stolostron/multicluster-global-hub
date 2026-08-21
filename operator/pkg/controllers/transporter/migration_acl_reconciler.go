@@ -60,12 +60,18 @@ func (r *MigrationACLReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if apierrors.IsNotFound(err) {
 			// Migration was deleted; re-sync all managed hub KafkaUsers so revoked ACLs
 			// are cleaned up even though the trigger object's Spec.From is gone.
-			return ctrl.Result{}, r.syncAllMigrationWriteACLs(ctx, mgh, req.Namespace)
+			if err := r.syncAllMigrationACLs(ctx, mgh, req.Namespace); err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("get ManagedClusterMigration %s: %w", req.NamespacedName, err)
 	}
 
 	if err := r.syncMigrationWriteACLs(ctx, mgh, req.Namespace, migration.Spec.From); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.syncMigrationReadACLs(ctx, mgh, req.Namespace, migration.Spec.From, migration.Spec.To); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
@@ -93,7 +99,38 @@ func (r *MigrationACLReconciler) syncMigrationWriteACLs(
 	return nil
 }
 
-func (r *MigrationACLReconciler) syncAllMigrationWriteACLs(
+func (r *MigrationACLReconciler) syncMigrationReadACLs(
+	ctx context.Context,
+	mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	namespace string,
+	triggerFromHub, triggerToHub string,
+) error {
+	list := &migrationv1alpha1.ManagedClusterMigrationList{}
+	if err := r.List(ctx, list, client.InNamespace(namespace)); err != nil {
+		return fmt.Errorf("failed to list ManagedClusterMigration resources: %w", err)
+	}
+
+	needed := activeMigrationHubs(list)
+	hubsToSync := sets.NewString()
+	if triggerFromHub != "" {
+		hubsToSync.Insert(triggerFromHub)
+	}
+	if triggerToHub != "" {
+		hubsToSync.Insert(triggerToHub)
+	}
+	for hub := range needed {
+		hubsToSync.Insert(hub)
+	}
+	for _, hub := range hubsToSync.UnsortedList() {
+		_, grant := needed[hub]
+		if err := protocol.SyncMigrationReadACL(r.mgr, mgh, hub, grant, protocol.WithContext(ctx)); err != nil {
+			return fmt.Errorf("failed to sync migration read ACL for hub %q: %w", hub, err)
+		}
+	}
+	return nil
+}
+
+func (r *MigrationACLReconciler) syncAllMigrationACLs(
 	ctx context.Context,
 	mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	namespace string,
@@ -102,7 +139,8 @@ func (r *MigrationACLReconciler) syncAllMigrationWriteACLs(
 	if err := r.List(ctx, list, client.InNamespace(namespace)); err != nil {
 		return fmt.Errorf("failed to list ManagedClusterMigration resources: %w", err)
 	}
-	needed := deployingSourceHubs(list)
+	writeNeeded := deployingSourceHubs(list)
+	readNeeded := activeMigrationHubs(list)
 
 	kafkaUsers := &kafkav1beta2.KafkaUserList{}
 	if err := r.List(ctx, kafkaUsers, client.InNamespace(namespace)); err != nil {
@@ -110,13 +148,17 @@ func (r *MigrationACLReconciler) syncAllMigrationWriteACLs(
 	}
 
 	for i := range kafkaUsers.Items {
-		fromHub, ok := managedHubFromKafkaUser(&kafkaUsers.Items[i])
+		hub, ok := managedHubFromKafkaUser(&kafkaUsers.Items[i])
 		if !ok {
 			continue
 		}
-		_, grant := needed[fromHub]
-		if err := protocol.SyncMigrationWriteACL(r.mgr, mgh, fromHub, grant, protocol.WithContext(ctx)); err != nil {
-			return fmt.Errorf("failed to sync migration write ACL for hub %q: %w", fromHub, err)
+		_, grantWrite := writeNeeded[hub]
+		if err := protocol.SyncMigrationWriteACL(r.mgr, mgh, hub, grantWrite, protocol.WithContext(ctx)); err != nil {
+			return fmt.Errorf("failed to sync migration write ACL for hub %q: %w", hub, err)
+		}
+		_, grantRead := readNeeded[hub]
+		if err := protocol.SyncMigrationReadACL(r.mgr, mgh, hub, grantRead, protocol.WithContext(ctx)); err != nil {
+			return fmt.Errorf("failed to sync migration read ACL for hub %q: %w", hub, err)
 		}
 	}
 	return nil
@@ -150,6 +192,19 @@ func hubsToSyncForMigration(fromHub string, needed map[string]struct{}) []string
 		hubs.Insert(hub)
 	}
 	return hubs.UnsortedList()
+}
+
+func activeMigrationHubs(list *migrationv1alpha1.ManagedClusterMigrationList) map[string]struct{} {
+	needed := make(map[string]struct{})
+	for i := range list.Items {
+		mcm := &list.Items[i]
+		if mcm.DeletionTimestamp != nil {
+			continue
+		}
+		needed[mcm.Spec.From] = struct{}{}
+		needed[mcm.Spec.To] = struct{}{}
+	}
+	return needed
 }
 
 func managedHubFromKafkaUser(user *kafkav1beta2.KafkaUser) (string, bool) {
