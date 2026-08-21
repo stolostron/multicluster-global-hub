@@ -387,7 +387,7 @@ var _ = Describe("transporter", Ordered, func() {
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
-		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
 		aclByTopic := map[string][]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{}
 		consumerGroupACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}
@@ -408,11 +408,8 @@ var _ = Describe("transporter", Ordered, func() {
 		))
 		Expect(specOps).NotTo(ContainElement(kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite))
 
-		migrationOps := aclByTopic[config.GetMigrationTopic()]
-		Expect(migrationOps).To(ConsistOf(
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		))
+		// Migration topic Read ACL must NOT be statically granted.
+		Expect(aclByTopic).NotTo(HaveKey(config.GetMigrationTopic()))
 
 		statusOps := aclByTopic[config.GetStatusTopic(clusterName)]
 		Expect(statusOps).To(Equal([]kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
