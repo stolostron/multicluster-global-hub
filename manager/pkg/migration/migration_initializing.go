@@ -249,11 +249,11 @@ func (m *ClusterMigrationController) UpdateCondition(
 	return nil
 }
 
-// sendEventToSourceHub specifies the manager send the message into "From Hub" via spec path(or topic)
-// Stage is the expected state for migration, it algin with the condition states
+// sendEventToSourceHub sends a migration event to the source hub via the dedicated migration topic.
+// Stage is the expected state for migration, it aligns with the condition states:
 // 1. ResourceInitialized: request sync the klusterletconfig from source hub
 // 2. ClusterRegistered: forward bootstrap kubeconfig secret into source hub, to register into the destination hub
-// 3. ResourceDeployed: delete the resourcesailed to mark the stage ResourceDeploye from the source hub
+// 3. ResourceDeployed: delete the resources to mark the stage ResourceDeployed from the source hub
 // 4. MigrationCompleted: delete the items from the database
 func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, fromHub string,
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
@@ -276,7 +276,7 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 
 	eventType := constants.MigrationSourceMsgKey
 	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, fromHub, payloadBytes)
-	if err := m.Producer.SendEvent(ctx, evt); err != nil {
+	if err := m.sendMigrationEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventGlobalHubClusterName, fromHub, err)
 	}
@@ -329,12 +329,12 @@ func (m *ClusterMigrationController) ensureManagedServiceAccount(ctx context.Con
 			Rotation: v1beta1.ManagedServiceAccountRotation{
 				Enabled: true,
 				// The MSA token is embedded in the bootstrap kubeconfig
-				// that is broadcast on the shared gh-spec topic to which
-				// every managed hub holds a Read ACL, so it must be
-				// short-lived. 24h comfortably covers all migration
-				// stage timeouts (5–12 min each) and matches the spec
-				// topic's default retention; the MSA itself is removed
-				// in the cleaning phase.
+				// sent via the dedicated gh-migration topic.
+				// Read ACL on gh-migration is granted only to hubs
+				// involved in an active migration, limiting exposure.
+				// 24h validity covers all migration stage timeouts
+				// (5–12 min each); the MSA itself is removed in the
+				// cleaning phase.
 				Validity: metav1.Duration{
 					Duration: 24 * time.Hour,
 				},
