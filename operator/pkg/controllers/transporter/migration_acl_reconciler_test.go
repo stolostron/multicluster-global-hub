@@ -381,10 +381,18 @@ func newMigrationACLReconcilerFixtures(
 			),
 		},
 	}
+	kafkaUser2 := &kafkav1beta2.KafkaUser{
+		ObjectMeta: metav1.ObjectMeta{Name: "hub2-kafka-user", Namespace: "test-ns"},
+		Spec: &kafkav1beta2.KafkaUserSpec{
+			Authorization: simpleKafkaUserAuthorization(
+				utils.ReadTopicACL("gh-spec", false),
+			),
+		},
+	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(mgh, kafkaUser).
+		WithObjects(mgh, kafkaUser, kafkaUser2).
 		Build()
 
 	return scheme, fakeClient, mgh, kafkaUser
