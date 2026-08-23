@@ -99,6 +99,7 @@ func TestCompleteConfig(t *testing.T) {
 				TransportConfig: &transport.TransportInternalConfig{
 					ConsumerGroupId: "",
 					TransportType:   string(transport.Kafka),
+					LeafHubName:     "123",
 				},
 			},
 		},
@@ -109,6 +110,7 @@ func TestCompleteConfig(t *testing.T) {
 				Standalone:  false,
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "hub1",
 				},
 			},
 			fakeClient:     fake.NewClientBuilder().WithScheme(configs.GetRuntimeScheme()).WithObjects().Build(),
@@ -122,6 +124,7 @@ func TestCompleteConfig(t *testing.T) {
 				SpecWorkPoolSize: 5,
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "hub1",
 				},
 			},
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects().Build(),
@@ -133,6 +136,7 @@ func TestCompleteConfig(t *testing.T) {
 				TransportConfig: &transport.TransportInternalConfig{
 					ConsumerGroupId: "hub1",
 					TransportType:   string(transport.Kafka),
+					LeafHubName:     "hub1",
 				},
 			},
 		},

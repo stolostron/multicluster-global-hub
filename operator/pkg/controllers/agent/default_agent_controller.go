@@ -100,7 +100,7 @@ var clusterManagementAddonPred = predicate.Funcs{
 
 var secretCond = func(obj client.Object) bool {
 	if obj.GetName() == config.GetImagePullSecretName() ||
-		obj.GetName() == constants.GHTransportSecretName ||
+		constants.IsGHTransportSecret(obj.GetName()) ||
 		obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == operatortrans.KafkaClusterName &&
 			obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
 		return true
