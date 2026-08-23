@@ -182,6 +182,10 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
 	}
 
+	if agentConfig.TransportConfig != nil {
+		agentConfig.TransportConfig.LeafHubName = agentConfig.LeafHubName
+	}
+
 	configs.SetAgentConfig(agentConfig)
 	return nil
 }

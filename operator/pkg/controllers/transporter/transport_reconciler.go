@@ -98,7 +98,7 @@ var secretPred = predicate.Funcs{
 }
 
 func secretCond(obj client.Object) bool {
-	if WatchedSecret.Has(obj.GetName()) {
+	if WatchedSecret.Has(obj.GetName()) || constants.IsGHTransportSecret(obj.GetName()) {
 		return true
 	}
 	if obj.GetLabels()["strimzi.io/cluster"] == protocol.KafkaClusterName &&
