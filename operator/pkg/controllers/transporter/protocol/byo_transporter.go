@@ -76,7 +76,7 @@ func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
 			s.log.Info("BYO Kafka transport secret not found; provide a per-hub or shared secret")
 			return config.GetKafkaUserName(clusterName), nil
 		}
-		return "", err
+		return "", fmt.Errorf("failed to get BYO Kafka transport secret: %w", err)
 	}
 	if secretName == s.sharedSecretName() {
 		s.log.Info("BYO Kafka is using the shared transport secret; " +
