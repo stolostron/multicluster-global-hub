@@ -1,18 +1,17 @@
-/*
-Copyright Contributors to the Open Cluster Management project.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright (c) 2026 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package protocol
 
@@ -43,8 +42,6 @@ type BYOTransporter struct {
 	runtimeClient client.Client
 }
 
-var byoTransporter *BYOTransporter
-
 // NewBYOTransporter creates the transport from customer-provided Kafka secrets.
 // The manager uses the shared secret "multicluster-global-hub-transport".
 // Each managed hub may supply "multicluster-global-hub-transport-<clusterName>"
@@ -53,32 +50,34 @@ var byoTransporter *BYOTransporter
 func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 	c client.Client,
 ) *BYOTransporter {
-	if byoTransporter == nil {
-		byoTransporter = &BYOTransporter{
-			log: logger.ZaprLogger(),
-		}
-		config.SetTransporter(byoTransporter)
+	transporter := &BYOTransporter{
+		log:           logger.ZaprLogger(),
+		ctx:           ctx,
+		runtimeClient: c,
+		name:          namespacedName.Name,
+		namespace:     namespacedName.Namespace,
 	}
-	byoTransporter.ctx = ctx
-	byoTransporter.runtimeClient = c
-	byoTransporter.name = namespacedName.Name
-	byoTransporter.namespace = namespacedName.Namespace
-	return byoTransporter
+	config.SetTransporter(transporter)
+	return transporter
 }
 
 // EnsureUser validates that a BYO transport secret exists for the cluster and
 // that per-hub client certificates are distinct. Kafka users and ACLs remain
-// customer-managed; see doc/byo.md. Missing secrets are logged, not rejected,
-// so addon install can proceed before credentials are created.
+// customer-managed; see doc/byo.md. A missing secret is logged, not rejected,
+// so addon install can proceed before credentials are created. Other API
+// errors are returned to the caller.
 func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
-	if clusterName == "" {
+	if isManagerCluster(clusterName) {
 		return "", nil
 	}
 	secret, secretName, err := s.getTransportSecret(clusterName)
 	if err != nil {
-		s.log.Info("BYO Kafka transport secret not found; provide a per-hub or shared secret",
-			"cluster", clusterName, "error", err)
-		return config.GetKafkaUserName(clusterName), nil
+		if apierrors.IsNotFound(err) {
+			s.log.Info("BYO Kafka transport secret not found; provide a per-hub or shared secret",
+				"cluster", clusterName)
+			return config.GetKafkaUserName(clusterName), nil
+		}
+		return "", err
 	}
 	if secretName == s.sharedSecretName() {
 		s.log.Info("BYO Kafka is using the shared transport secret; "+
@@ -95,7 +94,8 @@ func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopi
 	return &transport.ClusterTopic{
 		SpecTopic:      config.GetSpecTopic(),
 		MigrationTopic: config.GetMigrationTopic(),
-		StatusTopic:    config.GetStatusTopic(clusterName),
+		// BYO Kafka uses one configured status topic for every hub.
+		StatusTopic: config.GetStatusTopic(""),
 	}, nil
 }
 
@@ -113,13 +113,13 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 	if err != nil {
 		return nil, err
 	}
-	if clusterName != "" {
+	if !isManagerCluster(clusterName) {
 		if err := s.validateDistinctClientCerts(clusterName, kafkaSecret.Data[filepath.Join("client.crt")]); err != nil {
 			return nil, err
 		}
 	}
 
-	mgh, err := config.GetMulticlusterGlobalHub(context.Background(), s.runtimeClient)
+	mgh, err := config.GetMulticlusterGlobalHub(s.ctx, s.runtimeClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get mgh: %w", err)
 	}
@@ -133,7 +133,7 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 		ConsumerGroupID: config.GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix, clusterName),
 
-		// for the byo case, the status topic isn't change by the clusterName
+		// BYO status topic is shared; clusterName does not change it
 		StatusTopic:    config.GetStatusTopic(""),
 		SpecTopic:      config.GetSpecTopic(),
 		MigrationTopic: config.GetMigrationTopic(),
@@ -141,6 +141,10 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 		ClientCert:     base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
 		ClientKey:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
 	}, nil
+}
+
+func isManagerCluster(clusterName string) bool {
+	return clusterName == "" || clusterName == constants.CloudEventGlobalHubClusterName
 }
 
 func (s *BYOTransporter) sharedSecretName() string {
@@ -151,7 +155,7 @@ func (s *BYOTransporter) sharedSecretName() string {
 }
 
 func (s *BYOTransporter) getTransportSecret(clusterName string) (*corev1.Secret, string, error) {
-	if clusterName != "" {
+	if !isManagerCluster(clusterName) {
 		perHubName := constants.GHTransportSecretNameForCluster(clusterName)
 		perHubSecret := &corev1.Secret{}
 		err := s.runtimeClient.Get(s.ctx, types.NamespacedName{
@@ -173,9 +177,9 @@ func (s *BYOTransporter) getTransportSecret(clusterName string) (*corev1.Secret,
 		Namespace: s.namespace,
 	}, sharedSecret)
 	if err != nil {
-		if apierrors.IsNotFound(err) && clusterName != "" {
-			return nil, "", fmt.Errorf("BYO Kafka secret %q or %q not found in namespace %q",
-				constants.GHTransportSecretNameForCluster(clusterName), sharedName, s.namespace)
+		if apierrors.IsNotFound(err) && !isManagerCluster(clusterName) {
+			return nil, "", fmt.Errorf("BYO Kafka secret %q or %q not found in namespace %q: %w",
+				constants.GHTransportSecretNameForCluster(clusterName), sharedName, s.namespace, err)
 		}
 		return nil, "", err
 	}
@@ -183,7 +187,7 @@ func (s *BYOTransporter) getTransportSecret(clusterName string) (*corev1.Secret,
 }
 
 func (s *BYOTransporter) validateDistinctClientCerts(clusterName string, clientCert []byte) error {
-	if clusterName == "" || len(clientCert) == 0 {
+	if isManagerCluster(clusterName) || len(clientCert) == 0 {
 		return nil
 	}
 

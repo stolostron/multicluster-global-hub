@@ -64,8 +64,8 @@ Grant ACLs that match the built-in Strimzi transporter. Do **not** grant every m
 
 | Principal | `gh-spec` | `gh-migration` | Status topic |
 |-----------|-----------|----------------|--------------|
-| Global hub manager (`global-hub-kafka-user`) | Describe, Read, **Write** | Describe, Read, **Write** | Describe, Read on `gh-status` (or on each custom status topic) |
-| Managed hub `{hub}-kafka-user` | Describe, **Read** (no Write) | Describe, Read; **Write** only while that hub is an active migration source | Describe, Read, **Write** on `gh-status` (or that hub's custom status topic) |
+| Global hub manager (`global-hub-kafka-user`) | Describe, Read, **Write** | Describe, Read, **Write** | Describe, Read on the configured status topic |
+| Managed hub `{hub}-kafka-user` | Describe, **Read** (no Write) | Describe, Read; **Write** only while that hub is an active migration source | Describe, Read, **Write** on the configured status topic |
 | Consumer group | Per-hub literal group name | Per-hub literal group name | Per-hub literal group name (not `*`) |
 
 Notes:
@@ -74,7 +74,7 @@ Notes:
 - During cluster migration, the source hub publishes deploying bundles to `gh-migration`. The target hub agent consumes from `gh-migration` as well as `gh-spec`.
 - Grant **Write** on `gh-migration` to the source managed hub only for the duration of an active migration, then revoke it. With built-in Strimzi Kafka, the operator applies and removes that ACL automatically; with BYO Kafka, you must update ACLs yourself or through your Kafka administration tooling.
 - For more information about cluster migration, see [Managed Cluster Migration](./migration/global_hub_cluster_migration.md).
-- Built-in Strimzi Kafka uses per-hub status topics such as `gh-status.<cluster-name>` with a prefix ACL on `gh-status`. BYO Kafka uses the shared topic `gh-status` with a literal ACL unless you override `statusTopic`.
+- Built-in Strimzi Kafka uses per-hub status topics such as `gh-status.<cluster-name>` with a prefix ACL on `gh-status`. BYO Kafka always uses one shared status topic (`gh-status` by default, or the configured `statusTopic`) for every managed hub.
 
 Example Strimzi `KafkaUser` ACL entries for the global hub manager transport user (BYO defaults shown):
 
