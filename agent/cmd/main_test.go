@@ -101,6 +101,7 @@ func TestCompleteConfig(t *testing.T) {
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "123",
 					KafkaCredential: &transport.KafkaConfig{
 						ConsumerGroupID: "test-hub",
 					},
@@ -137,6 +138,7 @@ func TestCompleteConfig(t *testing.T) {
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "hub1",
 				},
 			},
 		},
