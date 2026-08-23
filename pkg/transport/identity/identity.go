@@ -18,6 +18,9 @@ limitations under the License.
 package identity
 
 import (
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"strings"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
@@ -125,6 +128,50 @@ func LeafHubForStatusEvent(evt *cloudevents.Event) (string, bool) {
 	}
 
 	return evt.Source(), true
+}
+
+// HubFromClientCertCN maps an mTLS certificate CommonName to a hub name when
+// the CN follows the KafkaUser convention "{hub}-kafka-user".
+func HubFromClientCertCN(commonName string) string {
+	return HubFromKafkaUser(commonName)
+}
+
+// ValidateBYOClientCert rejects a BYO Kafka client certificate whose CN is a
+// KafkaUser for a different hub. Custom CNs (for example global-hub-byo-user)
+// are allowed so existing shared-secret BYO installs keep working until they
+// switch to per-hub secrets.
+func ValidateBYOClientCert(leafHubName, clientCertPEM string) error {
+	if leafHubName == "" || clientCertPEM == "" {
+		return nil
+	}
+
+	cn, err := commonNameFromPEMX509(clientCertPEM)
+	if err != nil {
+		return fmt.Errorf("failed to parse BYO Kafka client certificate: %w", err)
+	}
+	if cn == "" {
+		return nil
+	}
+
+	certHub := HubFromClientCertCN(cn)
+	if certHub == "" || certHub == leafHubName {
+		return nil
+	}
+
+	return fmt.Errorf("BYO Kafka client certificate CN %q belongs to hub %q, not %q",
+		cn, certHub, leafHubName)
+}
+
+func commonNameFromPEMX509(certPEM string) (string, error) {
+	block, _ := pem.Decode([]byte(certPEM))
+	if block == nil {
+		return "", fmt.Errorf("no PEM certificate found")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return "", err
+	}
+	return cert.Subject.CommonName, nil
 }
 
 // EnrichManagerStatusEvent sets authedhub from the Kafka status topic when the pattern
