@@ -157,7 +157,8 @@ func TestGetConnCredentialManagerIgnoresGlobalHubNamedSecret(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	shared := byoSecret(constants.GHTransportSecretName, ns, "manager-cert")
 	spoof := byoSecret(constants.GHTransportSecretNameForCluster(
-		constants.CloudEventGlobalHubClusterName), ns, "spoof-cert")
+		constants.CloudEventGlobalHubClusterName,
+	), ns, "spoof-cert")
 	trans := newBYOTransporter(t, byoMGH(ns), shared, spoof)
 
 	conn, err := trans.GetConnCredential(constants.CloudEventGlobalHubClusterName)
