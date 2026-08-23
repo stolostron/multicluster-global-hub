@@ -69,6 +69,16 @@ func TestSecretPredicate(t *testing.T) {
 			wantBool: true,
 		},
 		{
+			name: "per-hub BYO transport secret should match",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.GHTransportSecretNameForCluster("hub1"),
+					Namespace: utils.GetDefaultNamespace(),
+				},
+			},
+			wantBool: true,
+		},
+		{
 			name: "kafka user secret with strimzi labels should match",
 			obj: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -140,6 +150,15 @@ func TestSecretCond(t *testing.T) {
 			obj: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: constants.GHTransportSecretName,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "per-hub BYO transport secret name matches",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: constants.GHTransportSecretNameForCluster("hub1"),
 				},
 			},
 			expected: true,

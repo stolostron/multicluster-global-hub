@@ -22,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/identity"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -271,6 +272,12 @@ func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *co
 	kafkaConn, err := config.GetKafkaCredentialBySecret(secret, c.runtimeClient)
 	if err != nil {
 		return false, err
+	}
+	if !c.inManager && c.transportConfig != nil && c.transportConfig.LeafHubName != "" &&
+		kafkaConn.ClientSecretName == "" {
+		if err := identity.ValidateBYOClientCert(c.transportConfig.LeafHubName, kafkaConn.ClientCert); err != nil {
+			return false, err
+		}
 	}
 	err = c.ResyncKafkaClientSecret(ctx, kafkaConn, secret)
 	if err != nil {
