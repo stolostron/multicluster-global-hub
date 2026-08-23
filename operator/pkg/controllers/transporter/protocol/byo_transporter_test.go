@@ -132,17 +132,24 @@ func TestGetConnCredentialPrefersPerHubSecret(t *testing.T) {
 	if !strings.Contains(conn.ConsumerGroupID, "hub1") {
 		t.Fatalf("ConsumerGroupID = %q, want hub1", conn.ConsumerGroupID)
 	}
+}
 
-	sharedConn, err := trans.GetConnCredential(constants.CloudEventGlobalHubClusterName)
+func TestGetConnCredentialManagerUsesSharedSecret(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	shared := byoSecret(constants.GHTransportSecretName, ns, "shared-cert")
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
+	trans := newBYOTransporter(t, byoMGH(ns), shared, hub1)
+
+	conn, err := trans.GetConnCredential(constants.CloudEventGlobalHubClusterName)
 	if err != nil {
 		t.Fatalf("GetConnCredential(global-hub) error = %v", err)
 	}
-	sharedDecoded, err := base64.StdEncoding.DecodeString(sharedConn.ClientCert)
+	decoded, err := base64.StdEncoding.DecodeString(conn.ClientCert)
 	if err != nil {
-		t.Fatalf("decode shared client cert: %v", err)
+		t.Fatalf("decode client cert: %v", err)
 	}
-	if string(sharedDecoded) != "shared-cert" {
-		t.Fatalf("manager client cert = %q, want shared-cert", sharedDecoded)
+	if string(decoded) != "shared-cert" {
+		t.Fatalf("manager client cert = %q, want shared-cert", decoded)
 	}
 }
 

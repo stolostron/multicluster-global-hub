@@ -73,16 +73,14 @@ func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
 	secret, secretName, err := s.getTransportSecret(clusterName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			s.log.Info("BYO Kafka transport secret not found; provide a per-hub or shared secret",
-				"cluster", clusterName)
+			s.log.Info("BYO Kafka transport secret not found; provide a per-hub or shared secret")
 			return config.GetKafkaUserName(clusterName), nil
 		}
 		return "", err
 	}
 	if secretName == s.sharedSecretName() {
-		s.log.Info("BYO Kafka is using the shared transport secret; "+
-			"provide a per-hub secret for isolated credentials",
-			"cluster", clusterName, "secret", secretName)
+		s.log.Info("BYO Kafka is using the shared transport secret; " +
+			"provide a per-hub secret for isolated credentials")
 	}
 	if err := s.validateDistinctClientCerts(clusterName, secret.Data[filepath.Join("client.crt")]); err != nil {
 		return "", err
