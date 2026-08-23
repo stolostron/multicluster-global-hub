@@ -263,4 +263,23 @@ func TestGetConnCredentialMissingSecret(t *testing.T) {
 	if err == nil {
 		t.Fatal("GetConnCredential(hub1) expected missing secret error")
 	}
+	if !strings.Contains(err.Error(), "failed to get BYO Kafka transport secret") {
+		t.Fatalf("GetConnCredential() error = %v, want wrapped lookup error", err)
+	}
+}
+
+func TestGetConnCredentialRejectsIdenticalPerHubCerts(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	same := "duplicate-cert"
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, same)
+	hub2 := byoSecret(constants.GHTransportSecretNameForCluster("hub2"), ns, same)
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2)
+
+	_, err := trans.GetConnCredential("hub1")
+	if err == nil {
+		t.Fatal("GetConnCredential(hub1) expected identical-cert error")
+	}
+	if !strings.Contains(err.Error(), "identical") {
+		t.Fatalf("GetConnCredential() error = %v, want identical cert message", err)
+	}
 }

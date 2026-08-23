@@ -84,7 +84,7 @@ kubectl create secret generic "$transport_secret" -n "${target_namespace}" --kub
 echo "transport secret is ready in ${target_namespace} namespace!"
 
 ## run e2e
-bash "$CURRENT_DIR/e2e_run.sh" -n ${target_namespace} -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
+bash "$CURRENT_DIR/e2e_run.sh" -n ${target_namespace} -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent,e2e-test-transport-byo"
 
 # Clean up MulticlusterGlobalHub resources before migration tests
 echo "Cleaning up BYO test resources..."

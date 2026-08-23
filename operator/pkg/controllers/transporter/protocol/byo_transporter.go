@@ -34,6 +34,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+const transportSecretClientCertKey = "client.crt"
+
 type BYOTransporter struct {
 	ctx           context.Context
 	log           logr.Logger
@@ -82,7 +84,7 @@ func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
 		s.log.Info("BYO Kafka is using the shared transport secret; " +
 			"provide a per-hub secret for isolated credentials")
 	}
-	if err := s.validateDistinctClientCerts(clusterName, secret.Data[filepath.Join("client.crt")]); err != nil {
+	if err := s.validateDistinctClientCerts(clusterName, secret.Data[transportSecretClientCertKey]); err != nil {
 		return "", err
 	}
 	return config.GetKafkaUserName(clusterName), nil
@@ -109,10 +111,10 @@ func (s *BYOTransporter) Prune(clusterName string) error {
 func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
 	kafkaSecret, _, err := s.getTransportSecret(clusterName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get BYO Kafka transport secret: %w", err)
 	}
 	if !isManagerCluster(clusterName) {
-		if err := s.validateDistinctClientCerts(clusterName, kafkaSecret.Data[filepath.Join("client.crt")]); err != nil {
+		if err := s.validateDistinctClientCerts(clusterName, kafkaSecret.Data[transportSecretClientCertKey]); err != nil {
 			return nil, err
 		}
 	}
@@ -136,7 +138,7 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 		SpecTopic:      config.GetSpecTopic(),
 		MigrationTopic: config.GetMigrationTopic(),
 		CACert:         base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
-		ClientCert:     base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
+		ClientCert:     base64.StdEncoding.EncodeToString(kafkaSecret.Data[transportSecretClientCertKey]),
 		ClientKey:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
 	}, nil
 }
@@ -200,14 +202,12 @@ func (s *BYOTransporter) validateDistinctClientCerts(clusterName string, clientC
 		if otherCluster == "" || otherCluster == clusterName {
 			continue
 		}
-		otherCert := secret.Data[filepath.Join("client.crt")]
+		otherCert := secret.Data[transportSecretClientCertKey]
 		if len(otherCert) == 0 {
 			continue
 		}
 		if bytes.Equal(clientCert, otherCert) {
-			return fmt.Errorf("BYO Kafka client cert for hub %q is identical to hub %q; "+
-				"each hub must have a distinct client certificate (secret %s)",
-				clusterName, otherCluster, secret.Name)
+			return fmt.Errorf("BYO Kafka client certificates on per-hub transport secrets must not be identical")
 		}
 	}
 	return nil

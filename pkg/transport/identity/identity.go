@@ -158,8 +158,7 @@ func ValidateBYOClientCert(leafHubName, clientCertPEM string) error {
 		return nil
 	}
 
-	return fmt.Errorf("BYO Kafka client certificate CN %q belongs to hub %q, not %q",
-		cn, certHub, leafHubName)
+	return fmt.Errorf("BYO Kafka client certificate does not belong to this hub")
 }
 
 func commonNameFromPEMX509(certPEM string) (string, error) {
