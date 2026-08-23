@@ -83,8 +83,7 @@ func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
 	if secretName == s.sharedSecretName() {
 		s.log.Info("BYO Kafka is using the shared transport secret; " +
 			"provide a per-hub secret for isolated credentials")
-	}
-	if err := s.validateDistinctClientCerts(clusterName, secret.Data[transportSecretClientCertKey]); err != nil {
+	} else if err := s.validateDistinctClientCerts(clusterName, secret.Data[transportSecretClientCertKey]); err != nil {
 		return "", err
 	}
 	return config.GetKafkaUserName(clusterName), nil
@@ -109,11 +108,11 @@ func (s *BYOTransporter) Prune(clusterName string) error {
 }
 
 func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
-	kafkaSecret, _, err := s.getTransportSecret(clusterName)
+	kafkaSecret, secretName, err := s.getTransportSecret(clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get BYO Kafka transport secret: %w", err)
 	}
-	if !isManagerCluster(clusterName) {
+	if !isManagerCluster(clusterName) && secretName != s.sharedSecretName() {
 		if err := s.validateDistinctClientCerts(clusterName, kafkaSecret.Data[transportSecretClientCertKey]); err != nil {
 			return nil, err
 		}
@@ -199,7 +198,7 @@ func (s *BYOTransporter) validateDistinctClientCerts(clusterName string, clientC
 	for i := range secretList.Items {
 		secret := &secretList.Items[i]
 		otherCluster := constants.ClusterNameFromGHTransportSecret(secret.Name)
-		if otherCluster == "" || otherCluster == clusterName {
+		if otherCluster == "" || otherCluster == clusterName || isManagerCluster(otherCluster) {
 			continue
 		}
 		otherCert := secret.Data[transportSecretClientCertKey]

@@ -283,3 +283,31 @@ func TestGetConnCredentialRejectsIdenticalPerHubCerts(t *testing.T) {
 		t.Fatalf("GetConnCredential() error = %v, want identical cert message", err)
 	}
 }
+
+func TestEnsureUserAllowsSharedFallbackMatchingPerHubCert(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	same := "shared-cert"
+	shared := byoSecret(constants.GHTransportSecretName, ns, same)
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, same)
+	trans := newBYOTransporter(t, byoMGH(ns), shared, hub1)
+
+	if _, err := trans.EnsureUser("hub2"); err != nil {
+		t.Fatalf("EnsureUser(hub2) shared fallback error = %v", err)
+	}
+	if _, err := trans.GetConnCredential("hub2"); err != nil {
+		t.Fatalf("GetConnCredential(hub2) shared fallback error = %v", err)
+	}
+}
+
+func TestEnsureUserIgnoresManagerNamedSecretDuplicates(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
+	managerNamed := byoSecret(constants.GHTransportSecretNameForCluster(
+		constants.CloudEventGlobalHubClusterName,
+	), ns, "hub1-cert")
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, managerNamed)
+
+	if _, err := trans.EnsureUser("hub1"); err != nil {
+		t.Fatalf("EnsureUser(hub1) error = %v", err)
+	}
+}

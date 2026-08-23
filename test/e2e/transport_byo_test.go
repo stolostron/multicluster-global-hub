@@ -16,6 +16,7 @@
 package tests
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -39,6 +40,7 @@ import (
 const (
 	byoPerHubBootstrapMarker = "e2e-byo-per-hub-marker:443"
 	byoIdenticalCertLog      = "must not be identical"
+	byoAPITimeout            = 30 * time.Second
 )
 
 var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-byo"), Ordered, func() {
@@ -60,12 +62,12 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 
 		var err error
 		sourceHubClient, err = testClients.RuntimeClient(sourceHubName, agentScheme)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred(), "expected a kube client for the source managed hub")
 
 		shared, err := byoSharedTransportSecret()
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred(), "expected the shared BYO transport secret")
 		sharedBootstrap = string(shared.Data["bootstrap_server"])
-		Expect(sharedBootstrap).NotTo(BeEmpty())
+		Expect(sharedBootstrap).NotTo(BeEmpty(), "shared BYO transport secret must set bootstrap_server")
 	})
 
 	AfterAll(func() {
@@ -76,15 +78,17 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		deleteBYOPerHubSecret(targetHubName)
 	})
 
-	It("keeps shared-secret fallback and allows a custom client certificate CN", func() {
+	It("allows a custom client certificate CN on the shared BYO secret", func() {
 		shared, err := byoSharedTransportSecret()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(shared.Data["client.crt"]).NotTo(BeEmpty())
+		Expect(err).NotTo(HaveOccurred(), "expected the shared BYO transport secret")
+		Expect(shared.Data["client.crt"]).NotTo(BeEmpty(), "shared BYO transport secret must set client.crt")
 
 		cn := pemCertificateCommonName(shared.Data["client.crt"])
 		Expect(identity.HubFromClientCertCN(cn)).To(BeEmpty(),
 			"shared BYO client cert CN must be a custom name, not {hub}-kafka-user")
+	})
 
+	It("starts the managed hub agent with shared-secret fallback", func() {
 		Eventually(func() error {
 			return managedHubAgentKafkaReady(sourceHubClient, sourceHubName)
 		}, 2*time.Minute, 5*time.Second).Should(Succeed(),
@@ -106,7 +110,8 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 					return fmt.Errorf("waiting for shared-secret bootstrap to be restored")
 				}
 				return nil
-			}, 2*time.Minute, 5*time.Second).Should(Succeed())
+			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
+				"agent transport must fall back to the shared BYO secret after per-hub cleanup")
 		})
 
 		Eventually(func() error {
@@ -137,15 +142,21 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 	})
 })
 
+func byoAPIContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, byoAPITimeout)
+}
+
 func byoSharedTransportSecret() (*corev1.Secret, error) {
+	apiCtx, cancel := byoAPIContext()
+	defer cancel()
 	return testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).Get(
-		ctx, constants.GHTransportSecretName, metav1.GetOptions{},
+		apiCtx, constants.GHTransportSecretName, metav1.GetOptions{},
 	)
 }
 
 func createBYOPerHubSecret(clusterName string, mutate func(*corev1.Secret)) {
 	shared, err := byoSharedTransportSecret()
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), "expected the shared BYO transport secret as a template")
 
 	data := make(map[string][]byte, len(shared.Data))
 	for key, value := range shared.Data {
@@ -167,28 +178,34 @@ func createBYOPerHubSecret(clusterName string, mutate func(*corev1.Secret)) {
 	}
 
 	kube := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace)
-	_, err = kube.Create(ctx, secret, metav1.CreateOptions{})
+	apiCtx, cancel := byoAPIContext()
+	defer cancel()
+	_, err = kube.Create(apiCtx, secret, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
-		existing, getErr := kube.Get(ctx, secret.Name, metav1.GetOptions{})
-		Expect(getErr).NotTo(HaveOccurred())
+		existing, getErr := kube.Get(apiCtx, secret.Name, metav1.GetOptions{})
+		Expect(getErr).NotTo(HaveOccurred(), "expected existing per-hub BYO secret")
 		existing.Data = secret.Data
-		_, err = kube.Update(ctx, existing, metav1.UpdateOptions{})
+		_, err = kube.Update(apiCtx, existing, metav1.UpdateOptions{})
 	}
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), "expected to create or update the per-hub BYO secret")
 }
 
 func deleteBYOPerHubSecret(clusterName string) {
+	apiCtx, cancel := byoAPIContext()
+	defer cancel()
 	err := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).Delete(
-		ctx, constants.GHTransportSecretNameForCluster(clusterName), metav1.DeleteOptions{},
+		apiCtx, constants.GHTransportSecretNameForCluster(clusterName), metav1.DeleteOptions{},
 	)
 	if err != nil && !apierrors.IsNotFound(err) {
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred(), "expected to delete leftover per-hub BYO secret")
 	}
 }
 
 func managedHubAgentKafkaConfig(hubClient client.Client) (*transport.KafkaConfig, error) {
+	apiCtx, cancel := byoAPIContext()
+	defer cancel()
 	secret := &corev1.Secret{}
-	if err := hubClient.Get(ctx, types.NamespacedName{
+	if err := hubClient.Get(apiCtx, types.NamespacedName{
 		Name:      constants.GHTransportConfigSecret,
 		Namespace: constants.GHAgentNamespace,
 	}, secret); err != nil {
@@ -219,12 +236,14 @@ func pemCertificateCommonName(certPEM []byte) string {
 	block, _ := pem.Decode(certPEM)
 	Expect(block).NotTo(BeNil(), "shared BYO client.crt must be PEM")
 	cert, err := x509.ParseCertificate(block.Bytes)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).NotTo(HaveOccurred(), "shared BYO client.crt must parse as x509")
 	return cert.Subject.CommonName
 }
 
 func operatorLogsContain(substr string) error {
-	pods, err := testClients.KubeClient().CoreV1().Pods(testOptions.GlobalHub.Namespace).List(ctx, metav1.ListOptions{
+	apiCtx, cancel := byoAPIContext()
+	defer cancel()
+	pods, err := testClients.KubeClient().CoreV1().Pods(testOptions.GlobalHub.Namespace).List(apiCtx, metav1.ListOptions{
 		LabelSelector: "name=multicluster-global-hub-operator",
 	})
 	if err != nil {
@@ -239,7 +258,7 @@ func operatorLogsContain(substr string) error {
 		logs, logErr := testClients.KubeClient().CoreV1().Pods(testOptions.GlobalHub.Namespace).
 			GetLogs(pods.Items[i].Name, &corev1.PodLogOptions{
 				Container: "multicluster-global-hub-operator",
-			}).DoRaw(ctx)
+			}).DoRaw(apiCtx)
 		if logErr != nil {
 			return logErr
 		}
