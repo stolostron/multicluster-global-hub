@@ -139,7 +139,8 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 
 func byoSharedTransportSecret() (*corev1.Secret, error) {
 	return testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).Get(
-		ctx, constants.GHTransportSecretName, metav1.GetOptions{})
+		ctx, constants.GHTransportSecretName, metav1.GetOptions{},
+	)
 }
 
 func createBYOPerHubSecret(clusterName string, mutate func(*corev1.Secret)) {
@@ -178,7 +179,8 @@ func createBYOPerHubSecret(clusterName string, mutate func(*corev1.Secret)) {
 
 func deleteBYOPerHubSecret(clusterName string) {
 	err := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).Delete(
-		ctx, constants.GHTransportSecretNameForCluster(clusterName), metav1.DeleteOptions{})
+		ctx, constants.GHTransportSecretNameForCluster(clusterName), metav1.DeleteOptions{},
+	)
 	if err != nil && !apierrors.IsNotFound(err) {
 		Expect(err).NotTo(HaveOccurred())
 	}
