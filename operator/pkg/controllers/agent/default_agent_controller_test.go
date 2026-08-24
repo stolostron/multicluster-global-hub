@@ -315,3 +315,91 @@ func TestAddonInstaller(t *testing.T) {
 		})
 	}
 }
+
+func TestReconcileStampsTransportSecretHashWhenPerHubSecretAppears(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	namespace := "multicluster-global-hub"
+	clusterName := "cluster1"
+	mgh := fakeMGH(namespace, "test")
+	cluster := fakeCluster(clusterName, "", operatorconstants.GHAgentDeployModeDefault)
+	config.SetMGHNamespacedName(types.NamespacedName{Namespace: namespace, Name: mgh.Name})
+
+	sharedSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHTransportSecretName,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"bootstrap_server": []byte("shared-kafka:443"),
+			"ca.crt":           []byte("ca"),
+			"client.crt":       []byte("shared-cert"),
+			"client.key":       []byte("shared-key"),
+		},
+	}
+
+	objects := []client.Object{
+		cluster,
+		mgh,
+		fakeHoHManagementAddon(),
+		sharedSecret,
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(objects...).Build()
+	config.SetTransporter(operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
+		Namespace: namespace,
+		Name:      constants.GHTransportSecretName,
+	}, fakeClient))
+
+	r := &hubofhubsaddon.DefaultAgentController{Client: fakeClient}
+	if _, err := r.Reconcile(ctx, reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: clusterName},
+	}); err != nil {
+		t.Fatalf("reconcile with shared secret: %v", err)
+	}
+
+	addon := &v1alpha1.ManagedClusterAddOn{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: clusterName, Name: constants.GHManagedClusterAddonName,
+	}, addon); err != nil {
+		t.Fatalf("get addon after shared-secret reconcile: %v", err)
+	}
+	sharedHash := addon.GetAnnotations()[constants.AnnotationTransportSecretHash]
+	if sharedHash == "" {
+		t.Fatal("expected transport secret hash on addon after shared-secret reconcile")
+	}
+
+	perHub := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHTransportSecretNameForCluster(clusterName),
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"bootstrap_server": []byte("e2e-byo-per-hub-marker:443"),
+			"ca.crt":           []byte("ca"),
+			"client.crt":       []byte("per-hub-cert"),
+			"client.key":       []byte("per-hub-key"),
+		},
+	}
+	if err := fakeClient.Create(ctx, perHub); err != nil {
+		t.Fatalf("create per-hub secret: %v", err)
+	}
+
+	if _, err := r.Reconcile(ctx, reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: clusterName},
+	}); err != nil {
+		t.Fatalf("reconcile with per-hub secret: %v", err)
+	}
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: clusterName, Name: constants.GHManagedClusterAddonName,
+	}, addon); err != nil {
+		t.Fatalf("get addon after per-hub reconcile: %v", err)
+	}
+	perHubHash := addon.GetAnnotations()[constants.AnnotationTransportSecretHash]
+	if perHubHash == "" {
+		t.Fatal("expected transport secret hash on addon after per-hub reconcile")
+	}
+	if perHubHash == sharedHash {
+		t.Fatal("per-hub BYO secret must change the addon transport hash so ManifestWorks re-render")
+	}
+}

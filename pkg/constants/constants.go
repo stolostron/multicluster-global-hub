@@ -148,6 +148,12 @@ const (
 	UpgradeKafkaFromZookeeperAnnotation = "global-hub.open-cluster-management.io/upgrade-from-zookeeper"
 	// kafka-cluster-id save the current kafka cluster id
 	KafkaClusterIdAnnotation = "global-hub.open-cluster-management.io/kafka-cluster-id" // #nosec G101
+	// AnnotationTransportSecretHash is stamped on ManagedClusterAddOn so the
+	// addon-framework re-renders agent ManifestWorks when BYO Kafka credentials
+	// change (per-hub secret create/update/delete). Annotation-only updates are
+	// enough: addon-framework v0.11 watches ManagedClusterAddOn without a
+	// generation filter.
+	AnnotationTransportSecretHash = "global-hub.open-cluster-management.io/transport-secret-hash"
 )
 
 // store all the finalizers
