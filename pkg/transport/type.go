@@ -43,6 +43,9 @@ type TransportInternalConfig struct {
 	RestfulCredential *RestfulConfig
 	Extends           map[string]interface{}
 	FailureThreshold  int
+	// LeafHubName is set on the agent so BYO Kafka client certs can be checked
+	// against the local hub identity. Empty on the manager.
+	LeafHubName string
 }
 
 // KafkaInternalConfig specifics the configuration for the global hub manager, agent, or even inventory

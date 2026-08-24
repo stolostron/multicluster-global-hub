@@ -2,29 +2,53 @@ Multicluster global hub depends on the middleware (Kafka, Postgres) and observab
 
 ## Bring your own Kafka
 
-If you have your own Kafka, you can use it as the transport for multicluster global hub. You need to create a secret `multicluster-global-hub-transport` in `multicluster-global-hub` namespace. The secret contains the following fields:
+If you have your own Kafka, you can use it as the transport for multicluster global hub.
 
-- `bootstrap.servers`: Required, the Kafka bootstrap servers.
-- `ca.crt`: Required, if you use the `KafkaUser` custom resource to configure authentication credentials, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the STRIMZI documentation for the steps to extract the `ca.crt` certificate from the secret.
-- `client.crt`: Required, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the STRIMZI documentation for the steps to extract the `user.crt` certificate from the secret.
-- `client.key`: Required, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the STRIMZI documentation for the steps to extract the `user.key` from the secret.
+### Transport secrets
 
-You can create the secret by running the following command:
+Create Kafka client secrets in the `multicluster-global-hub` namespace.
+
+| Secret | Used by | Required |
+|--------|---------|----------|
+| `multicluster-global-hub-transport` | Global Hub manager | Yes |
+| `multicluster-global-hub-transport-<clusterName>` | Managed hub named `<clusterName>` | Recommended |
+
+Each secret contains:
+
+- `bootstrap_server`: Required. The Kafka bootstrap servers.
+- `ca.crt`: Required. If you use the `KafkaUser` custom resource to configure authentication credentials, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the Strimzi documentation for the steps to extract the `ca.crt` certificate from the secret.
+- `client.crt`: Required. See [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) for the steps to extract the `user.crt` certificate from the secret.
+- `client.key`: Required. See [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) for the steps to extract the `user.key` from the secret.
+
+Give **each managed hub a distinct client certificate**. Shared client certificates across hubs are not isolated by Kafka ACLs. The operator rejects two per-hub secrets that contain the same `client.crt`. The agent also fails to start when a BYO client certificate CommonName is `{other-hub}-kafka-user` and that name does not match the local hub.
+
+If a per-hub secret is not present, the operator falls back to the shared `multicluster-global-hub-transport` secret (legacy). That mode cannot enforce per-hub Kafka write isolation.
+
+Create the manager secret:
+
 ```bash
 kubectl create secret generic multicluster-global-hub-transport -n multicluster-global-hub \
     --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \
     --from-file=ca.crt=<CA-cert-for-kafka-server> \
     --from-file=client.crt=<Client-cert-for-kafka-server> \
-    --from-file=client.key=<Client-key-for-kafka-server> 
+    --from-file=client.key=<Client-key-for-kafka-server>
 ```
 
-*Prerequisite:*  See the following requirements for bringing your own Kafka: 
+Create a per-hub secret for a managed hub named `hub1`:
+
+```bash
+kubectl create secret generic multicluster-global-hub-transport-hub1 -n multicluster-global-hub \
+    --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \
+    --from-file=ca.crt=<CA-cert-for-kafka-server> \
+    --from-file=client.crt=<hub1-client-cert> \
+    --from-file=client.key=<hub1-client-key>
+```
+
+*Prerequisite:*
 
 - Unless you configured your Kafka to automatically create topics, you must manually create the transport topics `gh-spec`, `gh-migration`, and `gh-status`. By default, all managed hubs publish status to the shared topic `gh-status`. If you set a different `statusTopic` in `spec.dataLayer.kafka.topics`, create that topic instead. See [Kafka topics and ACLs](#kafka-topics-and-acls) below.
-
-- Kafka 3.3 or later is tested.\
-
-- Suggest to have persistent volume for your Kafka.
+- Kafka 3.3 or later is tested.
+- Persistent volume is recommended for Kafka.
 
 ### Kafka topics and ACLs
 
@@ -36,22 +60,23 @@ Global Hub uses three Kafka topics for transport:
 | `gh-migration` | Cluster migration deploying-phase bundles (source hub to target hub) |
 | `gh-status` | Status and compliance events from managed hubs to the global hub manager (shared topic by default) |
 
-When you manage Kafka ACLs yourself, grant permissions for your deployment:
+Grant ACLs that match the built-in Strimzi transporter. Do **not** grant every managed hub Read+Write on both spec and status topics.
 
 | Principal | `gh-spec` | `gh-migration` | Status topic |
 |-----------|-----------|----------------|--------------|
-| Global hub manager | Describe, Read, **Write** | Describe, Read, **Write** | Describe, Read on `gh-status` (or on each custom status topic) |
-| Managed hub agent | Describe, Read, Write | Describe, Read; **Write** on the source hub only while a cluster migration is in the Deploying phase | Describe, Read, **Write** on `gh-status` (or on a custom status topic if configured) |
+| Global hub manager (`global-hub-kafka-user`) | Describe, Read, **Write** | Describe, Read, **Write** | Describe, Read on the configured status topic |
+| Managed hub `{hub}-kafka-user` | Describe, **Read** (no Write) | Describe, Read; **Write** only while that hub is an active migration source | Describe, Read, **Write** on the configured status topic |
+| Consumer group | Per-hub literal group name | Per-hub literal group name | Per-hub literal group name (not `*`) |
 
 Notes:
 
-- The global hub manager publishes to `gh-spec`. Managed hub agents consume from `gh-spec`.
+- The global hub manager publishes to `gh-spec`. Managed hub agents consume from `gh-spec` and must not produce to it.
 - During cluster migration, the source hub publishes deploying bundles to `gh-migration`. The target hub agent consumes from `gh-migration` as well as `gh-spec`.
-- Grant **Write** on `gh-migration` to the source managed hub only for the duration of an active migration Deploying phase, then revoke it. With built-in Strimzi Kafka, the operator applies and removes that ACL automatically; with BYO Kafka, you must update ACLs yourself or through your Kafka administration tooling.
+- Grant **Write** on `gh-migration` to the source managed hub only for the duration of an active migration, then revoke it. With built-in Strimzi Kafka, the operator applies and removes that ACL automatically; with BYO Kafka, you must update ACLs yourself or through your Kafka administration tooling.
 - For more information about cluster migration, see [Managed Cluster Migration](./migration/global_hub_cluster_migration.md).
-- Built-in Strimzi Kafka uses per-hub status topics such as `gh-status.<cluster-name>` with a prefix ACL on `gh-status`. BYO Kafka uses the shared topic `gh-status` with a literal ACL unless you override `statusTopic`.
+- Built-in Strimzi Kafka uses per-hub status topics such as `gh-status.<cluster-name>` with a prefix ACL on `gh-status`. BYO Kafka always uses one shared status topic (`gh-status` by default, or the configured `statusTopic`) for every managed hub.
 
-Example Strimzi `KafkaUser` ACL entries for the global hub transport user (BYO defaults shown):
+Example Strimzi `KafkaUser` ACL entries for the global hub manager transport user (BYO defaults shown):
 
 ```yaml
 # gh-spec — manager publishes policy/spec sync
@@ -60,7 +85,7 @@ Example Strimzi `KafkaUser` ACL entries for the global hub transport user (BYO d
     type: topic
     name: gh-spec
     patternType: literal
-# gh-migration — manager oversight; source hub writes during migration Deploying
+# gh-migration — manager oversight; source hub writes during migration
 - operations: [Describe, Read, Write]
   resource:
     type: topic
@@ -74,7 +99,28 @@ Example Strimzi `KafkaUser` ACL entries for the global hub transport user (BYO d
     patternType: literal
 ```
 
-Managed hub agents also need **Read** on `gh-spec` and `gh-migration`, **Write** on `gh-status` (or on a custom status topic), and temporary **Write** on `gh-migration` when that hub is the source of an in-progress migration.
+Example managed-hub `KafkaUser` ACL entries:
+
+```yaml
+# gh-spec — consume spec/policy only
+- operations: [Describe, Read]
+  resource:
+    type: topic
+    name: gh-spec
+    patternType: literal
+# gh-migration — read always; add Write only while this hub is a migration source
+- operations: [Describe, Read]
+  resource:
+    type: topic
+    name: gh-migration
+    patternType: literal
+# gh-status — publish this hub's status
+- operations: [Describe, Read, Write]
+  resource:
+    type: topic
+    name: gh-status
+    patternType: literal
+```
 
 ## Bring your own Postgres
 
