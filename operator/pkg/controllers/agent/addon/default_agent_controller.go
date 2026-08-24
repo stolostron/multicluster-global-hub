@@ -41,6 +41,11 @@ var (
 
 type DefaultAgentController struct {
 	client.Client
+	// apiReader performs uncached reads straight from the API server. It is used to confirm a
+	// ManagedCluster genuinely lacks the deploy-mode label before pruning its transport
+	// resources, so a stale cache during operator restarts/upgrades cannot trigger a destructive
+	// prune of a live managed hub's KafkaUser (ACM-40204).
+	apiReader client.Reader
 }
 
 // Assert whether a secret is associated with or affects the addon
@@ -54,9 +59,10 @@ func targetAddonSecret(obj client.Object) bool {
 	return false
 }
 
-func NewDefaultAgentController(c client.Client) *DefaultAgentController {
+func NewDefaultAgentController(c client.Client, apiReader client.Reader) *DefaultAgentController {
 	return &DefaultAgentController{
-		Client: c,
+		Client:    c,
+		apiReader: apiReader,
 	}
 }
 
@@ -73,7 +79,7 @@ func StartDefaultAgentController(initOption config.ControllerOption) (config.Con
 	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
 		return nil, nil
 	}
-	defaultAgentController = NewDefaultAgentController(initOption.Manager.GetClient())
+	defaultAgentController = NewDefaultAgentController(initOption.Manager.GetClient(), initOption.Manager.GetAPIReader())
 
 	err := ctrl.NewControllerManagedBy(initOption.Manager).
 		Named("default-agent-ctrl").
@@ -263,6 +269,27 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	isDetaching := !cluster.DeletionTimestamp.IsZero()
 
 	log.Infof("cluster(%s): isDetaching - %v, hasDeployLabel - %v", cluster.Name, isDetaching, hasDeployLabel)
+
+	// ACM-40204: removeResourcesAndAddon prunes the managed hub's KafkaUser, which revokes the
+	// agent's Kafka ACLs and takes the managed hub offline ("Topic/Group authorization failed").
+	// The prune runs regardless of whether the cached ManagedClusterAddOn still exists, so gating
+	// the confirmation on the cached addon is not safe: during an operator restart/upgrade the
+	// cached ManagedCluster can transiently miss the deploy-mode label (and the addon), which would
+	// otherwise cause a spurious prune of a live managed hub. Whenever a non-detaching cluster
+	// appears to lack the deploy-mode label, confirm its absence with an uncached read straight
+	// from the API server before proceeding to the destructive prune path.
+	if !isDetaching && !hasDeployLabel {
+		absent, err := r.confirmDeployLabelAbsent(ctx, cluster.Name)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if !absent {
+			log.Infow("deploy-mode label present per API server; skipping prune to avoid stale-cache delete",
+				"cluster", cluster.Name)
+			hasDeployLabel = true
+		}
+	}
+
 	if isDetaching || !hasDeployLabel {
 		log.Infow("deleting resources and addon", "cluster", cluster.Name)
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
@@ -273,6 +300,30 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
+}
+
+// confirmDeployLabelAbsent performs an uncached read of the ManagedCluster straight from the API
+// server and reports whether the deploy-mode label is genuinely absent. It guards the destructive
+// prune path against a stale controller cache during operator restarts/upgrades (ACM-40204):
+// pruning a live managed hub's KafkaUser revokes the agent's Kafka ACLs and takes it offline.
+func (r *DefaultAgentController) confirmDeployLabelAbsent(ctx context.Context, clusterName string) (bool, error) {
+	if r.apiReader == nil {
+		// No uncached reader available; fall back to the cached decision.
+		return true, nil
+	}
+	// Bound the direct API read so an unavailable API server cannot hold a reconcile worker
+	// until manager shutdown.
+	readCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	latest := &clusterv1.ManagedCluster{}
+	if err := r.apiReader.Get(readCtx, types.NamespacedName{Name: clusterName}, latest); err != nil {
+		if errors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, fmt.Errorf("failed to read managedcluster %q from API server: %w", clusterName, err)
+	}
+	_, hasDeployLabel := latest.GetLabels()[constants.GHDeployModeLabelKey]
+	return !hasDeployLabel, nil
 }
 
 func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Context) error {
