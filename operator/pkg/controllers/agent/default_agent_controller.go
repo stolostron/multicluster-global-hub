@@ -116,7 +116,9 @@ var secretPred = predicate.Funcs{
 		return secretCond(e.ObjectNew)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
+		// Per-hub BYO transport secret deletion must re-render addon
+		// manifests so the agent falls back to the shared secret.
+		return secretCond(e.Object)
 	},
 }
 
