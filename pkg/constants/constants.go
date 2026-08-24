@@ -153,7 +153,7 @@ const (
 	// change (per-hub secret create/update/delete). Annotation-only updates are
 	// enough: addon-framework v0.11 watches ManagedClusterAddOn without a
 	// generation filter.
-	AnnotationTransportSecretHash = "global-hub.open-cluster-management.io/transport-secret-hash"
+	AnnotationTransportSecretHash = "global-hub.open-cluster-management.io/transport-secret-hash" // #nosec G101
 )
 
 // store all the finalizers
