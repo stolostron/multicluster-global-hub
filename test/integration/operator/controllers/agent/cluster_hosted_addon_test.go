@@ -55,6 +55,7 @@ var _ = Describe("deploy hosted addon", func() {
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
 		Expect(addon.GetAnnotations()[constants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
+		Expect(addon.GetAnnotations()).To(HaveKey(constants.AnnotationTransportSecretHash))
 
 		By("By checking the agent manifestworks are created for the newly created managed cluster")
 		work := &workv1.ManifestWork{}
@@ -121,6 +122,7 @@ var _ = Describe("deploy hosted addon", func() {
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
 		Expect(addon.GetAnnotations()[constants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
+		Expect(addon.GetAnnotations()).To(HaveKey(constants.AnnotationTransportSecretHash))
 
 		By("By checking the agent manifestworks are created for the newly created managed cluster")
 		work := &workv1.ManifestWork{}
