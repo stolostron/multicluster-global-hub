@@ -351,6 +351,13 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		k.manager.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update kafka objects: %w", err)
 	}
+	if isPatternBasedStatusTopic {
+		// Pattern topics skip the static manifest placeholder; ensure the manager topic
+		// using the same cluster identity as getManagerTransportConn / consumer group.
+		if _, err := k.EnsureTopic(constants.CloudEventGlobalHubClusterName); err != nil {
+			return fmt.Errorf("failed to ensure manager kafka topics: %w", err)
+		}
+	}
 	return nil
 }
 

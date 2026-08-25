@@ -1361,3 +1361,59 @@ func TestIsClusterExtensionInstalled(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderKafkaResources_EnsuresManagerTopicsForPatternStatus(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("corev1.AddToScheme() error = %v", err)
+	}
+	if err := kafkav1beta2.AddToScheme(scheme); err != nil {
+		t.Fatalf("kafkav1beta2.AddToScheme() error = %v", err)
+	}
+	if err := v1alpha4.AddToScheme(scheme); err != nil {
+		t.Fatalf("v1alpha4.AddToScheme() error = %v", err)
+	}
+
+	ns := utils.GetDefaultNamespace()
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+		Spec: v1alpha4.MulticlusterGlobalHubSpec{
+			DataLayerSpec: v1alpha4.DataLayerSpec{
+				Kafka: v1alpha4.KafkaSpec{
+					KafkaTopics: v1alpha4.KafkaTopics{
+						SpecTopic:   "spec2",
+						StatusTopic: "gh-status-*",
+					},
+				},
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	if err := config.SetTransportConfig(ctx, fakeClient, mgh); err != nil {
+		t.Fatalf("SetTransportConfig() error = %v", err)
+	}
+	t.Cleanup(func() { config.SetTransporter(nil) })
+
+	trans := &strimziTransporter{
+		ctx:                    ctx,
+		mgh:                    mgh,
+		kafkaClusterName:       KafkaClusterName,
+		kafkaClusterNamespace:  ns,
+		topicPartitionReplicas: DefaultPartitionReplicas,
+		manager:                &fakeManager{c: fakeClient},
+	}
+
+	if _, err := trans.EnsureTopic(constants.CloudEventGlobalHubClusterName); err != nil {
+		t.Fatalf("EnsureTopic(%q) error = %v", constants.CloudEventGlobalHubClusterName, err)
+	}
+
+	topic := &kafkav1beta2.KafkaTopic{}
+	expectedStatusTopic := config.GetStatusTopic(constants.CloudEventGlobalHubClusterName)
+	if err := fakeClient.Get(ctx, types.NamespacedName{
+		Name:      expectedStatusTopic,
+		Namespace: ns,
+	}, topic); err != nil {
+		t.Fatalf("expected %q KafkaTopic to be created: %v", expectedStatusTopic, err)
+	}
+}
