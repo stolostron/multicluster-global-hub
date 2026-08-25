@@ -87,6 +87,7 @@ Notes:
 - Grant **Write** on `gh-migration` to the source managed hub only for the duration of an active migration, then revoke it. With built-in Strimzi Kafka, the operator applies and removes that ACL automatically; with BYO Kafka, you must update ACLs yourself or through your Kafka administration tooling.
 - For more information about cluster migration, see [Managed Cluster Migration](./migration/global_hub_cluster_migration.md).
 - Built-in Strimzi Kafka uses per-hub status topics such as `gh-status.<cluster-name>` with a prefix ACL on `gh-status`. BYO Kafka always uses one shared status topic (`gh-status` by default, or the configured `statusTopic`) for every managed hub.
+- Kafka consumers also need **Group Read** (FindCoordinator). Topic-only ACLs fail with `Group authorization failed` and the consumer group is never created. A shared BYO principal (single `multicluster-global-hub-transport` secret / `global-hub-byo-user`) must use Group `*` Read. Per-hub KafkaUsers should use the literal group id: `consumerGroupPrefix` + cluster name with hyphens replaced by underscores (for example `custom_qe_global_hub`).
 
 Example Strimzi `KafkaUser` ACL entries for the global hub manager transport user (BYO defaults shown):
 
@@ -108,6 +109,13 @@ Example Strimzi `KafkaUser` ACL entries for the global hub manager transport use
   resource:
     type: topic
     name: gh-status
+    patternType: literal
+# consumer group — FindCoordinator / group join
+# Shared BYO user: "*". Per-hub user: literal "{prefix}{cluster}" (hyphens → underscores)
+- operations: [Read]
+  resource:
+    type: group
+    name: "*"
     patternType: literal
 ```
 
@@ -131,6 +139,13 @@ Example managed-hub `KafkaUser` ACL entries:
   resource:
     type: topic
     name: gh-status
+    patternType: literal
+# consumer group — FindCoordinator / group join
+# Shared BYO user: "*". Per-hub user: literal "{prefix}{cluster}" (hyphens → underscores)
+- operations: [Read]
+  resource:
+    type: group
+    name: "*"
     patternType: literal
 ```
 
