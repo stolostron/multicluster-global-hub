@@ -242,3 +242,131 @@ func TestAddonInstaller(t *testing.T) {
 		})
 	}
 }
+
+// TestConfirmDeployLabelAbsent verifies the ACM-40204 guard: the destructive prune path must only
+// treat the deploy-mode label as absent when an uncached read of the API server confirms it, so a
+// stale controller cache during an operator restart/upgrade cannot delete a live managed hub's
+// KafkaUser.
+//
+//	go test -run ^TestConfirmDeployLabelAbsent$ \
+//	  github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon
+func TestConfirmDeployLabelAbsent(t *testing.T) {
+	clusterName := "regionalhub1"
+
+	withLabel := &v1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   clusterName,
+			Labels: map[string]string{constants.GHDeployModeLabelKey: constants.GHDeployModeDefault},
+		},
+	}
+	withoutLabel := &v1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: clusterName},
+	}
+
+	tests := []struct {
+		name       string
+		apiObjects []client.Object
+		nilReader  bool
+		wantAbsent bool
+	}{
+		{
+			name:       "label present per API server -> not absent (must NOT prune)",
+			apiObjects: []client.Object{withLabel},
+			wantAbsent: false,
+		},
+		{
+			name:       "label absent per API server -> absent (prune allowed)",
+			apiObjects: []client.Object{withoutLabel},
+			wantAbsent: true,
+		},
+		{
+			name:       "cluster not found -> absent (prune allowed)",
+			apiObjects: []client.Object{},
+			wantAbsent: true,
+		},
+		{
+			name:       "no api reader -> fall back to absent",
+			nilReader:  true,
+			wantAbsent: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &DefaultAgentController{}
+			if !tc.nilReader {
+				r.apiReader = fake.NewClientBuilder().
+					WithScheme(config.GetRuntimeScheme()).
+					WithObjects(tc.apiObjects...).
+					Build()
+			}
+			absent, err := r.confirmDeployLabelAbsent(context.Background(), clusterName)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if absent != tc.wantAbsent {
+				t.Fatalf("confirmDeployLabelAbsent = %v, want %v", absent, tc.wantAbsent)
+			}
+		})
+	}
+}
+
+// TestReconcileStaleCacheKeepsManagedHub is the ACM-40204 Reconcile regression: when the controller
+// cache transiently lacks BOTH the deploy-mode label and the ManagedClusterAddOn during an operator
+// restart/upgrade, but the API server still reports the labeled cluster, Reconcile must NOT take the
+// destructive prune path. It must confirm the label with an uncached read and reconcile the addon
+// instead of pruning the managed hub's KafkaUser.
+//
+//	go test -run ^TestReconcileStaleCacheKeepsManagedHub$ \
+//	  github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon
+func TestReconcileStaleCacheKeepsManagedHub(t *testing.T) {
+	namespace := "multicluster-global-hub"
+	name := "test"
+	clusterName := "regionalhub1"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	config.SetMGHNamespacedName(types.NamespacedName{Namespace: namespace, Name: name})
+
+	// Cached view during an operator upgrade: the cluster is missing the deploy-mode label and the
+	// ManagedClusterAddOn is absent from the cache.
+	cachedCluster := &v1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: clusterName},
+	}
+	cachedClient := fake.NewClientBuilder().
+		WithScheme(config.GetRuntimeScheme()).
+		WithObjects(fakeMGH(namespace, name), fakeClusterManagementAddon(), cachedCluster).
+		Build()
+
+	// API server truth: the cluster still carries the deploy-mode label.
+	apiReader := fake.NewClientBuilder().
+		WithScheme(config.GetRuntimeScheme()).
+		WithObjects(fakeCluster(clusterName, "", constants.GHDeployModeDefault)).
+		Build()
+
+	config.SetTransporter(operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
+		Namespace: namespace,
+		Name:      constants.GHTransportSecretName,
+	}, cachedClient))
+
+	r := &DefaultAgentController{
+		Client:    cachedClient,
+		apiReader: apiReader,
+	}
+
+	if _, err := r.Reconcile(ctx, reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: clusterName},
+	}); err != nil {
+		t.Fatalf("unexpected reconcile error: %v", err)
+	}
+
+	// The addon must be reconciled (created), proving the prune path was skipped despite the stale
+	// cache lacking both the label and the addon.
+	addon := &v1alpha1.ManagedClusterAddOn{}
+	if err := cachedClient.Get(ctx, types.NamespacedName{
+		Namespace: clusterName, Name: constants.GHManagedClusterAddonName,
+	}, addon); err != nil {
+		t.Fatalf("expected addon to be reconciled (prune path skipped), but got err: %v", err)
+	}
+}
