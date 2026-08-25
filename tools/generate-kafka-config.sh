@@ -19,12 +19,20 @@ Available options:
   global_hub_namespace       The namespace of the Global Hub operator. Default is 'multicluster-global-hub'.
   kafka_cluster_name         The Kafka cluster name. Default is 'kafka'.
 
+Environment:
+
+  CONSUMER_GROUP_PREFIX      Optional. Same as spec.dataLayer.kafka.consumerGroupPrefix.
+                             Prepended to cluster_name for the KafkaUser Group ACL.
+                             The resulting id has hyphens replaced with underscores.
+
 EOF
   exit
 }
 
 # create a KafkaUser CR
 createKafkaUser() {
+  # Literal group id matches GetConsumerGroupID(prefix, clusterName).
+  group_id=$(printf '%s%s' "${CONSUMER_GROUP_PREFIX:-}" "$1" | tr '-' '_')
   cat <<EOF | kubectl apply -f -
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
@@ -42,7 +50,7 @@ spec:
       operations:
       - Read
       resource:
-        name: '*'
+        name: ${group_id}
         patternType: literal
         type: group
     - host: '*'
