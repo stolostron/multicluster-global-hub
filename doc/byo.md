@@ -47,10 +47,22 @@ kubectl create secret generic multicluster-global-hub-transport-hub1 -n multiclu
 *Prerequisite:*
 
 - Unless you configured your Kafka to automatically create topics, you must manually create the transport topics `gh-spec`, `gh-migration`, and `gh-status`. By default, all managed hubs publish status to the shared topic `gh-status`. If you set a different `statusTopic` in `spec.dataLayer.kafka.topics`, create that topic instead. See [Kafka topics and ACLs](#kafka-topics-and-acls) below.
+- Enable simple ACL authorization on the Kafka cluster so those ACLs take effect (Strimzi: `spec.kafka.authorization.type: simple`).
 - Kafka 3.3 or later is tested.
 - Persistent volume is recommended for Kafka.
 
 ### Kafka topics and ACLs
+
+Enable simple ACL authorization on the Kafka cluster before granting the ACLs below. With Strimzi or AMQ Streams, set:
+
+```yaml
+spec:
+  kafka:
+    authorization:
+      type: simple
+```
+
+Without a broker authorizer, KafkaUser (or equivalent) ACLs are ignored and authenticated clients can still read and write all topics.
 
 Global Hub uses three Kafka topics for transport:
 
