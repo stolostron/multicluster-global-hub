@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -1080,5 +1081,163 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 		// Process event - should not error
 		err := syncer.Sync(ctx, &evt)
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	// ACM-41773: a resource whose namespace does not yet exist on the standby hub must not
+	// fail with `namespaces "X" not found`. The standby syncer should ensure the namespace
+	// exists before applying the namespaced resource.
+	It("should apply a resource whose namespace does not exist on standby (ACM-41773)", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		DeferCleanup(cancel)
+		const missingNS = "aws-spoke-tn"
+
+		// Register cleanup up front so the namespace/ConfigMap the syncer creates are removed
+		// even if an assertion below fails (envtest has no namespace GC, and leaked objects
+		// could interfere with later specs).
+		DeferCleanup(func() {
+			if err := k8sClient.Delete(ctx, &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "aws-spoke-tn-metadata-json", Namespace: missingNS},
+			}); err != nil {
+				Expect(apierrors.IsNotFound(err)).To(BeTrue(),
+					"cleanup: deleting the synced ConfigMap must only fail with NotFound")
+			}
+			if err := k8sClient.Delete(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: missingNS},
+			}); err != nil {
+				Expect(apierrors.IsNotFound(err)).To(BeTrue(),
+					"cleanup: deleting the created namespace must only fail with NotFound")
+			}
+		})
+
+		// Precondition: the namespace must not exist on the standby before sync.
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: missingNS}, &corev1.Namespace{})
+		Expect(apierrors.IsNotFound(err)).To(BeTrue(), "precondition: namespace must not exist on standby")
+
+		// Active hub sends a namespaced resource living in a namespace absent on the standby.
+		bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+		bundle.Resync = []*unstructured.Unstructured{
+			{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "aws-spoke-tn-metadata-json",
+						"namespace": missingNS,
+					},
+					"data": map[string]interface{}{
+						"synced": "true",
+					},
+				},
+			},
+		}
+
+		evt := cloudevents.NewEvent()
+		evt.SetType(constants.HubHAResourcesMsgKey)
+		evt.SetSource("hub1")
+		Expect(evt.SetData(cloudevents.ApplicationJSON, bundle)).To(Succeed(),
+			"encoding the Hub HA bundle into the CloudEvent must succeed so the syncer can decode it")
+
+		// Sync must succeed (no `namespaces "aws-spoke-tn" not found`).
+		err = syncer.Sync(ctx, &evt)
+		Expect(err).NotTo(HaveOccurred(), "sync must not fail when the target namespace is missing")
+
+		// The namespace must have been created.
+		Eventually(func() error {
+			return k8sClient.Get(ctx, types.NamespacedName{Name: missingNS}, &corev1.Namespace{})
+		}, 5*time.Second, 100*time.Millisecond).Should(Succeed(),
+			"the syncer must create the missing namespace before applying the resource into it")
+
+		// The resource must have been applied into it.
+		cm := &corev1.ConfigMap{}
+		Eventually(func() error {
+			return k8sClient.Get(ctx, types.NamespacedName{
+				Name:      "aws-spoke-tn-metadata-json",
+				Namespace: missingNS,
+			}, cm)
+		}, 5*time.Second, 100*time.Millisecond).Should(Succeed(),
+			"the ConfigMap must be applied into the newly created namespace")
+		Expect(cm.Data["synced"]).To(Equal("true"),
+			"the applied ConfigMap must carry the data sent by the active hub")
+	})
+
+	// ACM-41773: the active hub's own local-cluster ManagedCluster must not be applied onto
+	// the standby (it collides with the standby's own local-cluster). The apply path should
+	// skip it, mirroring the stale-cleanup path's shouldSkipHAAnnotation guard.
+	It("should not overwrite the standby's own local-cluster ManagedCluster (ACM-41773)", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		DeferCleanup(cancel)
+
+		// The standby already hosts its own local-cluster ManagedCluster.
+		standbyLocal := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "cluster.open-cluster-management.io/v1",
+				"kind":       "ManagedCluster",
+				"metadata": map[string]interface{}{
+					"name":   "local-cluster",
+					"labels": map[string]interface{}{"local-cluster": "true"},
+				},
+				"spec": map[string]interface{}{
+					"hubAcceptsClient": true,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, standbyLocal)).To(Succeed(),
+			"precondition: the standby's own local-cluster ManagedCluster must be created")
+		DeferCleanup(func() {
+			if err := k8sClient.Delete(ctx, standbyLocal); err != nil {
+				Expect(apierrors.IsNotFound(err)).To(BeTrue(),
+					"cleanup: deleting the standby local-cluster must only fail with NotFound")
+			}
+		})
+
+		// Active hub sends ITS OWN local-cluster in the bundle.
+		bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+		bundle.Resync = []*unstructured.Unstructured{
+			{
+				Object: map[string]interface{}{
+					"apiVersion": "cluster.open-cluster-management.io/v1",
+					"kind":       "ManagedCluster",
+					"metadata": map[string]interface{}{
+						"name": "local-cluster",
+					},
+					"spec": map[string]interface{}{
+						"hubAcceptsClient": true,
+						"managedClusterClientConfigs": []interface{}{
+							map[string]interface{}{
+								"url": "https://active-hub.example.com:6443",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		evt := cloudevents.NewEvent()
+		evt.SetType(constants.HubHAResourcesMsgKey)
+		evt.SetSource("hub1")
+		Expect(evt.SetData(cloudevents.ApplicationJSON, bundle)).To(Succeed(),
+			"encoding the Hub HA bundle into the CloudEvent must succeed so the syncer can decode it")
+
+		err := syncer.Sync(ctx, &evt)
+		Expect(err).NotTo(HaveOccurred(),
+			"sync must succeed and skip the active hub's local-cluster rather than colliding with the standby's own")
+
+		// The standby's local-cluster must be untouched: it must not receive the active hub's
+		// client config, and its hubAcceptsClient must not be forced to false.
+		got := &unstructured.Unstructured{}
+		got.SetAPIVersion("cluster.open-cluster-management.io/v1")
+		got.SetKind("ManagedCluster")
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "local-cluster"}, got)).To(Succeed(),
+			"the standby's own local-cluster must still exist after sync")
+
+		clientConfigs, found, err := unstructured.NestedSlice(got.Object, "spec", "managedClusterClientConfigs")
+		Expect(err).NotTo(HaveOccurred(), "failed to read managedClusterClientConfigs from local-cluster")
+		Expect(found && len(clientConfigs) > 0).To(BeFalse(),
+			"standby local-cluster must not receive the active hub's client configs")
+
+		accepts, _, err := unstructured.NestedBool(got.Object, "spec", "hubAcceptsClient")
+		Expect(err).NotTo(HaveOccurred(), "failed to read hubAcceptsClient from local-cluster")
+		Expect(accepts).To(BeTrue(),
+			"standby local-cluster hubAcceptsClient must not be overwritten to false")
 	})
 })
