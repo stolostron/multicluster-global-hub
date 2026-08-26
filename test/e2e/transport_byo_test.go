@@ -283,7 +283,7 @@ func operatorLogsContain(substr string, since *metav1.Time) error {
 			return logErr
 		}
 		if _, writeErr := combined.Write(logs); writeErr != nil {
-			return writeErr
+			return fmt.Errorf("append operator logs: %w", writeErr)
 		}
 	}
 	if !strings.Contains(combined.String(), substr) {

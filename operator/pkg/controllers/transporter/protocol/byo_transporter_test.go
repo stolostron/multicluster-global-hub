@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -65,6 +66,13 @@ func byoMGH(namespace string) *v1alpha4.MulticlusterGlobalHub {
 				},
 			},
 		},
+	}
+}
+
+// byoManagedCluster builds a ManagedCluster used to identify per-hub BYO secrets.
+func byoManagedCluster(name string) *clusterv1.ManagedCluster {
+	return &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
 	}
 }
 
@@ -203,7 +211,7 @@ func TestEnsureUserRejectsIdenticalPerHubCerts(t *testing.T) {
 	same := "duplicate-cert"
 	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, same)
 	hub2 := byoSecret(constants.GHTransportSecretNameForCluster("hub2"), ns, same)
-	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2)
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2, byoManagedCluster("hub1"), byoManagedCluster("hub2"))
 
 	_, err := trans.EnsureUser("hub1")
 	if err == nil {
@@ -219,7 +227,7 @@ func TestEnsureUserAllowsDistinctPerHubCerts(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
 	hub2 := byoSecret(constants.GHTransportSecretNameForCluster("hub2"), ns, "hub2-cert")
-	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2)
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2, byoManagedCluster("hub1"), byoManagedCluster("hub2"))
 
 	user, err := trans.EnsureUser("hub1")
 	if err != nil {
@@ -242,6 +250,19 @@ func TestEnsureUserReportsMissingClientCert(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "missing client.crt") {
 		t.Fatalf("EnsureUser() error = %v, want missing client.crt", err)
+	}
+}
+
+// TestEnsureUserIgnoresUnrelatedPrefixedSecret ignores a prefixed secret that is not a ManagedCluster.
+func TestEnsureUserIgnoresUnrelatedPrefixedSecret(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	same := "duplicate-cert"
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, same)
+	unrelated := byoSecret(constants.GHTransportSecretName+"-not-a-managed-hub", ns, same)
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, unrelated, byoManagedCluster("hub1"))
+
+	if _, err := trans.EnsureUser("hub1"); err != nil {
+		t.Fatalf("EnsureUser(hub1) unrelated prefix error = %v", err)
 	}
 }
 
@@ -303,7 +324,7 @@ func TestGetConnCredentialRejectsIdenticalPerHubCerts(t *testing.T) {
 	same := "duplicate-cert"
 	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, same)
 	hub2 := byoSecret(constants.GHTransportSecretNameForCluster("hub2"), ns, same)
-	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2)
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2, byoManagedCluster("hub1"), byoManagedCluster("hub2"))
 
 	_, err := trans.GetConnCredential("hub1")
 	if err == nil {
