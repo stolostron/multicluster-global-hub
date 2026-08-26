@@ -47,10 +47,22 @@ kubectl create secret generic multicluster-global-hub-transport-hub1 -n multiclu
 *Prerequisite:*
 
 - Unless you configured your Kafka to automatically create topics, you must manually create the transport topics `gh-spec`, `gh-migration`, and `gh-status`. By default, all managed hubs publish status to the shared topic `gh-status`. If you set a different `statusTopic` in `spec.dataLayer.kafka.topics`, create that topic instead. See [Kafka topics and ACLs](#kafka-topics-and-acls) below.
-- Kafka 3.3 or later is tested.
+- Enable simple ACL authorization on the Kafka cluster so those ACLs take effect (Strimzi: `spec.kafka.authorization.type: simple`).
+- Kafka 3.3 and later is supported. Versions before 3.3 are unsupported. End-to-end tests use Kafka 4.0.0.
 - Persistent volume is recommended for Kafka.
 
 ### Kafka topics and ACLs
+
+Enable simple ACL authorization on the Kafka cluster before granting the ACLs below. With Strimzi or AMQ Streams, set:
+
+```yaml
+spec:
+  kafka:
+    authorization:
+      type: simple
+```
+
+Without a broker authorizer, Kafka cannot enforce manually configured ACLs, so authenticated clients can still read and write all topics. A Strimzi `KafkaUser` that defines ACL rules while authorization is disabled is marked `NotReady` with an authorization-disabled error; those ACLs are not silently ignored.
 
 Global Hub uses three Kafka topics for transport:
 
@@ -75,6 +87,9 @@ Notes:
 - Grant **Write** on `gh-migration` to the source managed hub only for the duration of an active migration, then revoke it. With built-in Strimzi Kafka, the operator applies and removes that ACL automatically; with BYO Kafka, you must update ACLs yourself or through your Kafka administration tooling.
 - For more information about cluster migration, see [Managed Cluster Migration](./migration/global_hub_cluster_migration.md).
 - Built-in Strimzi Kafka uses per-hub status topics such as `gh-status.<cluster-name>` with a prefix ACL on `gh-status`. BYO Kafka always uses one shared status topic (`gh-status` by default, or the configured `statusTopic`) for every managed hub.
+- Kafka consumers also need **Group Read** (FindCoordinator). Topic-only ACLs fail with `Group authorization failed` and the consumer group is never created.
+- Per-hub KafkaUsers (`{hub}-kafka-user`) must use the **literal** group id: `consumerGroupPrefix` + cluster name with hyphens replaced by underscores. With prefix `custom-qe-`, the manager group is `custom_qe_global_hub` and hub `hub1` is `custom_qe_hub1`. Do not grant Group `*` to per-hub users.
+- A shared BYO principal (single `multicluster-global-hub-transport` secret / `global-hub-byo-user`) joins both the manager group and every hub group, so that user needs Group `*` Read. See the labeled shared-BYO example below.
 
 Example Strimzi `KafkaUser` ACL entries for the global hub manager transport user (BYO defaults shown):
 
@@ -97,9 +112,15 @@ Example Strimzi `KafkaUser` ACL entries for the global hub manager transport use
     type: topic
     name: gh-status
     patternType: literal
+# consumer group — manager id is {prefix}global_hub (hyphens → underscores)
+- operations: [Read]
+  resource:
+    type: group
+    name: custom_qe_global_hub
+    patternType: literal
 ```
 
-Example managed-hub `KafkaUser` ACL entries:
+Example managed-hub `KafkaUser` ACL entries (hub `hub1` with prefix `custom-qe-`):
 
 ```yaml
 # gh-spec — consume spec/policy only
@@ -119,6 +140,23 @@ Example managed-hub `KafkaUser` ACL entries:
   resource:
     type: topic
     name: gh-status
+    patternType: literal
+# consumer group — {prefix}{hub} with hyphens replaced by underscores
+- operations: [Read]
+  resource:
+    type: group
+    name: custom_qe_hub1
+    patternType: literal
+```
+
+Example Group ACL for a **shared BYO principal** only (`global-hub-byo-user` / single transport secret). Do not use `*` on per-hub `{hub}-kafka-user` resources:
+
+```yaml
+# consumer group — shared BYO user joins manager + every hub group
+- operations: [Read]
+  resource:
+    type: group
+    name: "*"
     patternType: literal
 ```
 
