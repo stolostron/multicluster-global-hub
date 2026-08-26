@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"time"
@@ -100,7 +102,7 @@ var clusterManagementAddonPred = predicate.Funcs{
 
 var secretCond = func(obj client.Object) bool {
 	if obj.GetName() == config.GetImagePullSecretName() ||
-		obj.GetName() == constants.GHTransportSecretName ||
+		constants.IsGHTransportSecret(obj.GetName()) ||
 		obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == operatortrans.KafkaClusterName &&
 			obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
 		return true
@@ -116,7 +118,9 @@ var secretPred = predicate.Funcs{
 		return secretCond(e.ObjectNew)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
+		// Per-hub BYO transport secret deletion must re-render addon
+		// manifests so the agent falls back to the shared secret.
+		return secretCond(e.Object)
 	},
 }
 
@@ -302,6 +306,7 @@ func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context,
 	if err != nil {
 		return err
 	}
+	applyTransportSecretHash(expectedAddon, cluster.Name)
 
 	existingAddon := &addonv1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
@@ -327,10 +332,26 @@ func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context,
 			return r.removeResourcesAndAddon(ctx, cluster)
 		}
 
-		// update
-		if !reflect.DeepEqual(expectedAddon.Annotations, existingAddon.Annotations) ||
+		// update. Expected annotations remain authoritative (hosted-mode,
+		// image registry). Keep a previously stamped transport hash when
+		// GetConnCredential failed this pass so we do not flap ManifestWorks.
+		desiredAnns := map[string]string{}
+		for k, v := range expectedAddon.GetAnnotations() {
+			desiredAnns[k] = v
+		}
+		if _, ok := desiredAnns[constants.AnnotationTransportSecretHash]; !ok {
+			if existing := existingAddon.GetAnnotations(); existing != nil {
+				if hash, has := existing[constants.AnnotationTransportSecretHash]; has {
+					desiredAnns[constants.AnnotationTransportSecretHash] = hash
+				}
+			}
+		}
+		if len(desiredAnns) == 0 {
+			desiredAnns = nil
+		}
+		if !reflect.DeepEqual(desiredAnns, existingAddon.GetAnnotations()) ||
 			existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
-			existingAddon.SetAnnotations(expectedAddon.Annotations)
+			existingAddon.SetAnnotations(desiredAnns)
 			existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
 			log.Infow("updating addon", "cluster", cluster.Name, "addon", expectedAddon.Name)
 			if e := r.Update(ctx, existingAddon); e != nil {
@@ -430,6 +451,37 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 		expectedAddon.SetAnnotations(expectedAddonAnnotations)
 	}
 	return expectedAddon, nil
+}
+
+// applyTransportSecretHash records a digest of the cluster's selected BYO/Kafka
+// credentials on the addon. Changing that annotation is what makes
+// addon-framework v0.11 rebuild ManifestWorks; watching the secret in this
+// controller only re-runs EnsureUser/EnsureTopic, which does not update the agent
+// transport-config secret on the managed hub.
+func applyTransportSecretHash(addon *addonv1alpha1.ManagedClusterAddOn, clusterName string) {
+	hash := transportSecretHash(clusterName)
+	if hash == "" {
+		return
+	}
+	anns := addon.GetAnnotations()
+	if anns == nil {
+		anns = map[string]string{}
+	}
+	anns[constants.AnnotationTransportSecretHash] = hash
+	addon.SetAnnotations(anns)
+}
+
+func transportSecretHash(clusterName string) string {
+	trans := config.GetTransporter()
+	if trans == nil {
+		return ""
+	}
+	conn, err := trans.GetConnCredential(clusterName)
+	if err != nil || conn == nil {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(conn.BootstrapServer + "\n" + conn.ClientCert))
+	return hex.EncodeToString(sum[:8])
 }
 
 func (r *DefaultAgentController) renderAllManifestsHandler(

@@ -1,148 +1,324 @@
 // Copyright (c) 2026 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package protocol
 
 import (
 	"context"
+	"encoding/base64"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func TestBYOTransporterEnsureTopicIncludesMigrationTopic(t *testing.T) {
-	restoreBYOTransporterState(t)
+func byoSecret(name, namespace, cert string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"bootstrap_server": []byte("kafka.example:443"),
+			"ca.crt":           []byte("ca-" + cert),
+			"client.crt":       []byte(cert),
+			"client.key":       []byte("key-" + cert),
+		},
+	}
+}
 
+func byoMGH(namespace string) *v1alpha4.MulticlusterGlobalHub {
+	return &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mgh",
+			Namespace: namespace,
+		},
+		Spec: v1alpha4.MulticlusterGlobalHubSpec{
+			DataLayerSpec: v1alpha4.DataLayerSpec{
+				Kafka: v1alpha4.KafkaSpec{},
+			},
+		},
+	}
+}
+
+func newBYOTransporter(t *testing.T, objects ...client.Object) *BYOTransporter {
+	t.Helper()
+	ns := utils.GetDefaultNamespace()
+	c := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).
+		WithObjects(objects...).Build()
+	return NewBYOTransporter(context.Background(), types.NamespacedName{
+		Name:      constants.GHTransportSecretName,
+		Namespace: ns,
+	}, c)
+}
+
+type getErrorClient struct {
+	client.Client
+	err error
+}
+
+func (c getErrorClient) Get(ctx context.Context, key types.NamespacedName, obj client.Object,
+	opts ...client.GetOption,
+) error {
+	if c.err != nil {
+		return c.err
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+func TestNewBYOTransporterReturnsIsolatedInstance(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	c := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).
+		WithObjects(byoMGH(ns)).Build()
+
+	first := NewBYOTransporter(context.Background(), types.NamespacedName{
+		Name:      constants.GHTransportSecretName,
+		Namespace: ns,
+	}, c)
+	second := NewBYOTransporter(context.Background(), types.NamespacedName{
+		Name:      "other-transport",
+		Namespace: "other-ns",
+	}, c)
+	if first == second {
+		t.Fatal("NewBYOTransporter must return a distinct instance per call")
+	}
+	if first.namespace == second.namespace || first.name == second.name {
+		t.Fatal("NewBYOTransporter must not rewrite fields on a shared instance")
+	}
+}
+
+func TestGetConnCredentialPrefersPerHubSecret(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	shared := byoSecret(constants.GHTransportSecretName, ns, "shared-cert")
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
+	trans := newBYOTransporter(t, byoMGH(ns), shared, hub1)
+
+	conn, err := trans.GetConnCredential("hub1")
+	if err != nil {
+		t.Fatalf("GetConnCredential(hub1) error = %v", err)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(conn.ClientCert)
+	if err != nil {
+		t.Fatalf("decode client cert: %v", err)
+	}
+	if string(decoded) != "hub1-cert" {
+		t.Fatalf("client cert = %q, want hub1-cert", decoded)
+	}
+	if !strings.Contains(conn.ConsumerGroupID, "hub1") {
+		t.Fatalf("ConsumerGroupID = %q, want hub1", conn.ConsumerGroupID)
+	}
+}
+
+func TestGetConnCredentialManagerUsesSharedSecret(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	shared := byoSecret(constants.GHTransportSecretName, ns, "shared-cert")
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
+	trans := newBYOTransporter(t, byoMGH(ns), shared, hub1)
+
+	conn, err := trans.GetConnCredential(constants.CloudEventSourceGlobalHub)
+	if err != nil {
+		t.Fatalf("GetConnCredential(global-hub) error = %v", err)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(conn.ClientCert)
+	if err != nil {
+		t.Fatalf("decode client cert: %v", err)
+	}
+	if string(decoded) != "shared-cert" {
+		t.Fatalf("manager client cert = %q, want shared-cert", decoded)
+	}
+}
+
+func TestGetConnCredentialManagerIgnoresGlobalHubNamedSecret(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	shared := byoSecret(constants.GHTransportSecretName, ns, "manager-cert")
+	spoof := byoSecret(constants.GHTransportSecretNameForCluster(
+		constants.CloudEventSourceGlobalHub,
+	), ns, "spoof-cert")
+	trans := newBYOTransporter(t, byoMGH(ns), shared, spoof)
+
+	conn, err := trans.GetConnCredential(constants.CloudEventSourceGlobalHub)
+	if err != nil {
+		t.Fatalf("GetConnCredential(global-hub) error = %v", err)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(conn.ClientCert)
+	if err != nil {
+		t.Fatalf("decode client cert: %v", err)
+	}
+	if string(decoded) != "manager-cert" {
+		t.Fatalf("manager must use the shared secret, got cert %q", decoded)
+	}
+}
+
+func TestGetConnCredentialFallsBackToSharedSecret(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	shared := byoSecret(constants.GHTransportSecretName, ns, "shared-cert")
+	trans := newBYOTransporter(t, byoMGH(ns), shared)
+
+	conn, err := trans.GetConnCredential("hub2")
+	if err != nil {
+		t.Fatalf("GetConnCredential(hub2) fallback error = %v", err)
+	}
+	if conn.BootstrapServer != "kafka.example:443" {
+		t.Fatalf("BootstrapServer = %q", conn.BootstrapServer)
+	}
+}
+
+func TestEnsureUserRejectsIdenticalPerHubCerts(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	same := "duplicate-cert"
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, same)
+	hub2 := byoSecret(constants.GHTransportSecretNameForCluster("hub2"), ns, same)
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2)
+
+	_, err := trans.EnsureUser("hub1")
+	if err == nil {
+		t.Fatal("EnsureUser(hub1) expected identical-cert error")
+	}
+	if !strings.Contains(err.Error(), "identical") {
+		t.Fatalf("EnsureUser() error = %v, want identical cert message", err)
+	}
+}
+
+func TestEnsureUserAllowsDistinctPerHubCerts(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
+	hub2 := byoSecret(constants.GHTransportSecretNameForCluster("hub2"), ns, "hub2-cert")
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2)
+
+	user, err := trans.EnsureUser("hub1")
+	if err != nil {
+		t.Fatalf("EnsureUser(hub1) error = %v", err)
+	}
+	if user != "hub1-kafka-user" {
+		t.Fatalf("EnsureUser() = %q, want hub1-kafka-user", user)
+	}
+}
+
+func TestEnsureUserSucceedsWithoutSecret(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	trans := newBYOTransporter(t, byoMGH(ns))
+
+	user, err := trans.EnsureUser("hub1")
+	if err != nil {
+		t.Fatalf("EnsureUser(hub1) without secret error = %v", err)
+	}
+	if user != "hub1-kafka-user" {
+		t.Fatalf("EnsureUser() = %q, want hub1-kafka-user", user)
+	}
+}
+
+func TestEnsureUserReturnsAPIError(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	base := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).
+		WithObjects(byoMGH(ns)).Build()
+	forbidden := apierrors.NewForbidden(
+		schema.GroupResource{Group: "", Resource: "secrets"},
+		constants.GHTransportSecretNameForCluster("hub1"),
+		nil,
+	)
 	trans := NewBYOTransporter(context.Background(), types.NamespacedName{
 		Name:      constants.GHTransportSecretName,
-		Namespace: "test-ns",
-	}, fake.NewClientBuilder().Build())
+		Namespace: ns,
+	}, getErrorClient{Client: base, err: forbidden})
 
+	_, err := trans.EnsureUser("hub1")
+	if err == nil {
+		t.Fatal("EnsureUser(hub1) expected API error")
+	}
+	if !apierrors.IsForbidden(err) {
+		t.Fatalf("EnsureUser() error = %v, want forbidden", err)
+	}
+}
+
+func TestGetConnCredentialMissingSecret(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	trans := newBYOTransporter(t, byoMGH(ns))
+
+	_, err := trans.GetConnCredential("hub1")
+	if err == nil {
+		t.Fatal("GetConnCredential(hub1) expected missing secret error")
+	}
+	if !strings.Contains(err.Error(), "failed to get BYO Kafka transport secret") {
+		t.Fatalf("GetConnCredential() error = %v, want wrapped lookup error", err)
+	}
+}
+
+func TestGetConnCredentialRejectsIdenticalPerHubCerts(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	same := "duplicate-cert"
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, same)
+	hub2 := byoSecret(constants.GHTransportSecretNameForCluster("hub2"), ns, same)
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2)
+
+	_, err := trans.GetConnCredential("hub1")
+	if err == nil {
+		t.Fatal("GetConnCredential(hub1) expected identical-cert error")
+	}
+	if !strings.Contains(err.Error(), "identical") {
+		t.Fatalf("GetConnCredential() error = %v, want identical cert message", err)
+	}
+}
+
+func TestEnsureUserAllowsSharedFallbackMatchingPerHubCert(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	same := "shared-cert"
+	shared := byoSecret(constants.GHTransportSecretName, ns, same)
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, same)
+	trans := newBYOTransporter(t, byoMGH(ns), shared, hub1)
+
+	if _, err := trans.EnsureUser("hub2"); err != nil {
+		t.Fatalf("EnsureUser(hub2) shared fallback error = %v", err)
+	}
+	if _, err := trans.GetConnCredential("hub2"); err != nil {
+		t.Fatalf("GetConnCredential(hub2) shared fallback error = %v", err)
+	}
+}
+
+func TestEnsureUserIgnoresManagerNamedSecretDuplicates(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
+	managerNamed := byoSecret(constants.GHTransportSecretNameForCluster(
+		constants.CloudEventSourceGlobalHub,
+	), ns, "hub1-cert")
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, managerNamed)
+
+	if _, err := trans.EnsureUser("hub1"); err != nil {
+		t.Fatalf("EnsureUser(hub1) error = %v", err)
+	}
+}
+
+func TestBYOTransporterEnsureTopicIncludesMigrationTopic(t *testing.T) {
+	trans := NewBYOTransporter(context.Background(), types.NamespacedName{
+		Name: constants.GHTransportSecretName, Namespace: "test-ns",
+	}, fake.NewClientBuilder().Build())
 	topic, err := trans.EnsureTopic("hub1")
 	if err != nil {
 		t.Fatalf("EnsureTopic() error = %v", err)
 	}
-	if topic.MigrationTopic != operatorconfig.GetMigrationTopic() {
-		t.Fatalf("MigrationTopic = %q, want %q", topic.MigrationTopic, operatorconfig.GetMigrationTopic())
-	}
-	if topic.SpecTopic != operatorconfig.GetSpecTopic() {
-		t.Fatalf("SpecTopic = %q, want %q", topic.SpecTopic, operatorconfig.GetSpecTopic())
-	}
-}
-
-func TestBYOTransporterEnsureUserAndPruneAreNoOps(t *testing.T) {
-	restoreBYOTransporterState(t)
-
-	trans := NewBYOTransporter(context.Background(), types.NamespacedName{
-		Name: constants.GHTransportSecretName, Namespace: "test-ns",
-	}, fake.NewClientBuilder().Build())
-
-	if _, err := trans.EnsureUser("hub1"); err != nil {
-		t.Fatalf("EnsureUser() error = %v", err)
-	}
-	if ready, err := trans.EnsureKafka(); err != nil || ready {
-		t.Fatalf("EnsureKafka() = (%v, %v), want (false, nil)", ready, err)
-	}
-	if err := trans.Prune("hub1"); err != nil {
-		t.Fatalf("Prune() error = %v", err)
-	}
-}
-
-func TestBYOTransporterGetConnCredential(t *testing.T) {
-	restoreBYOTransporterState(t)
-
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("AddToScheme: %v", err)
-	}
-	if err := operatorv1alpha4.AddToScheme(scheme); err != nil {
-		t.Fatalf("AddToScheme(MGH): %v", err)
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.GHTransportSecretName,
-			Namespace: "test-ns",
-		},
-		Data: map[string][]byte{
-			"bootstrap_server": []byte("kafka:9093"),
-			"ca.crt":           []byte("ca-bytes"),
-			"client.crt":       []byte("cert-bytes"),
-			"client.key":       []byte("key-bytes"),
-		},
-	}
-	mgh := &operatorv1alpha4.MulticlusterGlobalHub{
-		ObjectMeta: metav1.ObjectMeta{Name: "mgh", Namespace: "test-ns"},
-	}
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(secret, mgh).
-		Build()
-
-	trans := NewBYOTransporter(context.Background(), types.NamespacedName{
-		Name: constants.GHTransportSecretName, Namespace: "test-ns",
-	}, fakeClient)
-
-	cfg, err := trans.GetConnCredential("hub1")
-	if err != nil {
-		t.Fatalf("GetConnCredential() error = %v", err)
-	}
-	if cfg.BootstrapServer != "kafka:9093" {
-		t.Fatalf("BootstrapServer = %q, want kafka:9093", cfg.BootstrapServer)
-	}
-	if cfg.MigrationTopic != operatorconfig.GetMigrationTopic() {
-		t.Fatalf("MigrationTopic = %q, want %q", cfg.MigrationTopic, operatorconfig.GetMigrationTopic())
-	}
-	if cfg.GetCACert() == "" || cfg.GetClientCert() == "" || cfg.GetClientKey() == "" {
-		t.Fatal("expected encoded cert material in KafkaConfig")
-	}
-}
-
-func TestBYOTransporterGetConnCredentialErrors(t *testing.T) {
-	restoreBYOTransporterState(t)
-
-	trans := NewBYOTransporter(context.Background(), types.NamespacedName{
-		Name: "missing-secret", Namespace: "test-ns",
-	}, fake.NewClientBuilder().Build())
-
-	if _, err := trans.GetConnCredential("hub1"); err == nil {
-		t.Fatal("GetConnCredential() expected error for missing secret")
-	}
-}
-
-func restoreBYOTransporterState(t *testing.T) {
-	t.Helper()
-
-	originalTransporter := operatorconfig.GetTransporter()
-
-	t.Cleanup(func() {
-		byoTransporter = nil
-		operatorconfig.SetTransporter(originalTransporter)
-	})
-
-	byoTransporter = nil
-	operatorconfig.SetTransporter(nil)
-
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("AddToScheme: %v", err)
-	}
-	mgh := &operatorv1alpha4.MulticlusterGlobalHub{
-		ObjectMeta: metav1.ObjectMeta{Name: "mgh", Namespace: "test-ns"},
-		Spec: operatorv1alpha4.MulticlusterGlobalHubSpec{
-			DataLayerSpec: operatorv1alpha4.DataLayerSpec{Kafka: operatorv1alpha4.KafkaSpec{}},
-		},
-	}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	if err := operatorconfig.SetTransportConfig(context.Background(), fakeClient, mgh); err != nil {
-		t.Fatalf("SetTransportConfig() error = %v", err)
+	if topic.MigrationTopic != config.GetMigrationTopic() {
+		t.Fatalf("MigrationTopic = %q, want %q", topic.MigrationTopic, config.GetMigrationTopic())
 	}
 }

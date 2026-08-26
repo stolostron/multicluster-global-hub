@@ -16,6 +16,27 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
+// waitForDefaultAddon waits for the ManagedClusterAddOn and the transport-secret
+// hash that addon-framework v0.11 needs to re-render ManifestWorks.
+func waitForDefaultAddon(clusterName string) *addonv1alpha1.ManagedClusterAddOn {
+	GinkgoHelper()
+	addon := &addonv1alpha1.ManagedClusterAddOn{}
+	Eventually(func() error {
+		if err := runtimeClient.Get(ctx, types.NamespacedName{
+			Name:      constants.GHManagedClusterAddonName,
+			Namespace: clusterName,
+		}, addon); err != nil {
+			return err
+		}
+		if addon.GetAnnotations()[constants.AnnotationTransportSecretHash] == "" {
+			return fmt.Errorf("waiting for transport secret hash annotation")
+		}
+		return nil
+	}, timeout, interval).ShouldNot(HaveOccurred())
+	Expect(addon.GetAnnotations()).To(HaveLen(1))
+	return addon
+}
+
 // go test ./test/integration/operator/controllers/agent -ginkgo.focus "deploy default addon" -v
 var _ = Describe("deploy default addon", func() {
 	It("Should create agent when importing an bare OCP", func() {
@@ -31,15 +52,7 @@ var _ = Describe("deploy default addon", func() {
 			clusterAvailableCondition)
 
 		By("By checking the addon CR is created in the cluster ns")
-		addon := &addonv1alpha1.ManagedClusterAddOn{}
-		Eventually(func() error {
-			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      constants.GHManagedClusterAddonName,
-				Namespace: clusterName,
-			}, addon)
-		}, timeout, interval).ShouldNot(HaveOccurred())
-
-		Expect(len(addon.GetAnnotations())).Should(Equal(0))
+		waitForDefaultAddon(clusterName)
 
 		By("By checking the agent manifestworks are created for the newly created managed cluster")
 		work := &workv1.ManifestWork{}
@@ -68,15 +81,7 @@ var _ = Describe("deploy default addon", func() {
 			[]clusterv1.ManagedClusterClaim{},
 			clusterAvailableCondition)
 		By("By checking the addon CR is is created in the cluster ns")
-		addon := &addonv1alpha1.ManagedClusterAddOn{}
-		Eventually(func() error {
-			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      constants.GHManagedClusterAddonName,
-				Namespace: clusterName,
-			}, addon)
-		}, timeout, interval).ShouldNot(HaveOccurred())
-
-		Expect(len(addon.GetAnnotations())).Should(Equal(0))
+		waitForDefaultAddon(clusterName)
 
 		By("By checking the agent manifestworks are created for the newly created managed cluster")
 		work := &workv1.ManifestWork{}
@@ -111,15 +116,7 @@ var _ = Describe("deploy default addon", func() {
 			clusterAvailableCondition)
 
 		By("By checking the addon CR is is created in the cluster ns")
-		addon := &addonv1alpha1.ManagedClusterAddOn{}
-		Eventually(func() error {
-			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      constants.GHManagedClusterAddonName,
-				Namespace: clusterName,
-			}, addon)
-		}, timeout, interval).ShouldNot(HaveOccurred())
-
-		Expect(len(addon.GetAnnotations())).Should(Equal(0))
+		waitForDefaultAddon(clusterName)
 
 		By("By checking the agent manifestworks are created for the newly created managed cluster")
 		work := &workv1.ManifestWork{}
@@ -144,6 +141,14 @@ var _ = Describe("deploy default addon", func() {
 		}, timeout, interval).Should(BeTrue())
 		existingMGH.Spec.InstallAgentOnLocal = true
 		Expect(runtimeClient.Update(ctx, existingMGH)).Should(Succeed())
+		DeferCleanup(func() {
+			Eventually(func() bool {
+				err := runtimeClient.Get(ctx, mghLookupKey, existingMGH)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			existingMGH.Spec.InstallAgentOnLocal = false
+			Expect(runtimeClient.Update(ctx, existingMGH)).Should(Succeed())
+		})
 
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
@@ -157,15 +162,7 @@ var _ = Describe("deploy default addon", func() {
 			clusterAvailableCondition)
 
 		By("By checking the addon CR is is created in the cluster ns")
-		addon := &addonv1alpha1.ManagedClusterAddOn{}
-		Eventually(func() error {
-			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      constants.GHManagedClusterAddonName,
-				Namespace: clusterName,
-			}, addon)
-		}, timeout, interval).ShouldNot(HaveOccurred())
-
-		Expect(len(addon.GetAnnotations())).Should(Equal(0))
+		waitForDefaultAddon(clusterName)
 
 		By("By checking the agent manifestworks are created for the local cluster")
 		work := &workv1.ManifestWork{}
@@ -177,13 +174,5 @@ var _ = Describe("deploy default addon", func() {
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
 		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(8))
-
-		By("set InstallAgentOnLocal to false as a default value")
-		Eventually(func() bool {
-			err := runtimeClient.Get(ctx, mghLookupKey, existingMGH)
-			return err == nil
-		}, timeout, interval).Should(BeTrue())
-		existingMGH.Spec.InstallAgentOnLocal = false
-		Expect(runtimeClient.Update(ctx, existingMGH)).Should(Succeed())
 	})
 })

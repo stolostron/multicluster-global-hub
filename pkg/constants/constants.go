@@ -1,5 +1,7 @@
 package constants
 
+import "strings"
+
 // global hub common constants
 const (
 	// GHDefaultNamespace defines default namespace for ACM hub and Global hub operator and manager
@@ -85,6 +87,31 @@ const (
 	KafkaClientMessageMaxBytes = 1024 * 1024 * 10
 )
 
+// GHTransportSecretNameForCluster is the BYO Kafka secret for a managed hub.
+// The shared secret GHTransportSecretName is used for the manager (empty clusterName).
+func GHTransportSecretNameForCluster(clusterName string) string {
+	if clusterName == "" {
+		return GHTransportSecretName
+	}
+	return GHTransportSecretName + "-" + clusterName
+}
+
+// IsGHTransportSecret reports whether name is the shared BYO transport secret
+// or a per-hub secret named multicluster-global-hub-transport-<cluster>.
+func IsGHTransportSecret(name string) bool {
+	return name == GHTransportSecretName || strings.HasPrefix(name, GHTransportSecretName+"-")
+}
+
+// ClusterNameFromGHTransportSecret returns the hub name encoded in a per-hub
+// BYO transport secret, or empty for the shared secret / unrelated names.
+func ClusterNameFromGHTransportSecret(name string) string {
+	prefix := GHTransportSecretName + "-"
+	if !strings.HasPrefix(name, prefix) {
+		return ""
+	}
+	return strings.TrimPrefix(name, prefix)
+}
+
 // the global hub transport config secret for manager and agent
 const (
 	GHTransportConfigSecret = "transport-config" // #nosec G101
@@ -121,6 +148,12 @@ const (
 	UpgradeKafkaFromZookeeperAnnotation = "global-hub.open-cluster-management.io/upgrade-from-zookeeper"
 	// kafka-cluster-id save the current kafka cluster id
 	KafkaClusterIdAnnotation = "global-hub.open-cluster-management.io/kafka-cluster-id" // #nosec G101
+	// AnnotationTransportSecretHash is stamped on ManagedClusterAddOn so the
+	// addon-framework re-renders agent ManifestWorks when BYO Kafka credentials
+	// change (per-hub secret create/update/delete). Annotation-only updates are
+	// enough: addon-framework v0.11 watches ManagedClusterAddOn without a
+	// generation filter.
+	AnnotationTransportSecretHash = "global-hub.open-cluster-management.io/transport-secret-hash" // #nosec G101
 )
 
 // store all the finalizers
