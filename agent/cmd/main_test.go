@@ -101,6 +101,7 @@ func TestCompleteConfig(t *testing.T) {
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "123",
 					KafkaCredential: &transport.KafkaConfig{
 						ConsumerGroupID: "test-hub",
 					},
@@ -114,6 +115,7 @@ func TestCompleteConfig(t *testing.T) {
 				DeployMode:  string(constants.DefaultMode),
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "hub1",
 				},
 			},
 			fakeClient:     fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects().Build(),
@@ -127,6 +129,7 @@ func TestCompleteConfig(t *testing.T) {
 				SpecWorkPoolSize: 5,
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "hub1",
 				},
 			},
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects().Build(),
@@ -137,6 +140,7 @@ func TestCompleteConfig(t *testing.T) {
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "hub1",
 				},
 			},
 		},

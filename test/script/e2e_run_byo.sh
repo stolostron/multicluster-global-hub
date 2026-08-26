@@ -84,7 +84,7 @@ kubectl create secret generic "$transport_secret" -n "${target_namespace}" --kub
 echo "transport secret is ready in ${target_namespace} namespace!"
 
 ## run e2e
-bash "$CURRENT_DIR/e2e_run.sh" -n ${target_namespace} -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
+bash "$CURRENT_DIR/e2e_run.sh" -n "${target_namespace}" -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-transport-byo,e2e-test-local-agent"
 
 # Clean up BYO namespace before transport suites. The operator only reconciles when exactly
 # one MulticlusterGlobalHub exists cluster-wide; leaving the mgh operand blocks transport-identity.

@@ -278,6 +278,38 @@ join_cluster() {
   fi
 }
 
+# sync_grc_git_repo clones and checks out a GRC dependency under a file lock so
+# parallel e2e setup jobs do not corrupt shared working-tree checkouts.
+sync_grc_git_repo() {
+  local repo_name=$1
+  local repo_url=$2
+  local lock_file="${CURRENT_DIR}/.${repo_name}.lock"
+
+  (
+    flock -x 200
+    if [ ! -d "$repo_name" ]; then
+      echo "Cloning $repo_name repository..."
+      if ! git clone "$repo_url"; then
+        echo -e "${RED}Failed to clone $repo_name repository${NC}"
+        exit 1
+      fi
+    fi
+    cd "$repo_name" || exit 1
+    if ! git checkout "$GRC_VERSION" 2>/dev/null; then
+      echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
+      if ! git fetch origin; then
+        echo -e "${RED}Failed to fetch $repo_name${NC}"
+        exit 1
+      fi
+      if ! git checkout "$GRC_VERSION"; then
+        echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
+        exit 1
+      fi
+    fi
+    cd "${CURRENT_DIR}" || exit 1
+  ) 200>"$lock_file"
+}
+
 init_policy() {
   echo -e "${CYAN} Init Policy $1:$2 $NC"
   local hub=$1
@@ -293,25 +325,7 @@ init_policy() {
   PROPAGATOR_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-propagator.git"
   propagator="governance-policy-propagator"
 
-  # Clone repository if it doesn't exist
-  if [ ! -d $propagator ]; then
-    echo "Cloning $propagator repository..."
-    if ! git clone $PROPAGATOR_GIT_HTTP_PATH; then
-      echo -e "${RED}Failed to clone $propagator repository${NC}"
-      exit 1
-    fi
-  fi
-
-  # Always ensure we're on the correct version
-  cd $propagator || exit 1
-  if ! git checkout $GRC_VERSION 2>/dev/null; then
-    echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
-    if ! git fetch origin && git checkout $GRC_VERSION; then
-      echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
-      exit 1
-    fi
-  fi
-  cd ../ || exit 1
+  sync_grc_git_repo "$propagator" "$PROPAGATOR_GIT_HTTP_PATH" || exit 1
 
   # Verify required CRD files exist
   required_crds=(
@@ -371,24 +385,7 @@ init_policy() {
   POLICY_ADDON_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-framework-addon.git"
   policy_addon=governance-policy-framework-addon
 
-  # Clone repository if it doesn't exist
-  if [ ! -d $policy_addon ]; then
-    if ! git clone $POLICY_ADDON_GIT_HTTP_PATH; then
-      echo -e "${RED}Failed to clone $policy_addon repository${NC}"
-      exit 1
-    fi
-  fi
-
-  # Always ensure we're on the correct version
-  cd $policy_addon || exit 1
-  if ! git checkout $GRC_VERSION 2>/dev/null; then
-    echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
-    if ! git fetch origin && git checkout $GRC_VERSION; then
-      echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
-      exit 1
-    fi
-  fi
-  cd ../ || exit 1
+  sync_grc_git_repo "$policy_addon" "$POLICY_ADDON_GIT_HTTP_PATH" || exit 1
 
   retry "(kubectl --context $cluster apply -f $policy_addon/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$policy_addon -n $MANAGED_NAMESPACE)" 10
 
@@ -401,24 +398,7 @@ init_policy() {
   config_policy="config-policy-controller"
   CONFIG_POLICY_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/config-policy-controller.git"
 
-  # Clone repository if it doesn't exist
-  if [ ! -d $config_policy ]; then
-    if ! git clone $CONFIG_POLICY_GIT_HTTP_PATH; then
-      echo -e "${RED}Failed to clone $config_policy repository${NC}"
-      exit 1
-    fi
-  fi
-
-  # Always ensure we're on the correct version
-  cd $config_policy || exit 1
-  if ! git checkout $GRC_VERSION 2>/dev/null; then
-    echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
-    if ! git fetch origin && git checkout $GRC_VERSION; then
-      echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
-      exit 1
-    fi
-  fi
-  cd ../ || exit 1
+  sync_grc_git_repo "$config_policy" "$CONFIG_POLICY_GIT_HTTP_PATH" || exit 1
 
   kubectl --context "$cluster" apply -f ${config_policy}/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
   # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
