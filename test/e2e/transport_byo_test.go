@@ -25,7 +25,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -234,17 +233,8 @@ func managedHubAgentKafkaReady(hubClient client.Client, hubName string) error {
 	if cfg.ClientCert == "" {
 		return fmt.Errorf("agent transport-config is missing a client certificate")
 	}
-	apiCtx, cancel := byoAPIContext()
-	defer cancel()
-	deployment := &appsv1.Deployment{}
-	if err := hubClient.Get(apiCtx, types.NamespacedName{
-		Namespace: constants.GHAgentNamespace,
-		Name:      "multicluster-global-hub-agent",
-	}, deployment); err != nil {
+	if err := checkDeployAvailable(hubClient, constants.GHAgentNamespace, "multicluster-global-hub-agent"); err != nil {
 		return fmt.Errorf("agent on hub %s: %w", hubName, err)
-	}
-	if deployment.Status.AvailableReplicas == 0 {
-		return fmt.Errorf("deployment: %s is not ready", deployment.Name)
 	}
 	return nil
 }
