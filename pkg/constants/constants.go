@@ -1,5 +1,7 @@
 package constants
 
+import "strings"
+
 // global hub common constants
 const (
 	// GHDefaultNamespace defines default namespace for ACM hub and Global hub operator and manager
@@ -109,6 +111,31 @@ const (
 	KafkaCertSecretName       = "kafka-certs-secret"                // #nosec G101
 	GHDefaultStorageRetention = "18m"                               // 18 months
 )
+
+// GHTransportSecretNameForCluster is the BYO Kafka secret for a managed hub.
+// The shared secret GHTransportSecretName is used for the manager (empty clusterName).
+func GHTransportSecretNameForCluster(clusterName string) string {
+	if clusterName == "" {
+		return GHTransportSecretName
+	}
+	return GHTransportSecretName + "-" + clusterName
+}
+
+// IsGHTransportSecret reports whether name is the shared BYO transport secret
+// or a per-hub secret named multicluster-global-hub-transport-<cluster>.
+func IsGHTransportSecret(name string) bool {
+	return name == GHTransportSecretName || strings.HasPrefix(name, GHTransportSecretName+"-")
+}
+
+// ClusterNameFromGHTransportSecret returns the hub name encoded in a per-hub
+// BYO transport secret, or empty for the shared secret / unrelated names.
+func ClusterNameFromGHTransportSecret(name string) string {
+	prefix := GHTransportSecretName + "-"
+	if !strings.HasPrefix(name, prefix) {
+		return ""
+	}
+	return strings.TrimPrefix(name, prefix)
+}
 
 // the global hub transport config secret for manager and agent
 const (
