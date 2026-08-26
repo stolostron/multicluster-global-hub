@@ -57,3 +57,6 @@ integration-test/manager: setup_envtest
 
 integration-test/operator: setup_envtest
 	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./test/integration/operator/...`
+
+e2e-test-transport-byo: tidy vendor
+	sh ./test/script/e2e_run_byo.sh

@@ -16,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+// TestParseFlags checks agent CLI flag parsing.
 func TestParseFlags(t *testing.T) {
 	// Save original command-line arguments
 	oldArgs := os.Args
@@ -36,6 +37,7 @@ func TestParseFlags(t *testing.T) {
 	assert.Equal(t, 5, agentConfig.SpecWorkPoolSize)
 }
 
+// TestCompleteConfig checks LeafHubName defaults and transport config wiring.
 func TestCompleteConfig(t *testing.T) {
 	testCases := []struct {
 		name           string
@@ -101,6 +103,7 @@ func TestCompleteConfig(t *testing.T) {
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "123",
 					KafkaCredential: &transport.KafkaConfig{
 						ConsumerGroupID: "test-hub",
 					},
@@ -114,6 +117,7 @@ func TestCompleteConfig(t *testing.T) {
 				DeployMode:  string(constants.DefaultMode),
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "hub1",
 				},
 			},
 			fakeClient:     fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects().Build(),
@@ -127,6 +131,7 @@ func TestCompleteConfig(t *testing.T) {
 				SpecWorkPoolSize: 5,
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "hub1",
 				},
 			},
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects().Build(),
@@ -137,6 +142,7 @@ func TestCompleteConfig(t *testing.T) {
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
+					LeafHubName:   "hub1",
 				},
 			},
 		},

@@ -52,6 +52,7 @@ func assertPredicateAllEvents(t *testing.T, pred predicate.Funcs, obj client.Obj
 	assert.Equal(t, want, pred.Delete(event.DeleteEvent{Object: obj}), "DeleteFunc")
 }
 
+// TestSecretPredicate checks which secrets enqueue transport reconciliation.
 func TestSecretPredicate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -63,6 +64,16 @@ func TestSecretPredicate(t *testing.T) {
 			obj: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.GHTransportSecretName,
+					Namespace: utils.GetDefaultNamespace(),
+				},
+			},
+			wantBool: true,
+		},
+		{
+			name: "per-hub BYO transport secret should match",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.GHTransportSecretNameForCluster("hub1"),
 					Namespace: utils.GetDefaultNamespace(),
 				},
 			},
@@ -129,6 +140,7 @@ func TestSecretPredicate(t *testing.T) {
 	}
 }
 
+// TestSecretCond covers per-hub BYO transport secret name matching.
 func TestSecretCond(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -140,6 +152,15 @@ func TestSecretCond(t *testing.T) {
 			obj: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: constants.GHTransportSecretName,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "per-hub BYO transport secret name matches",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: constants.GHTransportSecretNameForCluster("hub1"),
 				},
 			},
 			expected: true,

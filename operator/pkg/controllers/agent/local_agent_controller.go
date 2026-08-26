@@ -267,6 +267,8 @@ func (s *LocalAgentController) pruneAgentResources(ctx context.Context, namespac
 	return nil
 }
 
+// GenerateLocalAgentCredential writes the local-agent transport secret from the
+// transporter connection. Bootstrap server and cluster ID are not logged.
 func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespace string) error {
 	log.Debugf("generate local agent credential in namespace: %v", namespace)
 	err := addon.EnsureTransportResource(clusterName)
@@ -279,7 +281,8 @@ func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespac
 	if err != nil {
 		return err
 	}
-	log.Debugf("kafkaConnection bootstrap server: %s, cluster ID: %s", kafkaConnection.BootstrapServer, kafkaConnection.ClusterID)
+	log.Debugf("generated local agent Kafka credentials: bootstrap_set=%t cluster_id_set=%t",
+		kafkaConnection.BootstrapServer != "", kafkaConnection.ClusterID != "")
 	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(true)
 	if err != nil {
 		return fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)

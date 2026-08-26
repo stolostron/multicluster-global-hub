@@ -162,6 +162,8 @@ func parseFlags() *configs.AgentConfig {
 	return agentConfig
 }
 
+// completeConfig fills derived agent fields, including LeafHubName on the
+// transport config used for BYO client-certificate checks.
 func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.AgentConfig) error {
 	if agentConfig.LeafHubName == "" {
 		if agentConfig.DeployMode != string(constants.StandaloneMode) {
@@ -180,6 +182,10 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 
 	if agentConfig.SpecWorkPoolSize < 1 || agentConfig.SpecWorkPoolSize > 100 {
 		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
+	}
+
+	if agentConfig.TransportConfig != nil {
+		agentConfig.TransportConfig.LeafHubName = agentConfig.LeafHubName
 	}
 
 	configs.SetAgentConfig(agentConfig)
