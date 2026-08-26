@@ -297,7 +297,11 @@ sync_grc_git_repo() {
     cd "$repo_name" || exit 1
     if ! git checkout "$GRC_VERSION" 2>/dev/null; then
       echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
-      if ! git fetch origin && git checkout "$GRC_VERSION"; then
+      if ! git fetch origin; then
+        echo -e "${RED}Failed to fetch $repo_name${NC}"
+        exit 1
+      fi
+      if ! git checkout "$GRC_VERSION"; then
         echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
         exit 1
       fi

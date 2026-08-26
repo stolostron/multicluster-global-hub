@@ -149,6 +149,7 @@ func TestEnrichManagerStatusEvent(t *testing.T) {
 	})
 }
 
+// TestValidateBYOClientCert checks CN matching for per-hub BYO client certificates.
 func TestValidateBYOClientCert(t *testing.T) {
 	t.Run("empty inputs are no-op", func(t *testing.T) {
 		if err := ValidateBYOClientCert("", "cert"); err != nil {
@@ -189,6 +190,7 @@ func TestValidateBYOClientCert(t *testing.T) {
 	})
 }
 
+// mustTestCertPEM builds a test certificate PEM with the given CommonName.
 func mustTestCertPEM(t *testing.T, commonName string) string {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)

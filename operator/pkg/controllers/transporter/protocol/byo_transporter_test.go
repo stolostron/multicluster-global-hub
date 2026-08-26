@@ -35,6 +35,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// byoSecret builds a BYO Kafka transport secret for unit tests.
 func byoSecret(name, namespace, cert string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -50,6 +51,7 @@ func byoSecret(name, namespace, cert string) *corev1.Secret {
 	}
 }
 
+// byoMGH returns a MulticlusterGlobalHub with a Kafka consumer-group prefix.
 func byoMGH(namespace string) *v1alpha4.MulticlusterGlobalHub {
 	return &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
@@ -66,6 +68,7 @@ func byoMGH(namespace string) *v1alpha4.MulticlusterGlobalHub {
 	}
 }
 
+// newBYOTransporter builds a BYOTransporter backed by a fake client.
 func newBYOTransporter(t *testing.T, objects ...client.Object) *BYOTransporter {
 	t.Helper()
 	ns := utils.GetDefaultNamespace()
@@ -82,6 +85,7 @@ type getErrorClient struct {
 	err error
 }
 
+// Get returns the injected error so EnsureUser can surface API failures.
 func (c getErrorClient) Get(ctx context.Context, key types.NamespacedName, obj client.Object,
 	opts ...client.GetOption,
 ) error {
@@ -91,6 +95,7 @@ func (c getErrorClient) Get(ctx context.Context, key types.NamespacedName, obj c
 	return c.Client.Get(ctx, key, obj, opts...)
 }
 
+// TestNewBYOTransporterReturnsIsolatedInstance checks each call gets its own transporter.
 func TestNewBYOTransporterReturnsIsolatedInstance(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	c := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).
@@ -112,6 +117,7 @@ func TestNewBYOTransporterReturnsIsolatedInstance(t *testing.T) {
 	}
 }
 
+// TestGetConnCredentialPrefersPerHubSecret checks per-hub secrets win over the shared secret.
 func TestGetConnCredentialPrefersPerHubSecret(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	shared := byoSecret(constants.GHTransportSecretName, ns, "shared-cert")
@@ -134,6 +140,7 @@ func TestGetConnCredentialPrefersPerHubSecret(t *testing.T) {
 	}
 }
 
+// TestGetConnCredentialManagerUsesSharedSecret checks the manager always uses the shared secret.
 func TestGetConnCredentialManagerUsesSharedSecret(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	shared := byoSecret(constants.GHTransportSecretName, ns, "shared-cert")
@@ -153,6 +160,7 @@ func TestGetConnCredentialManagerUsesSharedSecret(t *testing.T) {
 	}
 }
 
+// TestGetConnCredentialManagerIgnoresGlobalHubNamedSecret ignores a secret named for the manager hub.
 func TestGetConnCredentialManagerIgnoresGlobalHubNamedSecret(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	shared := byoSecret(constants.GHTransportSecretName, ns, "manager-cert")
@@ -174,6 +182,7 @@ func TestGetConnCredentialManagerIgnoresGlobalHubNamedSecret(t *testing.T) {
 	}
 }
 
+// TestGetConnCredentialFallsBackToSharedSecret uses the shared secret when no per-hub secret exists.
 func TestGetConnCredentialFallsBackToSharedSecret(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	shared := byoSecret(constants.GHTransportSecretName, ns, "shared-cert")
@@ -188,6 +197,7 @@ func TestGetConnCredentialFallsBackToSharedSecret(t *testing.T) {
 	}
 }
 
+// TestEnsureUserRejectsIdenticalPerHubCerts rejects two hubs sharing the same client certificate.
 func TestEnsureUserRejectsIdenticalPerHubCerts(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	same := "duplicate-cert"
@@ -204,6 +214,7 @@ func TestEnsureUserRejectsIdenticalPerHubCerts(t *testing.T) {
 	}
 }
 
+// TestEnsureUserAllowsDistinctPerHubCerts allows hubs with different client certificates.
 func TestEnsureUserAllowsDistinctPerHubCerts(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
@@ -219,6 +230,22 @@ func TestEnsureUserAllowsDistinctPerHubCerts(t *testing.T) {
 	}
 }
 
+// TestEnsureUserReportsMissingClientCert rejects a per-hub secret that omits client.crt.
+func TestEnsureUserReportsMissingClientCert(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "")
+	trans := newBYOTransporter(t, byoMGH(ns), hub1)
+
+	_, err := trans.EnsureUser("hub1")
+	if err == nil {
+		t.Fatal("EnsureUser(hub1) expected missing client.crt error")
+	}
+	if !strings.Contains(err.Error(), "missing client.crt") {
+		t.Fatalf("EnsureUser() error = %v, want missing client.crt", err)
+	}
+}
+
+// TestEnsureUserSucceedsWithoutSecret allows addon install before the BYO secret exists.
 func TestEnsureUserSucceedsWithoutSecret(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	trans := newBYOTransporter(t, byoMGH(ns))
@@ -232,6 +259,7 @@ func TestEnsureUserSucceedsWithoutSecret(t *testing.T) {
 	}
 }
 
+// TestEnsureUserReturnsAPIError surfaces non-NotFound secret lookup failures.
 func TestEnsureUserReturnsAPIError(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	base := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).
@@ -255,6 +283,7 @@ func TestEnsureUserReturnsAPIError(t *testing.T) {
 	}
 }
 
+// TestGetConnCredentialMissingSecret errors when neither per-hub nor shared secret exists.
 func TestGetConnCredentialMissingSecret(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	trans := newBYOTransporter(t, byoMGH(ns))
@@ -268,6 +297,7 @@ func TestGetConnCredentialMissingSecret(t *testing.T) {
 	}
 }
 
+// TestGetConnCredentialRejectsIdenticalPerHubCerts rejects duplicate per-hub client certificates.
 func TestGetConnCredentialRejectsIdenticalPerHubCerts(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	same := "duplicate-cert"
@@ -284,6 +314,7 @@ func TestGetConnCredentialRejectsIdenticalPerHubCerts(t *testing.T) {
 	}
 }
 
+// TestEnsureUserAllowsSharedFallbackMatchingPerHubCert allows shared-secret fallback with a matching cert.
 func TestEnsureUserAllowsSharedFallbackMatchingPerHubCert(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	same := "shared-cert"
@@ -299,6 +330,7 @@ func TestEnsureUserAllowsSharedFallbackMatchingPerHubCert(t *testing.T) {
 	}
 }
 
+// TestEnsureUserIgnoresManagerNamedSecretDuplicates ignores manager-named secrets in uniqueness checks.
 func TestEnsureUserIgnoresManagerNamedSecretDuplicates(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
@@ -312,6 +344,7 @@ func TestEnsureUserIgnoresManagerNamedSecretDuplicates(t *testing.T) {
 	}
 }
 
+// TestBYOTransporterEnsureTopicIncludesMigrationTopic includes the migration topic in BYO cluster topics.
 func TestBYOTransporterEnsureTopicIncludesMigrationTopic(t *testing.T) {
 	trans := NewBYOTransporter(context.Background(), types.NamespacedName{
 		Name: constants.GHTransportSecretName, Namespace: "test-ns",

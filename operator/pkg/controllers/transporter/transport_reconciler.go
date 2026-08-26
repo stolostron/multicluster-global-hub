@@ -98,6 +98,7 @@ var secretPred = predicate.Funcs{
 	},
 }
 
+// secretCond matches watched secrets, including shared and per-hub BYO transport secrets.
 func secretCond(obj client.Object) bool {
 	if WatchedSecret.Has(obj.GetName()) || constants.IsGHTransportSecret(obj.GetName()) {
 		return true

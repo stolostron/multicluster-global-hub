@@ -161,6 +161,7 @@ func ValidateBYOClientCert(leafHubName, clientCertPEM string) error {
 	return fmt.Errorf("BYO Kafka client certificate does not belong to this hub")
 }
 
+// commonNameFromPEMX509 extracts the certificate CommonName from PEM-encoded x509 data.
 func commonNameFromPEMX509(certPEM string) (string, error) {
 	block, _ := pem.Decode([]byte(certPEM))
 	if block == nil {

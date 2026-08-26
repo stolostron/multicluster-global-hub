@@ -52,6 +52,7 @@ func assertPredicateAllEvents(t *testing.T, pred predicate.Funcs, obj client.Obj
 	assert.Equal(t, want, pred.Delete(event.DeleteEvent{Object: obj}), "DeleteFunc")
 }
 
+// TestSecretPredicate covers create/update/delete filters for transport secrets.
 func TestSecretPredicate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -139,6 +140,7 @@ func TestSecretPredicate(t *testing.T) {
 	}
 }
 
+// TestSecretCond matches shared and per-hub BYO transport secret names.
 func TestSecretCond(t *testing.T) {
 	tests := []struct {
 		name     string
