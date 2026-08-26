@@ -89,6 +89,7 @@ func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
 	return config.GetKafkaUserName(clusterName), nil
 }
 
+// EnsureTopic returns the configured BYO spec, migration, and shared status topics.
 func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	return &transport.ClusterTopic{
 		SpecTopic:      config.GetSpecTopic(),
@@ -98,15 +99,19 @@ func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopi
 	}, nil
 }
 
+// EnsureKafka is a no-op for BYO Kafka; the customer already runs the cluster.
 func (s *BYOTransporter) EnsureKafka() (bool, error) {
 	// do nothing
 	return false, nil
 }
 
+// Prune is a no-op for BYO Kafka; customer KafkaUsers are not operator-owned.
 func (s *BYOTransporter) Prune(clusterName string) error {
 	return nil
 }
 
+// GetConnCredential loads bootstrap, certs, and topics from the per-hub
+// transport secret when present, otherwise from the shared BYO secret.
 func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
 	kafkaSecret, secretName, err := s.getTransportSecret(clusterName)
 	if err != nil {
@@ -142,10 +147,12 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 	}, nil
 }
 
+// isManagerCluster reports whether clusterName is the global hub manager identity.
 func isManagerCluster(clusterName string) bool {
 	return clusterName == "" || clusterName == constants.CloudEventGlobalHubClusterName
 }
 
+// sharedSecretName is the legacy single-secret BYO transport secret name.
 func (s *BYOTransporter) sharedSecretName() string {
 	if s.name != "" {
 		return s.name
@@ -153,6 +160,7 @@ func (s *BYOTransporter) sharedSecretName() string {
 	return constants.GHTransportSecretName
 }
 
+// getTransportSecret returns the per-hub BYO secret, or the shared secret as fallback.
 func (s *BYOTransporter) getTransportSecret(clusterName string) (*corev1.Secret, string, error) {
 	if !isManagerCluster(clusterName) {
 		perHubName := constants.GHTransportSecretNameForCluster(clusterName)
@@ -185,6 +193,7 @@ func (s *BYOTransporter) getTransportSecret(clusterName string) (*corev1.Secret,
 	return sharedSecret, sharedName, nil
 }
 
+// validateDistinctClientCerts rejects identical client.crt values on two per-hub secrets.
 func (s *BYOTransporter) validateDistinctClientCerts(clusterName string, clientCert []byte) error {
 	if isManagerCluster(clusterName) || len(clientCert) == 0 {
 		return nil

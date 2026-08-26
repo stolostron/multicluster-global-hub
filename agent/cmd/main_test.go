@@ -16,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+// TestParseFlags checks agent CLI flag parsing.
 func TestParseFlags(t *testing.T) {
 	// Save original command-line arguments
 	oldArgs := os.Args
@@ -36,6 +37,7 @@ func TestParseFlags(t *testing.T) {
 	assert.Equal(t, 5, agentConfig.SpecWorkPoolSize)
 }
 
+// TestCompleteConfig checks LeafHubName defaults and transport config wiring.
 func TestCompleteConfig(t *testing.T) {
 	testCases := []struct {
 		name           string

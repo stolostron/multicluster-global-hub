@@ -52,6 +52,7 @@ func assertPredicateAllEvents(t *testing.T, pred predicate.Funcs, obj client.Obj
 	assert.Equal(t, want, pred.Delete(event.DeleteEvent{Object: obj}), "DeleteFunc")
 }
 
+// TestSecretPredicate checks which secrets enqueue transport reconciliation.
 func TestSecretPredicate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -139,6 +140,7 @@ func TestSecretPredicate(t *testing.T) {
 	}
 }
 
+// TestSecretCond covers per-hub BYO transport secret name matching.
 func TestSecretCond(t *testing.T) {
 	tests := []struct {
 		name     string

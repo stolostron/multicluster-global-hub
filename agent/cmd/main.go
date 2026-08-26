@@ -162,6 +162,8 @@ func parseFlags() *configs.AgentConfig {
 	return agentConfig
 }
 
+// completeConfig fills derived agent fields, including LeafHubName on the
+// transport config used for BYO client-certificate checks.
 func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.AgentConfig) error {
 	if agentConfig.LeafHubName == "" {
 		if agentConfig.DeployMode != string(constants.StandaloneMode) {

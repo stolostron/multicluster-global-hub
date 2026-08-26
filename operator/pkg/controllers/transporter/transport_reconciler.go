@@ -109,6 +109,8 @@ var secretPred = predicate.Funcs{
 	},
 }
 
+// secretCond is true for transport secrets the reconciler must watch, including
+// per-hub BYO names matching GHTransportSecretNameForCluster.
 func secretCond(obj client.Object) bool {
 	if WatchedSecret.Has(obj.GetName()) || constants.IsGHTransportSecret(obj.GetName()) {
 		return true

@@ -130,6 +130,7 @@ func TestLeafHubForStatusEvent(t *testing.T) {
 	})
 }
 
+// TestEnrichManagerStatusEvent copies the hub identity from the status topic.
 func TestEnrichManagerStatusEvent(t *testing.T) {
 	t.Run("enriches from kafka topic", func(t *testing.T) {
 		evt := cloudevents.NewEvent()
@@ -149,6 +150,7 @@ func TestEnrichManagerStatusEvent(t *testing.T) {
 	})
 }
 
+// TestValidateBYOClientCert checks accept and reject cases for BYO client certificate CNs.
 func TestValidateBYOClientCert(t *testing.T) {
 	t.Run("empty inputs are no-op", func(t *testing.T) {
 		if err := ValidateBYOClientCert("", "cert"); err != nil {
@@ -189,6 +191,7 @@ func TestValidateBYOClientCert(t *testing.T) {
 	})
 }
 
+// mustTestCertPEM returns a PEM certificate with the given common name.
 func mustTestCertPEM(t *testing.T, commonName string) string {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
