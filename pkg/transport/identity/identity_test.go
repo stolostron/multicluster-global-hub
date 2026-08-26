@@ -17,7 +17,14 @@ limitations under the License.
 package identity
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"testing"
+	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -140,4 +147,65 @@ func TestEnrichManagerStatusEvent(t *testing.T) {
 	t.Run("nil event is no-op", func(t *testing.T) {
 		EnrichManagerStatusEvent(nil, "^gh-status.*")
 	})
+}
+
+// TestValidateBYOClientCert checks CN matching for per-hub BYO client certificates.
+func TestValidateBYOClientCert(t *testing.T) {
+	t.Run("empty inputs are no-op", func(t *testing.T) {
+		if err := ValidateBYOClientCert("", "cert"); err != nil {
+			t.Fatalf("ValidateBYOClientCert(empty hub, cert) = %v, want accept", err)
+		}
+		if err := ValidateBYOClientCert("hub1", ""); err != nil {
+			t.Fatalf("ValidateBYOClientCert(hub1, empty cert) = %v, want accept", err)
+		}
+	})
+
+	t.Run("matching kafka user CN is accepted", func(t *testing.T) {
+		certPEM := mustTestCertPEM(t, "hub1-kafka-user")
+		if err := ValidateBYOClientCert("hub1", certPEM); err != nil {
+			t.Fatalf("ValidateBYOClientCert(hub1, CN hub1-kafka-user) = %v, want accept", err)
+		}
+	})
+
+	t.Run("mismatched kafka user CN is rejected", func(t *testing.T) {
+		certPEM := mustTestCertPEM(t, "hub2-kafka-user")
+		err := ValidateBYOClientCert("hub1", certPEM)
+		if err == nil {
+			t.Fatal("ValidateBYOClientCert(hub1, CN hub2-kafka-user) = nil, want reject mismatch")
+		}
+	})
+
+	t.Run("custom BYO CN is accepted", func(t *testing.T) {
+		certPEM := mustTestCertPEM(t, "global-hub-byo-user")
+		if err := ValidateBYOClientCert("hub1", certPEM); err != nil {
+			t.Fatalf("ValidateBYOClientCert(hub1, CN global-hub-byo-user) = %v, want accept", err)
+		}
+	})
+
+	t.Run("manager kafka user on agent is rejected", func(t *testing.T) {
+		certPEM := mustTestCertPEM(t, "global-hub-kafka-user")
+		if err := ValidateBYOClientCert("hub1", certPEM); err == nil {
+			t.Fatal("ValidateBYOClientCert(hub1, CN global-hub-kafka-user) = nil, want reject manager identity")
+		}
+	})
+}
+
+// mustTestCertPEM builds a test certificate PEM with the given CommonName.
+func mustTestCertPEM(t *testing.T, commonName string) string {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: commonName},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("CreateCertificate: %v", err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }

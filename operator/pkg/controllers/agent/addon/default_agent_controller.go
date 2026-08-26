@@ -46,7 +46,7 @@ type DefaultAgentController struct {
 // Assert whether a secret is associated with or affects the addon
 func targetAddonSecret(obj client.Object) bool {
 	if obj.GetName() == config.GetImagePullSecretName() ||
-		obj.GetName() == constants.GHTransportSecretName ||
+		constants.IsGHTransportSecret(obj.GetName()) ||
 		obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == operatortrans.KafkaClusterName &&
 			obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
 		return true
@@ -338,6 +338,7 @@ func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context,
 	return EnsureTransportResource(cluster.Name)
 }
 
+// EnsureTransportResource ensures Kafka user and topic resources for the managed hub.
 func EnsureTransportResource(clusterName string) error {
 	// create kafka resource: user and topic
 	trans := config.GetTransporter()

@@ -47,11 +47,15 @@ const (
 // assertPredicateAllEvents asserts Create, Update, and Delete predicate results for the same expected value.
 func assertPredicateAllEvents(t *testing.T, pred predicate.Funcs, obj client.Object, want bool) {
 	t.Helper()
-	assert.Equal(t, want, pred.Create(event.CreateEvent{Object: obj}), "CreateFunc")
-	assert.Equal(t, want, pred.Update(event.UpdateEvent{ObjectNew: obj}), "UpdateFunc")
-	assert.Equal(t, want, pred.Delete(event.DeleteEvent{Object: obj}), "DeleteFunc")
+	assert.Equal(t, want, pred.Create(event.CreateEvent{Object: obj}),
+		"CreateFunc: transport secret %q must match for reconciliation: %v", obj.GetName(), want)
+	assert.Equal(t, want, pred.Update(event.UpdateEvent{ObjectNew: obj}),
+		"UpdateFunc: transport secret %q must match for reconciliation: %v", obj.GetName(), want)
+	assert.Equal(t, want, pred.Delete(event.DeleteEvent{Object: obj}),
+		"DeleteFunc: transport secret %q must match for reconciliation: %v", obj.GetName(), want)
 }
 
+// TestSecretPredicate covers create/update/delete filters for transport secrets.
 func TestSecretPredicate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -63,6 +67,16 @@ func TestSecretPredicate(t *testing.T) {
 			obj: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.GHTransportSecretName,
+					Namespace: utils.GetDefaultNamespace(),
+				},
+			},
+			wantBool: true,
+		},
+		{
+			name: "per-hub BYO transport secret should match",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.GHTransportSecretNameForCluster("hub1"),
 					Namespace: utils.GetDefaultNamespace(),
 				},
 			},
@@ -129,6 +143,7 @@ func TestSecretPredicate(t *testing.T) {
 	}
 }
 
+// TestSecretCond matches shared and per-hub BYO transport secret names.
 func TestSecretCond(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -140,6 +155,15 @@ func TestSecretCond(t *testing.T) {
 			obj: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: constants.GHTransportSecretName,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "per-hub BYO transport secret name matches",
+			obj: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: constants.GHTransportSecretNameForCluster("hub1"),
 				},
 			},
 			expected: true,
@@ -195,7 +219,8 @@ func TestSecretCond(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := secretCond(tt.obj)
-			assert.Equal(t, tt.expected, result)
+			assert.Equal(t, tt.expected, result,
+				"transport secret %q must match for reconciliation: %v", tt.obj.Name, tt.expected)
 		})
 	}
 }

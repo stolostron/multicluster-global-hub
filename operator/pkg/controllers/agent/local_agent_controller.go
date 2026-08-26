@@ -242,6 +242,7 @@ func GetLocalClusterName(ctx context.Context, c client.Client, namespace string)
 	return nil, mcList.Items[0].Name
 }
 
+// pruneAgentResources deletes local-agent resources and prunes transport users.
 func pruneAgentResources(ctx context.Context, c client.Client, namespace string) error {
 	log.Debugf("prune agent resources in namespace: %v", namespace)
 	// delete deployment
@@ -272,6 +273,8 @@ func pruneAgentResources(ctx context.Context, c client.Client, namespace string)
 	return nil
 }
 
+// GenerateLocalAgentCredential writes the local-agent transport secret from the
+// transporter connection. Bootstrap server and cluster ID are not logged.
 func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespace string) error {
 	log.Debugf("generate local agent credential in namespace: %v", namespace)
 	err := addon.EnsureTransportResource(clusterName)
@@ -284,7 +287,8 @@ func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespac
 	if err != nil {
 		return err
 	}
-	log.Debugf("kafkaConnection: %v", *kafkaConnection)
+	log.Debugf("generated local agent Kafka credentials: bootstrap_set=%t cluster_id_set=%t",
+		kafkaConnection.BootstrapServer != "", kafkaConnection.ClusterID != "")
 	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(true)
 	if err != nil {
 		return fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
@@ -322,6 +326,7 @@ func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespac
 	return c.Update(ctx, expectedSecret)
 }
 
+// getTransportSecretName returns the local-agent transport-config secret name.
 func getTransportSecretName() string {
 	return constants.GHTransportConfigSecret + "-" + clusterName
 }
