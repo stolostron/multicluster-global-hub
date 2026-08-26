@@ -152,17 +152,17 @@ func TestEnrichManagerStatusEvent(t *testing.T) {
 func TestValidateBYOClientCert(t *testing.T) {
 	t.Run("empty inputs are no-op", func(t *testing.T) {
 		if err := ValidateBYOClientCert("", "cert"); err != nil {
-			t.Fatalf("ValidateBYOClientCert() = %v", err)
+			t.Fatalf("ValidateBYOClientCert(empty hub, cert) = %v, want accept", err)
 		}
 		if err := ValidateBYOClientCert("hub1", ""); err != nil {
-			t.Fatalf("ValidateBYOClientCert() = %v", err)
+			t.Fatalf("ValidateBYOClientCert(hub1, empty cert) = %v, want accept", err)
 		}
 	})
 
 	t.Run("matching kafka user CN is accepted", func(t *testing.T) {
 		certPEM := mustTestCertPEM(t, "hub1-kafka-user")
 		if err := ValidateBYOClientCert("hub1", certPEM); err != nil {
-			t.Fatalf("ValidateBYOClientCert() = %v", err)
+			t.Fatalf("ValidateBYOClientCert(hub1, CN hub1-kafka-user) = %v, want accept", err)
 		}
 	})
 
@@ -170,21 +170,21 @@ func TestValidateBYOClientCert(t *testing.T) {
 		certPEM := mustTestCertPEM(t, "hub2-kafka-user")
 		err := ValidateBYOClientCert("hub1", certPEM)
 		if err == nil {
-			t.Fatal("expected mismatch error")
+			t.Fatal("ValidateBYOClientCert(hub1, CN hub2-kafka-user) = nil, want reject mismatch")
 		}
 	})
 
 	t.Run("custom BYO CN is accepted", func(t *testing.T) {
 		certPEM := mustTestCertPEM(t, "global-hub-byo-user")
 		if err := ValidateBYOClientCert("hub1", certPEM); err != nil {
-			t.Fatalf("ValidateBYOClientCert() custom CN = %v", err)
+			t.Fatalf("ValidateBYOClientCert(hub1, CN global-hub-byo-user) = %v, want accept", err)
 		}
 	})
 
 	t.Run("manager kafka user on agent is rejected", func(t *testing.T) {
 		certPEM := mustTestCertPEM(t, "global-hub-kafka-user")
 		if err := ValidateBYOClientCert("hub1", certPEM); err == nil {
-			t.Fatal("expected rejection of global-hub-kafka-user on a managed hub")
+			t.Fatal("ValidateBYOClientCert(hub1, CN global-hub-kafka-user) = nil, want reject manager identity")
 		}
 	})
 }

@@ -128,6 +128,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 	})
 
 	It("rejects identical client certificates on two per-hub secrets", func() {
+		since := metav1.Now()
 		createBYOPerHubSecret(sourceHubName, nil)
 		createBYOPerHubSecret(targetHubName, nil)
 		DeferCleanup(func() {
@@ -136,7 +137,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		})
 
 		Eventually(func() error {
-			return operatorLogsContain(byoIdenticalCertLog)
+			return operatorLogsContain(byoIdenticalCertLog, &since)
 		}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 			"operator must reject identical client certificates on per-hub BYO secrets")
 	})
@@ -240,7 +241,7 @@ func pemCertificateCommonName(certPEM []byte) string {
 	return cert.Subject.CommonName
 }
 
-func operatorLogsContain(substr string) error {
+func operatorLogsContain(substr string, since *metav1.Time) error {
 	apiCtx, cancel := byoAPIContext()
 	defer cancel()
 	pods, err := testClients.KubeClient().CoreV1().Pods(testOptions.GlobalHub.Namespace).List(apiCtx, metav1.ListOptions{
@@ -258,6 +259,7 @@ func operatorLogsContain(substr string) error {
 		logs, logErr := testClients.KubeClient().CoreV1().Pods(testOptions.GlobalHub.Namespace).
 			GetLogs(pods.Items[i].Name, &corev1.PodLogOptions{
 				Container: "multicluster-global-hub-operator",
+				SinceTime: since,
 			}).DoRaw(apiCtx)
 		if logErr != nil {
 			return logErr

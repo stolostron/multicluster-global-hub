@@ -77,14 +77,14 @@ Grant ACLs that match the built-in Strimzi transporter. Do **not** grant every m
 | Principal | `gh-spec` | `gh-migration` | Status topic |
 |-----------|-----------|----------------|--------------|
 | Global hub manager (`global-hub-kafka-user`) | Describe, Read, **Write** | Describe, Read, **Write** | Describe, Read on the configured status topic |
-| Managed hub `{hub}-kafka-user` | Describe, **Read** (no Write) | Describe, Read; **Write** only while that hub is an active migration source | Describe, Read, **Write** on the configured status topic |
+| Managed hub `{hub}-kafka-user` | Describe, **Read** (no Write) | none by default; **Read** (source and target) and **Write** (source only) while a migration is active, then revoke | **Write** only on the configured status topic |
 | Consumer group | Per-hub literal group name | Per-hub literal group name | Per-hub literal group name (not `*`) |
 
 Notes:
 
 - The global hub manager publishes to `gh-spec`. Managed hub agents consume from `gh-spec` and must not produce to it.
 - During cluster migration, the source hub publishes deploying bundles to `gh-migration`. The target hub agent consumes from `gh-migration` as well as `gh-spec`.
-- Grant **Write** on `gh-migration` to the source managed hub only for the duration of an active migration, then revoke it. With built-in Strimzi Kafka, the operator applies and removes that ACL automatically; with BYO Kafka, you must update ACLs yourself or through your Kafka administration tooling.
+- Do **not** grant standing Read on `gh-migration` to every managed hub. Grant **Read** only to the source and target hubs while a migration is active, and **Write** only to the source for that same window, then revoke both. With built-in Strimzi Kafka, the operator applies and removes those ACLs automatically; with BYO Kafka, you must update ACLs yourself or through your Kafka administration tooling.
 - For more information about cluster migration, see [Managed Cluster Migration](./migration/global_hub_cluster_migration.md).
 - Built-in Strimzi Kafka uses per-hub status topics such as `gh-status.<cluster-name>` with a prefix ACL on `gh-status`. BYO Kafka always uses one shared status topic (`gh-status` by default, or the configured `statusTopic`) for every managed hub.
 - Kafka consumers also need **Group Read** (FindCoordinator). Topic-only ACLs fail with `Group authorization failed` and the consumer group is never created.
@@ -129,14 +129,11 @@ Example managed-hub `KafkaUser` ACL entries (hub `hub1` with prefix `custom-qe-`
     type: topic
     name: gh-spec
     patternType: literal
-# gh-migration — read always; add Write only while this hub is a migration source
-- operations: [Describe, Read]
-  resource:
-    type: topic
-    name: gh-migration
-    patternType: literal
-# gh-status — publish this hub's status
-- operations: [Describe, Read, Write]
+# gh-migration — omit from the standing KafkaUser. While a migration is active,
+# grant Describe+Read to the source and target; add Write on the source only,
+# then revoke. Built-in Strimzi does this automatically.
+# gh-status — publish this hub's status (Write only; shared BYO topic)
+- operations: [Write]
   resource:
     type: topic
     name: gh-status

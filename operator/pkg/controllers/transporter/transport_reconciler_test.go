@@ -47,9 +47,12 @@ const (
 // assertPredicateAllEvents asserts Create, Update, and Delete predicate results for the same expected value.
 func assertPredicateAllEvents(t *testing.T, pred predicate.Funcs, obj client.Object, want bool) {
 	t.Helper()
-	assert.Equal(t, want, pred.Create(event.CreateEvent{Object: obj}), "CreateFunc")
-	assert.Equal(t, want, pred.Update(event.UpdateEvent{ObjectNew: obj}), "UpdateFunc")
-	assert.Equal(t, want, pred.Delete(event.DeleteEvent{Object: obj}), "DeleteFunc")
+	assert.Equal(t, want, pred.Create(event.CreateEvent{Object: obj}),
+		"CreateFunc: transport secret %q must match for reconciliation: %v", obj.GetName(), want)
+	assert.Equal(t, want, pred.Update(event.UpdateEvent{ObjectNew: obj}),
+		"UpdateFunc: transport secret %q must match for reconciliation: %v", obj.GetName(), want)
+	assert.Equal(t, want, pred.Delete(event.DeleteEvent{Object: obj}),
+		"DeleteFunc: transport secret %q must match for reconciliation: %v", obj.GetName(), want)
 }
 
 func TestSecretPredicate(t *testing.T) {
@@ -214,7 +217,8 @@ func TestSecretCond(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := secretCond(tt.obj)
-			assert.Equal(t, tt.expected, result)
+			assert.Equal(t, tt.expected, result,
+				"transport secret %q must match for reconciliation: %v", tt.obj.Name, tt.expected)
 		})
 	}
 }
