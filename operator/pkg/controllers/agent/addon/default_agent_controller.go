@@ -338,6 +338,7 @@ func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context,
 	return EnsureTransportResource(cluster.Name)
 }
 
+// EnsureTransportResource ensures Kafka user and topic resources for the managed hub.
 func EnsureTransportResource(clusterName string) error {
 	// create kafka resource: user and topic
 	trans := config.GetTransporter()

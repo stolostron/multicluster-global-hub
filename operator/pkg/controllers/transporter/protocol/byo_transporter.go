@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -89,6 +90,7 @@ func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
 	return config.GetKafkaUserName(clusterName), nil
 }
 
+// EnsureTopic returns the configured spec, status, and migration topic names.
 func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	return &transport.ClusterTopic{
 		SpecTopic:      config.GetSpecTopic(),
@@ -98,15 +100,19 @@ func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopi
 	}, nil
 }
 
+// EnsureKafka is a no-op for BYO; the customer already operates Kafka.
 func (s *BYOTransporter) EnsureKafka() (bool, error) {
 	// do nothing
 	return false, nil
 }
 
+// Prune is a no-op for BYO; Kafka users and ACLs stay customer-managed.
 func (s *BYOTransporter) Prune(clusterName string) error {
 	return nil
 }
 
+// GetConnCredential loads Kafka connection settings from the per-hub secret
+// when present, otherwise the shared transport secret.
 func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
 	kafkaSecret, secretName, err := s.getTransportSecret(clusterName)
 	if err != nil {
@@ -142,10 +148,12 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 	}, nil
 }
 
+// isManagerCluster reports whether clusterName is the global hub manager.
 func isManagerCluster(clusterName string) bool {
 	return clusterName == "" || clusterName == constants.CloudEventGlobalHubClusterName
 }
 
+// sharedSecretName is the customer-provided shared BYO transport secret.
 func (s *BYOTransporter) sharedSecretName() string {
 	if s.name != "" {
 		return s.name
@@ -153,6 +161,7 @@ func (s *BYOTransporter) sharedSecretName() string {
 	return constants.GHTransportSecretName
 }
 
+// getTransportSecret returns the per-hub secret when it exists, else the shared secret.
 func (s *BYOTransporter) getTransportSecret(clusterName string) (*corev1.Secret, string, error) {
 	if !isManagerCluster(clusterName) {
 		perHubName := constants.GHTransportSecretNameForCluster(clusterName)
@@ -185,9 +194,25 @@ func (s *BYOTransporter) getTransportSecret(clusterName string) (*corev1.Secret,
 	return sharedSecret, sharedName, nil
 }
 
+// validateDistinctClientCerts requires a non-empty client.crt on a per-hub
+// secret and rejects identical certificates across managed hubs. Secrets that
+// only share the transport-secret name prefix are ignored unless the suffix
+// is an existing ManagedCluster name.
 func (s *BYOTransporter) validateDistinctClientCerts(clusterName string, clientCert []byte) error {
-	if isManagerCluster(clusterName) || len(clientCert) == 0 {
+	if isManagerCluster(clusterName) {
 		return nil
+	}
+	if len(clientCert) == 0 {
+		return fmt.Errorf("BYO Kafka per-hub transport secret is missing client.crt")
+	}
+
+	managedHubs := map[string]struct{}{}
+	mcList := &clusterv1.ManagedClusterList{}
+	if err := s.runtimeClient.List(s.ctx, mcList); err != nil {
+		return fmt.Errorf("failed to list managed clusters for BYO cert uniqueness: %w", err)
+	}
+	for i := range mcList.Items {
+		managedHubs[mcList.Items[i].Name] = struct{}{}
 	}
 
 	secretList := &corev1.SecretList{}
@@ -198,7 +223,10 @@ func (s *BYOTransporter) validateDistinctClientCerts(clusterName string, clientC
 	for i := range secretList.Items {
 		secret := &secretList.Items[i]
 		otherCluster := constants.ClusterNameFromGHTransportSecret(secret.Name)
-		if otherCluster == "" || otherCluster == clusterName || isManagerCluster(otherCluster) {
+		if _, ok := managedHubs[otherCluster]; !ok {
+			continue
+		}
+		if otherCluster == clusterName || isManagerCluster(otherCluster) {
 			continue
 		}
 		otherCert := secret.Data[transportSecretClientCertKey]
