@@ -128,6 +128,9 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 	})
 
 	It("rejects identical client certificates on two per-hub secrets", func() {
+		before, err := operatorLogCount(byoIdenticalCertLog)
+		Expect(err).NotTo(HaveOccurred(), "expected to read operator logs before creating duplicate certs")
+
 		createBYOPerHubSecret(sourceHubName, nil)
 		createBYOPerHubSecret(targetHubName, nil)
 		DeferCleanup(func() {
@@ -136,7 +139,14 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		})
 
 		Eventually(func() error {
-			return operatorLogsContain(byoIdenticalCertLog)
+			after, countErr := operatorLogCount(byoIdenticalCertLog)
+			if countErr != nil {
+				return countErr
+			}
+			if after <= before {
+				return fmt.Errorf("waiting for a new identical-cert rejection (had %d matching log lines)", before)
+			}
+			return nil
 		}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 			"operator must reject identical client certificates on per-hub BYO secrets")
 	})
@@ -240,17 +250,17 @@ func pemCertificateCommonName(certPEM []byte) string {
 	return cert.Subject.CommonName
 }
 
-func operatorLogsContain(substr string) error {
+func operatorLogCount(substr string) (int, error) {
 	apiCtx, cancel := byoAPIContext()
 	defer cancel()
 	pods, err := testClients.KubeClient().CoreV1().Pods(testOptions.GlobalHub.Namespace).List(apiCtx, metav1.ListOptions{
 		LabelSelector: "name=multicluster-global-hub-operator",
 	})
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if len(pods.Items) == 0 {
-		return fmt.Errorf("operator pod not found")
+		return 0, fmt.Errorf("operator pod not found")
 	}
 
 	var combined strings.Builder
@@ -260,12 +270,11 @@ func operatorLogsContain(substr string) error {
 				Container: "multicluster-global-hub-operator",
 			}).DoRaw(apiCtx)
 		if logErr != nil {
-			return logErr
+			return 0, logErr
 		}
-		combined.Write(logs)
+		if _, writeErr := combined.Write(logs); writeErr != nil {
+			return 0, writeErr
+		}
 	}
-	if !strings.Contains(combined.String(), substr) {
-		return fmt.Errorf("operator logs do not yet report identical per-hub client certificates")
-	}
-	return nil
+	return strings.Count(combined.String(), substr), nil
 }
