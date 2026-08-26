@@ -17,9 +17,16 @@ package protocol
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/pem"
+	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -222,6 +229,25 @@ func TestEnsureUserRejectsIdenticalPerHubCerts(t *testing.T) {
 	}
 }
 
+// TestEnsureUserRejectsEquivalentLeafCerts rejects the same leaf certificate
+// encoded with extra PEM wrapping or chain blocks.
+func TestEnsureUserRejectsEquivalentLeafCerts(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	leaf := mustBYOCertPEM(t, "shared-leaf")
+	chain := append(append([]byte("\n"), leaf...), mustBYOCertPEM(t, "intermediate")...)
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, string(leaf))
+	hub2 := byoSecret(constants.GHTransportSecretNameForCluster("hub2"), ns, string(chain))
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, hub2, byoManagedCluster("hub1"), byoManagedCluster("hub2"))
+
+	_, err := trans.EnsureUser("hub1")
+	if err == nil {
+		t.Fatal("EnsureUser(hub1) expected identical leaf certificate error")
+	}
+	if !strings.Contains(err.Error(), "identical") {
+		t.Fatalf("EnsureUser() error = %v, want identical cert message", err)
+	}
+}
+
 // TestEnsureUserAllowsDistinctPerHubCerts allows hubs with different client certificates.
 func TestEnsureUserAllowsDistinctPerHubCerts(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
@@ -377,4 +403,26 @@ func TestBYOTransporterEnsureTopicIncludesMigrationTopic(t *testing.T) {
 	if topic.MigrationTopic != config.GetMigrationTopic() {
 		t.Fatalf("MigrationTopic = %q, want %q", topic.MigrationTopic, config.GetMigrationTopic())
 	}
+}
+
+// mustBYOCertPEM builds a PEM-encoded test certificate with the given CommonName.
+func mustBYOCertPEM(t *testing.T, commonName string) []byte {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: commonName},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("CreateCertificate: %v", err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 }

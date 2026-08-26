@@ -18,7 +18,9 @@ package protocol
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"path/filepath"
 
@@ -233,9 +235,43 @@ func (s *BYOTransporter) validateDistinctClientCerts(clusterName string, clientC
 		if len(otherCert) == 0 {
 			continue
 		}
-		if bytes.Equal(clientCert, otherCert) {
+		if clientCertsEqual(clientCert, otherCert) {
 			return fmt.Errorf("BYO Kafka client certificates on per-hub transport secrets must not be identical")
 		}
 	}
 	return nil
+}
+
+// clientCertsEqual reports whether two client.crt values are the same leaf
+// certificate. Parsed PEM identity is compared by DER bytes so extra headers
+// or chain blocks cannot hide a duplicate. Unparseable values fall back to
+// raw-byte equality.
+func clientCertsEqual(a, b []byte) bool {
+	aDER, aOK := leafCertificateDER(a)
+	bDER, bOK := leafCertificateDER(b)
+	if aOK && bOK {
+		return bytes.Equal(aDER, bDER)
+	}
+	return bytes.Equal(a, b)
+}
+
+// leafCertificateDER returns the DER encoding of the first PEM certificate
+// block (the leaf). ok is false when client.crt is not a parseable PEM cert.
+func leafCertificateDER(clientCert []byte) ([]byte, bool) {
+	rest := clientCert
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			return nil, false
+		}
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, false
+		}
+		return cert.Raw, true
+	}
 }
