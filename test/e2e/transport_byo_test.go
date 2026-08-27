@@ -48,6 +48,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		sourceHubName   string
 		targetHubName   string
 		sourceHubClient client.Client
+		targetHubClient client.Client
 		sharedBootstrap string
 	)
 
@@ -63,6 +64,8 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		var err error
 		sourceHubClient, err = testClients.RuntimeClient(sourceHubName, agentScheme)
 		Expect(err).NotTo(HaveOccurred(), "expected a kube client for the source managed hub")
+		targetHubClient, err = testClients.RuntimeClient(targetHubName, agentScheme)
+		Expect(err).NotTo(HaveOccurred(), "expected a kube client for the target managed hub")
 
 		shared, err := byoSharedTransportSecret()
 		Expect(err).NotTo(HaveOccurred(), "expected the shared BYO transport secret")
@@ -89,10 +92,18 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 	})
 
 	It("starts the managed hub agent with shared-secret fallback", func() {
-		Eventually(func() error {
-			return managedHubAgentKafkaReady(sourceHubClient, sourceHubName)
-		}, 2*time.Minute, 5*time.Second).Should(Succeed(),
-			"managed hub agent must start with the shared BYO transport secret")
+		for _, hub := range []struct {
+			name   string
+			client client.Client
+		}{
+			{sourceHubName, sourceHubClient},
+			{targetHubName, targetHubClient},
+		} {
+			Eventually(func() error {
+				return managedHubAgentKafkaReady(hub.client, hub.name)
+			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
+				"managed hub %s agent must start with the shared BYO transport secret", hub.name)
+		}
 	})
 
 	It("selects a per-hub transport secret over the shared secret", func() {
@@ -115,16 +126,24 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		})
 
 		Eventually(func() error {
-			cfg, err := managedHubAgentKafkaConfig(sourceHubClient)
+			src, err := managedHubAgentKafkaConfig(sourceHubClient)
 			if err != nil {
 				return err
 			}
-			if cfg.BootstrapServer != byoPerHubBootstrapMarker {
-				return fmt.Errorf("agent transport still uses shared bootstrap")
+			if src.BootstrapServer != byoPerHubBootstrapMarker {
+				return fmt.Errorf("agent on %s still uses shared bootstrap", sourceHubName)
 			}
-			return nil
+			dst, err := managedHubAgentKafkaConfig(targetHubClient)
+			if err != nil {
+				return err
+			}
+			if dst.BootstrapServer != sharedBootstrap {
+				return fmt.Errorf("agent on %s left the shared BYO secret (bootstrap %q)",
+					targetHubName, dst.BootstrapServer)
+			}
+			return managedHubAgentKafkaReady(targetHubClient, targetHubName)
 		}, 2*time.Minute, 5*time.Second).Should(Succeed(),
-			"agent transport credentials must come from the per-hub BYO secret")
+			"per-hub secret must apply only to that hub; other hubs stay on the shared secret")
 	})
 
 	It("rejects identical client certificates on two per-hub secrets", func() {
