@@ -100,7 +100,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 			{targetHubName, targetHubClient},
 		} {
 			Eventually(func() error {
-				return managedHubAgentKafkaReady(hub.client, hub.name)
+				return managedHubAgentUsesSharedBootstrap(hub.client, hub.name, sharedBootstrap)
 			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 				"managed hub %s agent must start with the shared BYO transport secret", hub.name)
 		}
@@ -133,15 +133,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 			if src.BootstrapServer != byoPerHubBootstrapMarker {
 				return fmt.Errorf("agent on %s still uses shared bootstrap", sourceHubName)
 			}
-			dst, err := managedHubAgentKafkaConfig(targetHubClient)
-			if err != nil {
-				return err
-			}
-			if dst.BootstrapServer != sharedBootstrap {
-				return fmt.Errorf("agent on %s left the shared BYO secret (bootstrap %q)",
-					targetHubName, dst.BootstrapServer)
-			}
-			return managedHubAgentKafkaReady(targetHubClient, targetHubName)
+			return managedHubAgentUsesSharedBootstrap(targetHubClient, targetHubName, sharedBootstrap)
 		}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 			"per-hub secret must apply only to that hub; other hubs stay on the shared secret")
 	})
@@ -220,6 +212,7 @@ func deleteBYOPerHubSecret(clusterName string) {
 	}
 }
 
+// managedHubAgentKafkaConfig reads the spoke agent transport-config secret.
 func managedHubAgentKafkaConfig(hubClient client.Client) (*transport.KafkaConfig, error) {
 	apiCtx, cancel := byoAPIContext()
 	defer cancel()
@@ -237,6 +230,20 @@ func managedHubAgentKafkaConfig(hubClient client.Client) (*transport.KafkaConfig
 	return cfg, nil
 }
 
+// managedHubAgentUsesSharedBootstrap reports whether the spoke agent still uses the
+// shared BYO transport secret. The bootstrap endpoint is not included in the error.
+func managedHubAgentUsesSharedBootstrap(hubClient client.Client, hubName, sharedBootstrap string) error {
+	cfg, err := managedHubAgentKafkaConfig(hubClient)
+	if err != nil {
+		return err
+	}
+	if cfg.BootstrapServer != sharedBootstrap {
+		return fmt.Errorf("agent on %s did not use the shared BYO secret", hubName)
+	}
+	return managedHubAgentKafkaReady(hubClient, hubName)
+}
+
+// managedHubAgentKafkaReady reports whether the spoke agent has a client cert and a Ready deployment.
 func managedHubAgentKafkaReady(hubClient client.Client, hubName string) error {
 	cfg, err := managedHubAgentKafkaConfig(hubClient)
 	if err != nil {

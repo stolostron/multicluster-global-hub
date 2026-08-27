@@ -188,6 +188,8 @@ func TestGetConnCredentialFallsBackToSharedSecret(t *testing.T) {
 	}
 }
 
+// TestGetConnCredentialPerHubLeavesOtherHubsOnSharedSecret checks that a per-hub
+// BYO secret for one hub does not change credentials for other hubs or the manager.
 func TestGetConnCredentialPerHubLeavesOtherHubsOnSharedSecret(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	shared := byoSecret(constants.GHTransportSecretName, ns, "shared-cert")
