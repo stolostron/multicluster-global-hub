@@ -231,7 +231,9 @@ func managedHubAgentKafkaConfig(hubClient client.Client) (*transport.KafkaConfig
 }
 
 // managedHubAgentUsesSharedBootstrap reports whether the spoke agent still uses the
-// shared BYO transport secret. The bootstrap endpoint is not included in the error.
+// shared BYO transport secret. Bootstrap, client cert, and deployment readiness
+// are checked from one transport-config read. The bootstrap endpoint is not
+// included in the error.
 func managedHubAgentUsesSharedBootstrap(hubClient client.Client, hubName, sharedBootstrap string) error {
 	cfg, err := managedHubAgentKafkaConfig(hubClient)
 	if err != nil {
@@ -239,15 +241,6 @@ func managedHubAgentUsesSharedBootstrap(hubClient client.Client, hubName, shared
 	}
 	if cfg.BootstrapServer != sharedBootstrap {
 		return fmt.Errorf("agent on %s did not use the shared BYO secret", hubName)
-	}
-	return managedHubAgentKafkaReady(hubClient, hubName)
-}
-
-// managedHubAgentKafkaReady reports whether the spoke agent has a client cert and a Ready deployment.
-func managedHubAgentKafkaReady(hubClient client.Client, hubName string) error {
-	cfg, err := managedHubAgentKafkaConfig(hubClient)
-	if err != nil {
-		return err
 	}
 	if cfg.ClientCert == "" {
 		return fmt.Errorf("agent transport-config is missing a client certificate")
