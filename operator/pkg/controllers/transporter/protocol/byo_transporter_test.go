@@ -186,6 +186,51 @@ func TestGetConnCredentialFallsBackToSharedSecret(t *testing.T) {
 	}
 }
 
+// TestGetConnCredentialPerHubLeavesOtherHubsOnSharedSecret checks that a per-hub
+// BYO secret for one hub does not change credentials for other hubs or the manager.
+func TestGetConnCredentialPerHubLeavesOtherHubsOnSharedSecret(t *testing.T) {
+	ns := utils.GetDefaultNamespace()
+	shared := byoSecret(constants.GHTransportSecretName, ns, "shared-cert")
+	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, "hub1-cert")
+	trans := newBYOTransporter(t, byoMGH(ns), shared, hub1)
+
+	hub1Conn, err := trans.GetConnCredential("hub1")
+	if err != nil {
+		t.Fatalf("GetConnCredential(hub1) error = %v", err)
+	}
+	hub1Cert, err := base64.StdEncoding.DecodeString(hub1Conn.ClientCert)
+	if err != nil {
+		t.Fatalf("decode hub1 client cert: %v", err)
+	}
+	if string(hub1Cert) != "hub1-cert" {
+		t.Fatalf("hub1 client cert = %q, want hub1-cert", hub1Cert)
+	}
+
+	hub2Conn, err := trans.GetConnCredential("hub2")
+	if err != nil {
+		t.Fatalf("GetConnCredential(hub2) error = %v", err)
+	}
+	hub2Cert, err := base64.StdEncoding.DecodeString(hub2Conn.ClientCert)
+	if err != nil {
+		t.Fatalf("decode hub2 client cert: %v", err)
+	}
+	if string(hub2Cert) != "shared-cert" {
+		t.Fatalf("hub2 client cert = %q, want shared-cert", hub2Cert)
+	}
+
+	mgrConn, err := trans.GetConnCredential(constants.CloudEventSourceGlobalHub)
+	if err != nil {
+		t.Fatalf("GetConnCredential(global-hub) error = %v", err)
+	}
+	mgrCert, err := base64.StdEncoding.DecodeString(mgrConn.ClientCert)
+	if err != nil {
+		t.Fatalf("decode manager client cert: %v", err)
+	}
+	if string(mgrCert) != "shared-cert" {
+		t.Fatalf("manager client cert = %q, want shared-cert", mgrCert)
+	}
+}
+
 func TestEnsureUserRejectsIdenticalPerHubCerts(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	same := "duplicate-cert"
