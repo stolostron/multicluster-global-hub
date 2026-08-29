@@ -138,6 +138,9 @@ func hasHAKlusterletConfigAnnotation(obj client.Object) bool {
 }
 
 func isGlobalHubManagedHub(obj client.Object) bool {
+	if obj.GetAnnotations()[constants.AnnotationONMulticlusterHub] == "true" {
+		return true
+	}
 	labels := obj.GetLabels()
 	if labels == nil {
 		return false
