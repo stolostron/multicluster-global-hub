@@ -463,6 +463,12 @@ func (r *GrafanaReconciler) generateGrafanaIni(
 		}
 	}
 
+	mergedIni, err := injectGrafanaAdminPassword(mergedGrafanaIniSecret.Data[grafanaIniKey])
+	if err != nil {
+		return false, fmt.Errorf("failed to set grafana admin password: %w", err)
+	}
+	mergedGrafanaIniSecret.Data[grafanaIniKey] = mergedIni
+
 	if err = controllerutil.SetControllerReference(mgh, mergedGrafanaIniSecret, r.scheme); err != nil {
 		return false, err
 	}
@@ -705,22 +711,61 @@ func (r *GrafanaReconciler) GenerateGrafanaDataSourceSecret(
 	return false, nil
 }
 
-func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken string) ([]byte, error) {
-	postgresURI := string(databaseURI)
-	objURI, err := url.Parse(postgresURI)
+type postgresConnectionParams struct {
+	host, user, password, database, sslMode string
+}
+
+func parsePostgresConnection(databaseURI string) (postgresConnectionParams, error) {
+	objURI, err := url.Parse(databaseURI)
 	if err != nil {
-		return nil, err
+		return postgresConnectionParams{}, fmt.Errorf("failed to parse postgres connection: %w", err)
 	}
 	password, ok := objURI.User.Password()
 	if !ok {
-		return nil, fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
+		return postgresConnectionParams{}, fmt.Errorf("postgres connection is missing a password")
 	}
-
-	// get the database from the objURI
 	database := "hoh"
 	paths := strings.Split(objURI.Path, "/")
 	if len(paths) > 1 {
 		database = paths[1]
+	}
+	return postgresConnectionParams{
+		host:     objURI.Host,
+		user:     objURI.User.Username(),
+		password: password,
+		database: database,
+		sslMode:  objURI.Query().Get("sslmode"),
+	}, nil
+}
+
+func injectGrafanaAdminPassword(grafanaIni []byte) ([]byte, error) {
+	adminPassword, err := config.GetGrafanaAdminPassword()
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := ini.Load(grafanaIni)
+	if err != nil {
+		return nil, err
+	}
+	sec, err := cfg.GetSection("security")
+	if err != nil {
+		sec, err = cfg.NewSection("security")
+		if err != nil {
+			return nil, err
+		}
+	}
+	sec.Key("admin_password").SetValue(adminPassword)
+	var buf bytes.Buffer
+	if _, err = cfg.WriteTo(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken string) ([]byte, error) {
+	conn, err := parsePostgresConnection(databaseURI)
+	if err != nil {
+		return nil, err
 	}
 
 	postgresDS := &GrafanaDatasource{
@@ -728,16 +773,16 @@ func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken stri
 		Type:      "postgres",
 		Access:    "proxy",
 		IsDefault: true,
-		URL:       objURI.Host,
-		User:      objURI.User.Username(),
-		Database:  database,
+		URL:       conn.host,
+		User:      conn.user,
+		Database:  conn.database,
 		Editable:  false,
 		JSONData: &JsonData{
 			QueryTimeout: "300s",
 			TimeInterval: "30s",
 		},
 		SecureJSONData: &SecureJsonData{
-			Password: password,
+			Password: conn.password,
 		},
 	}
 	datasource := []*GrafanaDatasource{postgresDS}
@@ -765,10 +810,10 @@ func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken stri
 	}
 
 	if len(cert) > 0 {
-		postgresDS.JSONData.SSLMode = objURI.Query().Get("sslmode") // sslmode == "verify-full" || sslmode == "verify-ca"
+		postgresDS.JSONData.SSLMode = conn.sslMode // sslmode == "verify-full" || sslmode == "verify-ca"
 		postgresDS.JSONData.TLSAuth = true
 		postgresDS.JSONData.TLSAuthWithCACert = true
-		postgresDS.JSONData.TLSSkipVerify = true
+		postgresDS.JSONData.TLSSkipVerify = false
 		postgresDS.JSONData.TLSConfigurationMethod = "file-content"
 		postgresDS.SecureJSONData.TLSCACert = string(cert)
 	}

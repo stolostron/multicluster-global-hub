@@ -6,7 +6,9 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/ini.v1"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -316,7 +318,7 @@ policies:
 			}
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
-			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
+			kubeClient := fakekube.NewClientset(tt.initObjects...)
 			r := &GrafanaReconciler{
 				client:     fakeClient,
 				kubeClient: kubeClient,
@@ -578,7 +580,7 @@ email = example@redhat.com
 			objs := append(tt.initRoute, tt.initObjects...)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(objs...).Build()
 
-			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
+			kubeClient := fakekube.NewClientset(tt.initObjects...)
 			r := &GrafanaReconciler{
 				client:     fakeClient,
 				kubeClient: kubeClient,
@@ -917,4 +919,31 @@ func sectionCount(a []byte) int {
 	}
 	// By Default, There is a DEFAULT section, should not count it
 	return len(cfg.Sections()) - 1
+}
+
+func TestInjectGrafanaAdminPassword(t *testing.T) {
+	merged, err := injectGrafanaAdminPassword([]byte("[security]\nadmin_user = admin\n"))
+	require.NoError(t, err)
+
+	cfg, err := ini.Load(merged)
+	require.NoError(t, err)
+
+	sec, err := cfg.GetSection("security")
+	require.NoError(t, err)
+	assert.NotEmpty(t, sec.Key("admin_password").String())
+}
+
+func TestGrafanaDataSource_TLS(t *testing.T) {
+	uri := "postgresql://grafana:secret@pg.example:5432/mydb?sslmode=verify-full"
+	raw, err := GrafanaDataSource(uri, []byte("ca-cert"), "")
+	require.NoError(t, err)
+
+	var datasources GrafanaDatasources
+	require.NoError(t, yaml.Unmarshal(raw, &datasources))
+	require.Len(t, datasources.Datasources, 1)
+
+	jsonData := datasources.Datasources[0].JSONData
+	require.NotNil(t, jsonData)
+	assert.Equal(t, "verify-full", jsonData.SSLMode)
+	assert.False(t, jsonData.TLSSkipVerify)
 }
