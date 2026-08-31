@@ -127,6 +127,23 @@ func TestGetOauthSessionSecret(t *testing.T) {
 	}
 }
 
+func TestGetGrafanaAdminPassword(t *testing.T) {
+	password1, err := GetGrafanaAdminPassword()
+	if err != nil {
+		t.Fatalf("failed to get grafana admin password: %v", err)
+	}
+	password2, err := GetGrafanaAdminPassword()
+	if err != nil {
+		t.Fatalf("failed to get grafana admin password: %v", err)
+	}
+	if password1 == "" {
+		t.Fatalf("grafana admin password should not be empty")
+	}
+	if password1 != password2 {
+		t.Fatalf("grafana admin password is not consistent")
+	}
+}
+
 func TestSetMulticlusterGlobalHubConfig(t *testing.T) {
 	oauthImage := "quay.io/testing/origin-oauth-proxy:4.9"
 	mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{
