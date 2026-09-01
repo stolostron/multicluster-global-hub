@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -76,8 +77,13 @@ var _ = Describe("local agent", func() {
 		}, time.Second*10, time.Second*1).ShouldNot(HaveOccurred())
 
 		By("Removed the clusterrolebinding")
+		Eventually(func() error {
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name: "multicluster-global-hub:multicluster-global-hub-agent",
+			}, agentClusterRoleBinding)
+		}, time.Second*10, time.Second*1).Should(Succeed())
 		originClusterRoleBindingId := agentClusterRoleBinding.GetUID()
-		Expect(runtimeClient.Delete(ctx, agentClusterRoleBinding)).Should(Succeed())
+		Expect(client.IgnoreNotFound(runtimeClient.Delete(ctx, agentClusterRoleBinding))).To(Succeed())
 
 		By("By checking the GH agent clusterrolebinding is re-created")
 		agentClusterRoleBinding = &rbacv1.ClusterRoleBinding{}

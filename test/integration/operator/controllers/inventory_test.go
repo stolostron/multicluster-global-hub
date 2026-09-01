@@ -49,7 +49,7 @@ var _ = Describe("inventory-api", Ordered, func() {
 		// update the middleware configuration
 		// storage
 		_ = config.SetStorageConnection(&config.PostgresConnection{
-			SuperuserDatabaseURI: "postgresql://:@multicluster-global-hub-postgresql.multicluster-global-hub.svc:5432/hoh",
+			SuperuserDatabaseURI: "postgresql://testuser:testpassword@multicluster-global-hub-postgresql.multicluster-global-hub.svc:5432/hoh",
 			CACert:               []byte("test-crt"),
 		})
 		config.SetDatabaseReady(true)
