@@ -66,8 +66,9 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 
 		By("Set up nonk8s-api server router")
 		router, err = restapis.SetupRouter(&restapis.RestApiServerConfig{
-			ServerBasePath: "/global-hub-api/v1",
-			ClusterAPIURL:  testAuthServer.URL,
+			ServerBasePath:         "/global-hub-api/v1",
+			ClusterAPIURL:          testAuthServer.URL,
+			ClusterAPICABundlePath: testAuthServerCAPEMPath,
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -150,7 +151,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = db.Exec(
 			`INSERT INTO status.managed_clusters (cluster_id,leaf_hub_name,payload,error) VALUES (?, ?, ?, 'none');`,
-			mc2Id, hub1, mc2).Error
+			mc2Id, hub1, mc2,
+		).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Check the managedcclusters can be listed without parameters")
@@ -170,7 +172,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		]
 }`
 		Expect(w1.Body.String()).Should(MatchJSON(
-			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
+			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2),
+		))
 
 		By("Check the managedclusters can be list with continue")
 		w21 := httptest.NewRecorder()
@@ -178,12 +181,14 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 		req21, err := http.NewRequest("GET", fmt.Sprintf(
 			"/global-hub-api/v1/managedclusters?continue=%s",
-			continueToken), nil)
+			continueToken,
+		), nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w21, req21)
 		Expect(w21.Code).To(Equal(200))
 		Expect(w21.Body.String()).Should(MatchJSON(
-			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
+			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2),
+		))
 
 		By("Check the managedclusters can be listed with limit and labelSelector")
 		w2 := httptest.NewRecorder()
@@ -195,7 +200,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		router.ServeHTTP(w2, req2)
 		Expect(w2.Code).To(Equal(200))
 		Expect(w2.Body.String()).Should(MatchJSON(
-			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2)))
+			fmt.Sprintf(managedClusterListFormatStr, mc1, mc2),
+		))
 
 		By("Check the managedcclusters can be listed as table")
 		// mclTable := `
@@ -667,7 +673,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		]
 }`
 		Expect(w1.Body.String()).Should(MatchJSON(
-			fmt.Sprintf(policyListFormatStr, expectedPolicy1)))
+			fmt.Sprintf(policyListFormatStr, expectedPolicy1),
+		))
 
 		By("Check the policies can be listed with limit and labelSelector")
 		w2 := httptest.NewRecorder()
@@ -679,7 +686,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		router.ServeHTTP(w2, req2)
 		Expect(w2.Code).To(Equal(200))
 		Expect(w2.Body.String()).Should(MatchJSON(
-			fmt.Sprintf(policyListFormatStr, expectedPolicy1)))
+			fmt.Sprintf(policyListFormatStr, expectedPolicy1),
+		))
 
 		By("Check the policies can be listed as table")
 		// 		plcTable := `
@@ -885,7 +893,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		By("Check the policy status can be retrieved with policy ID")
 		w1 := httptest.NewRecorder()
 		req1, err := http.NewRequest("GET", fmt.Sprintf(
-			"/global-hub-api/v1/policy/%s/status", plc1ID), nil)
+			"/global-hub-api/v1/policy/%s/status", plc1ID,
+		), nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))
@@ -968,7 +977,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		// `
 		w2 := httptest.NewRecorder()
 		req2, err := http.NewRequest("GET", fmt.Sprintf(
-			"/global-hub-api/v1/policy/%s/status", plc1ID), nil)
+			"/global-hub-api/v1/policy/%s/status", plc1ID,
+		), nil)
 		Expect(err).ToNot(HaveOccurred())
 		req2.Header.Set("Accept", "application/json;as=Table;g=meta.k8s.io;v=v1")
 		router.ServeHTTP(w2, req2)
@@ -1104,7 +1114,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		]
 }`
 		Expect(w1.Body.String()).Should(MatchJSON(
-			fmt.Sprintf(subscriptionListFormatStr, subscription1, subscription2)))
+			fmt.Sprintf(subscriptionListFormatStr, subscription1, subscription2),
+		))
 
 		By("Check the subscriptions can be listed with limit and labelSelector")
 		w2 := httptest.NewRecorder()
@@ -1125,7 +1136,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 			]
 		}`
 		Expect(w2.Body.String()).Should(MatchJSON(
-			fmt.Sprintf(subscriptionListFormatStr, subscription2)))
+			fmt.Sprintf(subscriptionListFormatStr, subscription2),
+		))
 
 		By("Check the subscriptions can be listed as table")
 		// subscriptionTable := `{
@@ -1376,7 +1388,8 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		By("Check the subscriptionreport can be retrieved")
 		w1 := httptest.NewRecorder()
 		req1, err := http.NewRequest("GET", fmt.Sprintf(
-			"/global-hub-api/v1/subscriptionreport/%s", sub2ID), nil)
+			"/global-hub-api/v1/subscriptionreport/%s", sub2ID,
+		), nil)
 		Expect(err).ToNot(HaveOccurred())
 		router.ServeHTTP(w1, req1)
 		Expect(w1.Code).To(Equal(200))

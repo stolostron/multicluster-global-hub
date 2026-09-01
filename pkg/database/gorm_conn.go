@@ -165,10 +165,12 @@ func CloseGorm(sqlConn *sql.DB) {
 	}
 }
 
+// completePostgres parses a PostgreSQL URI and attaches sslrootcert when sslmode is verify-ca.
+// Parser errors use a fixed message so the URI cannot leak credentials.
 func completePostgres(postgresUri string, caCertPath string) (*url.URL, error) {
 	urlObj, err := url.Parse(postgresUri)
 	if err != nil {
-		return nil, err
+		return nil, errParseDatabaseURI
 	}
 	// only support verify-ca or disable(for test)
 	query := urlObj.Query()
