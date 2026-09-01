@@ -69,25 +69,15 @@ jobs:
               ;;
           esac
 
+      # Committed operator/bundle on main (and ffwd copies on release-5.0/5.1/5.2)
+      # is the current product line (RELEASE_LINE default, today 5.0.0-dev). Do not
+      # pass RELEASE_LINE from the git branch name: that regenerates 5.1/5.2 CSV
+      # metadata on ffwd branches and fails git diff --exit-code.
+      # Per-line OLM/CPE metadata stays in Tekton build-args and the operator-bundle repo.
       - name: bundle
-        env:
-          TARGET: ${{ steps.bundle-branch.outputs.target }}
-        run: |
-          case "$TARGET" in
-            release-*)
-              if [[ ! "$TARGET" =~ ^release-[0-9]+\.[0-9]+$ ]]; then
-                echo "Unsupported release branch format: $TARGET" >&2
-                exit 1
-              fi
-              RELEASE_LINE="${TARGET#release-}"
-              cd operator && make bundle RELEASE_LINE="$RELEASE_LINE"
-              ;;
-            *)
-              cd operator && make bundle
-              ;;
-          esac
+        run: cd operator && make bundle
 
-      # main and release-* branches use dev bundle versions (e.g. 5.0.0-dev / 5.1.0-dev) while the
+      # main and release-* branches use the in-repo dev bundle (e.g. 5.0.0-dev) while the
       # matching release-* branches in multicluster-global-hub-operator-bundle
       # carry GA z-stream versions — skip external sync on those branches.
 
