@@ -535,6 +535,7 @@ func TestGetManagerTransportConn(t *testing.T) {
 	}
 	if conn == nil {
 		t.Fatal("getManagerTransportConn() returned nil connection")
+		return
 	}
 	if conn.SpecTopic != "spec1" {
 		t.Fatalf("SpecTopic = %q, want spec1", conn.SpecTopic)

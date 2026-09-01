@@ -31,6 +31,7 @@ func TestRefreshClientSetsTLS12MinVersion(t *testing.T) {
 	}
 	if client.tlsConfig == nil {
 		t.Fatal("expected tls config to be set before client init failure")
+		return
 	}
 	if client.tlsConfig.MinVersion != tls.VersionTLS12 {
 		t.Fatalf("expected MinVersion TLS 1.2, got %d", client.tlsConfig.MinVersion)
