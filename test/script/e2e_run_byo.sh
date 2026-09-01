@@ -85,4 +85,7 @@ kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubec
 
 echo "transport secret is ready in $target_namespace namespace!"
 ## run e2e
-bash "$CURRENT_DIR/e2e_run.sh" -n "$target_namespace" -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-transport-byo"
+# transport-byo mutates per-hub Kafka bootstrap. Ginkgo randomizes labels in a
+# single process, so keep transport-byo in a separate invocation.
+bash "$CURRENT_DIR/e2e_run.sh" -n "$target_namespace" -f "e2e-test-localpolicy,e2e-test-grafana"
+bash "$CURRENT_DIR/e2e_run.sh" -n "$target_namespace" -f "e2e-test-transport-byo"
