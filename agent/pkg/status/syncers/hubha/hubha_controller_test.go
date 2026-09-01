@@ -309,6 +309,7 @@ func TestWithNoOpStartResourceSyncerFn(t *testing.T) {
 
 	if c.startResourceSyncerFn == nil {
 		t.Fatal("expected startResourceSyncerFn to be non-nil after applying option")
+		return
 	}
 	gvks, err := c.startResourceSyncerFn(nil)
 	if err != nil {
