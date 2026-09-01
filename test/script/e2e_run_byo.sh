@@ -88,8 +88,8 @@ echo "transport secret is ready in ${target_namespace} namespace!"
 # secrets). Ginkgo randomizes Describe order in a single process, so those
 # mutations can leak into localpolicy if transport-byo runs first. Keep it in
 # a separate invocation after the other BYO suites.
-bash "$CURRENT_DIR/e2e_run.sh" -n "${target_namespace}" -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
-bash "$CURRENT_DIR/e2e_run.sh" -n "${target_namespace}" -f "e2e-test-transport-byo"
+bash "$CURRENT_DIR/e2e_run.sh" -n "${target_namespace}" -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent" -r report-byo-suites
+bash "$CURRENT_DIR/e2e_run.sh" -n "${target_namespace}" -f "e2e-test-transport-byo" -r report-transport-byo
 
 # Clean up MulticlusterGlobalHub resources before migration tests
 echo "Cleaning up BYO test resources..."

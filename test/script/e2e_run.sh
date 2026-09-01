@@ -18,7 +18,7 @@ export MC_NUM=${MC_NUM:-1}
 export GH_NAME="global-hub" # the KinD name
 export GH_KUBECONFIG="${CONFIG_DIR}/${GH_NAME}"
 
-while getopts ":f:v:n:" opt; do
+while getopts ":f:v:n:r:" opt; do
   case $opt in
   f)
     filter="$OPTARG"
@@ -28,6 +28,9 @@ while getopts ":f:v:n:" opt; do
     ;;
   n)
     GH_NAMESPACE="$OPTARG"
+    ;;
+  r)
+    report_prefix="$OPTARG"
     ;;
   \?)
     echo "Invalid option -$OPTARG" >&2
@@ -44,6 +47,7 @@ while getopts ":f:v:n:" opt; do
 done
 
 verbose=${verbose:=5}
+report_prefix=${report_prefix:=report}
 GH_NAMESPACE=${GH_NAMESPACE:=multicluster-global-hub}
 export GH_NAMESPACE
 echo "namespace: "$GH_NAMESPACE
@@ -120,15 +124,15 @@ EOF
 if [ "${filter}" = "e2e-test-prune" ]; then
   export ISPRUNE="true"
   echo "run prune"
-  ginkgo --fail-fast --label-filter="e2e-test-prune" --output-dir="$CONFIG_DIR" --json-report=report.json \
-    --junit-report=report.xml "$TEST_DIR/e2e" -- -options="$OPTION_FILE" -v="$verbose"
+  ginkgo --fail-fast --label-filter="e2e-test-prune" --output-dir="$CONFIG_DIR" --json-report="${report_prefix}.json" \
+    --junit-report="${report_prefix}.xml" "$TEST_DIR/e2e" -- -options="$OPTION_FILE" -v="$verbose"
 else
-  ginkgo --fail-fast --label-filter="${filter}" --output-dir="$CONFIG_DIR" --json-report=report.json \
-    --junit-report=report.xml "$TEST_DIR"/e2e -- -options="$OPTION_FILE" -v="$verbose"
+  ginkgo --fail-fast --label-filter="${filter}" --output-dir="$CONFIG_DIR" --json-report="${report_prefix}.json" \
+    --junit-report="${report_prefix}.xml" "$TEST_DIR"/e2e -- -options="$OPTION_FILE" -v="$verbose"
 fi
 
-if ! cat "$CONFIG_DIR/report.xml" | grep failures=\"0\" | grep errors=\"0\" >/dev/null; then
+if ! cat "$CONFIG_DIR/${report_prefix}.xml" | grep failures=\"0\" | grep errors=\"0\" >/dev/null; then
   echo "Cannot pass all test cases."
-  cat "$CONFIG_DIR/report.xml"
+  cat "$CONFIG_DIR/${report_prefix}.xml"
   exit 1
 fi

@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -145,10 +146,12 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 	})
 })
 
+// byoAPIContext returns a timeout context for BYO e2e Kubernetes API calls.
 func byoAPIContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, byoAPITimeout)
 }
 
+// byoSharedTransportSecret returns the shared BYO Kafka transport secret.
 func byoSharedTransportSecret() (*corev1.Secret, error) {
 	apiCtx, cancel := byoAPIContext()
 	defer cancel()
@@ -157,6 +160,7 @@ func byoSharedTransportSecret() (*corev1.Secret, error) {
 	)
 }
 
+// createBYOPerHubSecret creates or updates a per-hub BYO transport secret from the shared secret.
 func createBYOPerHubSecret(clusterName string, mutate func(*corev1.Secret)) {
 	shared, err := byoSharedTransportSecret()
 	Expect(err).NotTo(HaveOccurred(), "expected the shared BYO transport secret as a template")
@@ -193,28 +197,40 @@ func createBYOPerHubSecret(clusterName string, mutate func(*corev1.Secret)) {
 	Expect(err).NotTo(HaveOccurred(), "expected to create or update the per-hub BYO secret")
 }
 
+// waitHubsUseSharedBootstrap waits until both managed hub agents use the shared
+// BYO Kafka bootstrap after per-hub transport secrets are removed. It skips
+// polling when setup did not record a shared bootstrap, and checks both hubs
+// before reporting failure.
 func waitHubsUseSharedBootstrap(
 	sourceClient client.Client, sourceName string,
 	targetClient client.Client, targetName, sharedBootstrap string,
 ) {
 	GinkgoHelper()
-	for _, hub := range []struct {
-		name   string
-		client client.Client
-	}{
-		{sourceName, sourceClient},
-		{targetName, targetClient},
-	} {
-		if hub.client == nil {
-			continue
-		}
-		Eventually(func() error {
-			return managedHubAgentUsesSharedBootstrap(hub.client, hub.name, sharedBootstrap)
-		}, 2*time.Minute, 5*time.Second).Should(Succeed(),
-			"agent on %s must fall back to the shared BYO secret after per-hub cleanup", hub.name)
+	if sharedBootstrap == "" {
+		return
 	}
+	Eventually(func() error {
+		var errs []error
+		for _, hub := range []struct {
+			name   string
+			client client.Client
+		}{
+			{sourceName, sourceClient},
+			{targetName, targetClient},
+		} {
+			if hub.client == nil {
+				continue
+			}
+			if err := managedHubAgentUsesSharedBootstrap(hub.client, hub.name, sharedBootstrap); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errors.Join(errs...)
+	}, 2*time.Minute, 5*time.Second).Should(Succeed(),
+		"agents must fall back to the shared BYO secret after per-hub cleanup")
 }
 
+// deleteBYOPerHubSecret removes the per-hub BYO transport secret if it exists.
 func deleteBYOPerHubSecret(clusterName string) {
 	apiCtx, cancel := byoAPIContext()
 	defer cancel()
@@ -265,6 +281,7 @@ func managedHubAgentUsesSharedBootstrap(hubClient client.Client, hubName, shared
 	return nil
 }
 
+// pemCertificateCommonName returns the CommonName from a PEM-encoded client certificate.
 func pemCertificateCommonName(certPEM []byte) string {
 	block, _ := pem.Decode(certPEM)
 	Expect(block).NotTo(BeNil(), "shared BYO client.crt must be PEM")
@@ -273,6 +290,7 @@ func pemCertificateCommonName(certPEM []byte) string {
 	return cert.Subject.CommonName
 }
 
+// operatorLogsContain reports whether any Global Hub operator pod log contains substr.
 func operatorLogsContain(substr string) error {
 	apiCtx, cancel := byoAPIContext()
 	defer cancel()
