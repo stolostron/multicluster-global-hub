@@ -41,12 +41,14 @@ import (
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;prometheusrules,verbs=get;create;delete;update;list;watch
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create;delete;update;list;watch
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;create;delete;update;list;watch
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;create;list;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=get;create;list;watch;patch;delete
+// +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clusterextensions,verbs=create;patch;delete
 // +kubebuilder:rbac:groups=olm.operatorframework.io,resources=clustercatalogs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;create;delete
 
@@ -400,20 +402,19 @@ func (r *StorageReconciler) applyGlobalHubInitSQL(ctx context.Context, conn *pgx
 		}
 	}
 
-	objURI, err := url.Parse(readonlyUserURI)
+	readonlyUsername, err := readonlyUsernameFromURI(readonlyUserURI)
 	if err != nil {
-		log.Error(err, "failed to parse database_uri_with_readonlyuser")
+		return fmt.Errorf("failed to extract readonly username: %w", err)
 	}
-	readonlyUsername := objURI.User.Username()
 
 	if err = applySQL(ctx, conn, databaseFS, "database", readonlyUsername); err != nil {
-		return fmt.Errorf("failed to apply the database sql: %v", err)
+		return fmt.Errorf("failed to apply the database sql: %w", err)
 	}
 
 	if !r.upgrade {
 		err = applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
 		if err != nil {
-			return fmt.Errorf("failed to apply the upgrade sql: %v", err)
+			return fmt.Errorf("failed to apply the upgrade sql: %w", err)
 		}
 		r.upgrade = true
 	}
@@ -505,4 +506,19 @@ func getDatabaseComponentStatus(ctx context.Context, c client.Client,
 type AnnotationPGUser struct {
 	Name      string   `json:"name"`
 	Databases []string `json:"databases"`
+}
+
+const errParseReadonlyUserURI = "failed to parse database_uri_with_readonlyuser"
+
+// readonlyUsernameFromURI extracts the username from a PostgreSQL URI when present.
+// Parser errors use a fixed message so the URI cannot leak credentials.
+func readonlyUsernameFromURI(readonlyUserURI string) (string, error) {
+	objURI, err := url.Parse(readonlyUserURI)
+	if err != nil {
+		return "", fmt.Errorf("%s", errParseReadonlyUserURI)
+	}
+	if objURI.User == nil {
+		return "", nil
+	}
+	return objURI.User.Username(), nil
 }
