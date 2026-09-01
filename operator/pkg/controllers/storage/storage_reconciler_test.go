@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -357,4 +358,41 @@ func TestGeneratePassword(t *testing.T) {
 func TestIsResourceRemoved(t *testing.T) {
 	reconciler := &StorageReconciler{}
 	assert.True(t, reconciler.IsResourceRemoved())
+}
+
+// TestReadonlyUsernameFromURI verifies readonly URI parse failures do not leak credentials.
+func TestReadonlyUsernameFromURI(t *testing.T) {
+	t.Run("valid uri", func(t *testing.T) {
+		username, err := readonlyUsernameFromURI("postgresql://readonly:secret@postgres.example:5432/hoh")
+		require.NoError(t, err, "valid readonly URI must parse")
+		assert.Equal(t, "readonly", username, "readonly username must match the URI")
+	})
+
+	t.Run("malformed uri with percent-escaped password does not leak credentials", func(t *testing.T) {
+		const sentinel = "secret-password"
+		raw := "postgresql://readonly:" + sentinel + "%zz@postgres.example:5432/hoh"
+
+		_, err := readonlyUsernameFromURI(raw)
+		require.Error(t, err, "malformed readonly URI must be rejected")
+		assert.Equal(t, errParseReadonlyUserURI, err.Error(),
+			"parse errors must use a fixed message")
+		assert.NotContains(t, err.Error(), raw,
+			"parse errors must not echo the raw connection URI")
+		assert.NotContains(t, err.Error(), "postgresql://",
+			"parse errors must not echo the URI scheme")
+		assert.NotContains(t, err.Error(), sentinel,
+			"parse errors must not echo the postgres password")
+	})
+
+	t.Run("uri without userinfo returns empty username", func(t *testing.T) {
+		username, err := readonlyUsernameFromURI("postgresql://postgres.example:5432/hoh")
+		require.NoError(t, err, "readonly URI without userinfo must not fail database init")
+		assert.Empty(t, username, "missing userinfo should skip privileges.sql username substitution")
+	})
+
+	t.Run("uri with empty username returns empty username", func(t *testing.T) {
+		username, err := readonlyUsernameFromURI("postgresql://:secret@postgres.example:5432/hoh")
+		require.NoError(t, err, "readonly URI with empty username must not fail database init")
+		assert.Empty(t, username, "empty username should skip privileges.sql username substitution")
+	})
 }

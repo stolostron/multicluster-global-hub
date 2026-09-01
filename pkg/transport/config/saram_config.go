@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,12 +16,14 @@ import (
 
 const errClientCertKeyMismatch = "client certificate and key must be provided together"
 
+var errTLSClientCredentialsRequired = errors.New("client certificate and key are required when TLS is enabled")
+
+// GetSaramaConfig builds a Sarama client config, requiring mTLS materials when TLS is enabled.
 func GetSaramaConfig(kafkaConfig *transport.KafkaInternalConfig) (*sarama.Config, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Version = sarama.V2_0_0_0
 
-	_, validCa := utils.Validate(kafkaConfig.CaCertPath)
-	if kafkaConfig.EnableTLS && validCa {
+	if kafkaConfig.EnableTLS {
 		var err error
 		saramaConfig.Net.TLS.Enable = true
 		saramaConfig.Net.TLS.Config, err = NewTLSConfig(kafkaConfig.ClientCertPath, kafkaConfig.ClientKeyPath,
@@ -32,36 +35,36 @@ func GetSaramaConfig(kafkaConfig *transport.KafkaInternalConfig) (*sarama.Config
 	return saramaConfig, nil
 }
 
+// NewTLSConfig loads client certificate, key, and CA materials for Kafka TLS.
 func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config, error) {
-	tlsConfig := tls.Config{
-		MinVersion: tls.VersionTLS12,
-	}
-
-	// Load client cert for mutual TLS (optional)
 	_, validCert := utils.Validate(clientCertFile)
 	_, validKey := utils.Validate(clientKeyFile)
 	if validCert != validKey {
-		return &tlsConfig, fmt.Errorf("%s", errClientCertKeyMismatch)
+		return nil, fmt.Errorf("%s", errClientCertKeyMismatch)
 	}
-	if validCert && validKey {
-		cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
-		if err != nil {
-			return &tlsConfig, fmt.Errorf("failed to load client certificate: %w", err)
-		}
-		tlsConfig.Certificates = []tls.Certificate{cert}
+	if !validCert || !validKey {
+		return nil, errTLSClientCredentialsRequired
 	}
 
-	// Load CA cert - this is required to verify the server
+	cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load client certificate: %w", err)
+	}
+
 	caCert, err := os.ReadFile(filepath.Clean(caCertFile))
 	if err != nil {
-		return &tlsConfig, fmt.Errorf("failed to read CA certificate: %w", err)
+		return nil, fmt.Errorf("failed to read CA certificate: %w", err)
 	}
 	caCertPool := x509.NewCertPool()
 	if !caCertPool.AppendCertsFromPEM(caCert) {
-		return &tlsConfig, fmt.Errorf("failed to parse CA certificate")
+		return nil, errors.New("failed to parse CA certificate")
 	}
-	tlsConfig.RootCAs = caCertPool
 
-	tlsConfig.BuildNameToCertificate()
-	return &tlsConfig, nil
+	tlsConfig := &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      caCertPool,
+	}
+
+	return tlsConfig, nil
 }
