@@ -206,7 +206,6 @@ func createBYOPerHubSecret(clusterName string, mutate func(*corev1.Secret)) {
 	Expect(err).NotTo(HaveOccurred(), "expected to create or update the per-hub BYO secret")
 }
 
-// deleteBYOPerHubSecret deletes a leftover per-hub BYO transport secret.
 func deleteBYOPerHubSecret(clusterName string) {
 	apiCtx, cancel := byoAPIContext()
 	defer cancel()

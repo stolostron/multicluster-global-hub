@@ -8,6 +8,7 @@ import (
 	iofs "io/fs"
 	"math/big"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -40,7 +41,8 @@ import (
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;prometheusrules,verbs=get;create;delete;update;list;watch
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create;delete;update;list;watch
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;create;delete;update;list;watch
 // +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;create;list;watch
@@ -354,14 +356,13 @@ func (r *StorageReconciler) applyGlobalHubInitSQL(ctx context.Context, conn *pgx
 		}
 	}
 
-	objURI, err := url.Parse(readonlyUserURI)
+	readonlyUsername, err := readonlyUsernameFromURI(readonlyUserURI)
 	if err != nil {
-		log.Error(err, "failed to parse database_uri_with_readonlyuser")
+		return fmt.Errorf("failed to extract readonly username: %w", err)
 	}
-	readonlyUsername := objURI.User.Username()
 
 	if err = applySQL(ctx, conn, databaseFS, "database", readonlyUsername); err != nil {
-		return fmt.Errorf("failed to apply the database sql: %v", err)
+		return fmt.Errorf("failed to apply the database sql: %w", err)
 	}
 
 	if r.enableGlobalResource {
@@ -373,7 +374,7 @@ func (r *StorageReconciler) applyGlobalHubInitSQL(ctx context.Context, conn *pgx
 	if !r.upgrade {
 		err = applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
 		if err != nil {
-			return fmt.Errorf("failed to apply the upgrade sql: %v", err)
+			return fmt.Errorf("failed to apply the upgrade sql: %w", err)
 		}
 		r.upgrade = true
 	}
@@ -465,4 +466,39 @@ func getDatabaseComponentStatus(ctx context.Context, c client.Client,
 type AnnotationPGUser struct {
 	Name      string   `json:"name"`
 	Databases []string `json:"databases"`
+}
+
+const (
+	errParseReadonlyUserURI    = "failed to parse database_uri_with_readonlyuser"
+	errInvalidPostgresRoleName = "invalid postgres role name"
+)
+
+var postgresRoleNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_-]{0,62}$`)
+
+// validatePostgresRoleName rejects role names that are unsafe for SQL identifier substitution.
+func validatePostgresRoleName(username string) error {
+	if !postgresRoleNamePattern.MatchString(username) {
+		return fmt.Errorf("%s", errInvalidPostgresRoleName)
+	}
+	return nil
+}
+
+// readonlyUsernameFromURI extracts the username from a PostgreSQL URI when present.
+// Parser errors use a fixed message so the URI cannot leak credentials.
+func readonlyUsernameFromURI(readonlyUserURI string) (string, error) {
+	objURI, err := url.Parse(readonlyUserURI)
+	if err != nil {
+		return "", fmt.Errorf("%s", errParseReadonlyUserURI)
+	}
+	if objURI.User == nil {
+		return "", nil
+	}
+	username := objURI.User.Username()
+	if username == "" {
+		return "", nil
+	}
+	if err := validatePostgresRoleName(username); err != nil {
+		return "", err
+	}
+	return username, nil
 }

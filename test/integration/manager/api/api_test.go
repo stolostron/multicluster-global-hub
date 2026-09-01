@@ -66,8 +66,9 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 
 		By("Set up nonk8s-api server router")
 		router, err = restapis.SetupRouter(&restapis.RestApiServerConfig{
-			ServerBasePath: "/global-hub-api/v1",
-			ClusterAPIURL:  testAuthServer.URL,
+			ServerBasePath:         "/global-hub-api/v1",
+			ClusterAPIURL:          testAuthServer.URL,
+			ClusterAPICABundlePath: testAuthServerCAPEMPath,
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})

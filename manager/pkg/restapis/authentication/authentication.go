@@ -16,6 +16,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	userv1 "github.com/openshift/api/user/v1"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 const (
@@ -25,7 +27,11 @@ const (
 	GroupsKey = "groups"
 )
 
-var errUnableToAppendCABundle = errors.New("unable to append CA Bundle")
+var (
+	errUnableToAppendCABundle     = errors.New("unable to append CA Bundle")
+	errClusterAPICABundleRequired = errors.New("cluster API CA bundle is required")
+	authLog                       = logger.ZapLogger("authentication")
+)
 
 // Authentication middleware.
 func Authentication(clusterAPIURL string, clusterAPICABundle []byte) gin.HandlerFunc {
@@ -47,22 +53,19 @@ func Authentication(clusterAPIURL string, clusterAPICABundle []byte) gin.Handler
 }
 
 func createClient(clusterAPICABundle []byte) (*http.Client, error) {
-	tlsConfig := &tls.Config{ // #nosec G402
-		// nolint:gosec
-		InsecureSkipVerify: true, // #nosec G402
+	if len(clusterAPICABundle) == 0 {
+		return nil, errClusterAPICABundleRequired
 	}
 
-	if clusterAPICABundle != nil {
-		rootCAs := x509.NewCertPool()
-		if ok := rootCAs.AppendCertsFromPEM(clusterAPICABundle); !ok {
-			_, _ = fmt.Fprintf(gin.DefaultWriter, "unable to append cluster API CA Bundle")
-			return nil, fmt.Errorf("unable to append cluster API CA Bundle %w", errUnableToAppendCABundle)
-		}
+	rootCAs := x509.NewCertPool()
+	if ok := rootCAs.AppendCertsFromPEM(clusterAPICABundle); !ok {
+		authLog.Errorw("unable to append cluster API CA bundle")
+		return nil, fmt.Errorf("unable to append cluster API CA Bundle %w", errUnableToAppendCABundle)
+	}
 
-		tlsConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			RootCAs:    rootCAs,
-		}
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		RootCAs:    rootCAs,
 	}
 
 	tr := &http.Transport{TLSClientConfig: tlsConfig}
@@ -76,6 +79,7 @@ func setAuthenticatedUser(ginCtx *gin.Context, authorizationHeader string, clust
 	client, err := createClient(clusterAPICABundle)
 	if err != nil {
 		_, _ = fmt.Fprintf(gin.DefaultWriter, "unable to create client: %v\n", err)
+		return false
 	}
 
 	authURL := fmt.Sprintf("%s/apis/user.openshift.io/v1/users/~", clusterAPIURL)

@@ -111,6 +111,7 @@ type GrafanaReconciler struct {
 	scheme     *runtime.Scheme
 }
 
+// NewGrafanaReconciler constructs a GrafanaReconciler bound to the controller-runtime manager.
 func NewGrafanaReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *GrafanaReconciler {
 	return &GrafanaReconciler{
 		Manager:    mgr,
@@ -122,10 +123,12 @@ func NewGrafanaReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *Gr
 
 var grafanaController *GrafanaReconciler
 
+// IsResourceRemoved reports whether Grafana resources were cleaned up.
 func (r *GrafanaReconciler) IsResourceRemoved() bool {
 	return true
 }
 
+// StartController registers the Grafana controller when ACM and storage are ready.
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
 	if grafanaController != nil {
 		return grafanaController, nil
@@ -463,6 +466,32 @@ func (r *GrafanaReconciler) generateGrafanaIni(
 		}
 	}
 
+	existingMerged := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mergedGrafanaIniName,
+			Namespace: configNamespace,
+		},
+	}
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(existingMerged), existingMerged); err != nil {
+		if !errors.IsNotFound(err) {
+			return false, fmt.Errorf("failed to get merged grafana.ini secret: %w", err)
+		}
+	} else {
+		pwd, pwdErr := adminPasswordFromGrafanaIni(existingMerged.Data[grafanaIniKey])
+		if pwdErr != nil {
+			return false, fmt.Errorf("failed to parse persisted grafana.ini: %w", pwdErr)
+		}
+		if pwd != "" {
+			config.SeedGrafanaAdminPassword(pwd)
+		}
+	}
+
+	mergedIni, err := injectGrafanaAdminPassword(mergedGrafanaIniSecret.Data[grafanaIniKey])
+	if err != nil {
+		return false, fmt.Errorf("failed to set grafana admin password: %w", err)
+	}
+	mergedGrafanaIniSecret.Data[grafanaIniKey] = mergedIni
+
 	if err = controllerutil.SetControllerReference(mgh, mergedGrafanaIniSecret, r.scheme); err != nil {
 		return false, err
 	}
@@ -534,13 +563,13 @@ func mergeGrafanaIni(defaultIni, customIni []byte) ([]byte, error) {
 	if len(customIni) == 0 {
 		return defaultIni, nil
 	}
-	defaultCfg, err := ini.Load(defaultIni)
+	defaultCfg, err := loadGrafanaIni(defaultIni)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load default grafana.ini: %w", err)
 	}
-	customCfg, err := ini.Load(customIni)
+	customCfg, err := loadGrafanaIni(customIni)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load custom grafana.ini: %w", err)
 	}
 
 	// delete sections from custom grafan.ini if the section exist in default grafana.ini
@@ -705,22 +734,91 @@ func (r *GrafanaReconciler) GenerateGrafanaDataSourceSecret(
 	return false, nil
 }
 
-func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken string) ([]byte, error) {
-	postgresURI := string(databaseURI)
-	objURI, err := url.Parse(postgresURI)
+type postgresConnectionParams struct {
+	host, user, password, database, sslMode string
+}
+
+// parsePostgresConnection extracts Grafana datasource fields from a PostgreSQL URI.
+// Parse errors use a fixed message so credentials in the URI cannot leak.
+func parsePostgresConnection(databaseURI string) (postgresConnectionParams, error) {
+	objURI, err := url.Parse(databaseURI)
 	if err != nil {
-		return nil, err
+		return postgresConnectionParams{}, fmt.Errorf("failed to parse postgres connection")
 	}
 	password, ok := objURI.User.Password()
 	if !ok {
-		return nil, fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
+		return postgresConnectionParams{}, fmt.Errorf("postgres connection is missing a password")
 	}
-
-	// get the database from the objURI
 	database := "hoh"
 	paths := strings.Split(objURI.Path, "/")
-	if len(paths) > 1 {
+	if len(paths) > 1 && paths[1] != "" {
 		database = paths[1]
+	}
+	return postgresConnectionParams{
+		host:     objURI.Host,
+		user:     objURI.User.Username(),
+		password: password,
+		database: database,
+		sslMode:  objURI.Query().Get("sslmode"),
+	}, nil
+}
+
+// injectGrafanaAdminPassword writes a stable admin_password into grafana.ini.
+func injectGrafanaAdminPassword(grafanaIni []byte) ([]byte, error) {
+	adminPassword, err := config.GetGrafanaAdminPassword()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get grafana admin password: %w", err)
+	}
+	cfg, err := loadGrafanaIni(grafanaIni)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load grafana.ini: %w", err)
+	}
+	sec, err := cfg.GetSection("security")
+	if err != nil {
+		sec, err = cfg.NewSection("security")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create grafana security section: %w", err)
+		}
+	}
+	sec.Key("admin_password").SetValue(adminPassword)
+	var buf bytes.Buffer
+	if _, err = cfg.WriteTo(&buf); err != nil {
+		return nil, fmt.Errorf("failed to serialize grafana.ini: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// adminPasswordFromGrafanaIni reads a previously persisted Grafana admin_password.
+func adminPasswordFromGrafanaIni(grafanaIni []byte) (string, error) {
+	if len(grafanaIni) == 0 {
+		return "", nil
+	}
+	cfg, err := loadGrafanaIni(grafanaIni)
+	if err != nil {
+		return "", err
+	}
+	sec, err := cfg.GetSection("security")
+	if err != nil {
+		return "", nil
+	}
+	return sec.Key("admin_password").String(), nil
+}
+
+// loadGrafanaIni parses grafana.ini without wrapping parser errors, which can
+// include file contents such as admin_password.
+func loadGrafanaIni(data []byte) (*ini.File, error) {
+	cfg, err := ini.Load(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load grafana.ini")
+	}
+	return cfg, nil
+}
+
+// GrafanaDataSource builds the Grafana datasource secret payload for PostgreSQL and optional Prometheus.
+func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken string) ([]byte, error) {
+	conn, err := parsePostgresConnection(databaseURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse grafana postgres connection: %w", err)
 	}
 
 	postgresDS := &GrafanaDatasource{
@@ -728,16 +826,16 @@ func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken stri
 		Type:      "postgres",
 		Access:    "proxy",
 		IsDefault: true,
-		URL:       objURI.Host,
-		User:      objURI.User.Username(),
-		Database:  database,
+		URL:       conn.host,
+		User:      conn.user,
+		Database:  conn.database,
 		Editable:  false,
 		JSONData: &JsonData{
 			QueryTimeout: "300s",
 			TimeInterval: "30s",
 		},
 		SecureJSONData: &SecureJsonData{
-			Password: password,
+			Password: conn.password,
 		},
 	}
 	datasource := []*GrafanaDatasource{postgresDS}
@@ -765,13 +863,20 @@ func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken stri
 	}
 
 	if len(cert) > 0 {
-		postgresDS.JSONData.SSLMode = objURI.Query().Get("sslmode") // sslmode == "verify-full" || sslmode == "verify-ca"
+		switch conn.sslMode {
+		case "verify-ca", "verify-full":
+		default:
+			return nil, fmt.Errorf(
+				"postgres sslmode must be verify-ca or verify-full when CA certificate is configured",
+			)
+		}
 		postgresDS.JSONData.TLSAuth = true
 		postgresDS.JSONData.TLSAuthWithCACert = true
-		postgresDS.JSONData.TLSSkipVerify = true
+		postgresDS.JSONData.TLSSkipVerify = false
 		postgresDS.JSONData.TLSConfigurationMethod = "file-content"
 		postgresDS.SecureJSONData.TLSCACert = string(cert)
 	}
+	postgresDS.JSONData.SSLMode = conn.sslMode
 	grafanaDatasources, err := yaml.Marshal(GrafanaDatasources{
 		APIVersion:  1,
 		Datasources: datasource,
