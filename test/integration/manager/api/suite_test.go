@@ -5,8 +5,10 @@ package nonk8sapi_test
 
 import (
 	"context"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -19,10 +21,11 @@ import (
 )
 
 var (
-	ctx            context.Context
-	cancel         context.CancelFunc
-	testPostgres   *testpostgres.TestPostgres
-	testAuthServer *httptest.Server
+	ctx                     context.Context
+	cancel                  context.CancelFunc
+	testPostgres            *testpostgres.TestPostgres
+	testAuthServer          *httptest.Server
+	testAuthServerCAPEMPath string
 )
 
 func TestNonK8sAPI(t *testing.T) {
@@ -42,7 +45,7 @@ var _ = BeforeSuite(func() {
 	err = testpostgres.InitDatabase(testPostgres.URI)
 	Expect(err).NotTo(HaveOccurred())
 
-	testAuthServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testAuthServer = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"kind": "User",
@@ -57,6 +60,20 @@ var _ = BeforeSuite(func() {
 			]
 		  }`))
 	}))
+
+	certDER := testAuthServer.TLS.Certificates[0].Certificate[0]
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	caFile, err := os.CreateTemp("", "cluster-api-ca-*.pem")
+	Expect(err).NotTo(HaveOccurred(), "cluster API CA temp file must be created for auth middleware tests")
+	DeferCleanup(func() {
+		Expect(os.Remove(caFile.Name())).To(Succeed())
+	})
+	_, err = caFile.Write(certPEM)
+	Expect(err).NotTo(HaveOccurred(), "cluster API CA certificate PEM must be written to temp file")
+	err = caFile.Close()
+	Expect(err).NotTo(HaveOccurred(), "cluster API CA temp file must be closed after write")
+	testAuthServerCAPEMPath = caFile.Name()
 })
 
 var _ = AfterSuite(func() {

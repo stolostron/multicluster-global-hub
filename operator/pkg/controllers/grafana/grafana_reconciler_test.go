@@ -2,11 +2,14 @@ package grafana
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/ini.v1"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -16,6 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -609,8 +613,120 @@ email = example@redhat.com
 			if sectionCount(tt.wantSecret.Data[grafanaIniKey]) == -1 || (sectionCount(mergedGrafanaIniSecret.Data[grafanaIniKey]) != sectionCount(tt.wantSecret.Data[grafanaIniKey])) {
 				t.Errorf("mergeGrafanaIni() = %v, want %v", sectionCount(mergedGrafanaIniSecret.Data[grafanaIniKey]), sectionCount(tt.wantSecret.Data[grafanaIniKey]))
 			}
+
+			// F003: generateGrafanaIni must inject a random admin password into grafana.ini.
+			iniCfg, err := ini.Load(mergedGrafanaIniSecret.Data[grafanaIniKey])
+			require.NoError(t, err, "merged grafana.ini must remain valid INI after reconciliation")
+			sec, err := iniCfg.GetSection("security")
+			require.NoError(t, err, "merged grafana.ini must retain a security section")
+			assert.NotEmpty(t, sec.Key("admin_password").String(),
+				"Grafana admin_password must be injected instead of default admin/admin")
 		})
 	}
+}
+
+func defaultGrafanaIniSecretForTest(namespace string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      defaultGrafanaIniName,
+			Labels: map[string]string{
+				"name": "multicluster-global-hub-grafana",
+			},
+		},
+		Data: map[string][]byte{
+			grafanaIniKey: []byte("[security]\nadmin_user = admin\n[server]\nhttp_port = 3001\n"),
+		},
+	}
+}
+
+// TestGenerateGrafanaIniPersistedSecretErrors verifies secret lookup failures do not mint a new password.
+func TestGenerateGrafanaIniPersistedSecretErrors(t *testing.T) {
+	configNamespace := utils.GetDefaultNamespace()
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: configNamespace,
+		},
+		Spec: v1alpha4.MulticlusterGlobalHubSpec{},
+	}
+
+	t.Run("merged secret lookup failure", func(t *testing.T) {
+		require.NoError(t, v1alpha4.AddToScheme(scheme.Scheme),
+			"operator scheme registration must succeed before fake client setup")
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme.Scheme).
+			WithRuntimeObjects(defaultGrafanaIniSecretForTest(configNamespace)).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Get: func(
+					ctx context.Context,
+					c client.WithWatch,
+					key client.ObjectKey,
+					obj client.Object,
+					opts ...client.GetOption,
+				) error {
+					if key.Name == mergedGrafanaIniName {
+						return fmt.Errorf("simulated merged grafana.ini lookup failure")
+					}
+					return c.Get(ctx, key, obj, opts...)
+				},
+			}).
+			Build()
+
+		r := &GrafanaReconciler{
+			client: fakeClient,
+			scheme: scheme.Scheme,
+		}
+
+		_, err := r.generateGrafanaIni(context.Background(), mgh)
+		require.Error(t, err, "merged grafana.ini lookup failures must abort reconciliation")
+		assert.Contains(t, err.Error(), "failed to get merged grafana.ini secret",
+			"lookup failures must identify the persisted Grafana secret")
+	})
+
+	t.Run("invalid persisted grafana.ini", func(t *testing.T) {
+		require.NoError(t, v1alpha4.AddToScheme(scheme.Scheme),
+			"operator scheme registration must succeed before fake client setup")
+		existingMerged := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: configNamespace,
+				Name:      mergedGrafanaIniName,
+			},
+			Data: map[string][]byte{
+				grafanaIniKey: []byte("[security]\nadmin_password = leaked-secret\n[[[broken"),
+			},
+		}
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme.Scheme).
+			WithRuntimeObjects(
+				defaultGrafanaIniSecretForTest(configNamespace),
+				existingMerged,
+			).
+			Build()
+
+		r := &GrafanaReconciler{
+			client: fakeClient,
+			scheme: scheme.Scheme,
+		}
+
+		_, err := r.generateGrafanaIni(context.Background(), mgh)
+		require.Error(t, err, "invalid persisted grafana.ini must abort reconciliation")
+		assert.Contains(t, err.Error(), "failed to parse persisted grafana.ini",
+			"persisted INI parse failures must not rotate the Grafana admin password")
+		assert.NotContains(t, err.Error(), "leaked-secret",
+			"INI parse errors must not include grafana.ini contents")
+		assert.NotContains(t, err.Error(), "[[[broken",
+			"INI parse errors must not include parser details from grafana.ini")
+
+		unchanged := &corev1.Secret{}
+		require.NoError(t, fakeClient.Get(
+			context.Background(),
+			client.ObjectKeyFromObject(existingMerged),
+			unchanged,
+		), "failed reconciliation must still leave the persisted grafana.ini secret readable")
+		assert.Equal(t, existingMerged.Data[grafanaIniKey], unchanged.Data[grafanaIniKey],
+			"failed reconciliation must not overwrite the persisted grafana.ini secret")
+	})
 }
 
 func TestMergeGrafanaIni(t *testing.T) {
@@ -917,4 +1033,195 @@ func sectionCount(a []byte) int {
 	}
 	// By Default, There is a DEFAULT section, should not count it
 	return len(cfg.Sections()) - 1
+}
+
+// TestAdminPasswordFromGrafanaIni verifies persisted password restore and INI error redaction.
+func TestAdminPasswordFromGrafanaIni(t *testing.T) {
+	t.Run("reads persisted password", func(t *testing.T) {
+		password, err := adminPasswordFromGrafanaIni([]byte("[security]\nadmin_password = cached\n"))
+		require.NoError(t, err, "valid persisted grafana.ini must parse")
+		assert.Equal(t, "cached", password, "persisted Grafana admin password must be restored")
+	})
+
+	t.Run("invalid ini", func(t *testing.T) {
+		_, err := adminPasswordFromGrafanaIni([]byte("[security]\nadmin_password = leaked-secret\n[[[broken"))
+		require.Error(t, err, "invalid persisted grafana.ini must be rejected")
+		assert.Equal(t, "failed to load grafana.ini", err.Error(),
+			"INI parse failures must use a fixed message without parser details")
+		assert.NotContains(t, err.Error(), "leaked-secret",
+			"INI parse errors must not include grafana.ini contents")
+	})
+}
+
+// TestInjectGrafanaAdminPassword verifies admin_password injection and INI error redaction.
+func TestInjectGrafanaAdminPassword(t *testing.T) {
+	t.Run("sets password in existing security section", func(t *testing.T) {
+		merged, err := injectGrafanaAdminPassword([]byte("[security]\nadmin_user = admin\n"))
+		require.NoError(t, err, "valid grafana.ini must accept admin password injection")
+
+		cfg, err := ini.Load(merged)
+		require.NoError(t, err, "injected grafana.ini must remain valid INI")
+
+		sec, err := cfg.GetSection("security")
+		require.NoError(t, err, "injected grafana.ini must keep a security section")
+		assert.NotEmpty(t, sec.Key("admin_password").String(),
+			"Grafana admin_password must be injected into an existing security section")
+	})
+
+	t.Run("creates security section when missing", func(t *testing.T) {
+		merged, err := injectGrafanaAdminPassword([]byte("[server]\nhttp_port = 3001\n"))
+		require.NoError(t, err, "grafana.ini without security must accept admin password injection")
+
+		cfg, err := ini.Load(merged)
+		require.NoError(t, err, "injected grafana.ini must remain valid INI")
+
+		sec, err := cfg.GetSection("security")
+		require.NoError(t, err, "injection must create a security section")
+		assert.NotEmpty(t, sec.Key("admin_password").String(),
+			"Grafana admin_password must be injected when the security section is missing")
+	})
+
+	t.Run("invalid ini does not leak contents", func(t *testing.T) {
+		_, err := injectGrafanaAdminPassword([]byte("[security]\nadmin_password = leaked-secret\n[[[broken"))
+		require.Error(t, err, "invalid grafana.ini must be rejected before password injection")
+		assert.Contains(t, err.Error(), "failed to load grafana.ini",
+			"INI parse failures must use a fixed message without parser details")
+		assert.NotContains(t, err.Error(), "leaked-secret",
+			"INI parse errors must not include grafana.ini contents")
+	})
+}
+
+// F004: postgres connection parsing must not echo credentials in errors.
+func TestParsePostgresConnection(t *testing.T) {
+	tests := []struct {
+		name    string
+		uri     string
+		want    postgresConnectionParams
+		wantErr bool
+	}{
+		{
+			name: "valid uri",
+			uri:  "postgresql://grafana:secret@pg.example:5432/mydb?sslmode=verify-full",
+			want: postgresConnectionParams{
+				host: "pg.example:5432", user: "grafana", password: "secret",
+				database: "mydb", sslMode: "verify-full",
+			},
+		},
+		{
+			name: "default database",
+			uri:  "postgresql://grafana:secret@pg.example:5432",
+			want: postgresConnectionParams{
+				host: "pg.example:5432", user: "grafana", password: "secret", database: "hoh",
+			},
+		},
+		{
+			name: "trailing slash keeps default database",
+			uri:  "postgresql://grafana:secret@pg.example:5432/",
+			want: postgresConnectionParams{
+				host: "pg.example:5432", user: "grafana", password: "secret", database: "hoh",
+			},
+		},
+		{
+			name:    "missing password",
+			uri:     "postgresql://grafana@pg.example:5432/mydb",
+			wantErr: true,
+		},
+		{
+			name:    "empty password",
+			uri:     "postgresql://grafana:@pg.example:5432/mydb",
+			wantErr: true,
+		},
+		{
+			name:    "invalid uri",
+			uri:     "://bad-uri",
+			wantErr: true,
+		},
+		{
+			name:    "malformed uri with password",
+			uri:     "postgresql://grafana:secret-password%zz@db.example:5432/hoh",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parsePostgresConnection(tt.uri)
+			if tt.wantErr {
+				require.Error(t, err, "invalid postgres URI %q must be rejected", tt.name)
+				assert.NotContains(t, err.Error(), "postgresql://",
+					"parse errors must not expose the raw PostgreSQL URI")
+				assert.NotContains(t, err.Error(), "secret-password",
+					"parse errors must not expose the PostgreSQL password")
+				return
+			}
+			require.NoError(t, err, "valid postgres URI %q must parse", tt.name)
+			assert.Equal(t, tt.want, got, "parsed postgres connection fields must match")
+		})
+	}
+}
+
+// F002: Grafana Postgres datasource must verify TLS when a CA cert is configured.
+func TestGrafanaDataSource(t *testing.T) {
+	uri := "postgresql://grafana:secret@pg.example:5432/mydb?sslmode=verify-full"
+
+	t.Run("without cert", func(t *testing.T) {
+		raw, err := GrafanaDataSource(uri, nil, "")
+		require.NoError(t, err, "datasource generation without CA must succeed")
+
+		var datasources GrafanaDatasources
+		require.NoError(t, yaml.Unmarshal(raw, &datasources), "datasource YAML must unmarshal")
+		require.Len(t, datasources.Datasources, 1, "postgres datasource must be present")
+		assert.Equal(t, "Global-Hub-DataSource", datasources.Datasources[0].Name,
+			"postgres datasource name must match")
+		require.NotNil(t, datasources.Datasources[0].JSONData, "postgres JSONData must be set")
+		assert.Equal(t, "mydb", datasources.Datasources[0].Database,
+			"postgres database name must come from the URI")
+	})
+
+	t.Run("with cert", func(t *testing.T) {
+		raw, err := GrafanaDataSource(uri, []byte("ca-cert"), "")
+		require.NoError(t, err, "datasource generation with CA must succeed")
+
+		var datasources GrafanaDatasources
+		require.NoError(t, yaml.Unmarshal(raw, &datasources), "datasource YAML must unmarshal")
+		require.Len(t, datasources.Datasources, 1, "postgres datasource must be present")
+
+		ds := datasources.Datasources[0]
+		require.NotNil(t, ds.JSONData, "postgres JSONData must be set")
+		assert.Equal(t, "verify-full", ds.JSONData.SSLMode,
+			"CA-backed datasource must keep a verifying sslmode")
+		assert.True(t, ds.JSONData.TLSAuth, "CA-backed datasource must enable TLS auth")
+		assert.True(t, ds.JSONData.TLSAuthWithCACert, "CA-backed datasource must attach the CA cert")
+		assert.False(t, ds.JSONData.TLSSkipVerify, "CA-backed datasource must not skip TLS verify")
+		assert.NotEmpty(t, ds.SecureJSONData.TLSCACert, "CA-backed datasource must store the CA cert")
+	})
+
+	t.Run("with cert rejects require sslmode", func(t *testing.T) {
+		uriRequire := "postgresql://grafana:secret@pg.example:5432/mydb?sslmode=require"
+		_, err := GrafanaDataSource(uriRequire, []byte("ca-cert"), "")
+		require.Error(t, err, "sslmode=require must be rejected when a CA certificate is configured")
+		assert.Contains(t, err.Error(), "verify-ca or verify-full",
+			"the error must require a certificate-verifying sslmode")
+	})
+
+	t.Run("with cert rejects disable sslmode", func(t *testing.T) {
+		uriDisable := "postgresql://grafana:secret@pg.example:5432/mydb?sslmode=disable"
+		_, err := GrafanaDataSource(uriDisable, []byte("ca-cert"), "")
+		require.Error(t, err, "sslmode=disable must be rejected when a CA certificate is configured")
+		assert.Contains(t, err.Error(), "verify-ca or verify-full",
+			"the error must require a certificate-verifying sslmode")
+	})
+
+	t.Run("with service account token", func(t *testing.T) {
+		raw, err := GrafanaDataSource(uri, nil, "token")
+		require.NoError(t, err, "datasource generation with a service account token must succeed")
+
+		var datasources GrafanaDatasources
+		require.NoError(t, yaml.Unmarshal(raw, &datasources), "datasource YAML must unmarshal")
+		require.Len(t, datasources.Datasources, 2, "prometheus datasource must be appended")
+		assert.Equal(t, "Prometheus", datasources.Datasources[1].Name,
+			"second datasource must be Prometheus")
+		assert.Equal(t, "Bearer token", datasources.Datasources[1].SecureJSONData.HttpHeaderValue1,
+			"prometheus datasource must use the bearer token header")
+	})
 }

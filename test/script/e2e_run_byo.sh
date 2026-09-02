@@ -84,7 +84,12 @@ kubectl create secret generic "$transport_secret" -n "${target_namespace}" --kub
 echo "transport secret is ready in ${target_namespace} namespace!"
 
 ## run e2e
-bash "$CURRENT_DIR/e2e_run.sh" -n "${target_namespace}" -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-transport-byo,e2e-test-local-agent"
+# transport-byo mutates per-hub Kafka bootstrap (fake marker, identical-cert
+# secrets). Ginkgo randomizes Describe order in a single process, so those
+# mutations can leak into localpolicy if transport-byo runs first. Keep it in
+# a separate invocation after the other BYO suites.
+bash "$CURRENT_DIR/e2e_run.sh" -n "${target_namespace}" -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
+bash "$CURRENT_DIR/e2e_run.sh" -n "${target_namespace}" -f "e2e-test-transport-byo"
 
 # Clean up BYO namespace before transport suites. The operator only reconciles when exactly
 # one MulticlusterGlobalHub exists cluster-wide; leaving the mgh operand blocks transport-identity.
