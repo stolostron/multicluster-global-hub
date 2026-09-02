@@ -64,4 +64,25 @@ func TestCompletePostgres(t *testing.T) {
 		assert.Equal(t, caPath, got.Query().Get("sslrootcert"),
 			"verify-full must attach sslrootcert when a CA path is configured")
 	})
+
+	t.Run("require sslmode is preserved without a CA", func(t *testing.T) {
+		got, err := completePostgres(
+			"postgres://user:secret@localhost:5432/hoh?sslmode=require", "")
+		require.NoError(t, err, "require URI without a CA must parse")
+		require.NotNil(t, got, "parsed postgres URI must be returned")
+		assert.Equal(t, "require", got.Query().Get("sslmode"),
+			"explicit require must not be rewritten to disable")
+		assert.Equal(t, []string{"require"}, got.Query()["sslmode"],
+			"sslmode must not be duplicated with disable")
+		assert.Empty(t, got.Query().Get("sslrootcert"),
+			"require without a CA must not set sslrootcert")
+	})
+
+	t.Run("missing sslmode defaults to disable", func(t *testing.T) {
+		got, err := completePostgres("postgres://user:secret@localhost:5432/hoh", "")
+		require.NoError(t, err, "URI without sslmode must parse")
+		require.NotNil(t, got, "parsed postgres URI must be returned")
+		assert.Equal(t, "disable", got.Query().Get("sslmode"),
+			"unset sslmode must default to disable")
+	})
 }

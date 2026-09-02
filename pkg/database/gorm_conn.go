@@ -172,7 +172,6 @@ func completePostgres(postgresUri string, caCertPath string) (*url.URL, error) {
 	if err != nil {
 		return nil, errParseDatabaseURI
 	}
-	// only support verify-ca, verify-full, or disable(for test)
 	query := urlObj.Query()
 	sslmode := query.Get("sslmode")
 	_, caOK := utils.Validate(caCertPath)
@@ -181,6 +180,10 @@ func completePostgres(postgresUri string, caCertPath string) (*url.URL, error) {
 		if caOK {
 			query.Set("sslrootcert", caCertPath)
 		}
+	case "require", "prefer", "allow", "disable":
+		// Keep the requested mode. BYO e2e rewrites verify-ca to require so the
+		// test client can connect without a local CA file; forcing disable then
+		// fails against TLS-only postgres (no pg_hba entry for "no encryption").
 	default:
 		query.Set("sslmode", "disable")
 	}
