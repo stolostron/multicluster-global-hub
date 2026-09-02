@@ -565,11 +565,11 @@ func mergeGrafanaIni(defaultIni, customIni []byte) ([]byte, error) {
 	}
 	defaultCfg, err := loadGrafanaIni(defaultIni)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load default grafana.ini: %w", err)
 	}
 	customCfg, err := loadGrafanaIni(customIni)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load custom grafana.ini: %w", err)
 	}
 
 	// delete sections from custom grafan.ini if the section exist in default grafana.ini
@@ -745,8 +745,11 @@ func parsePostgresConnection(databaseURI string) (postgresConnectionParams, erro
 	if err != nil {
 		return postgresConnectionParams{}, fmt.Errorf("failed to parse postgres connection")
 	}
+	if objURI.User == nil {
+		return postgresConnectionParams{}, fmt.Errorf("postgres connection is missing a password")
+	}
 	password, ok := objURI.User.Password()
-	if !ok {
+	if !ok || password == "" {
 		return postgresConnectionParams{}, fmt.Errorf("postgres connection is missing a password")
 	}
 	database := "hoh"
@@ -767,11 +770,11 @@ func parsePostgresConnection(databaseURI string) (postgresConnectionParams, erro
 func injectGrafanaAdminPassword(grafanaIni []byte) ([]byte, error) {
 	adminPassword, err := config.GetGrafanaAdminPassword()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get grafana admin password: %w", err)
 	}
 	cfg, err := loadGrafanaIni(grafanaIni)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load grafana.ini: %w", err)
 	}
 	sec, err := cfg.GetSection("security")
 	if err != nil {
@@ -818,7 +821,7 @@ func loadGrafanaIni(data []byte) (*ini.File, error) {
 func GrafanaDataSource(databaseURI string, cert []byte, serviceAccountToken string) ([]byte, error) {
 	conn, err := parsePostgresConnection(databaseURI)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse grafana postgres connection: %w", err)
 	}
 
 	postgresDS := &GrafanaDatasource{

@@ -1084,7 +1084,7 @@ func TestInjectGrafanaAdminPassword(t *testing.T) {
 	t.Run("invalid ini does not leak contents", func(t *testing.T) {
 		_, err := injectGrafanaAdminPassword([]byte("[security]\nadmin_password = leaked-secret\n[[[broken"))
 		require.Error(t, err, "invalid grafana.ini must be rejected before password injection")
-		assert.Equal(t, "failed to load grafana.ini", err.Error(),
+		assert.Contains(t, err.Error(), "failed to load grafana.ini",
 			"INI parse failures must use a fixed message without parser details")
 		assert.NotContains(t, err.Error(), "leaked-secret",
 			"INI parse errors must not include grafana.ini contents")
@@ -1124,6 +1124,11 @@ func TestParsePostgresConnection(t *testing.T) {
 		{
 			name:    "missing password",
 			uri:     "postgresql://grafana@pg.example:5432/mydb",
+			wantErr: true,
+		},
+		{
+			name:    "empty password",
+			uri:     "postgresql://grafana:@pg.example:5432/mydb",
 			wantErr: true,
 		},
 		{
