@@ -182,16 +182,17 @@ func (r *spiceDBClusterReconciler) reconcileStorageSecret(ctx context.Context,
 	pgConn *config.PostgresConnection,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
-	pgConfig, err := pgx.ParseConfig(pgConn.SuperuserDatabaseURI)
+	pgConfig, err := spiceDBPostgresConfig(pgConn.SuperuserDatabaseURI)
 	if err != nil {
-		return fmt.Errorf("failed to parse database uri: %w", err)
+		return fmt.Errorf("failed to parse spicedb database uri: %w", err)
 	}
 
-	// Refer https://github.com/authzed/spicedb-operator/blob/main/examples/cockroachdb-tls-ingress/spicedb/spicedb.yaml
+	// See authzed/spicedb-operator cockroachdb-tls-ingress example for datastore URI shape.
 	// TODO: Currently using the 'disable' method to establish the connection.
 	// Other methods have not been validated. GH itself uses `required-ca`,
 	// so we might need to update both to support `verify-full`.
-	pgURI := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+	pgURI := fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		url.QueryEscape(pgConfig.User),
 		url.QueryEscape(pgConfig.Password),
 		pgConfig.Host,
@@ -233,6 +234,15 @@ func (r *spiceDBClusterReconciler) reconcileStorageSecret(ctx context.Context,
 		}
 	}
 	return nil
+}
+
+// spiceDBPostgresConfig parses the storage URI without exposing credentials in parse errors.
+func spiceDBPostgresConfig(databaseURI string) (*pgx.ConnConfig, error) {
+	pgConfig, err := pgx.ParseConfig(databaseURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database uri")
+	}
+	return pgConfig, nil
 }
 
 func (r *spiceDBClusterReconciler) reconcileSpiceDBCluster(ctx context.Context,

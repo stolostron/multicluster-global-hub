@@ -45,15 +45,14 @@ type restApiServer struct {
 }
 
 func readCertificateAuthority(nonK8sAPIServerConfig *RestApiServerConfig) ([]byte, error) {
-	var clusterAPICABundle []byte
+	if nonK8sAPIServerConfig.ClusterAPICABundlePath == "" {
+		return nil, nil
+	}
 
-	if nonK8sAPIServerConfig.ClusterAPICABundlePath != "" {
-		clusterAPICABundle, err := os.ReadFile(nonK8sAPIServerConfig.ClusterAPICABundlePath)
-		if err != nil {
-			return clusterAPICABundle,
-				fmt.Errorf("%w: %s", errFailedToLoadCertificate,
-					nonK8sAPIServerConfig.ClusterAPICABundlePath)
-		}
+	clusterAPICABundle, err := os.ReadFile(nonK8sAPIServerConfig.ClusterAPICABundlePath)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", errFailedToLoadCertificate,
+			nonK8sAPIServerConfig.ClusterAPICABundlePath)
 	}
 
 	return clusterAPICABundle, nil
