@@ -60,7 +60,7 @@ var _ = Describe("spicedb", Ordered, func() {
 
 		// storage
 		_ = config.SetStorageConnection(&config.PostgresConnection{
-			SuperuserDatabaseURI: "postgresql://:@multicluster-global-hub-postgresql.multicluster-global-hub.svc:5432/hoh",
+			SuperuserDatabaseURI: "postgresql://testuser:testpassword@multicluster-global-hub-postgresql.multicluster-global-hub.svc:5432/hoh",
 			CACert:               []byte("test-crt"),
 		})
 

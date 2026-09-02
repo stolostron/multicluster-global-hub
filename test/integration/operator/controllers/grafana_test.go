@@ -6,6 +6,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/ini.v1"
+	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,36 +43,92 @@ var _ = Describe("grafana", Ordered, func() {
 				EnableMetrics: true,
 			},
 		}
-		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
-		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
+		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed(), "test MulticlusterGlobalHub must be created")
+		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed(),
+			"created MulticlusterGlobalHub must be readable")
+		previousConn := config.GetStorageConnection()
+		previousReady := config.GetDatabaseReady()
+		DeferCleanup(func() {
+			_ = config.SetStorageConnection(previousConn)
+			config.SetDatabaseReady(previousReady)
+		})
+		Expect(config.SetStorageConnection(&config.PostgresConnection{
+			SuperuserDatabaseURI:    "postgresql://testuser:testpassword@localhost:5432/testdb?sslmode=verify-full",
+			ReadonlyUserDatabaseURI: "postgresql://testuser:testpassword@localhost:5432/testdb?sslmode=verify-full",
+			CACert:                  []byte("test-crt"),
+		})).To(BeTrue(), "set storage configuration for Grafana TLS validation")
+		config.SetDatabaseReady(true)
+		Expect(grafana.NewGrafanaReconciler(runtimeManager, kubeClient).SetupWithManager(runtimeManager)).
+			To(Succeed(), "Grafana reconciler must register with the test manager")
 	})
 
 	It("should generate the grafana resources", func() {
-		// storage
-		_ = config.SetStorageConnection(&config.PostgresConnection{
-			SuperuserDatabaseURI:    "postgresql://testuser:testpassword@localhost:5432/testdb?sslmode=disable",
-			ReadonlyUserDatabaseURI: "postgresql://testuser:testpassword@localhost:5432/testdb?sslmode=disable",
-			CACert:                  []byte("test-crt"),
-		})
-		config.SetDatabaseReady(true)
-
-		grafanaReconciler := grafana.NewGrafanaReconciler(runtimeManager, kubeClient)
-
-		err := grafanaReconciler.SetupWithManager(runtimeManager)
-		Expect(err).To(Succeed())
-
-		// deployment
 		Eventually(func() error {
 			deployment := &appsv1.Deployment{}
-			err = runtimeClient.Get(ctx, types.NamespacedName{
+			if err := runtimeClient.Get(ctx, types.NamespacedName{
 				Name:      "multicluster-global-hub-grafana",
 				Namespace: mgh.Namespace,
-			}, deployment)
-			if err != nil {
+			}, deployment); err != nil {
 				return err
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("should configure postgres datasource TLS verification", func() {
+		Eventually(func() error {
+			dsSecret := &corev1.Secret{}
+			if err := runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      "multicluster-global-hub-grafana-datasources",
+				Namespace: mgh.Namespace,
+			}, dsSecret); err != nil {
+				return err
+			}
+			var datasources grafana.GrafanaDatasources
+			if err := yaml.Unmarshal(dsSecret.Data["datasources.yaml"], &datasources); err != nil {
+				return err
+			}
+			if len(datasources.Datasources) == 0 || datasources.Datasources[0].JSONData == nil {
+				return fmt.Errorf("grafana datasource not ready")
+			}
+			ds := datasources.Datasources[0]
+			if ds.JSONData.TLSSkipVerify {
+				return fmt.Errorf("expected postgres datasource TLS verification enabled")
+			}
+			if ds.JSONData.SSLMode != "verify-full" {
+				return fmt.Errorf("expected sslmode verify-full, got %q", ds.JSONData.SSLMode)
+			}
+			if !ds.JSONData.TLSAuth || !ds.JSONData.TLSAuthWithCACert {
+				return fmt.Errorf("expected TLS auth flags enabled on postgres datasource")
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed(),
+			"Grafana Postgres datasource must become TLS-verified")
+	})
+
+	It("should inject a grafana admin password", func() {
+		Eventually(func() error {
+			iniSecret := &corev1.Secret{}
+			if err := runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      "multicluster-global-hub-grafana-config",
+				Namespace: mgh.Namespace,
+			}, iniSecret); err != nil {
+				return err
+			}
+			cfg, err := ini.Load(iniSecret.Data["grafana.ini"])
+			if err != nil {
+				return err
+			}
+			sec, err := cfg.GetSection("security")
+			if err != nil {
+				return err
+			}
+			if sec.Key("admin_password").String() == "" {
+				return fmt.Errorf("grafana admin_password not set")
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed(),
+			"Grafana config secret must contain an admin password")
 	})
 
 	AfterAll(func() {
@@ -84,6 +142,7 @@ var _ = Describe("grafana", Ordered, func() {
 	})
 })
 
+// deleteNamespace removes the test namespace created for Grafana integration coverage.
 func deleteNamespace(name string) error {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
