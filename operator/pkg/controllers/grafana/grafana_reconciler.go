@@ -745,8 +745,11 @@ func parsePostgresConnection(databaseURI string) (postgresConnectionParams, erro
 	if err != nil {
 		return postgresConnectionParams{}, fmt.Errorf("failed to parse postgres connection")
 	}
+	if objURI.User == nil {
+		return postgresConnectionParams{}, fmt.Errorf("postgres connection is missing a password")
+	}
 	password, ok := objURI.User.Password()
-	if !ok {
+	if !ok || password == "" {
 		return postgresConnectionParams{}, fmt.Errorf("postgres connection is missing a password")
 	}
 	database := "hoh"

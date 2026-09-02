@@ -60,7 +60,7 @@ func createClient(clusterAPICABundle []byte) (*http.Client, error) {
 	rootCAs := x509.NewCertPool()
 	if ok := rootCAs.AppendCertsFromPEM(clusterAPICABundle); !ok {
 		authLog.Errorw("unable to append cluster API CA bundle")
-		return nil, fmt.Errorf("unable to append cluster API CA Bundle %w", errUnableToAppendCABundle)
+		return nil, fmt.Errorf("unable to append cluster API CA bundle: %w", errUnableToAppendCABundle)
 	}
 
 	tlsConfig := &tls.Config{

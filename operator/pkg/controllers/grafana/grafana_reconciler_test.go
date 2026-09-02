@@ -1127,6 +1127,11 @@ func TestParsePostgresConnection(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "empty password",
+			uri:     "postgresql://grafana:@pg.example:5432/mydb",
+			wantErr: true,
+		},
+		{
 			name:    "invalid uri",
 			uri:     "://bad-uri",
 			wantErr: true,

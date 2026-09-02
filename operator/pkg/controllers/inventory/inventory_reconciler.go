@@ -360,6 +360,9 @@ func parsePostgresURI(raw string) (*url.URL, error) {
 
 // postgresPasswordFromURI returns the URI password without echoing the connection string on error.
 func postgresPasswordFromURI(postgresURI *url.URL) (string, error) {
+	if postgresURI.User == nil {
+		return "", fmt.Errorf("postgres connection is missing a password")
+	}
 	password, ok := postgresURI.User.Password()
 	if !ok {
 		return "", fmt.Errorf("postgres connection is missing a password")

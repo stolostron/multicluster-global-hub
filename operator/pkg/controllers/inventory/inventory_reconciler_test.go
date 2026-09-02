@@ -47,6 +47,19 @@ func TestPostgresPasswordFromURI(t *testing.T) {
 		assert.NotContains(t, err.Error(), "inventory@",
 			"postgres errors must not echo the database username")
 	})
+
+	t.Run("missing userinfo does not panic", func(t *testing.T) {
+		uri, err := url.Parse("postgresql://postgres.example:5432/hoh")
+		require.NoError(t, err, "test URI must parse for missing-userinfo coverage")
+		require.Nil(t, uri.User, "fixture URI must have no userinfo")
+
+		_, err = postgresPasswordFromURI(uri)
+		require.Error(t, err, "inventory URI without userinfo must be rejected")
+		assert.Equal(t, "postgres connection is missing a password", err.Error(),
+			"missing-userinfo errors must use a stable message")
+		assert.NotContains(t, err.Error(), "postgresql://",
+			"postgres errors must not echo the raw connection URI")
+	})
 }
 
 // TestParsePostgresURI verifies URI parse failures do not leak credentials.
