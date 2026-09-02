@@ -127,6 +127,45 @@ func TestGetOauthSessionSecret(t *testing.T) {
 	}
 }
 
+// TestGetGrafanaAdminPassword verifies a stable generated Grafana admin password.
+func TestGetGrafanaAdminPassword(t *testing.T) {
+	previous := grafanaAdminPassword
+	grafanaAdminPassword = ""
+	t.Cleanup(func() {
+		grafanaAdminPassword = previous
+	})
+	password1, err := GetGrafanaAdminPassword()
+	if err != nil {
+		t.Fatalf("failed to get grafana admin password: %v", err)
+	}
+	password2, err := GetGrafanaAdminPassword()
+	if err != nil {
+		t.Fatalf("failed to get grafana admin password: %v", err)
+	}
+	if password1 == "" {
+		t.Fatalf("grafana admin password should not be empty")
+	}
+	if password1 != password2 {
+		t.Fatalf("grafana admin password is not consistent")
+	}
+}
+
+// TestSeedGrafanaAdminPassword verifies persisted Grafana admin passwords are reused.
+func TestSeedGrafanaAdminPassword(t *testing.T) {
+	previous := grafanaAdminPassword
+	t.Cleanup(func() {
+		grafanaAdminPassword = previous
+	})
+	SeedGrafanaAdminPassword("persisted-password")
+	password, err := GetGrafanaAdminPassword()
+	if err != nil {
+		t.Fatalf("failed to get grafana admin password: %v", err)
+	}
+	if password != "persisted-password" {
+		t.Fatal("seeded Grafana admin password should be reused")
+	}
+}
+
 func TestSetMulticlusterGlobalHubConfig(t *testing.T) {
 	oauthImage := "quay.io/testing/origin-oauth-proxy:4.9"
 	mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{
