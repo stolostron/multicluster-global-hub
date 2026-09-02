@@ -19,10 +19,11 @@ import (
 func TestGenerateConsumer(t *testing.T) {
 	consumer, err := NewGenericConsumer(true, false)
 	if err != nil {
-		t.Errorf("failed to generate consumer - %v", err)
+		t.Fatalf("failed to generate consumer - %v", err)
 	}
 	if consumer == nil {
 		t.Fatal("consumer should not be nil")
+		return
 	}
 	if consumer.eventChan == nil {
 		t.Fatal("eventChan should be initialized")
