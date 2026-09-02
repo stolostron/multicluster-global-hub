@@ -73,9 +73,10 @@ const (
 )
 
 var (
-	mghNamespacedName  = types.NamespacedName{}
-	oauthSessionSecret = ""
-	imageOverrides     = map[string]string{
+	mghNamespacedName    = types.NamespacedName{}
+	oauthSessionSecret   = ""
+	grafanaAdminPassword = ""
+	imageOverrides       = map[string]string{
 		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
@@ -119,6 +120,28 @@ func GetOauthSessionSecret() (string, error) {
 		oauthSessionSecret = base64.StdEncoding.EncodeToString(b)
 	}
 	return oauthSessionSecret, nil
+}
+
+// GetGrafanaAdminPassword returns a stable random Grafana admin password for this operator process.
+// Grafana defaults to admin/admin when admin_password is unset in grafana.ini.
+func GetGrafanaAdminPassword() (string, error) {
+	if grafanaAdminPassword == "" {
+		b := make([]byte, 24)
+		_, err := rand.Read(b)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate grafana admin password: %w", err)
+		}
+		grafanaAdminPassword = base64.StdEncoding.EncodeToString(b)
+	}
+	return grafanaAdminPassword, nil
+}
+
+// SeedGrafanaAdminPassword restores a previously persisted Grafana admin password, for example
+// from the merged grafana.ini secret after an operator restart.
+func SeedGrafanaAdminPassword(password string) {
+	if password != "" {
+		grafanaAdminPassword = password
+	}
 }
 
 var MGHPred = predicate.Funcs{

@@ -204,14 +204,14 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	postgresURI, err := url.Parse(string(storageConn.SuperuserDatabaseURI))
+	postgresURI, err := parsePostgresURI(string(storageConn.SuperuserDatabaseURI))
 	if err != nil {
 		reconcileErr = err
 		return ctrl.Result{}, reconcileErr
 	}
-	postgresPassword, ok := postgresURI.User.Password()
-	if !ok {
-		reconcileErr = fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
+	postgresPassword, err := postgresPasswordFromURI(postgresURI)
+	if err != nil {
+		reconcileErr = fmt.Errorf("failed to extract postgres password: %w", err)
 		return ctrl.Result{}, reconcileErr
 	}
 
@@ -347,4 +347,23 @@ func createUpdateInventoryRoute(ctx context.Context, c client.Client,
 	}
 
 	return nil
+}
+
+// parsePostgresURI parses a PostgreSQL URI without returning parser details that can include the password.
+func parsePostgresURI(raw string) (*url.URL, error) {
+	postgresURI, err := url.Parse(raw)
+	if err != nil {
+		// url.Parse errors include the raw URI, which can contain the password.
+		return nil, fmt.Errorf("failed to parse postgres connection")
+	}
+	return postgresURI, nil
+}
+
+// postgresPasswordFromURI returns the URI password without echoing the connection string on error.
+func postgresPasswordFromURI(postgresURI *url.URL) (string, error) {
+	password, ok := postgresURI.User.Password()
+	if !ok {
+		return "", fmt.Errorf("postgres connection is missing a password")
+	}
+	return password, nil
 }
