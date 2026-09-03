@@ -311,6 +311,98 @@ func TestConfirmDeployLabelAbsent(t *testing.T) {
 	}
 }
 
+// TestExpectedManagedClusterAddon_RegionalHubSkipsHubRoleAnnotation verifies ACM-42804 fix: when a
+// regional hub (identified by addon.open-cluster-management.io/on-multicluster-hub=true) has the
+// hub-role label, expectedManagedClusterAddon must NOT copy it to the addon annotations to prevent
+// triggering addon recreation.
+//
+//	go test -run ^TestExpectedManagedClusterAddon_RegionalHubSkipsHubRoleAnnotation$ \
+//	  github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon
+func TestExpectedManagedClusterAddon_RegionalHubSkipsHubRoleAnnotation(t *testing.T) {
+	tests := []struct {
+		name                      string
+		cluster                   *v1.ManagedCluster
+		expectHubRoleInAnnotation bool
+	}{
+		{
+			name: "regular managed cluster with hub-role label -> annotation added",
+			cluster: &v1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "regular-cluster",
+					Labels: map[string]string{
+						constants.GHHubRoleLabelKey: constants.GHHubRoleActive,
+					},
+				},
+			},
+			expectHubRoleInAnnotation: true,
+		},
+		{
+			name: "regional hub with hub-role label -> annotation skipped (ACM-42804)",
+			cluster: &v1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "regional-hub",
+					Labels: map[string]string{
+						constants.GHHubRoleLabelKey: constants.GHHubRoleActive,
+					},
+					Annotations: map[string]string{
+						constants.AnnotationONMulticlusterHub: "true",
+					},
+				},
+			},
+			expectHubRoleInAnnotation: false,
+		},
+		{
+			name: "regional hub without hub-role label -> no annotation",
+			cluster: &v1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "regional-hub-no-role",
+					Annotations: map[string]string{
+						constants.AnnotationONMulticlusterHub: "true",
+					},
+				},
+			},
+			expectHubRoleInAnnotation: false,
+		},
+		{
+			name: "cluster without hub-role label -> no annotation",
+			cluster: &v1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "regular-cluster-no-role",
+				},
+			},
+			expectHubRoleInAnnotation: false,
+		},
+	}
+
+	cma := fakeClusterManagementAddon()
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			addon, err := expectedManagedClusterAddon(tc.cluster, cma)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			annotations := addon.GetAnnotations()
+			_, hasHubRole := annotations[constants.GHHubRoleLabelKey]
+
+			if hasHubRole != tc.expectHubRoleInAnnotation {
+				t.Errorf("hub-role in addon annotations = %v, want %v (annotations: %v)",
+					hasHubRole, tc.expectHubRoleInAnnotation, annotations)
+			}
+
+			// If hub-role annotation is expected, verify it matches the label value
+			if tc.expectHubRoleInAnnotation {
+				expectedRole := tc.cluster.Labels[constants.GHHubRoleLabelKey]
+				actualRole := annotations[constants.GHHubRoleLabelKey]
+				if actualRole != expectedRole {
+					t.Errorf("hub-role annotation value = %q, want %q", actualRole, expectedRole)
+				}
+			}
+		})
+	}
+}
+
 // TestReconcileStaleCacheKeepsManagedHub is the ACM-40204 Reconcile regression: when the controller
 // cache transiently lacks BOTH the deploy-mode label and the ManagedClusterAddOn during an operator
 // restart/upgrade, but the API server still reports the labeled cluster, Reconcile must NOT take the

@@ -461,8 +461,11 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 		expectedAddonAnnotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation] = val
 	}
 
-	// Hub HA: store hub role in addon annotations to trigger re-rendering when role changes
-	if hubRole, ok := cluster.Labels[constants.GHHubRoleLabelKey]; ok {
+	// Hub HA: store hub role in addon annotations to trigger re-rendering when role changes.
+	// Skip for imported regional hubs (identified by the multicluster-hub annotation) to prevent
+	// addon recreation when the hub-role label is added (ACM-42804).
+	isRegionalHub := cluster.Annotations[constants.AnnotationONMulticlusterHub] == "true"
+	if hubRole, ok := cluster.Labels[constants.GHHubRoleLabelKey]; ok && !isRegionalHub {
 		expectedAddonAnnotations[constants.GHHubRoleLabelKey] = hubRole
 	}
 
