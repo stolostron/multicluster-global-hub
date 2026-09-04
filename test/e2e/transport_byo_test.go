@@ -80,6 +80,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		}
 		deleteBYOPerHubSecret(sourceHubName)
 		deleteBYOPerHubSecret(targetHubName)
+		waitHubsUseSharedBootstrap(sourceHubClient, sourceHubName, targetHubClient, targetHubName, sharedBootstrap)
 	})
 
 	It("allows a custom client certificate CN on the shared BYO secret", func() {
@@ -113,17 +114,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		})
 		DeferCleanup(func() {
 			deleteBYOPerHubSecret(sourceHubName)
-			Eventually(func() error {
-				cfg, err := managedHubAgentKafkaConfig(sourceHubClient)
-				if err != nil {
-					return err
-				}
-				if cfg.BootstrapServer != sharedBootstrap {
-					return fmt.Errorf("waiting for shared-secret bootstrap to be restored")
-				}
-				return nil
-			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
-				"agent transport must fall back to the shared BYO secret after per-hub cleanup")
+			waitHubsUseSharedBootstrap(sourceHubClient, sourceHubName, targetHubClient, targetHubName, sharedBootstrap)
 		})
 
 		Eventually(func() error {
@@ -146,6 +137,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		DeferCleanup(func() {
 			deleteBYOPerHubSecret(sourceHubName)
 			deleteBYOPerHubSecret(targetHubName)
+			waitHubsUseSharedBootstrap(sourceHubClient, sourceHubName, targetHubClient, targetHubName, sharedBootstrap)
 		})
 
 		Eventually(func() error {
