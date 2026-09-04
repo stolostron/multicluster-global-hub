@@ -206,6 +206,28 @@ func createBYOPerHubSecret(clusterName string, mutate func(*corev1.Secret)) {
 	Expect(err).NotTo(HaveOccurred(), "expected to create or update the per-hub BYO secret")
 }
 
+func waitHubsUseSharedBootstrap(
+	sourceClient client.Client, sourceName string,
+	targetClient client.Client, targetName, sharedBootstrap string,
+) {
+	GinkgoHelper()
+	for _, hub := range []struct {
+		name   string
+		client client.Client
+	}{
+		{sourceName, sourceClient},
+		{targetName, targetClient},
+	} {
+		if hub.client == nil {
+			continue
+		}
+		Eventually(func() error {
+			return managedHubAgentUsesSharedBootstrap(hub.client, hub.name, sharedBootstrap)
+		}, 5*time.Minute, 5*time.Second).Should(Succeed(),
+			"agent on %s must fall back to the shared BYO secret after per-hub cleanup", hub.name)
+	}
+}
+
 func deleteBYOPerHubSecret(clusterName string) {
 	apiCtx, cancel := byoAPIContext()
 	defer cancel()
