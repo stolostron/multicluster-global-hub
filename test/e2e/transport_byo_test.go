@@ -79,6 +79,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		}
 		deleteBYOPerHubSecret(sourceHubName)
 		deleteBYOPerHubSecret(targetHubName)
+		waitHubsUseSharedBootstrap(sourceHubClient, sourceHubName, targetHubClient, targetHubName, sharedBootstrap)
 	})
 
 	It("allows a custom client certificate CN on the shared BYO secret", func() {
@@ -112,17 +113,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		})
 		DeferCleanup(func() {
 			deleteBYOPerHubSecret(sourceHubName)
-			Eventually(func() error {
-				cfg, err := managedHubAgentKafkaConfig(sourceHubClient)
-				if err != nil {
-					return err
-				}
-				if cfg.BootstrapServer != sharedBootstrap {
-					return fmt.Errorf("waiting for shared-secret bootstrap to be restored")
-				}
-				return nil
-			}, 2*time.Minute, 5*time.Second).Should(Succeed(),
-				"agent transport must fall back to the shared BYO secret after per-hub cleanup")
+			waitHubsUseSharedBootstrap(sourceHubClient, sourceHubName, targetHubClient, targetHubName, sharedBootstrap)
 		})
 
 		Eventually(func() error {
@@ -145,6 +136,7 @@ var _ = Describe("Transport BYO Kafka E2E", Serial, Label("e2e-test-transport-by
 		DeferCleanup(func() {
 			deleteBYOPerHubSecret(sourceHubName)
 			deleteBYOPerHubSecret(targetHubName)
+			waitHubsUseSharedBootstrap(sourceHubClient, sourceHubName, targetHubClient, targetHubName, sharedBootstrap)
 		})
 
 		Eventually(func() error {
@@ -203,6 +195,28 @@ func createBYOPerHubSecret(clusterName string, mutate func(*corev1.Secret)) {
 		_, err = kube.Update(apiCtx, existing, metav1.UpdateOptions{})
 	}
 	Expect(err).NotTo(HaveOccurred(), "expected to create or update the per-hub BYO secret")
+}
+
+func waitHubsUseSharedBootstrap(
+	sourceClient client.Client, sourceName string,
+	targetClient client.Client, targetName, sharedBootstrap string,
+) {
+	GinkgoHelper()
+	for _, hub := range []struct {
+		name   string
+		client client.Client
+	}{
+		{sourceName, sourceClient},
+		{targetName, targetClient},
+	} {
+		if hub.client == nil {
+			continue
+		}
+		Eventually(func() error {
+			return managedHubAgentUsesSharedBootstrap(hub.client, hub.name, sharedBootstrap)
+		}, 5*time.Minute, 5*time.Second).Should(Succeed(),
+			"agent on %s must fall back to the shared BYO secret after per-hub cleanup", hub.name)
+	}
 }
 
 // deleteBYOPerHubSecret deletes a leftover per-hub BYO transport secret.
