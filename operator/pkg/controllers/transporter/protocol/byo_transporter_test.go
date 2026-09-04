@@ -324,16 +324,20 @@ func TestEnsureUserReportsMissingClientCert(t *testing.T) {
 	}
 }
 
-// TestEnsureUserIgnoresUnrelatedPrefixedSecret ignores a prefixed secret that is not a ManagedCluster.
-func TestEnsureUserIgnoresUnrelatedPrefixedSecret(t *testing.T) {
+// TestEnsureUserRejectsIdenticalUnrelatedPrefixedSecret rejects identical certs on any per-hub secret.
+func TestEnsureUserRejectsIdenticalUnrelatedPrefixedSecret(t *testing.T) {
 	ns := utils.GetDefaultNamespace()
 	same := "duplicate-cert"
 	hub1 := byoSecret(constants.GHTransportSecretNameForCluster("hub1"), ns, same)
 	unrelated := byoSecret(constants.GHTransportSecretName+"-not-a-managed-hub", ns, same)
-	trans := newBYOTransporter(t, byoMGH(ns), hub1, unrelated, byoManagedCluster("hub1"))
+	trans := newBYOTransporter(t, byoMGH(ns), hub1, unrelated)
 
-	if _, err := trans.EnsureUser("hub1"); err != nil {
-		t.Fatalf("EnsureUser(hub1) unrelated prefix error = %v", err)
+	_, err := trans.EnsureUser("hub1")
+	if err == nil {
+		t.Fatal("EnsureUser(hub1) expected identical-cert error")
+	}
+	if !strings.Contains(err.Error(), "identical") {
+		t.Fatalf("EnsureUser() error = %v, want identical cert message", err)
 	}
 }
 
