@@ -29,8 +29,8 @@ github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYW
 github.com/antlr4-go/antlr/v4 v4.13.1/go.mod h1:GKmUxMtwp6ZgGwZSva4eWPC5mS6vUAmOABFgjdkM7Nw=
 github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b h1:wbh8IK+aMLTCey9sZasO7b6BWLAJnHHvb79fvWCXwxw=
 github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b/go.mod h1:s3qC7V7XIbiNWERv7Lfljy/Lx25/V1Qlexb0WJuA8uQ=
-github.com/authzed/spicedb-operator v1.26.0 h1:9gHI5Tiiz5mj9l4u1bO7ZwH2hI8iVQC96W3nAmY3te0=
-github.com/authzed/spicedb-operator v1.26.0/go.mod h1:dtQJrVVKBnFO7rx1UEFpzrmCWMpA6CMiU07LLhryCBM=
+github.com/authzed/spicedb-operator v1.26.1 h1:ymVEALhEUxU+FIWMouzqD0nBSwtR27v2yGh393OtLKg=
+github.com/authzed/spicedb-operator v1.26.1/go.mod h1:bzN5QIWlNwezbl+M4/U/Vid9rBdntbhn+Zw+J3bQCbY=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
