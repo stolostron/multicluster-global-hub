@@ -8,6 +8,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +34,8 @@ type HubHAStandbySyncer struct {
 	// pendingResyncSessions accumulates live object metadata per GVK until cleanup after
 	// Complete succeeds. Partial ResyncMetadata frames must not trigger stale cleanup.
 	pendingResyncSessions map[string]*resyncInventorySession
+
+	suppressedCleanupDone atomic.Bool
 }
 
 // resyncInventorySession tracks one per-GVK inventory across size-split frames.
@@ -72,6 +75,12 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 
 	sourceHub := source
 	var syncErrs []error
+
+	// Filter suppressed metrics resources from all bundle slices before dispatching.
+	bundle.Create = filterSuppressedObjects(bundle.Create, sourceHub)
+	bundle.Update = filterSuppressedObjects(bundle.Update, sourceHub)
+	bundle.Resync = filterSuppressedObjects(bundle.Resync, sourceHub)
+	bundle.Delete = filterSuppressedMetadata(bundle.Delete, sourceHub)
 
 	// Apply created resources
 	for _, obj := range bundle.Create {
@@ -117,6 +126,17 @@ func (s *HubHAStandbySyncer) Sync(ctx context.Context, evt *cloudevents.Event) e
 		}
 	}
 
+	// One-time cleanup of observability resources replicated before suppression was added.
+	// Uses atomic.Bool instead of sync.Once so transient failures are retried on the next Sync.
+	if !s.suppressedCleanupDone.Load() {
+		if err := s.cleanupPreExistingSuppressedResources(ctx); err != nil {
+			log.Errorw("failed to clean up pre-existing suppressed metrics resources", "error", err)
+			syncErrs = append(syncErrs, err)
+		} else {
+			s.suppressedCleanupDone.Store(true)
+		}
+	}
+
 	log.Infof("standby hub processed Hub HA bundle from %s: created=%d, updated=%d, "+
 		"resynced=%d, deleted=%d, resync_metadata=%d",
 		sourceHub, len(bundle.Create), len(bundle.Update), len(bundle.Resync), len(bundle.Delete),
@@ -138,10 +158,10 @@ func (s *HubHAStandbySyncer) createResource(ctx context.Context, obj *unstructur
 		return nil
 	}
 
+	gvk := obj.GroupVersionKind()
+
 	log.Infof("creating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
-
-	gvk := obj.GroupVersionKind()
 
 	// The active hub's own local-cluster (and hubs imported into Global Hub) must not be
 	// applied onto the standby: they collide with the standby's own local-cluster. Mirror
@@ -195,10 +215,10 @@ func (s *HubHAStandbySyncer) updateResource(ctx context.Context, obj *unstructur
 		return nil
 	}
 
+	gvk := obj.GroupVersionKind()
+
 	log.Debugf("updating resource from active hub %s: %s/%s (%s)",
 		sourceHub, obj.GetNamespace(), obj.GetName(), obj.GetKind())
-
-	gvk := obj.GroupVersionKind()
 
 	// The active hub's own local-cluster (and hubs imported into Global Hub) must not be
 	// applied onto the standby: they collide with the standby's own local-cluster. Mirror
@@ -535,4 +555,89 @@ func shouldSkipHubHAResourceApply(obj *unstructured.Unstructured) bool {
 		return utils.IsLocalManagedCluster(obj)
 	}
 	return false
+}
+
+// suppressedMetricsGVKs is the single source of truth for observability GVKs that must
+// not exist on the standby hub. Both shouldSuppressMetricsResource and the one-time
+// cleanup use this list.
+var suppressedMetricsGVKs = []schema.GroupVersionKind{
+	{Group: groupObservabilityOCM, Version: "v1beta2", Kind: "MultiClusterObservability"},
+	{Group: groupObservabilityOCM, Version: "v1beta1", Kind: "ObservabilityAddon"},
+	{Group: groupObservatorium, Version: "v1alpha1", Kind: "Observatorium"},
+}
+
+// shouldSuppressMetricsResource returns true for observability resources that must not be
+// applied to the standby hub. Suppressing these prevents the standby hub from reporting
+// metrics to Thanos object storage, which would produce duplicate data.
+func shouldSuppressMetricsResource(gvk schema.GroupVersionKind) bool {
+	for _, suppressed := range suppressedMetricsGVKs {
+		if gvk.Group == suppressed.Group && gvk.Kind == suppressed.Kind {
+			return true
+		}
+	}
+	return false
+}
+
+// filterSuppressedObjects removes suppressed metrics resources from a slice of objects.
+func filterSuppressedObjects(objects []*unstructured.Unstructured, sourceHub string) []*unstructured.Unstructured {
+	filtered := objects[:0]
+	for _, obj := range objects {
+		gvk := obj.GroupVersionKind()
+		if shouldSuppressMetricsResource(gvk) {
+			log.Infow("suppressing metrics resource on standby hub",
+				"namespace", obj.GetNamespace(), "name", obj.GetName(), "kind", gvk.Kind, "sourceHub", sourceHub)
+			continue
+		}
+		filtered = append(filtered, obj)
+	}
+	return filtered
+}
+
+// filterSuppressedMetadata removes suppressed metrics resources from a slice of metadata.
+func filterSuppressedMetadata(metadata []generic.ObjectMetadata, sourceHub string) []generic.ObjectMetadata {
+	filtered := metadata[:0]
+	for _, m := range metadata {
+		gvk := schema.GroupVersionKind{Group: m.Group, Version: m.Version, Kind: m.Kind}
+		if shouldSuppressMetricsResource(gvk) {
+			log.Infow("suppressing delete of metrics resource on standby hub",
+				"namespace", m.Namespace, "name", m.Name, "kind", gvk.Kind, "sourceHub", sourceHub)
+			continue
+		}
+		filtered = append(filtered, m)
+	}
+	return filtered
+}
+
+// cleanupPreExistingSuppressedResources removes observability resources that were
+// replicated to the standby hub before suppression was introduced.
+func (s *HubHAStandbySyncer) cleanupPreExistingSuppressedResources(ctx context.Context) error {
+	var errs []error
+	for _, gvk := range suppressedMetricsGVKs {
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{
+			Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind + "List",
+		})
+		if err := s.client.List(ctx, list); err != nil {
+			if meta.IsNoMatchError(err) {
+				continue
+			}
+			errs = append(errs, fmt.Errorf("failed to list pre-existing %s: %w", gvk, err))
+			continue
+		}
+		for i := range list.Items {
+			obj := &list.Items[i]
+			log.Infow("removing pre-existing suppressed metrics resource from standby hub",
+				"namespace", obj.GetNamespace(), "name", obj.GetName(), "kind", gvk.Kind)
+			if err := s.client.Delete(ctx, obj); err != nil {
+				if !errors.IsNotFound(err) {
+					errs = append(errs, fmt.Errorf("failed to delete pre-existing %s %s/%s: %w",
+						gvk.Kind, obj.GetNamespace(), obj.GetName(), err))
+				}
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return stderrors.Join(errs...)
+	}
+	return nil
 }
