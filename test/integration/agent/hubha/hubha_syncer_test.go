@@ -1240,4 +1240,78 @@ var _ = Describe("Hub HA Standby Syncer Integration", func() {
 		Expect(accepts).To(BeTrue(),
 			"standby local-cluster hubAcceptsClient must not be overwritten to false")
 	})
+
+	It("should suppress observability resources while applying regular resources (ACM-30974)", func() {
+		ctx := context.Background()
+
+		bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+		bundle.Create = []*unstructured.Unstructured{
+			{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "allowed-cm-integ",
+						"namespace": "default",
+					},
+					"data": map[string]interface{}{"key": "value"},
+				},
+			},
+			{
+				Object: map[string]interface{}{
+					"apiVersion": "observability.open-cluster-management.io/v1beta1",
+					"kind":       "ObservabilityAddon",
+					"metadata": map[string]interface{}{
+						"name":      "obs-addon-integ",
+						"namespace": "default",
+					},
+				},
+			},
+		}
+		bundle.Update = []*unstructured.Unstructured{
+			{
+				Object: map[string]interface{}{
+					"apiVersion": "observability.open-cluster-management.io/v1beta2",
+					"kind":       "MultiClusterObservability",
+					"metadata": map[string]interface{}{
+						"name": "observability-integ",
+					},
+				},
+			},
+		}
+
+		evt := cloudevents.NewEvent()
+		evt.SetType(constants.HubHAResourcesMsgKey)
+		evt.SetSource("hub1")
+		err := evt.SetData(cloudevents.ApplicationJSON, bundle)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = syncer.Sync(ctx, &evt)
+		Expect(err).NotTo(HaveOccurred())
+
+		cm := &corev1.ConfigMap{}
+		Eventually(func() error {
+			return k8sClient.Get(ctx, types.NamespacedName{
+				Name: "allowed-cm-integ", Namespace: "default",
+			}, cm)
+		}, 5*time.Second, 100*time.Millisecond).Should(Succeed(),
+			"regular ConfigMap should be created on standby hub")
+		Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
+
+		addon := &unstructured.Unstructured{}
+		addon.SetAPIVersion("observability.open-cluster-management.io/v1beta1")
+		addon.SetKind("ObservabilityAddon")
+		err = k8sClient.Get(ctx, types.NamespacedName{
+			Name: "obs-addon-integ", Namespace: "default",
+		}, addon)
+		Expect(err).To(HaveOccurred(),
+			"ObservabilityAddon should NOT be created on standby hub")
+
+		mco := &unstructured.Unstructured{}
+		mco.SetAPIVersion("observability.open-cluster-management.io/v1beta2")
+		mco.SetKind("MultiClusterObservability")
+		err = k8sClient.Get(ctx, types.NamespacedName{Name: "observability-integ"}, mco)
+		Expect(err).To(HaveOccurred(),
+			"MultiClusterObservability should NOT be created on standby hub")
+	})
 })

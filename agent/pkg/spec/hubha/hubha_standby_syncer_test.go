@@ -6,6 +6,7 @@ package hubha
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -14,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1283,6 +1285,440 @@ func TestHubHAStandbySyncer_SkipsLocalClusterManagedClusterApply(t *testing.T) {
 		t.Fatal("local cluster ManagedCluster should not be created on standby hub")
 	} else if !errors.IsNotFound(err) {
 		t.Fatalf("expected NotFound, got: %v", err)
+	}
+}
+
+func TestShouldSuppressMetricsResource(t *testing.T) {
+	tests := []struct {
+		name     string
+		group    string
+		version  string
+		kind     string
+		suppress bool
+	}{
+		{
+			name:     "ObservabilityAddon is suppressed",
+			group:    "observability.open-cluster-management.io",
+			version:  "v1beta1",
+			kind:     "ObservabilityAddon",
+			suppress: true,
+		},
+		{
+			name:     "MultiClusterObservability is suppressed",
+			group:    "observability.open-cluster-management.io",
+			version:  "v1beta2",
+			kind:     "MultiClusterObservability",
+			suppress: true,
+		},
+		{
+			name:     "Observatorium is suppressed",
+			group:    "core.observatorium.io",
+			version:  "v1alpha1",
+			kind:     "Observatorium",
+			suppress: true,
+		},
+		{
+			name:     "ConfigMap is not suppressed",
+			group:    "",
+			version:  "v1",
+			kind:     "ConfigMap",
+			suppress: false,
+		},
+		{
+			name:     "ManagedCluster is not suppressed",
+			group:    "cluster.open-cluster-management.io",
+			version:  "v1",
+			kind:     "ManagedCluster",
+			suppress: false,
+		},
+		{
+			name:     "Policy is not suppressed",
+			group:    "policy.open-cluster-management.io",
+			version:  "v1",
+			kind:     "Policy",
+			suppress: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gvk := schema.GroupVersionKind{Group: tt.group, Version: tt.version, Kind: tt.kind}
+			if got := shouldSuppressMetricsResource(gvk); got != tt.suppress {
+				t.Errorf("shouldSuppressMetricsResource(%v) = %v, want %v", gvk, got, tt.suppress)
+			}
+		})
+	}
+}
+
+func TestFilterSuppressedObjects(t *testing.T) {
+	cases := []struct {
+		name       string
+		apiVersion string
+		kind       string
+		objName    string
+		namespace  string
+		kept       bool
+	}{
+		{
+			"ObservabilityAddon filtered", "observability.open-cluster-management.io/v1beta1",
+			"ObservabilityAddon", "obs-addon", "spoke", false,
+		},
+		{"MCO filtered", "observability.open-cluster-management.io/v1beta2", "MultiClusterObservability", "mco", "", false},
+		{"Observatorium filtered", "core.observatorium.io/v1alpha1", "Observatorium", "obs", "obs-ns", false},
+		{"ConfigMap kept", "v1", "ConfigMap", "my-cm", "default", true},
+		{"Policy kept", "policy.open-cluster-management.io/v1", "Policy", "my-policy", "default", true},
+	}
+
+	objects := make([]*unstructured.Unstructured, 0, len(cases))
+	for _, tc := range cases {
+		objects = append(objects, &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": tc.apiVersion,
+				"kind":       tc.kind,
+				"metadata":   map[string]interface{}{"name": tc.objName, "namespace": tc.namespace},
+			},
+		})
+	}
+
+	filtered := filterSuppressedObjects(objects, "hub1")
+	keptNames := make(map[string]bool)
+	for _, obj := range filtered {
+		keptNames[obj.GetName()] = true
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if keptNames[tc.objName] != tc.kept {
+				t.Errorf("object %s: kept=%v, want %v", tc.objName, keptNames[tc.objName], tc.kept)
+			}
+		})
+	}
+}
+
+func TestFilterSuppressedMetadata(t *testing.T) {
+	metadata := []generic.ObjectMetadata{
+		{
+			Group: "observability.open-cluster-management.io", Version: "v1beta1",
+			Kind: "ObservabilityAddon", Name: "addon", Namespace: "spoke",
+		},
+		{Group: "", Version: "v1", Kind: "ConfigMap", Name: "cm", Namespace: "default"},
+		{Group: "core.observatorium.io", Version: "v1alpha1", Kind: "Observatorium", Name: "obs", Namespace: "obs-ns"},
+	}
+
+	filtered := filterSuppressedMetadata(metadata, "hub1")
+	if len(filtered) != 1 || filtered[0].Name != "cm" {
+		t.Fatalf("expected only ConfigMap kept, got %d items", len(filtered))
+	}
+}
+
+func TestHubHAStandbySyncer_Sync_SuppressesObservabilityInBundle(t *testing.T) {
+	scheme := runtime.NewScheme()
+
+	existingCM := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      "delete-me",
+				"namespace": "default",
+			},
+			"data": map[string]interface{}{"key": "value"},
+		},
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existingCM).Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	bundle := generic.NewGenericBundle[*unstructured.Unstructured]()
+	bundle.Create = []*unstructured.Unstructured{
+		{Object: map[string]interface{}{
+			"apiVersion": "v1", "kind": "ConfigMap",
+			"metadata": map[string]interface{}{"name": "allowed-cm", "namespace": "default"},
+			"data":     map[string]interface{}{"key": "value"},
+		}},
+		{Object: map[string]interface{}{
+			"apiVersion": "observability.open-cluster-management.io/v1beta1", "kind": "ObservabilityAddon",
+			"metadata": map[string]interface{}{"name": "obs-addon", "namespace": "spoke-cluster"},
+		}},
+	}
+	bundle.Update = []*unstructured.Unstructured{
+		{Object: map[string]interface{}{
+			"apiVersion": "observability.open-cluster-management.io/v1beta2", "kind": "MultiClusterObservability",
+			"metadata": map[string]interface{}{"name": "observability"},
+		}},
+	}
+	bundle.Delete = []generic.ObjectMetadata{
+		{Name: "delete-me", Namespace: "default", Group: "", Version: "v1", Kind: "ConfigMap"},
+		{
+			Name: "obs-addon", Namespace: "spoke-cluster",
+			Group: "observability.open-cluster-management.io", Version: "v1beta1", Kind: "ObservabilityAddon",
+		},
+	}
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubHAResourcesMsgKey)
+	evt.SetSource("hub1")
+	if err := evt.SetData(cloudevents.ApplicationJSON, bundle); err != nil {
+		t.Fatalf("SetData() error = %v", err)
+	}
+
+	if err := syncer.Sync(context.Background(), &evt); err != nil {
+		t.Fatalf("Sync() error = %v", err)
+	}
+
+	ctx := context.Background()
+
+	cm := &unstructured.Unstructured{}
+	cm.SetAPIVersion("v1")
+	cm.SetKind("ConfigMap")
+	if err := cl.Get(ctx, types.NamespacedName{Name: "allowed-cm", Namespace: "default"}, cm); err != nil {
+		t.Fatalf("expected allowed-cm to be created: %v", err)
+	}
+
+	addon := &unstructured.Unstructured{}
+	addon.SetAPIVersion("observability.open-cluster-management.io/v1beta1")
+	addon.SetKind("ObservabilityAddon")
+	if err := cl.Get(ctx, types.NamespacedName{Name: "obs-addon", Namespace: "spoke-cluster"}, addon); err == nil {
+		t.Fatal("ObservabilityAddon should not be created on standby hub")
+	}
+
+	mco := &unstructured.Unstructured{}
+	mco.SetAPIVersion("observability.open-cluster-management.io/v1beta2")
+	mco.SetKind("MultiClusterObservability")
+	if err := cl.Get(ctx, types.NamespacedName{Name: "observability"}, mco); err == nil {
+		t.Fatal("MultiClusterObservability should not be created on standby hub")
+	}
+
+	deletedCM := &unstructured.Unstructured{}
+	deletedCM.SetAPIVersion("v1")
+	deletedCM.SetKind("ConfigMap")
+	err := cl.Get(ctx, types.NamespacedName{Name: "delete-me", Namespace: "default"}, deletedCM)
+	if err == nil {
+		t.Fatal("expected delete-me ConfigMap to be deleted")
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound for delete-me, got: %v", err)
+	}
+}
+
+func TestHubHAStandbySyncer_CleanupPreExisting_ListFailureContinues(t *testing.T) {
+	scheme := runtime.NewScheme()
+
+	preExistingAddon := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "observability.open-cluster-management.io/v1beta1",
+			"kind":       "ObservabilityAddon",
+			"metadata": map[string]interface{}{
+				"name":      "obs-addon",
+				"namespace": "spoke-cluster",
+			},
+		},
+	}
+
+	base := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(preExistingAddon).
+		Build()
+
+	cl := interceptor.NewClient(base, interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			gvk := list.GetObjectKind().GroupVersionKind()
+			if gvk.Kind == "MultiClusterObservabilityList" {
+				return fmt.Errorf("simulated list failure for MCO")
+			}
+			return c.List(ctx, list, opts...)
+		},
+	})
+	syncer := NewHubHAStandbySyncer(cl)
+
+	ctx := context.Background()
+	err := syncer.cleanupPreExistingSuppressedResources(ctx)
+	if err == nil {
+		t.Fatal("expected error from list failure")
+	}
+	if !strings.Contains(err.Error(), "simulated list failure for MCO") {
+		t.Fatalf("expected list failure in error, got: %v", err)
+	}
+
+	// ObservabilityAddon should still be cleaned up despite MCO list failure
+	addonResult := &unstructured.Unstructured{}
+	addonResult.SetGroupVersionKind(preExistingAddon.GroupVersionKind())
+	getErr := cl.Get(ctx, types.NamespacedName{Name: "obs-addon", Namespace: "spoke-cluster"}, addonResult)
+	if getErr == nil {
+		t.Fatal("ObservabilityAddon should have been deleted even though MCO list failed")
+	}
+	if !errors.IsNotFound(getErr) {
+		t.Fatalf("expected NotFound for ObservabilityAddon, got: %v", getErr)
+	}
+}
+
+func TestHubHAStandbySyncer_CleanupPreExisting_DeleteFailureReported(t *testing.T) {
+	scheme := runtime.NewScheme()
+
+	preExistingAddon := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "observability.open-cluster-management.io/v1beta1",
+			"kind":       "ObservabilityAddon",
+			"metadata": map[string]interface{}{
+				"name":      "obs-addon",
+				"namespace": "spoke-cluster",
+			},
+		},
+	}
+
+	base := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(preExistingAddon).
+		Build()
+
+	cl := interceptor.NewClient(base, interceptor.Funcs{
+		Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+			if obj.GetName() == "obs-addon" {
+				return fmt.Errorf("simulated delete failure")
+			}
+			return c.Delete(ctx, obj, opts...)
+		},
+	})
+	syncer := NewHubHAStandbySyncer(cl)
+
+	ctx := context.Background()
+	err := syncer.cleanupPreExistingSuppressedResources(ctx)
+	if err == nil {
+		t.Fatal("expected error from delete failure")
+	}
+	if !strings.Contains(err.Error(), "simulated delete failure") {
+		t.Fatalf("expected delete failure in error, got: %v", err)
+	}
+}
+
+func TestHubHAStandbySyncer_CleanupPreExisting_PartialFailure(t *testing.T) {
+	scheme := runtime.NewScheme()
+
+	preExistingAddon := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "observability.open-cluster-management.io/v1beta1",
+			"kind":       "ObservabilityAddon",
+			"metadata": map[string]interface{}{
+				"name":      "obs-addon",
+				"namespace": "spoke-cluster",
+			},
+		},
+	}
+	preExistingMCO := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "observability.open-cluster-management.io/v1beta2",
+			"kind":       "MultiClusterObservability",
+			"metadata": map[string]interface{}{
+				"name": "observability",
+			},
+		},
+	}
+
+	base := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(preExistingAddon, preExistingMCO).
+		Build()
+
+	cl := interceptor.NewClient(base, interceptor.Funcs{
+		Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+			if obj.GetName() == "obs-addon" {
+				return fmt.Errorf("addon delete failure")
+			}
+			return c.Delete(ctx, obj, opts...)
+		},
+	})
+	syncer := NewHubHAStandbySyncer(cl)
+
+	ctx := context.Background()
+	err := syncer.cleanupPreExistingSuppressedResources(ctx)
+	if err == nil {
+		t.Fatal("expected error from partial failure")
+	}
+	if !strings.Contains(err.Error(), "addon delete failure") {
+		t.Fatalf("expected addon delete failure in error, got: %v", err)
+	}
+
+	// MCO should be successfully deleted despite addon failure
+	mcoResult := &unstructured.Unstructured{}
+	mcoResult.SetGroupVersionKind(preExistingMCO.GroupVersionKind())
+	getErr := cl.Get(ctx, types.NamespacedName{Name: "observability"}, mcoResult)
+	if getErr == nil {
+		t.Fatal("MCO should have been deleted even though addon delete failed")
+	}
+	if !errors.IsNotFound(getErr) {
+		t.Fatalf("expected NotFound for MCO, got: %v", getErr)
+	}
+}
+
+func TestHubHAStandbySyncer_CleanupPreExistingSuppressedResources(t *testing.T) {
+	scheme := runtime.NewScheme()
+
+	preExistingAddon := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "observability.open-cluster-management.io/v1beta1",
+			"kind":       "ObservabilityAddon",
+			"metadata": map[string]interface{}{
+				"name":      "obs-addon",
+				"namespace": "spoke-cluster",
+			},
+		},
+	}
+	preExistingMCO := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "observability.open-cluster-management.io/v1beta2",
+			"kind":       "MultiClusterObservability",
+			"metadata": map[string]interface{}{
+				"name": "observability",
+			},
+		},
+	}
+	allowedCM := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      "allowed-cm",
+				"namespace": "default",
+			},
+			"data": map[string]interface{}{"key": "value"},
+		},
+	}
+
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(preExistingAddon, preExistingMCO, allowedCM).
+		Build()
+	syncer := NewHubHAStandbySyncer(cl)
+
+	ctx := context.Background()
+	if err := syncer.cleanupPreExistingSuppressedResources(ctx); err != nil {
+		t.Fatalf("cleanupPreExistingSuppressedResources() error = %v", err)
+	}
+
+	addonResult := &unstructured.Unstructured{}
+	addonResult.SetGroupVersionKind(preExistingAddon.GroupVersionKind())
+	err := cl.Get(ctx, types.NamespacedName{Name: "obs-addon", Namespace: "spoke-cluster"}, addonResult)
+	if err == nil {
+		t.Fatal("pre-existing ObservabilityAddon should have been deleted")
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound for ObservabilityAddon, got: %v", err)
+	}
+
+	mcoResult := &unstructured.Unstructured{}
+	mcoResult.SetGroupVersionKind(preExistingMCO.GroupVersionKind())
+	err = cl.Get(ctx, types.NamespacedName{Name: "observability"}, mcoResult)
+	if err == nil {
+		t.Fatal("pre-existing MultiClusterObservability should have been deleted")
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("expected NotFound for MultiClusterObservability, got: %v", err)
+	}
+
+	cmResult := &unstructured.Unstructured{}
+	cmResult.SetAPIVersion("v1")
+	cmResult.SetKind("ConfigMap")
+	if err := cl.Get(ctx, types.NamespacedName{Name: "allowed-cm", Namespace: "default"}, cmResult); err != nil {
+		t.Fatalf("allowed ConfigMap should NOT have been deleted: %v", err)
 	}
 }
 
