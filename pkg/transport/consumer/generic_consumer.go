@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -35,10 +36,12 @@ type GenericConsumer struct {
 	isManager            bool
 	statusTopicPattern   string
 
-	consumerCtx    context.Context
-	consumerCancel context.CancelFunc
-	client         cloudevents.Client
-	kafkaConsumer  *kafka.Consumer
+	consumerCtx     context.Context
+	consumerCancel  context.CancelFunc
+	client          cloudevents.Client
+	migrationClient cloudevents.Client
+	migrationCancel context.CancelFunc
+	kafkaConsumer   *kafka.Consumer
 
 	mutex sync.Mutex
 
@@ -90,21 +93,47 @@ func (c *GenericConsumer) KafkaConsumer() *kafka.Consumer {
 
 // initClient will init the consumer identity, clientProtocol, client
 func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig, topics []string) error {
-	var err error
-	var clientProtocol interface{}
-
 	c.isManager = len(topics) > 0 && topics[0] == tranConfig.KafkaCredential.StatusTopic
 	if c.isManager {
 		c.statusTopicPattern = tranConfig.KafkaCredential.StatusTopic
 	}
 
+	consumerTopics := topics
+	migrationTopics := []string(nil)
+	if !c.isManager && len(topics) > 1 {
+		consumerTopics = topics[:1]
+		migrationTopics = topics[1:]
+	}
+
+	client, kafkaConsumer, err := c.newClient(tranConfig, consumerTopics)
+	if err != nil {
+		return err
+	}
+	c.client = client
+	c.kafkaConsumer = kafkaConsumer
+	c.migrationClient = nil
+	if len(migrationTopics) == 0 {
+		return nil
+	}
+
+	c.migrationClient, _, err = c.newClient(tranConfig, migrationTopics)
+	return err
+}
+
+func (c *GenericConsumer) newClient(tranConfig *transport.TransportInternalConfig, topics []string) (
+	cloudevents.Client, *kafka.Consumer, error,
+) {
+	var err error
+	var clientProtocol interface{}
+	var kafkaConsumer *kafka.Consumer
+
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
 		log.Info("transport consumer with cloudevents-kafka receiver")
-		c.kafkaConsumer, clientProtocol, err = getConfluentReceiverProtocol(tranConfig,
+		kafkaConsumer, clientProtocol, err = getConfluentReceiverProtocol(tranConfig,
 			topics, c.topicMetadataRefreshInterval)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 	case string(transport.Chan):
 		log.Info("transport consumer with go chan receiver")
@@ -117,15 +146,15 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConf
 		}
 		clientProtocol = tranConfig.Extends[topic]
 	default:
-		return fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
+		return nil, nil, fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
 	}
 
-	c.client, err = cloudevents.NewClient(clientProtocol, client.WithPollGoroutines(1))
+	client, err := cloudevents.NewClient(clientProtocol, client.WithPollGoroutines(1))
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	return nil
+	return client, kafkaConsumer, nil
 }
 
 func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
@@ -143,14 +172,18 @@ func (c *GenericConsumer) Reconnect(ctx context.Context,
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	err := c.initClient(tranConfig, topics)
-	if err != nil {
-		return err
-	}
-
 	// close the previous consumer
 	if c.consumerCancel != nil {
 		c.consumerCancel()
+	}
+	if c.migrationCancel != nil {
+		c.migrationCancel()
+		c.migrationCancel = nil
+	}
+
+	err := c.initClient(tranConfig, topics)
+	if err != nil {
+		return err
 	}
 	c.consumerCtx, c.consumerCancel = context.WithCancel(ctx)
 	consumerGroupId := tranConfig.KafkaCredential.ConsumerGroupID
@@ -179,6 +212,18 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	// each time the consumer starts, it will only log the first message
 	receivedMessage := false
 	c.consumerCtx, c.consumerCancel = context.WithCancel(receiveContext)
+	var migrationCancel context.CancelFunc
+	if c.migrationClient != nil {
+		migrationCtx, cancel := context.WithCancel(receiveContext)
+		migrationCancel = cancel
+		c.migrationCancel = cancel
+		go c.receiveMigrationEvents(migrationCtx, c.migrationClient)
+	}
+	defer func() {
+		if migrationCancel != nil {
+			migrationCancel()
+		}
+	}()
 	err := c.client.StartReceiver(c.consumerCtx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
 		log.Debugw("received message", "event.Source", event.Source(), "event.Type", enum.ShortenEventType(event.Type()))
 
@@ -208,6 +253,50 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	}
 	receivedMessage = false
 	return nil
+}
+
+// receiveMigrationEvents keeps migration topic authorization failures isolated from
+// the normal spec receiver. The migration ACL is granted dynamically before a migration starts.
+func (c *GenericConsumer) receiveMigrationEvents(ctx context.Context, migrationClient cloudevents.Client) {
+	for {
+		err := c.startReceiver(ctx, migrationClient, newMessageAssembler())
+		if ctx.Err() != nil {
+			return
+		}
+		if err != nil {
+			log.Warnw("migration receiver stopped with error", "error", err)
+		}
+
+		timer := time.NewTimer(10 * time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+	}
+}
+
+func (c *GenericConsumer) startReceiver(
+	ctx context.Context, receiver cloudevents.Client, assembler *messageAssembler,
+) error {
+	return receiver.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
+		log.Debugw("received message", "event.Source", event.Source(), "event.Type", enum.ShortenEventType(event.Type()))
+
+		chunk, isChunk := assembler.messageChunk(event)
+		if !isChunk {
+			c.publishReceivedEvent(&event)
+			return ceprotocol.ResultACK
+		}
+		if payload := assembler.assemble(chunk); payload != nil {
+			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {
+				log.Errorw("failed the set the assembled data to event", "error", err)
+			} else {
+				c.publishReceivedEvent(&event)
+			}
+		}
+		return ceprotocol.ResultACK
+	})
 }
 
 func (c *GenericConsumer) publishReceivedEvent(event *cloudevents.Event) {

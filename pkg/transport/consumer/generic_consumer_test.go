@@ -43,6 +43,23 @@ func TestGenerateConsumer(t *testing.T) {
 	// The confluent-kafka-go library doesn't expose the configuration used to create the consumer.
 }
 
+func TestNewGenericConsumerSeparatesMigrationTopic(t *testing.T) {
+	transportConfig := &transport.TransportInternalConfig{
+		TransportType: string(transport.Chan),
+		KafkaCredential: &transport.KafkaConfig{
+			SpecTopic:      "gh-spec",
+			MigrationTopic: "gh-migration",
+		},
+	}
+
+	consumer, err := NewGenericConsumer(transportConfig, []string{"gh-spec", "gh-migration"})
+	assert.NoError(t, err)
+	assert.NotNil(t, consumer.migrationClient)
+	assert.NotNil(t, transportConfig.Extends["gh-spec"])
+	assert.NotNil(t, transportConfig.Extends["gh-migration"])
+	assert.NotEqual(t, transportConfig.Extends["gh-spec"], transportConfig.Extends["gh-migration"])
+}
+
 func TestGetInitOffset(t *testing.T) {
 	testPostgres, err := testpostgres.NewTestPostgres()
 	assert.Nil(t, err)
