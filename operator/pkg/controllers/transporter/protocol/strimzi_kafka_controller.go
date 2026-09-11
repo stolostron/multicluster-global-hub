@@ -6,6 +6,7 @@ package protocol
 import (
 	"context"
 	"embed"
+	"fmt"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -193,6 +194,39 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	startedKafkaController = true
 	log.Info("kafka controller is started")
 	return nil
+}
+
+// SyncManagerTransportConn updates the shared transport connection with fresh topic values
+// from the current MGH spec. Called by TransportReconciler after EnsureKafka to propagate
+// topic changes to the manager transport-config secret.
+func SyncManagerTransportConn(trans transport.Transporter) (needRequeue bool, err error) {
+	st, ok := trans.(*strimziTransporter)
+	if !ok {
+		return false, nil // not a Strimzi transporter, skip sync
+	}
+
+	kafkaStatus, err := st.kafkaClusterReady()
+	if err != nil {
+		return false, fmt.Errorf("failed to check Kafka cluster readiness: %w", err)
+	}
+	if !kafkaStatus.kafkaReady {
+		log.Info("Kafka cluster not ready, skipping transport connection sync")
+		return true, nil
+	}
+
+	conn, needRequeue, err := getManagerTransportConn(st, DefaultGlobalHubKafkaUserName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get manager transport connection: %w", err)
+	}
+	if needRequeue {
+		return true, nil
+	}
+
+	updateConn = config.SetTransporterConn(conn)
+	if updateConn {
+		log.Info("Transport connection updated with current MGH topic configuration")
+	}
+	return false, nil
 }
 
 func getManagerTransportConn(trans *strimziTransporter, kafkaUserSecret string) (
