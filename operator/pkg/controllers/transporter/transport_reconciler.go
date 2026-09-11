@@ -182,6 +182,13 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		result, err := r.syncManagerTransportConnAndPersist(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if result.RequeueAfter > 0 {
+			return result, nil
+		}
 	case transport.SecretTransporter:
 		r.transporter = protocol.NewBYOTransporter(ctx, types.NamespacedName{
 			Namespace: mgh.Namespace,
@@ -193,6 +200,27 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 		updateConn = config.SetTransporterConn(conn)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *TransportReconciler) syncManagerTransportConnAndPersist(ctx context.Context) (ctrl.Result, error) {
+	// Sync transport connection with current MGH topic configuration.
+	// This ensures topic changes propagate to transport-config without
+	// waiting for async kafka-controller events.
+	needRequeue, err := protocol.SyncManagerTransportConn(r.transporter)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if needRequeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	// Trigger manager reconciler to persist the updated connection to transport-config secret.
+	// The manager reconciler watches MGH and will pick up the updated connection when it reconciles.
+	err = config.UpdateMGHComponent(ctx, r.GetClient(),
+		getTransportComponentStatus(nil), true)
+	if err != nil {
+		log.Errorf("failed to update transport component status: %v", err)
 	}
 	return ctrl.Result{}, nil
 }
