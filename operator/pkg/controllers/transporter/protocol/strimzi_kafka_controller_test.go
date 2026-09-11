@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -117,4 +118,39 @@ func TestMulticlusterGlobalHubReconcilerStrimziResources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSyncManagerTransportConn(t *testing.T) {
+	t.Run("non-strimzi transporter returns immediately", func(t *testing.T) {
+		needRequeue, err := SyncManagerTransportConn(&mockTransporter{})
+		if err != nil {
+			t.Errorf("SyncManagerTransportConn() error = %v, wantErr false", err)
+		}
+		if needRequeue {
+			t.Errorf("SyncManagerTransportConn() needRequeue = true, want false")
+		}
+	})
+}
+
+// mockTransporter implements transport.Transporter for testing
+type mockTransporter struct{}
+
+func (m *mockTransporter) EnsureUser(clusterName string) (string, error) {
+	return "", nil
+}
+
+func (m *mockTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
+	return nil, nil
+}
+
+func (m *mockTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
+	return nil, nil
+}
+
+func (m *mockTransporter) EnsureKafka() (bool, error) {
+	return false, nil
+}
+
+func (m *mockTransporter) Prune(clusterName string) error {
+	return nil
 }
