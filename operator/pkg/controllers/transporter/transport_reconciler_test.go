@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -13,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,9 +30,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -371,3 +376,173 @@ func TestAMigrationACLReconcilerSetupSuccess(t *testing.T) {
 		t.Fatal("expected migration ACL controller to be marked started")
 	}
 }
+
+func TestSyncManagerTransportConnAndPersist(t *testing.T) {
+	ctx := context.Background()
+	ns := utils.GetDefaultNamespace()
+	scheme := runtime.NewScheme()
+	if err := v1alpha4.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(MulticlusterGlobalHub) error = %v", err)
+	}
+
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(mgh).
+		WithStatusSubresource(&v1alpha4.MulticlusterGlobalHub{}).
+		Build()
+	config.SetMGHNamespacedName(types.NamespacedName{Name: mgh.Name, Namespace: mgh.Namespace})
+	t.Cleanup(func() {
+		config.SetMGHNamespacedName(types.NamespacedName{})
+		config.SetTransporterConn(nil)
+	})
+
+	mgr := &migrationACLSetupFailManager{
+		client: fakeClient,
+		scheme: scheme,
+	}
+	reconciler := &TransportReconciler{
+		Manager:     mgr,
+		transporter: &noopTransporter{},
+	}
+
+	result, err := reconciler.syncManagerTransportConnAndPersist(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, time.Duration(0), result.RequeueAfter)
+
+	updatedMGH := &v1alpha4.MulticlusterGlobalHub{}
+	err = fakeClient.Get(ctx, types.NamespacedName{Name: mgh.Name, Namespace: mgh.Namespace}, updatedMGH)
+	assert.NoError(t, err)
+	assert.Contains(t, updatedMGH.Status.Components, config.COMPONENTS_KAFKA_NAME)
+}
+
+func TestSyncManagerTransportConnAndPersistRequeue(t *testing.T) {
+	ctx := context.Background()
+	ns := utils.GetDefaultNamespace()
+	scheme := runtime.NewScheme()
+	if err := v1alpha4.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(MulticlusterGlobalHub) error = %v", err)
+	}
+	if err := kafkav1beta2.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(Kafka) error = %v", err)
+	}
+
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+	}
+	notReadyType := "Ready"
+	notReadyStatus := "False"
+	notReadyReason := "NotReady"
+	notReadyMessage := "Kafka cluster not ready"
+	notReadyKafka := &kafkav1beta2.Kafka{
+		ObjectMeta: metav1.ObjectMeta{Name: protocol.KafkaClusterName, Namespace: ns},
+		Spec: &kafkav1beta2.KafkaSpec{
+			Kafka: kafkav1beta2.KafkaSpecKafka{
+				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
+					{Name: "tls", Port: 9093, Type: "nodeport", Tls: true},
+				},
+			},
+		},
+		Status: &kafkav1beta2.KafkaStatus{
+			Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
+				{
+					Type:    &notReadyType,
+					Status:  &notReadyStatus,
+					Reason:  &notReadyReason,
+					Message: &notReadyMessage,
+				},
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(mgh, notReadyKafka).Build()
+	config.SetMGHNamespacedName(types.NamespacedName{Name: mgh.Name, Namespace: mgh.Namespace})
+	t.Cleanup(func() {
+		config.SetMGHNamespacedName(types.NamespacedName{})
+		config.SetTransporter(nil)
+		config.SetTransporterConn(nil)
+	})
+
+	mgr := &migrationACLSetupFailManager{client: fakeClient, scheme: scheme}
+	reconciler := &TransportReconciler{
+		Manager:     mgr,
+		transporter: protocol.NewStrimziTransporter(mgr, mgh, protocol.WithContext(ctx)),
+	}
+
+	result, err := reconciler.syncManagerTransportConnAndPersist(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 5*time.Second, result.RequeueAfter)
+}
+
+func TestSyncManagerTransportConnAndPersistError(t *testing.T) {
+	ctx := context.Background()
+	ns := utils.GetDefaultNamespace()
+	scheme := runtime.NewScheme()
+	if err := v1alpha4.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(MulticlusterGlobalHub) error = %v", err)
+	}
+	if err := kafkav1beta2.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(Kafka) error = %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(corev1) error = %v", err)
+	}
+
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{Name: "globalhub", Namespace: ns},
+	}
+	readyType := "Ready"
+	readyStatus := "True"
+	bootServer := "kafka-kafka-bootstrap.example.svc:9092"
+	clusterID := "test-cluster-id"
+	readyKafka := &kafkav1beta2.Kafka{
+		ObjectMeta: metav1.ObjectMeta{Name: protocol.KafkaClusterName, Namespace: ns},
+		Spec: &kafkav1beta2.KafkaSpec{
+			Kafka: kafkav1beta2.KafkaSpecKafka{
+				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
+					{Name: "tls", Port: 9093, Type: "nodeport", Tls: true},
+				},
+			},
+		},
+		Status: &kafkav1beta2.KafkaStatus{
+			ClusterId: &clusterID,
+			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
+				{BootstrapServers: &bootServer, Certificates: []string{"cert"}},
+			},
+			Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
+				{Type: &readyType, Status: &readyStatus},
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(mgh, readyKafka).Build()
+	config.SetMGHNamespacedName(types.NamespacedName{Name: mgh.Name, Namespace: mgh.Namespace})
+	t.Cleanup(func() {
+		config.SetMGHNamespacedName(types.NamespacedName{})
+		config.SetTransporter(nil)
+		config.SetTransporterConn(nil)
+	})
+
+	mgr := &migrationACLSetupFailManager{client: fakeClient, scheme: scheme}
+	reconciler := &TransportReconciler{
+		Manager:     mgr,
+		transporter: protocol.NewStrimziTransporter(mgr, mgh, protocol.WithContext(ctx)),
+	}
+
+	_, err := reconciler.syncManagerTransportConnAndPersist(ctx)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get manager transport connection")
+}
+
+type noopTransporter struct{}
+
+func (n *noopTransporter) EnsureUser(clusterName string) (string, error) { return "", nil }
+func (n *noopTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
+	return nil, nil
+}
+
+func (n *noopTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
+	return nil, nil
+}
+func (n *noopTransporter) EnsureKafka() (bool, error)     { return false, nil }
+func (n *noopTransporter) Prune(clusterName string) error { return nil }
