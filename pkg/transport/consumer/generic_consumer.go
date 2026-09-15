@@ -29,6 +29,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/utils"
 )
 
+const receivedMessageLog = "received message"
+
 type GenericConsumer struct {
 	assembler            *messageAssembler
 	eventChan            chan *cloudevents.Event
@@ -225,11 +227,11 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		}
 	}()
 	err := c.client.StartReceiver(c.consumerCtx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
-		log.Debugw("received message", "event.Source", event.Source(), "event.Type", enum.ShortenEventType(event.Type()))
+		log.Debugw(receivedMessageLog, "event.Source", event.Source(), "event.Type", enum.ShortenEventType(event.Type()))
 
 		if !receivedMessage {
 			receivedMessage = true
-			log.Infow("received message", "topic", event.Extensions()[kafka_confluent.KafkaTopicKey],
+			log.Infow(receivedMessageLog, "topic", event.Extensions()[kafka_confluent.KafkaTopicKey],
 				"partition", event.Extensions()[kafka_confluent.KafkaPartitionKey],
 				"offset", event.Extensions()[kafka_confluent.KafkaOffsetKey])
 		}
@@ -281,7 +283,7 @@ func (c *GenericConsumer) startReceiver(
 	ctx context.Context, receiver cloudevents.Client, assembler *messageAssembler,
 ) error {
 	return receiver.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
-		log.Debugw("received message", "event.Source", event.Source(), "event.Type", enum.ShortenEventType(event.Type()))
+		log.Debugw(receivedMessageLog, "event.Source", event.Source(), "event.Type", enum.ShortenEventType(event.Type()))
 
 		chunk, isChunk := assembler.messageChunk(event)
 		if !isChunk {
