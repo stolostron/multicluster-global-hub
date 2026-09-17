@@ -45,15 +45,6 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	defer m.handleCleaningStatus(ctx, mcm, &condition, &nextPhase, getTimeout(migrationv1alpha1.PhaseCleaning))
 
-	// Deleting the ManagedServiceAccount will revoke the bootstrap kubeconfig secret of the migrated cluster.
-	// Be cautious — this action may carry potential risks.
-	if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
-		log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
-		condition.Message = fmt.Sprintf("Failed to delete managedServiceAccount: %v", err)
-		condition.Reason = ConditionReasonError
-		return false, nil // Let defer handle the status update
-	}
-
 	// cleanup the source hub: cleaning or failed state, if registering is executed, cleaning the ready clusters
 	fromHub := mcm.Spec.From
 	cleaningClusters := GetClusterList(string(mcm.UID))
@@ -114,6 +105,18 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseCleaning) {
 		condition.Message = fmt.Sprintf("Waiting for cleaning resources on source hub %s to complete", fromHub)
 		return true, nil
+	}
+
+	// Delete the MSA after both hubs have finished cleaning. The target hub cleaning removes
+	// DisableAutoImportAnnotation, which triggers the import controller to generate a standard
+	// bootstrap kubeconfig for the klusterlet. Deferring MSA deletion until here ensures the
+	// import controller has time to replace the MSA-based bootstrap kubeconfig before the token
+	// is revoked — preventing klusterlet crashes on restart.
+	if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
+		log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
+		condition.Message = fmt.Sprintf("Failed to delete managedServiceAccount: %v", err)
+		condition.Reason = ConditionReasonError
+		return false, nil // Let defer handle the status update
 	}
 
 	condition.Status = metav1.ConditionTrue
