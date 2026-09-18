@@ -1154,6 +1154,14 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 					Spec: clusterv1.ManagedClusterSpec{
 						HubAcceptsClient: true,
 					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   constants.ManagedClusterImportSucceeded,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
 				},
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1164,6 +1172,14 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 					},
 					Spec: clusterv1.ManagedClusterSpec{
 						HubAcceptsClient: true,
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   constants.ManagedClusterImportSucceeded,
+								Status: metav1.ConditionTrue,
+							},
+						},
 					},
 				},
 				&operatorv1.ClusterManager{
@@ -1678,6 +1694,14 @@ func TestCleaningStageErrorAggregation(t *testing.T) {
 							"import.open-cluster-management.io/disable-auto-import": "",
 						},
 					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   constants.ManagedClusterImportSucceeded,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
 				},
 				// cluster2 missing - will cause error
 				&operatorv1.ClusterManager{
@@ -1762,6 +1786,96 @@ func TestCleaningStageErrorAggregation(t *testing.T) {
 				}
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestWaitForImportReady(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+
+	cases := []struct {
+		name        string
+		initObjects []client.Object
+		clusters    []string
+		expectError bool
+	}{
+		{
+			name:        "empty cluster list returns nil",
+			clusters:    []string{},
+			expectError: false,
+		},
+		{
+			name: "all clusters have ManagedClusterImportSucceeded=True",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "c1"},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   constants.ManagedClusterImportSucceeded,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "c2"},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   constants.ManagedClusterImportSucceeded,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			clusters:    []string{"c1", "c2"},
+			expectError: false,
+		},
+		{
+			name: "cluster without condition times out",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "c1"},
+				},
+			},
+			clusters:    []string{"c1"},
+			expectError: true,
+		},
+		{
+			name:        "missing cluster times out",
+			clusters:    []string{"nonexistent"},
+			expectError: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(c.initObjects...).
+				WithStatusSubresource(&clusterv1.ManagedCluster{}).
+				Build()
+
+			transportConfig := &transport.TransportInternalConfig{
+				KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"},
+			}
+			agentConfig := &configs.AgentConfig{
+				TransportConfig: transportConfig,
+				LeafHubName:     "hub1",
+			}
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, agentConfig)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+			defer cancel()
+
+			err := syncer.waitForImportReady(ctx, c.clusters)
+			if c.expectError {
+				assert.Error(t, err, "cleaning should remain blocked when import readiness is not confirmed")
+			} else {
+				assert.NoError(t, err, "cleaning should proceed when all clusters have ManagedClusterImportSucceeded=True")
 			}
 		})
 	}
