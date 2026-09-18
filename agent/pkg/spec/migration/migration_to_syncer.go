@@ -347,6 +347,7 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 
 	// Clean up the auto-import disable annotation from the managed clusters
 	// and remove the velero restore label from ImageClusterInstall
+	var annotationRemovedClusters []string
 	for _, clusterName := range event.ManagedClusters {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			mc := &clusterv1.ManagedCluster{}
@@ -367,7 +368,8 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 			errMsg := fmt.Sprintf("failed to remove auto-import disable annotation: %v", err)
 			log.Errorf(logMsgClusterError, clusterName, errMsg)
 			clusterErrors[clusterName] = errMsg
-			// Continue to next cluster instead of returning
+		} else {
+			annotationRemovedClusters = append(annotationRemovedClusters, clusterName)
 		}
 
 		// Remove velero restore label from ImageClusterInstall
@@ -375,6 +377,14 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 			log.Warnf("failed to remove velero restore label from ImageClusterInstall for cluster %s: %v",
 				clusterName, err)
 		}
+	}
+
+	// Wait for the import controller to deliver replacement bootstrap credentials before
+	// reporting cleaning as complete. The manager deletes the MSA (revoking its token) only
+	// after both hubs report cleaning finished, so this ensures a standard bootstrap kubeconfig
+	// is available before the MSA-based one is revoked.
+	if err := s.waitForImportReady(ctx, annotationRemovedClusters); err != nil {
+		return fmt.Errorf("failed to wait for import readiness: %w", err)
 	}
 
 	// Remove MSA user from ClusterManager AutoApproveUsers list
@@ -404,6 +414,40 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 
 	log.Infof("successfully completed cleaning stage")
 	return nil
+}
+
+// waitForImportReady polls until the import controller has set ManagedClusterImportSucceeded=True
+// on each cluster, indicating that standard bootstrap credentials have been delivered. This must
+// happen before the manager deletes the MSA, because the MSA token is the only bootstrap
+// credential the klusterlet has until the import controller replaces it.
+func (s *MigrationTargetSyncer) waitForImportReady(ctx context.Context, clusters []string) error {
+	if len(clusters) == 0 {
+		return nil
+	}
+
+	timeout := remainingExpireTime(expireTimeFromContext(ctx))
+	if timeout > 3*time.Minute {
+		timeout = 3 * time.Minute
+	}
+
+	return wait.PollUntilContextTimeout(
+		ctx, 5*time.Second, timeout, true,
+		func(pollCtx context.Context) (bool, error) {
+			for _, clusterName := range clusters {
+				mc := &clusterv1.ManagedCluster{}
+				if err := s.client.Get(pollCtx, types.NamespacedName{Name: clusterName}, mc); err != nil {
+					log.Debugw("failed to get ManagedCluster", "cluster", clusterName, "error", err)
+					return false, nil
+				}
+				if !meta.IsStatusConditionTrue(mc.Status.Conditions, constants.ManagedClusterImportSucceeded) {
+					log.Debugw("ManagedClusterImportSucceeded not yet True", "cluster", clusterName)
+					return false, nil
+				}
+			}
+			log.Infow("all clusters have ManagedClusterImportSucceeded=True", "count", len(clusters))
+			return true, nil
+		},
+	)
 }
 
 // validating handles the validating phase
