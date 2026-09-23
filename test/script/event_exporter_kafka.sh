@@ -11,7 +11,7 @@ source "$CURRENT_DIR/util.sh"
 KUBECONFIG=${1:-$KUBECONFIG}        # the kubeconfig for running the kafka
 SECRET_KUBECONFIG=${2:-$KUBECONFIG} # the kubeconfig for generating the kafka connection secret
 
-kafka_namespace=${KAFKA_NAMESPACE:-"kafka"}
+kafka_namespace=${KAFKA_NAMESPACE:-"multicluster-global-hub-kafka"}
 secret_namespace=${SECRET_NAMESPACE:-"open-cluster-management"}
 
 standalone_user=global-hub-standalone-agent-user

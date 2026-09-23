@@ -52,7 +52,7 @@ echo "storage secret is ready in $target_namespace namespace!"
 ######################################### Generate Transport Secret ###################################################
 byo_user=global-hub-byo-user
 transport_secret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
-kafka_namespace=${KAFKA_NAMESPACE:-"kafka"}
+kafka_namespace=${KAFKA_NAMESPACE:-"multicluster-global-hub-kafka"}
 
 if kubectl get secret "$transport_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" >/dev/null 2>&1; then
   echo "transport: $transport_secret already exists in $target_namespace namespace"

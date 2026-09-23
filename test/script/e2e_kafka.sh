@@ -19,7 +19,7 @@ echo -e "\r${BOLD_GREEN}[ START - $(date +"%T") ] Install Kafka $NC"
 # check the transport secret
 secret_name=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
 secret_namespace=${TRANSPORT_SECRET_NAMESPACE:-"multicluster-global-hub"}
-kafka_namespace=${KAFKA_NAMESPACE:-"kafka"}
+kafka_namespace=${KAFKA_NAMESPACE:-"multicluster-global-hub-kafka"}
 
 kubectl create ns "$secret_namespace" --dry-run=client -oyaml | kubectl --kubeconfig "$SECRET_KUBECONFIG" apply -f -
 if kubectl get secret "$secret_name" -n "$secret_namespace" --kubeconfig "$SECRET_KUBECONFIG"; then
@@ -68,7 +68,7 @@ wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECO
 echo "Kafka cluster is ready"
 
 # generate resource for standalone agent
-export KAFKA_NAMESPACE=kafka
+export KAFKA_NAMESPACE=$kafka_namespace
 bash "$CURRENT_DIR/event_exporter_kafka.sh" "$KAFKA_KUBECONFIG" "$SECRET_KUBECONFIG"
 echo "Kafka standalone secret is ready! KUBECONFIG=$SECRET_KUBECONFIG"
 
