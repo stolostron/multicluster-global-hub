@@ -276,11 +276,13 @@ func (h *HubManagement) sendHubStatusUpdate(ctx context.Context, hubName, status
 		return nil
 	}
 
-	// Get managed clusters for this hub
+	// Get managed clusters for this hub. Omit local-cluster: every hub has its own
+	// ManagedCluster with that name, and the standby would update the wrong one.
 	managedClusters, err := h.getManagedClusterNames(hubName)
 	if err != nil {
 		return fmt.Errorf("failed to get managed clusters for hub %s: %w", hubName, err)
 	}
+	managedClusters = excludeLocalClusterNames(managedClusters)
 
 	// Create payload
 	payload := hubha.HubStatusUpdate{
@@ -309,4 +311,19 @@ func (h *HubManagement) sendHubStatusUpdate(ctx context.Context, hubName, status
 		"managedClusters", len(managedClusters))
 
 	return nil
+}
+
+// excludeLocalClusterNames drops the reserved local-cluster name from a failover list.
+func excludeLocalClusterNames(names []string) []string {
+	if len(names) == 0 {
+		return names
+	}
+	filtered := make([]string, 0, len(names))
+	for _, name := range names {
+		if name == constants.LocalClusterName {
+			continue
+		}
+		filtered = append(filtered, name)
+	}
+	return filtered
 }
