@@ -10,6 +10,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -277,4 +278,93 @@ func TestHubStatusSyncer_Sync_PartialFailure(t *testing.T) {
 	err = fakeClient.Get(context.TODO(), client.ObjectKey{Name: "cluster1"}, result)
 	assert.NoError(t, err)
 	assert.True(t, result.Spec.HubAcceptsClient)
+}
+
+// TestHubStatusSyncer_Sync_SkipsLocalClusterName verifies the reserved local-cluster
+// name is not accepted or rejected by a status update from another hub, while a
+// real spoke in the same payload still follows the active-hub rule.
+func TestHubStatusSyncer_Sync_SkipsLocalClusterName(t *testing.T) {
+	localCluster := &clusterv1.ManagedCluster{}
+	localCluster.Name = constants.LocalClusterName
+	localCluster.Labels = map[string]string{constants.LocalClusterName: "true"}
+	localCluster.Spec.HubAcceptsClient = true
+
+	spoke := &clusterv1.ManagedCluster{}
+	spoke.Name = "cluster1"
+	spoke.Spec.HubAcceptsClient = true
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(configs.GetRuntimeScheme()).
+		WithObjects(localCluster, spoke).
+		Build()
+
+	syncer := &HubStatusSyncer{client: fakeClient}
+
+	update := hubha.HubStatusUpdate{
+		HubName:         "regional-hub",
+		Status:          constants.HubStatusActive,
+		ManagedClusters: []string{constants.LocalClusterName, "cluster1"},
+	}
+	payload, err := json.Marshal(update)
+	require.NoError(t, err, "hub status payload must marshal before the syncer can be exercised")
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubStatusUpdateMsgKey)
+	evt.SetSource("manager")
+	err = evt.SetData(cloudevents.ApplicationJSON, payload)
+	require.NoError(t, err, "event data must be set before sync")
+
+	err = syncer.Sync(context.TODO(), &evt)
+	assert.NoError(t, err, "skipping local-cluster must not fail the rest of the status update")
+
+	localResult := &clusterv1.ManagedCluster{}
+	err = fakeClient.Get(context.TODO(), client.ObjectKey{Name: constants.LocalClusterName}, localResult)
+	require.NoError(t, err, "local-cluster must still exist after the status update")
+	assert.True(t, localResult.Spec.HubAcceptsClient,
+		"the hub local cluster must keep hubAcceptsClient so its klusterlet is not locked out")
+
+	spokeResult := &clusterv1.ManagedCluster{}
+	err = fakeClient.Get(context.TODO(), client.ObjectKey{Name: "cluster1"}, spokeResult)
+	require.NoError(t, err, "spoke cluster must still exist after the status update")
+	assert.False(t, spokeResult.Spec.HubAcceptsClient,
+		"a spoke listed by an active hub must have hubAcceptsClient cleared on the standby")
+}
+
+// TestHubStatusSyncer_Sync_SkipsLabeledLocalCluster verifies a renamed local cluster
+// is protected by the local-cluster=true label, not only by the reserved name.
+func TestHubStatusSyncer_Sync_SkipsLabeledLocalCluster(t *testing.T) {
+	localCluster := &clusterv1.ManagedCluster{}
+	localCluster.Name = "acm-local-cluster"
+	localCluster.Labels = map[string]string{constants.LocalClusterName: "true"}
+	localCluster.Spec.HubAcceptsClient = true
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(configs.GetRuntimeScheme()).
+		WithObjects(localCluster).
+		Build()
+
+	syncer := &HubStatusSyncer{client: fakeClient}
+
+	update := hubha.HubStatusUpdate{
+		HubName:         "regional-hub",
+		Status:          constants.HubStatusActive,
+		ManagedClusters: []string{"acm-local-cluster"},
+	}
+	payload, err := json.Marshal(update)
+	require.NoError(t, err, "hub status payload must marshal before the syncer can be exercised")
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubStatusUpdateMsgKey)
+	evt.SetSource("manager")
+	err = evt.SetData(cloudevents.ApplicationJSON, payload)
+	require.NoError(t, err, "event data must be set before sync")
+
+	err = syncer.Sync(context.TODO(), &evt)
+	assert.NoError(t, err, "skipping a labeled local cluster must not fail the status update")
+
+	result := &clusterv1.ManagedCluster{}
+	err = fakeClient.Get(context.TODO(), client.ObjectKey{Name: "acm-local-cluster"}, result)
+	require.NoError(t, err, "labeled local cluster must still exist after the status update")
+	assert.True(t, result.Spec.HubAcceptsClient,
+		"a cluster labeled local-cluster=true is this hub and must keep hubAcceptsClient")
 }
