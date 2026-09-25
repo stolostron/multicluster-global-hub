@@ -120,13 +120,16 @@ echo -e "${YELLOW} installing ocm and policy:${NC} $(($(date +%s) - start_time))
 
 # Install managed-serviceaccount addon on global hub
 # This is required for migration functionality to create ServiceAccounts and collect tokens
+# Pin the chart: 0.11.0+ renders ClusterManagementAddOn as addon.open-cluster-management.io/v1beta1,
+# which OCM v1.1.x (CLUSTERADM_VERSION=1.1.1) does not serve.
+MSA_CHART_VERSION="${MSA_CHART_VERSION:-0.10.0}"
 echo -e "${YELLOW}Installing managed-serviceaccount addon on global hub${NC}"
 helm repo add ocm https://open-cluster-management.io/helm-charts 2>/dev/null || true
 helm repo update ocm
-helm install -n open-cluster-management-addon --create-namespace \
-  managed-serviceaccount ocm/managed-serviceaccount --kubeconfig "$GH_KUBECONFIG" 2>/dev/null || true
-kubectl wait deployment -n open-cluster-management-addon managed-serviceaccount-addon-manager \
-  --for condition=Available=True --timeout=120s --kubeconfig "$GH_KUBECONFIG" || true
+helm upgrade --install -n open-cluster-management-addon --create-namespace \
+  managed-serviceaccount ocm/managed-serviceaccount --version "$MSA_CHART_VERSION" --kubeconfig "$GH_KUBECONFIG"
+kubectl rollout status deployment/managed-serviceaccount-addon-manager \
+  -n open-cluster-management-addon --timeout=120s --kubeconfig "$GH_KUBECONFIG"
 echo -e "${YELLOW}managed-serviceaccount addon installed${NC}"
 
 # apply standalone agent
