@@ -509,6 +509,19 @@ func TestSendHubStatusUpdate_NoStandbyHubAvailable(t *testing.T) {
 		"findStandbyHub should return prefixed global-hub/local-cluster when no standby hub is available")
 }
 
+// TestExcludeLocalClusterNames verifies failover lists drop the reserved local-cluster
+// name without reordering the remaining clusters, and that an all-local or nil list stays empty.
+func TestExcludeLocalClusterNames(t *testing.T) {
+	got := excludeLocalClusterNames([]string{"vm00001", constants.LocalClusterName, "vm00002"})
+	assert.Equal(t, []string{"vm00001", "vm00002"}, got,
+		"spokes must stay in order after the reserved local-cluster name is removed")
+
+	assert.Empty(t, excludeLocalClusterNames([]string{constants.LocalClusterName}),
+		"a list that only names local-cluster must not be sent as a failover target")
+	assert.Nil(t, excludeLocalClusterNames(nil),
+		"a nil cluster list must stay nil so callers can tell it from an empty filtered list")
+}
+
 // mockProducer implements transport.Producer for testing
 type mockProducer struct {
 	sendCalled bool
