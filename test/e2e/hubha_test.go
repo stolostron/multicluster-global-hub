@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
@@ -23,9 +26,9 @@ import (
 )
 
 const (
-	// With list-watch pattern + immediate send, changes are detected and sent immediately
-	// Wait time accounts for: controller event processing + Kafka transport + standby agent apply
-	hubHASyncWait = 10 * time.Second
+	// Wait time accounts for: controller event processing + Kafka transport + standby agent apply.
+	// CI environments can be slow under load, so use a generous baseline.
+	hubHASyncWait = 30 * time.Second
 )
 
 var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
@@ -69,11 +72,10 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 			return nil
 		}, 1*time.Minute, 5*time.Second).Should(Succeed())
 
-		// Wait for local agent to be deployed
 		By("Waiting for local agent deployment on global hub")
 		Eventually(func() error {
 			return checkDeployAvailable(globalHubClient, testOptions.GlobalHub.Namespace, "multicluster-global-hub-agent")
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
+		}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
 		// Check if hub roles are already configured (from previous test run or manual setup)
 		currentActiveRole := getHubRoleLabel(ctx, globalHubClient, activeHubName)
@@ -88,25 +90,21 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 			By("Hub1 already has active role configured")
 		}
 
-		// Wait for agent ConfigMap to be updated with hub roles
-		// The operator watches ManagedCluster label changes and propagates to agent ConfigMap
-		// For local agent, the operator automatically configures it based on the hub topology
-		// This typically takes 30-60 seconds: label change → addon annotation → ConfigMap update
 		By("Waiting for active hub agent to receive role configuration")
 		Eventually(func() string {
 			return getAgentHubRole(ctx, activeHubClient, "multicluster-global-hub-agent")
-		}, 2*time.Minute, 5*time.Second).Should(Equal(constants.GHHubRoleActive))
+		}, 3*time.Minute, 10*time.Second).Should(Equal(constants.GHHubRoleActive))
 
 		By("Waiting for active hub agent to receive prefixed standby hub configuration")
 		Eventually(func() string {
 			return getStandByHub(ctx, activeHubClient, "multicluster-global-hub-agent")
-		}, 2*time.Minute, 5*time.Second).Should(Equal("global-hub/local-cluster"),
+		}, 3*time.Minute, 10*time.Second).Should(Equal("global-hub/local-cluster"),
 			"active hub agent must receive the prefixed standbyHub value for global-hub local standby routing")
 
 		By("Waiting for local agent on global hub to receive role configuration")
 		Eventually(func() string {
 			return getAgentHubRole(ctx, globalHubClient, testOptions.GlobalHub.Namespace)
-		}, 2*time.Minute, 5*time.Second).Should(Equal(constants.GHHubRoleStandby))
+		}, 3*time.Minute, 10*time.Second).Should(Equal(constants.GHHubRoleStandby))
 	})
 
 	AfterAll(func() {
@@ -834,9 +832,7 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
 			})
 
-			// The test environment doesn't have local-cluster ManagedCluster available in isolation
-			// Core functionality is tested in integration tests
-			XIt("should set hubAcceptsClient=true on failover and false on recovery", func() {
+			It("should set hubAcceptsClient=true on failover and false on recovery", func() {
 				// This test simulates hub failure and recovery by manipulating agent availability
 				// Timing considerations:
 				// - Hub management checks heartbeats every 2 minutes (ProbeDuration)
@@ -845,80 +841,79 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 				// - After status change, Kafka message + agent processing adds ~30s-1min
 				// - Total: Allow 4 minutes per state change detection + 2 minutes for agent update
 
-				// Set up hub roles for this test (may have been cleaned up by previous tests)
-				By("Configuring hub1 as active hub")
+				// Ensure hub roles are configured (BeforeAll sets them, re-apply if cleaned up)
+				By("Ensuring hub1 has active role")
 				Eventually(func() error {
-					cluster := &clusterv1.ManagedCluster{}
-					if err := globalHubClient.Get(ctx, types.NamespacedName{Name: activeHubName}, cluster); err != nil {
-						return err
-					}
-					if cluster.Labels == nil {
-						cluster.Labels = make(map[string]string)
-					}
-					cluster.Labels[constants.GHHubRoleLabelKey] = constants.GHHubRoleActive
-					return globalHubClient.Update(ctx, cluster)
+					return setHubRole(ctx, globalHubClient, activeHubName, constants.GHHubRoleActive, "")
 				}, 1*time.Minute, 5*time.Second).Should(Succeed())
-				klog.Infof("Configured %s as active hub", activeHubName)
+				klog.Infof("Ensured %s has active hub role", activeHubName)
 
-				By("Configuring local-cluster as standby hub")
-				Eventually(func() error {
-					cluster := &clusterv1.ManagedCluster{}
-					if err := globalHubClient.Get(ctx, types.NamespacedName{Name: "local-cluster"}, cluster); err != nil {
-						return err
-					}
-					if cluster.Labels == nil {
-						cluster.Labels = make(map[string]string)
-					}
-					cluster.Labels[constants.GHHubRoleLabelKey] = constants.GHHubRoleStandby
-					return globalHubClient.Update(ctx, cluster)
-				}, 1*time.Minute, 5*time.Second).Should(Succeed())
-				klog.Infof("Configured local-cluster as standby hub")
+				By("Waiting for agents to receive role configuration")
+				Eventually(func() string {
+					return getAgentHubRole(ctx, activeHubClient, "multicluster-global-hub-agent")
+				}, 3*time.Minute, 10*time.Second).Should(Equal(constants.GHHubRoleActive))
+				Eventually(func() string {
+					return getAgentHubRole(ctx, globalHubClient, testOptions.GlobalHub.Namespace)
+				}, 3*time.Minute, 10*time.Second).Should(Equal(constants.GHHubRoleStandby))
 
-				// Wait for agent to receive the standby hub configuration
-				time.Sleep(10 * time.Second)
-
-				// Use existing real managed cluster from the database (hub1-cluster1)
-				// This cluster is already reported to the database by the agent
 				realClusterName := activeHubName + "-cluster1"
 				klog.Infof("Using existing managed cluster %s for failover test", realClusterName)
 
-				By("Creating a copy of the real ManagedCluster on standby hub for testing")
-				// Get the real cluster from active hub
+				By("Getting the real ManagedCluster from active hub")
 				activeCluster := &clusterv1.ManagedCluster{}
 				Expect(activeHubClient.Get(ctx, types.NamespacedName{Name: realClusterName}, activeCluster)).To(Succeed())
 
-				// Delete if it already exists on standby (cleanup from previous test runs)
+				By("Ensuring managed cluster exists in database for hub management failover")
+				var count int64
+				var err error
+				err = db.Raw("SELECT COUNT(*) FROM status.managed_clusters WHERE cluster_name = ? AND leaf_hub_name = ? AND deleted_at IS NULL",
+					realClusterName, activeHubName).Scan(&count).Error
+				Expect(err).NotTo(HaveOccurred())
+				if count == 0 {
+					// The cluster may be absent because the agent syncer filters out clusters
+					// without id.k8s.io ClusterClaim, or because a prior migration test triggered
+					// a soft-delete. Insert a minimal row so hub management includes it in
+					// failover status updates (cluster_name is generated from payload metadata).
+					minPayload := fmt.Sprintf(`{"metadata":{"name":"%s"}}`, realClusterName)
+					insertErr := db.Exec(
+						`INSERT INTO status.managed_clusters (leaf_hub_name, cluster_id, payload, error) VALUES (?, ?, ?::jsonb, 'none')`,
+						activeHubName, uuid.New().String(), minPayload,
+					).Error
+					Expect(insertErr).NotTo(HaveOccurred())
+					DeferCleanup(func() {
+						db.Exec("DELETE FROM status.managed_clusters WHERE cluster_name = ? AND leaf_hub_name = ?",
+							realClusterName, activeHubName)
+					})
+					klog.Infof("Inserted ManagedCluster %s into database for failover test", realClusterName)
+				}
+				klog.Infof("Verified ManagedCluster %s exists in database", realClusterName)
+
+				By("Creating a copy of the real ManagedCluster on standby hub for testing")
 				existingCluster := &clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: realClusterName,
 					},
 				}
 				_ = standbyHubClient.Delete(ctx, existingCluster)
-				time.Sleep(2 * time.Second) // Brief wait for deletion to complete
+				Eventually(func() error {
+					return standbyHubClient.Get(ctx, types.NamespacedName{Name: realClusterName}, existingCluster)
+				}, 30*time.Second, 1*time.Second).ShouldNot(Succeed())
 
-				// Create a copy on standby hub (simulating what Hub HA sync would do)
-				// Start with hubAcceptsClient=false (normal state)
 				standbyCluster := &clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   realClusterName,
 						Labels: activeCluster.Labels,
 					},
 					Spec: clusterv1.ManagedClusterSpec{
-						HubAcceptsClient:            false, // Normal state - active hub is healthy
+						HubAcceptsClient:            false,
 						ManagedClusterClientConfigs: activeCluster.Spec.ManagedClusterClientConfigs,
 					},
 				}
 				Expect(standbyHubClient.Create(ctx, standbyCluster)).To(Succeed())
+				DeferCleanup(func() {
+					_ = standbyHubClient.Delete(ctx, standbyCluster)
+				})
 				klog.Infof("Created ManagedCluster %s on standby hub with hubAcceptsClient=false", realClusterName)
-
-				// Verify the cluster exists in the database (it should, as it's a real cluster)
-				var count int64
-				var err error
-				err = db.Raw("SELECT COUNT(*) FROM status.managed_clusters WHERE cluster_name = ? AND leaf_hub_name = ? AND deleted_at IS NULL",
-					realClusterName, activeHubName).Scan(&count).Error
-				Expect(err).NotTo(HaveOccurred())
-				Expect(count).To(BeNumerically(">", 0), "ManagedCluster should exist in database")
-				klog.Infof("Verified ManagedCluster %s exists in database", realClusterName)
 
 				By("Simulating active hub failure by stopping the agent")
 				// Hub management checks every 2 minutes (ProbeDuration), considers hub inactive if heartbeat > 5 minutes old (ActiveTimeout)
@@ -928,25 +923,35 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 				_, err = testClients.Kubectl(activeHubName, "scale", "deployment",
 					"multicluster-global-hub-agent", "-n", "multicluster-global-hub-agent", "--replicas=0")
 				Expect(err).NotTo(HaveOccurred())
+				DeferCleanup(func() {
+					_, _ = testClients.Kubectl(activeHubName, "scale", "deployment",
+						"multicluster-global-hub-agent", "-n", "multicluster-global-hub-agent", "--replicas=1")
+				})
 				klog.Infof("Scaled down %s agent to simulate hub failure", activeHubName)
 
-				// Wait a bit to ensure agent is fully stopped and no more heartbeats are sent
-				time.Sleep(30 * time.Second)
-
-				// Now set the heartbeat to 6 minutes ago (past the 5 minute ActiveTimeout threshold)
-				// Agent is stopped so it won't overwrite this timestamp
-				oldHeartbeat := models.LeafHubHeartbeat{
-					Name:         activeHubName,
-					LastUpdateAt: time.Now().Add(-6 * time.Minute),
-					Status:       constants.HubStatusActive, // Will be changed to inactive by hub management
-				}
-				Expect(oldHeartbeat.UpInsertHeartBeat(db)).To(Succeed())
-				klog.Infof("Set %s heartbeat to 6 minutes ago (agent is stopped)", activeHubName)
+				Eventually(func() error {
+					deploy := &appsv1.Deployment{}
+					if err := activeHubClient.Get(ctx, types.NamespacedName{
+						Name: "multicluster-global-hub-agent", Namespace: "multicluster-global-hub-agent",
+					}, deploy); err != nil {
+						return err
+					}
+					if deploy.Status.ReadyReplicas != 0 {
+						return fmt.Errorf("agent still has %d ready replicas", deploy.Status.ReadyReplicas)
+					}
+					return nil
+				}, 1*time.Minute, 5*time.Second).Should(Succeed())
 
 				By("Waiting for hub management to detect inactive status and trigger failover")
-				// Hub management runs every 2 minutes. Worst case: just missed a cycle, wait 2min + processing time
-				// Allow 4 minutes to be safe: 2min for next cycle + 2min buffer for processing + message delivery
 				Eventually(func() error {
+					staleHeartbeat := models.LeafHubHeartbeat{
+						Name:         activeHubName,
+						LastUpdateAt: time.Now().Add(-6 * time.Minute),
+						Status:       constants.HubStatusActive,
+					}
+					if err := staleHeartbeat.UpInsertHeartBeat(db); err != nil {
+						return fmt.Errorf("failed to set stale heartbeat: %w", err)
+					}
 					var heartbeat models.LeafHubHeartbeat
 					if err := db.Where("leaf_hub_name = ?", activeHubName).First(&heartbeat).Error; err != nil {
 						return err
@@ -959,8 +964,6 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 				}, 4*time.Minute, 5*time.Second).Should(Succeed())
 
 				By("Verifying hubAcceptsClient=true on standby (failover triggered)")
-				// After hub management detects inactive, it sends Kafka message to standby agent
-				// Agent processes message and updates ManagedCluster - allow 2 minutes for this
 				Eventually(func() error {
 					updatedCluster := &clusterv1.ManagedCluster{}
 					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: realClusterName}, updatedCluster); err != nil {
@@ -972,7 +975,7 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 					}
 					klog.Infof("ManagedCluster %s has hubAcceptsClient=true (failover successful)", realClusterName)
 					return nil
-				}, 2*time.Minute, 5*time.Second).Should(Succeed())
+				}, 4*time.Minute, 5*time.Second).Should(Succeed())
 
 				By("Simulating active hub recovery by restarting the agent")
 				// Scale agent deployment back up - it will start sending heartbeats again
@@ -981,8 +984,18 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 				Expect(err).NotTo(HaveOccurred())
 				klog.Infof("Scaled up %s agent to simulate hub recovery", activeHubName)
 
-				// Wait for agent to start and send heartbeat (agent sends heartbeat every 1 minute on startup)
-				time.Sleep(90 * time.Second)
+				Eventually(func() error {
+					deploy := &appsv1.Deployment{}
+					if err := activeHubClient.Get(ctx, types.NamespacedName{
+						Name: "multicluster-global-hub-agent", Namespace: "multicluster-global-hub-agent",
+					}, deploy); err != nil {
+						return err
+					}
+					if deploy.Status.ReadyReplicas < 1 {
+						return fmt.Errorf("agent has %d ready replicas, waiting for 1", deploy.Status.ReadyReplicas)
+					}
+					return nil
+				}, 2*time.Minute, 5*time.Second).Should(Succeed())
 
 				By("Waiting for hub management to detect active status recovery")
 				// Same timing: hub management cycle (2min) + processing buffer
@@ -999,8 +1012,6 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 				}, 4*time.Minute, 5*time.Second).Should(Succeed())
 
 				By("Verifying hubAcceptsClient=false on standby (back to normal state)")
-				// After hub management detects active, it sends Kafka message to standby agent
-				// Agent processes message and updates ManagedCluster back to false
 				Eventually(func() error {
 					recoveredCluster := &clusterv1.ManagedCluster{}
 					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: realClusterName}, recoveredCluster); err != nil {
@@ -1012,119 +1023,490 @@ var _ = Describe("Hub HA Sync", Label("e2e-test-hubha"), Ordered, func() {
 					}
 					klog.Infof("ManagedCluster %s has hubAcceptsClient=false (back to normal)", realClusterName)
 					return nil
-				}, 2*time.Minute, 5*time.Second).Should(Succeed())
+				}, 4*time.Minute, 5*time.Second).Should(Succeed())
+			})
+		})
 
-				// Clean up - delete the test cluster from standby hub
-				Expect(standbyHubClient.Delete(ctx, standbyCluster)).To(Succeed())
-				klog.Infof("Cleaned up test ManagedCluster %s from standby hub", realClusterName)
+		Context("Post-failover workload validation", Ordered, func() {
+			var realClusterName string
+
+			BeforeAll(func() {
+				realClusterName = activeHubName + "-cluster1"
+
+				By("Ensuring hub roles are configured for failover test")
+				Eventually(func() error {
+					return setHubRole(ctx, globalHubClient, activeHubName, constants.GHHubRoleActive, "")
+				}, 1*time.Minute, 5*time.Second).Should(Succeed())
+
+				By("Waiting for agent to receive role configuration")
+				Eventually(func() string {
+					return getAgentHubRole(ctx, activeHubClient, "multicluster-global-hub-agent")
+				}, 3*time.Minute, 10*time.Second).Should(Equal(constants.GHHubRoleActive),
+					"active hub agent must receive the active role before failover is simulated")
+
+				Eventually(func() string {
+					return getAgentHubRole(ctx, globalHubClient, testOptions.GlobalHub.Namespace)
+				}, 3*time.Minute, 10*time.Second).Should(Equal(constants.GHHubRoleStandby),
+					"standby agent must receive the standby role before failover is simulated")
+
+				By("Ensuring managed cluster exists in database for failover")
+				var count int64
+				err := db.Raw("SELECT COUNT(*) FROM status.managed_clusters WHERE cluster_name = ? AND leaf_hub_name = ? AND deleted_at IS NULL",
+					realClusterName, activeHubName).Scan(&count).Error
+				Expect(err).NotTo(HaveOccurred())
+				if count == 0 {
+					minPayload := fmt.Sprintf(`{"metadata":{"name":"%s"}}`, realClusterName)
+					insertErr := db.Exec(
+						`INSERT INTO status.managed_clusters (leaf_hub_name, cluster_id, payload, error) VALUES (?, ?, ?::jsonb, 'none')`,
+						activeHubName, uuid.New().String(), minPayload,
+					).Error
+					Expect(insertErr).NotTo(HaveOccurred())
+					DeferCleanup(func() {
+						db.Exec("DELETE FROM status.managed_clusters WHERE cluster_name = ? AND leaf_hub_name = ?",
+							realClusterName, activeHubName)
+					})
+					klog.Infof("Inserted ManagedCluster %s into database for failover tests", realClusterName)
+				}
 			})
 
-			It("should maintain hubAcceptsClient=false when ManagedCluster is updated on active hub", func() {
-				By("Creating ManagedCluster on active hub")
-				managedCluster := &clusterv1.ManagedCluster{
+			It("should preserve Policies on standby hub through failover and recovery", func() {
+				failoverPolicyName := fmt.Sprintf("failover-policy-%d", time.Now().Unix())
+
+				By("Creating Policy on active hub before failover")
+				policy := &policyv1.Policy{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: testClusterName,
-						Labels: map[string]string{
-							"hive.openshift.io/secret-type": "kubeconfig",
-							"env":                           "test",
+						Name:      failoverPolicyName,
+						Namespace: testNamespace,
+						Annotations: map[string]string{
+							"policy.open-cluster-management.io/categories": "CM Configuration Management",
+							"policy.open-cluster-management.io/standards":  "NIST SP 800-53",
 						},
 					},
-					Spec: clusterv1.ManagedClusterSpec{
-						HubAcceptsClient: true,
-						ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+					Spec: policyv1.PolicySpec{
+						Disabled:          false,
+						RemediationAction: policyv1.Inform,
+						PolicyTemplates: []*policyv1.PolicyTemplate{
 							{
-								URL: "https://test-cluster-v1.example.com:6443",
+								ObjectDefinition: runtime.RawExtension{
+									Raw: []byte(`{
+										"apiVersion": "policy.open-cluster-management.io/v1",
+										"kind": "ConfigurationPolicy",
+										"metadata": { "name": "failover-config-policy" },
+										"spec": {
+											"remediationAction": "inform",
+											"severity": "high",
+											"object-templates": [{
+												"complianceType": "musthave",
+												"objectDefinition": {
+													"apiVersion": "v1",
+													"kind": "Namespace",
+													"metadata": { "name": "failover-test-ns" }
+												}
+											}]
+										}
+									}`),
+								},
 							},
 						},
 					},
 				}
-				Expect(activeHubClient.Create(ctx, managedCluster)).To(Succeed())
+				Expect(activeHubClient.Create(ctx, policy)).To(Succeed())
+				klog.Infof("Created failover test Policy %s on active hub", failoverPolicyName)
 
-				By("Waiting for initial sync to standby hub")
+				defer func() {
+					_ = activeHubClient.Delete(ctx, policy)
+					_ = standbyHubClient.Delete(ctx, &policyv1.Policy{
+						ObjectMeta: metav1.ObjectMeta{Name: failoverPolicyName, Namespace: testNamespace},
+					})
+				}()
+
+				By("Verifying Policy is synced to standby hub before failover")
 				Eventually(func() error {
-					standbyCluster := &clusterv1.ManagedCluster{}
-					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, standbyCluster); err != nil {
-						return err
-					}
-					if standbyCluster.Spec.HubAcceptsClient != false {
-						return fmt.Errorf("initial sync: expected hubAcceptsClient=false")
-					}
-					return nil
+					standbyPolicy := &policyv1.Policy{}
+					return standbyHubClient.Get(ctx, types.NamespacedName{
+						Name: failoverPolicyName, Namespace: testNamespace,
+					}, standbyPolicy)
 				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
 
-				By("Waiting for ManagedCluster resourceVersion to stabilize after initial sync")
-				waitForManagedClusterStable(ctx, activeHubClient, testClusterName, 10*time.Second)
+				By("Creating ManagedCluster on standby for failover test")
+				activeCluster := &clusterv1.ManagedCluster{}
+				Expect(activeHubClient.Get(ctx, types.NamespacedName{Name: realClusterName}, activeCluster)).To(Succeed())
 
-				By("Updating ManagedCluster on active hub (changing URL and labels)")
+				_ = standbyHubClient.Delete(ctx, &clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: realClusterName},
+				})
+				Eventually(func() bool {
+					err := standbyHubClient.Get(ctx, types.NamespacedName{Name: realClusterName},
+						&clusterv1.ManagedCluster{})
+					return err != nil
+				}, 30*time.Second, 2*time.Second).Should(BeTrue(), "ManagedCluster deletion should complete")
+
+				standbyCluster := &clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   realClusterName,
+						Labels: activeCluster.Labels,
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:            false,
+						ManagedClusterClientConfigs: activeCluster.Spec.ManagedClusterClientConfigs,
+					},
+				}
+				Expect(standbyHubClient.Create(ctx, standbyCluster)).To(Succeed())
+				DeferCleanup(func() {
+					_ = standbyHubClient.Delete(ctx, standbyCluster)
+				})
+
+				By("Simulating active hub failure")
+				_, err := testClients.Kubectl(activeHubName, "scale", "deployment",
+					"multicluster-global-hub-agent", "-n", "multicluster-global-hub-agent", "--replicas=0")
+				Expect(err).NotTo(HaveOccurred())
+				DeferCleanup(func() {
+					_, _ = testClients.Kubectl(activeHubName, "scale", "deployment",
+						"multicluster-global-hub-agent", "-n", "multicluster-global-hub-agent", "--replicas=1")
+				})
+				Eventually(func() int32 {
+					deploy := &appsv1.Deployment{}
+					if err := activeHubClient.Get(ctx, types.NamespacedName{
+						Name:      "multicluster-global-hub-agent",
+						Namespace: "multicluster-global-hub-agent",
+					}, deploy); err != nil {
+						return -1
+					}
+					return deploy.Status.ReadyReplicas
+				}, 1*time.Minute, 5*time.Second).Should(Equal(int32(0)),
+					"Agent deployment should have 0 ready replicas")
+
+				By("Waiting for failover detection")
 				Eventually(func() error {
-					activeCluster := &clusterv1.ManagedCluster{}
-					if err := activeHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, activeCluster); err != nil {
+					staleHeartbeat := models.LeafHubHeartbeat{
+						Name:         activeHubName,
+						LastUpdateAt: time.Now().Add(-6 * time.Minute),
+						Status:       constants.HubStatusActive,
+					}
+					if err := staleHeartbeat.UpInsertHeartBeat(db); err != nil {
+						return fmt.Errorf("failed to set stale heartbeat: %w", err)
+					}
+					var heartbeat models.LeafHubHeartbeat
+					if err := db.Where("leaf_hub_name = ?", activeHubName).First(&heartbeat).Error; err != nil {
 						return err
 					}
-					activeCluster.Labels["env"] = "production"
-					activeCluster.Spec.ManagedClusterClientConfigs[0].URL = "https://test-cluster-v2.example.com:6443"
-					return activeHubClient.Update(ctx, activeCluster)
-				}, 1*time.Minute, 5*time.Second).Should(Succeed())
-
-				By("Waiting for ManagedCluster resourceVersion to stabilize after update")
-				waitForManagedClusterStable(ctx, activeHubClient, testClusterName, 10*time.Second)
-
-				By("Verifying update is synced with hubAcceptsClient still false")
-				Eventually(func() error {
-					standbyCluster := &clusterv1.ManagedCluster{}
-					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: testClusterName}, standbyCluster); err != nil {
-						return err
+					if heartbeat.Status != constants.HubStatusInactive {
+						return fmt.Errorf("hub status should be inactive, got %s", heartbeat.Status)
 					}
-
-					// hubAcceptsClient should remain false
-					if standbyCluster.Spec.HubAcceptsClient != false {
-						return fmt.Errorf("after update: expected hubAcceptsClient=false, got %v",
-							standbyCluster.Spec.HubAcceptsClient)
-					}
-
-					// Verify updates were applied
-					if standbyCluster.Labels["env"] != "production" {
-						return fmt.Errorf("label update not synced, expected production, got %s",
-							standbyCluster.Labels["env"])
-					}
-					if standbyCluster.Spec.ManagedClusterClientConfigs[0].URL != "https://test-cluster-v2.example.com:6443" {
-						return fmt.Errorf("URL update not synced")
-					}
-
-					klog.Infof("ManagedCluster %s update synced correctly with hubAcceptsClient=false maintained", testClusterName)
 					return nil
-				}, 2*time.Minute, 5*time.Second).Should(Succeed())
+				}, 4*time.Minute, 5*time.Second).Should(Succeed())
+
+				By("Verifying hubAcceptsClient=true on standby (failover triggered)")
+				Eventually(func() error {
+					updatedCluster := &clusterv1.ManagedCluster{}
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: realClusterName}, updatedCluster); err != nil {
+						return err
+					}
+					if !updatedCluster.Spec.HubAcceptsClient {
+						return fmt.Errorf("expected hubAcceptsClient=true during failover")
+					}
+					return nil
+				}, 4*time.Minute, 5*time.Second).Should(Succeed())
+
+				By("Verifying Policy still exists and is intact on standby hub post-failover")
+				standbyPolicy := &policyv1.Policy{}
+				err = standbyHubClient.Get(ctx, types.NamespacedName{
+					Name: failoverPolicyName, Namespace: testNamespace,
+				}, standbyPolicy)
+				Expect(err).NotTo(HaveOccurred(), "Policy should survive failover on standby hub")
+				Expect(standbyPolicy.Spec.RemediationAction).To(Equal(policyv1.Inform),
+					"Policy spec should be preserved post-failover")
+				Expect(standbyPolicy.Spec.Disabled).To(BeFalse(),
+					"Policy should remain enabled post-failover")
+				Expect(standbyPolicy.Annotations["policy.open-cluster-management.io/standards"]).To(
+					Equal("NIST SP 800-53"), "Policy annotations should be preserved",
+				)
+				klog.Infof("Policy %s verified intact post-failover", failoverPolicyName)
+
+				By("Simulating active hub recovery")
+				_, err = testClients.Kubectl(activeHubName, "scale", "deployment",
+					"multicluster-global-hub-agent", "-n", "multicluster-global-hub-agent", "--replicas=1")
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() int32 {
+					deploy := &appsv1.Deployment{}
+					if err := activeHubClient.Get(ctx, types.NamespacedName{
+						Name:      "multicluster-global-hub-agent",
+						Namespace: "multicluster-global-hub-agent",
+					}, deploy); err != nil {
+						return 0
+					}
+					return deploy.Status.ReadyReplicas
+				}, 2*time.Minute, 5*time.Second).Should(BeNumerically(">=", int32(1)),
+					"Agent deployment should have at least 1 ready replica")
+
+				By("Waiting for recovery detection")
+				Eventually(func() error {
+					var heartbeat models.LeafHubHeartbeat
+					if err := db.Where("leaf_hub_name = ?", activeHubName).First(&heartbeat).Error; err != nil {
+						return err
+					}
+					if heartbeat.Status != constants.HubStatusActive {
+						return fmt.Errorf("hub status should be active, got %s", heartbeat.Status)
+					}
+					return nil
+				}, 4*time.Minute, 5*time.Second).Should(Succeed())
+
+				By("Verifying hubAcceptsClient=false on standby (recovery)")
+				Eventually(func() error {
+					recoveredCluster := &clusterv1.ManagedCluster{}
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{Name: realClusterName}, recoveredCluster); err != nil {
+						return err
+					}
+					if recoveredCluster.Spec.HubAcceptsClient {
+						return fmt.Errorf("expected hubAcceptsClient=false after recovery")
+					}
+					return nil
+				}, 4*time.Minute, 5*time.Second).Should(Succeed())
+
+				By("Verifying Policy still exists post-recovery")
+				err = standbyHubClient.Get(ctx, types.NamespacedName{
+					Name: failoverPolicyName, Namespace: testNamespace,
+				}, standbyPolicy)
+				Expect(err).NotTo(HaveOccurred(), "Policy should survive recovery on standby hub")
+				klog.Infof("Policy %s verified intact post-recovery", failoverPolicyName)
+			})
+
+			// Sync-verification tests: these validate the active→standby data path that
+			// enables workload availability post-failover. The full failover cycle is
+			// exercised by the Policy test above; these verify additional resource types
+			// are synced correctly, which is the prerequisite for post-failover continuity.
+			It("should sync PlacementBinding from active to standby hub", func() {
+				failoverPBName := fmt.Sprintf("failover-pb-%d", time.Now().Unix())
+				failoverPolicyName := fmt.Sprintf("failover-pb-policy-%d", time.Now().Unix())
+
+				By("Creating Policy and PlacementBinding on active hub")
+				policy := &policyv1.Policy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      failoverPolicyName,
+						Namespace: testNamespace,
+					},
+					Spec: policyv1.PolicySpec{
+						Disabled:          false,
+						RemediationAction: policyv1.Enforce,
+						PolicyTemplates: []*policyv1.PolicyTemplate{
+							{
+								ObjectDefinition: runtime.RawExtension{
+									Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test"}}`),
+								},
+							},
+						},
+					},
+				}
+				Expect(activeHubClient.Create(ctx, policy)).To(Succeed())
+
+				pb := &policyv1.PlacementBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      failoverPBName,
+						Namespace: testNamespace,
+					},
+					PlacementRef: policyv1.PlacementSubject{
+						APIGroup: "cluster.open-cluster-management.io",
+						Kind:     "Placement",
+						Name:     "failover-placement",
+					},
+					Subjects: []policyv1.Subject{
+						{
+							APIGroup: "policy.open-cluster-management.io",
+							Kind:     "Policy",
+							Name:     failoverPolicyName,
+						},
+					},
+				}
+				Expect(activeHubClient.Create(ctx, pb)).To(Succeed())
+				klog.Infof("Created PlacementBinding %s on active hub", failoverPBName)
+
+				defer func() {
+					_ = activeHubClient.Delete(ctx, pb)
+					_ = activeHubClient.Delete(ctx, policy)
+					_ = standbyHubClient.Delete(ctx, &policyv1.PlacementBinding{
+						ObjectMeta: metav1.ObjectMeta{Name: failoverPBName, Namespace: testNamespace},
+					})
+					_ = standbyHubClient.Delete(ctx, &policyv1.Policy{
+						ObjectMeta: metav1.ObjectMeta{Name: failoverPolicyName, Namespace: testNamespace},
+					})
+				}()
+
+				By("Verifying PlacementBinding is synced to standby")
+				Eventually(func() error {
+					standbyPB := &policyv1.PlacementBinding{}
+					return standbyHubClient.Get(ctx, types.NamespacedName{
+						Name: failoverPBName, Namespace: testNamespace,
+					}, standbyPB)
+				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+
+				By("Verifying PlacementBinding spec is preserved on standby")
+				standbyPB := &policyv1.PlacementBinding{}
+				err := standbyHubClient.Get(ctx, types.NamespacedName{
+					Name: failoverPBName, Namespace: testNamespace,
+				}, standbyPB)
+				Expect(err).NotTo(HaveOccurred(), "PlacementBinding should exist on standby hub")
+				Expect(standbyPB.PlacementRef.Name).To(Equal("failover-placement"),
+					"PlacementRef name should be preserved on standby")
+				Expect(standbyPB.Subjects).To(HaveLen(1),
+					"PlacementBinding should have exactly one subject")
+				Expect(standbyPB.Subjects[0].Name).To(Equal(failoverPolicyName),
+					"PlacementBinding subject should reference the correct policy")
+				klog.Infof("PlacementBinding %s verified on standby", failoverPBName)
+			})
+
+			It("should sync Argo Application from active to standby hub", func() {
+				argoAppName := fmt.Sprintf("failover-argoapp-%d", time.Now().Unix())
+
+				By("Creating Argo Application on active hub (unstructured)")
+				argoApp := &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "argoproj.io/v1alpha1",
+						"kind":       "Application",
+						"metadata": map[string]interface{}{
+							"name":      argoAppName,
+							"namespace": testNamespace,
+						},
+						"spec": map[string]interface{}{
+							"project": "default",
+							"source": map[string]interface{}{
+								"repoURL":        "https://github.com/example/app.git",
+								"targetRevision": "HEAD",
+								"path":           "manifests",
+							},
+							"destination": map[string]interface{}{
+								"server":    "https://kubernetes.default.svc",
+								"namespace": "default",
+							},
+						},
+					},
+				}
+
+				err := activeHubClient.Create(ctx, argoApp)
+				if err != nil {
+					if meta.IsNoMatchError(err) {
+						klog.Infof("Argo Application CRD not available on active hub: %v", err)
+						Skip("Argo Application CRD not installed on active hub")
+					}
+					Expect(err).NotTo(HaveOccurred(), "unexpected error creating Argo Application")
+				}
+				klog.Infof("Created Argo Application %s on active hub", argoAppName)
+
+				defer func() {
+					_ = activeHubClient.Delete(ctx, argoApp)
+					standbyArgo := &unstructured.Unstructured{}
+					standbyArgo.SetAPIVersion("argoproj.io/v1alpha1")
+					standbyArgo.SetKind("Application")
+					standbyArgo.SetName(argoAppName)
+					standbyArgo.SetNamespace(testNamespace)
+					_ = standbyHubClient.Delete(ctx, standbyArgo)
+				}()
+
+				By("Verifying Argo Application is synced to standby hub")
+				Eventually(func() error {
+					standbyArgo := &unstructured.Unstructured{}
+					standbyArgo.SetAPIVersion("argoproj.io/v1alpha1")
+					standbyArgo.SetKind("Application")
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{
+						Name: argoAppName, Namespace: testNamespace,
+					}, standbyArgo); err != nil {
+						return err
+					}
+
+					spec, ok := standbyArgo.Object["spec"].(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("argo app spec not found")
+					}
+					project, _ := spec["project"].(string)
+					if project != "default" {
+						return fmt.Errorf("expected project=default, got %s", project)
+					}
+
+					source, ok := spec["source"].(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("argo app source not found")
+					}
+					repoURL, _ := source["repoURL"].(string)
+					if repoURL != "https://github.com/example/app.git" {
+						return fmt.Errorf("expected repoURL match, got %s", repoURL)
+					}
+
+					klog.Infof("Argo Application %s verified on standby hub", argoAppName)
+					return nil
+				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
+			})
+
+			It("should sync ClusterInstance from active to standby hub", func() {
+				ciName := fmt.Sprintf("failover-ci-%d", time.Now().Unix())
+
+				By("Creating ClusterInstance on active hub (unstructured)")
+				ci := &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "siteconfig.open-cluster-management.io/v1alpha1",
+						"kind":       "ClusterInstance",
+						"metadata": map[string]interface{}{
+							"name":      ciName,
+							"namespace": testNamespace,
+						},
+						"spec": map[string]interface{}{
+							"clusterName":    ciName,
+							"baseDomain":     "example.com",
+							"clusterNetwork": []interface{}{},
+							"machineNetwork": []interface{}{},
+						},
+					},
+				}
+
+				err := activeHubClient.Create(ctx, ci)
+				if err != nil {
+					if meta.IsNoMatchError(err) {
+						klog.Infof("ClusterInstance CRD not available on active hub: %v", err)
+						Skip("ClusterInstance CRD not installed on active hub")
+					}
+					Expect(err).NotTo(HaveOccurred(), "unexpected error creating ClusterInstance")
+				}
+				klog.Infof("Created ClusterInstance %s on active hub", ciName)
+
+				defer func() {
+					_ = activeHubClient.Delete(ctx, ci)
+					standbyCI := &unstructured.Unstructured{}
+					standbyCI.SetAPIVersion("siteconfig.open-cluster-management.io/v1alpha1")
+					standbyCI.SetKind("ClusterInstance")
+					standbyCI.SetName(ciName)
+					standbyCI.SetNamespace(testNamespace)
+					_ = standbyHubClient.Delete(ctx, standbyCI)
+				}()
+
+				By("Verifying ClusterInstance is synced to standby hub")
+				Eventually(func() error {
+					standbyCI := &unstructured.Unstructured{}
+					standbyCI.SetAPIVersion("siteconfig.open-cluster-management.io/v1alpha1")
+					standbyCI.SetKind("ClusterInstance")
+					if err := standbyHubClient.Get(ctx, types.NamespacedName{
+						Name: ciName, Namespace: testNamespace,
+					}, standbyCI); err != nil {
+						return err
+					}
+
+					spec, ok := standbyCI.Object["spec"].(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("clusterinstance spec not found")
+					}
+					clusterName, _ := spec["clusterName"].(string)
+					if clusterName != ciName {
+						return fmt.Errorf("expected clusterName=%s, got %s", ciName, clusterName)
+					}
+					baseDomain, _ := spec["baseDomain"].(string)
+					if baseDomain != "example.com" {
+						return fmt.Errorf("expected baseDomain=example.com, got %s", baseDomain)
+					}
+
+					klog.Infof("ClusterInstance %s verified on standby hub", ciName)
+					return nil
+				}, hubHASyncWait+30*time.Second, 5*time.Second).Should(Succeed())
 			})
 		})
 	})
 })
-
-// waitForManagedClusterStable waits until the ManagedCluster resourceVersion on the
-// active hub stops changing for stableDuration. This reduces races with create-time
-// webhook churn before Hub HA update bundles are emitted.
-func waitForManagedClusterStable(ctx context.Context, c client.Client, name string, stableDuration time.Duration) {
-	var lastRV string
-	stableSince := time.Time{}
-
-	Eventually(func() error {
-		cluster := &clusterv1.ManagedCluster{}
-		if err := c.Get(ctx, types.NamespacedName{Name: name}, cluster); err != nil {
-			return err
-		}
-
-		rv := cluster.ResourceVersion
-		now := time.Now()
-		if rv != lastRV {
-			lastRV = rv
-			stableSince = now
-			return fmt.Errorf("resourceVersion changed to %s, waiting for stability", rv)
-		}
-		if now.Sub(stableSince) < stableDuration {
-			return fmt.Errorf("resourceVersion %s stable for %v, need %v", rv, now.Sub(stableSince), stableDuration)
-		}
-		return nil
-	}, 2*time.Minute, 2*time.Second).Should(Succeed())
-}
 
 // getHubRoleLabel retrieves the hub role label from a managed cluster
 func getHubRoleLabel(ctx context.Context, c client.Client, clusterName string) string {

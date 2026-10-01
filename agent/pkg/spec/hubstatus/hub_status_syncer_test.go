@@ -10,6 +10,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -277,4 +278,158 @@ func TestHubStatusSyncer_Sync_PartialFailure(t *testing.T) {
 	err = fakeClient.Get(context.TODO(), client.ObjectKey{Name: "cluster1"}, result)
 	assert.NoError(t, err)
 	assert.True(t, result.Spec.HubAcceptsClient)
+}
+
+func TestHubStatusSyncer_Sync_FailoverThenRecovery(t *testing.T) {
+	cluster1 := &clusterv1.ManagedCluster{}
+	cluster1.Name = "cluster1"
+	cluster1.Spec.HubAcceptsClient = false
+
+	cluster2 := &clusterv1.ManagedCluster{}
+	cluster2.Name = "cluster2"
+	cluster2.Spec.HubAcceptsClient = false
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(configs.GetRuntimeScheme()).
+		WithObjects(cluster1, cluster2).
+		Build()
+
+	syncer := &HubStatusSyncer{client: fakeClient}
+	clusters := []string{"cluster1", "cluster2"}
+
+	// Step 1: Failover — active hub goes inactive
+	failoverPayload, _ := json.Marshal(hubha.HubStatusUpdate{
+		HubName: "hub1", Status: constants.HubStatusInactive, ManagedClusters: clusters,
+	})
+	failoverEvt := cloudevents.NewEvent()
+	failoverEvt.SetType(constants.HubStatusUpdateMsgKey)
+	failoverEvt.SetSource("manager")
+	_ = failoverEvt.SetData(cloudevents.ApplicationJSON, failoverPayload)
+
+	err := syncer.Sync(context.TODO(), &failoverEvt)
+	require.NoError(t, err)
+
+	for _, name := range clusters {
+		mc := &clusterv1.ManagedCluster{}
+		require.NoError(t, fakeClient.Get(context.TODO(), client.ObjectKey{Name: name}, mc))
+		assert.True(t, mc.Spec.HubAcceptsClient, "cluster %s should accept clients after failover", name)
+	}
+
+	// Step 2: Recovery — active hub comes back
+	recoveryPayload, _ := json.Marshal(hubha.HubStatusUpdate{
+		HubName: "hub1", Status: constants.HubStatusActive, ManagedClusters: clusters,
+	})
+	recoveryEvt := cloudevents.NewEvent()
+	recoveryEvt.SetType(constants.HubStatusUpdateMsgKey)
+	recoveryEvt.SetSource("manager")
+	_ = recoveryEvt.SetData(cloudevents.ApplicationJSON, recoveryPayload)
+
+	err = syncer.Sync(context.TODO(), &recoveryEvt)
+	require.NoError(t, err)
+
+	for _, name := range clusters {
+		mc := &clusterv1.ManagedCluster{}
+		require.NoError(t, fakeClient.Get(context.TODO(), client.ObjectKey{Name: name}, mc))
+		assert.False(t, mc.Spec.HubAcceptsClient, "cluster %s should not accept clients after recovery", name)
+	}
+}
+
+func TestHubStatusSyncer_Sync_IdempotentFailover(t *testing.T) {
+	cluster := &clusterv1.ManagedCluster{}
+	cluster.Name = "cluster1"
+	cluster.Spec.HubAcceptsClient = false
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(configs.GetRuntimeScheme()).
+		WithObjects(cluster).
+		Build()
+
+	syncer := &HubStatusSyncer{client: fakeClient}
+
+	payload, _ := json.Marshal(hubha.HubStatusUpdate{
+		HubName: "hub1", Status: constants.HubStatusInactive, ManagedClusters: []string{"cluster1"},
+	})
+
+	// Send the same failover event twice
+	for i := 0; i < 2; i++ {
+		evt := cloudevents.NewEvent()
+		evt.SetType(constants.HubStatusUpdateMsgKey)
+		evt.SetSource("manager")
+		_ = evt.SetData(cloudevents.ApplicationJSON, payload)
+
+		err := syncer.Sync(context.TODO(), &evt)
+		require.NoError(t, err, "iteration %d", i)
+	}
+
+	mc := &clusterv1.ManagedCluster{}
+	require.NoError(t, fakeClient.Get(context.TODO(), client.ObjectKey{Name: "cluster1"}, mc))
+	assert.True(t, mc.Spec.HubAcceptsClient)
+}
+
+func TestHubStatusSyncer_Sync_EmptyClusterList(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(configs.GetRuntimeScheme()).
+		Build()
+
+	syncer := &HubStatusSyncer{client: fakeClient}
+
+	payload, _ := json.Marshal(hubha.HubStatusUpdate{
+		HubName: "hub1", Status: constants.HubStatusInactive, ManagedClusters: []string{},
+	})
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubStatusUpdateMsgKey)
+	evt.SetSource("manager")
+	_ = evt.SetData(cloudevents.ApplicationJSON, payload)
+
+	err := syncer.Sync(context.TODO(), &evt)
+	assert.NoError(t, err, "empty cluster list should not error")
+}
+
+func TestHubStatusSyncer_Sync_MalformedPayload(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(configs.GetRuntimeScheme()).
+		Build()
+
+	syncer := &HubStatusSyncer{client: fakeClient}
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubStatusUpdateMsgKey)
+	evt.SetSource("manager")
+	_ = evt.SetData(cloudevents.ApplicationJSON, []byte("not valid json"))
+
+	err := syncer.Sync(context.TODO(), &evt)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse hub status update payload")
+}
+
+func TestHubStatusSyncer_Sync_UnknownStatusValue(t *testing.T) {
+	cluster := &clusterv1.ManagedCluster{}
+	cluster.Name = "cluster1"
+	cluster.Spec.HubAcceptsClient = true
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(configs.GetRuntimeScheme()).
+		WithObjects(cluster).
+		Build()
+
+	syncer := &HubStatusSyncer{client: fakeClient}
+
+	payload, _ := json.Marshal(hubha.HubStatusUpdate{
+		HubName: "hub1", Status: "degraded", ManagedClusters: []string{"cluster1"},
+	})
+
+	evt := cloudevents.NewEvent()
+	evt.SetType(constants.HubStatusUpdateMsgKey)
+	evt.SetSource("manager")
+	_ = evt.SetData(cloudevents.ApplicationJSON, payload)
+
+	err := syncer.Sync(context.TODO(), &evt)
+	require.NoError(t, err)
+
+	result := &clusterv1.ManagedCluster{}
+	err = fakeClient.Get(context.TODO(), client.ObjectKey{Name: "cluster1"}, result)
+	require.NoError(t, err)
+	assert.False(t, result.Spec.HubAcceptsClient,
+		"unknown status should be treated as active (hubAcceptsClient=false)")
 }
