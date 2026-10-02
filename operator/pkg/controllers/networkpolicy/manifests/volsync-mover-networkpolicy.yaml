@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: volsync-mover
+  namespace: {{.Namespace}}
+  labels:
+    global-hub.open-cluster-management.io/managed-by: global-hub-operator
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/created-by: volsync
+  policyTypes:
+  - Egress
+  # Applied only when the volsync.backube API is installed. VolSync restic and rclone
+  # mover Jobs use this label. default-deny-all drops their egress, and allow-dns-and-api
+  # only permits DNS plus the Kubernetes API. The backup repository host and port are
+  # chosen by the user, so allow every egress destination.
+  egress:
+  - {}
