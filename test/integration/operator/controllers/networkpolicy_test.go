@@ -103,6 +103,14 @@ var _ = Describe("networkpolicy", Ordered, func() {
 				Namespace: mgh.Namespace,
 			}, np)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		// VolSync is not installed in envtest, so the mover policy stays absent.
+		np := &networkingv1.NetworkPolicy{}
+		err = runtimeClient.Get(ctx, types.NamespacedName{
+			Name:      "volsync-mover",
+			Namespace: mgh.Namespace,
+		}, np)
+		Expect(errors.IsNotFound(err)).To(BeTrue())
 	})
 
 	It("should verify networkpolicy content", func() {
