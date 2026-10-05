@@ -29,6 +29,7 @@ The multicluster global hub is useful when a single hub cluster cannot manage th
     - [Cronjobs and Metrics](#cronjobs-and-metrics)
   - [Built-in PostgreSQL Configuration](./global_hub_builtin_postgresql.md)
   - [Bring your own Kafka, Postgres, and Grafana](./byo.md)
+  - [Event API specifications](./events-api.md)
   - [Troubleshooting](./troubleshooting.md)
   - [Development preview features](./dev-preview.md)
   - [Known issues](#known-issues)
@@ -54,6 +55,9 @@ The Multicluster Global Hub Manager is used to persist the data into the `postgr
 ### Multicluster Global Hub Agent
 
 The Multicluster Global Hub Agent runs on the managed hub clusters. It synchronizes the data between the global hub cluster and the managed hub clusters. For example, the agent synchronizes the information of the managed clusters from the managed hub clusters to the global hub cluster and synchronizes the policy or application from the global hub cluster to the managed hub clusters.
+
+See [Event API specifications](./events-api.md) for the resource events published by the Global Hub agent in both
+regular Global Hub installations and standalone event-exporter deployments.
 
 ### Multicluster Global Hub Observability
 

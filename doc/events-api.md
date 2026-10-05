@@ -1,14 +1,34 @@
 # Event API Specifications
-These are events generated on the Kafka topics by multicluster global hub. The events are for the policy and managed cluster right now. We may extend to support other types in the future.
+These are events generated on the Kafka topics by multicluster global hub. The resource event catalogue covers policy,
+managed cluster, and `ClusterGroupUpgrade` events. We may extend it to support other resource types in the future.
 
 ## Topics
-The following Kafka topics are used
-- status.$(managed_hub_cluster_name)
-- event
+The Global Hub agent publishes these CloudEvents to its configured status topic:
+
+- `gh-status.$(managed_hub_cluster_name)` when Global Hub manages Kafka and uses one status topic per managed hub.
+- `gh-status` by default when using bring-your-own Kafka, where all agents share one status topic.
+
+The topic names are configurable. Resource events do not use a separate Kafka `event` topic.
+
+## Deployment Modes
+
+Resource events are available in both supported Global Hub agent deployment modes:
+
+- In a regular Multicluster Global Hub installation, the Global Hub agent runs on each managed hub and publishes
+  resource events as part of its status path to the Global Hub Kafka status topic.
+- In [standalone mode](./event-exporter/README.md), the same Global Hub agent runs as an event exporter. Standalone
+  mode enables only the status path and publishes the same resource event families to the Kafka status topic in its
+  `transport-config` secret. A full Multicluster Global Hub installation is not required.
+
+The event catalogue and payload formats in this document apply to both modes.
 
 ## Event Structure
 
 The events are formatted as per [CloudEvents](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md) Specifications. Therefore the message envelopes are common as specified by the CloudEvent Specs. It is encoded in JSON format.
+
+This document defines the supported CloudEvent types, triggers, payload fields, and representative payloads. The
+examples are not formal JSON schemas. Formal, machine-readable event schemas are outside the scope of this
+catalogue.
 
 A simple `hello world` message would look like.  - 
 ```
@@ -33,8 +53,31 @@ Examples:
 * `id` maps to `ce-id`
 * `specversion` maps to `ce-specversion`
 
-## Topic: status.$(managed_hub_cluster_name)
+## Supported Resource Event Catalog
+
+The Global Hub agent publishes the following customer-facing resource event families. The CloudEvent `source`
+identifies the managed hub that observed the event.
+
+- `io.open-cluster-management.operator.multiclusterglobalhubs.event.localrootpolicy` forwards Kubernetes events
+  for root policies when local policy collection is enabled.
+- `io.open-cluster-management.operator.multiclusterglobalhubs.event.localreplicatedpolicy` publishes history
+  entries from replicated policy status. These entries use the `PolicyStatusSync` reason.
+- `io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster` forwards Kubernetes events
+  involving a `ManagedCluster`. It also forwards events for supported cluster provisioning jobs: jobs named
+  `<cluster-namespace>-<hash>-provision` and `<cluster-namespace>-imageset`.
+- `io.open-cluster-management.operator.multiclusterglobalhubs.event.clustergroupupgrade` forwards Kubernetes
+  events involving a TALM `ClusterGroupUpgrade`.
+
+For managed cluster and `ClusterGroupUpgrade` events, Global Hub preserves the reason, message, type, reporting
+controller, and reporting instance supplied by the originating Kubernetes event. Global Hub does not maintain an
+allowlist of reasons for these events. New reasons emitted by their originating controllers are therefore forwarded
+without a Global Hub code change. Replicated policy events are synthesized from policy status history and use the
+`PolicyStatusSync` reason.
+
+## Topic: gh-status.$(managed_hub_cluster_name)
+
 ### Events related to Policy
+
 #### Local Policy Spec
 The event includes the policy spec which is applied in the managed hub cluster. The `source` specifies the managed hub cluster name. The `data` is for the policy spec. The events are always sent by the hub cluster.
 ```
@@ -294,10 +337,13 @@ It is designed to be used internally. The event reflects the managed hub cluster
 }
 ```
 
-## Topic: event
+## Resource Events on the Status Topic
+
 Currently, the following resource events are supported:
+
 - Policy
 - Cluster
+- ClusterGroupUpgrade
 
 The event is a Kubernetes event in the managed hub clusters or managed clusters.
 
@@ -338,7 +384,7 @@ The event is from the replicated policy history status. The event is Kubernetes 
   "specversion": "1.0",
   "id": "5b5917b5-1fa2-4eb8-a7fa-c1d97dc96218",
   "source": "kind-hub2",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localreplicatedpolicy.update",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localreplicatedpolicy",
   "datacontenttype": "application/json",
   "time": "2024-02-29T03:01:16.387894285Z",
   "data": [
@@ -364,6 +410,10 @@ The event is from the replicated policy history status. The event is Kubernetes 
 
 ### Events related to Cluster
 The events are Kubernetes events. We collect the cluster life cycle events, including import and detach.
+
+The reasons in the examples below describe commonly observed lifecycle events; they are not an allowlist. Global
+Hub forwards any Kubernetes event involving a `ManagedCluster`, as well as events for the supported provisioning
+job name patterns described in the resource event catalog.
 
 #### Send Modes
 The events support two send modes which are indicated by the `sendmode` extension in CloudEvents:
@@ -658,4 +708,67 @@ Data,
     "type": "Normal",
     "createdAt": "2025-10-23T02:34:33Z"
   }
+```
+
+### Events related to ClusterGroupUpgrade
+
+The Global Hub agent forwards Kubernetes events emitted for TALM `ClusterGroupUpgrade` resources. These events use
+the following CloudEvent type:
+
+`io.open-cluster-management.operator.multiclusterglobalhubs.event.clustergroupupgrade`
+
+[TALM currently emits](https://github.com/openshift-kni/cluster-group-upgrades-operator#events) these reasons:
+
+- `CguCreated`: TALM found a new `ClusterGroupUpgrade` and is building its remediation plan. This is a global event.
+- `CguStarted`: remediation started. The `cgu.openshift.io/event-type` annotation identifies global, batch, or
+  cluster scope.
+- `CguSuccess`: remediation completed successfully for a cluster, batch, or the entire `ClusterGroupUpgrade`.
+- `CguTimedout`: remediation timed out for a batch or the entire `ClusterGroupUpgrade`.
+- `CguValidationFailure`: remediation is on hold because validation found missing clusters, missing policies,
+  invalid policies, or ambiguous policies.
+
+Global Hub does not filter on this list. If TALM adds another reason, Global Hub forwards it as long as the
+Kubernetes event involves a `ClusterGroupUpgrade`.
+
+TALM annotations are preserved in `eventAnnotations`. Important annotations include:
+
+- `cgu.openshift.io/event-type`: event scope (`global`, `batch`, or `cluster`).
+- `cgu.openshift.io/cluster-name`: cluster affected by a cluster-scoped event.
+- `cgu.openshift.io/batch-clusters`: clusters affected by a batch-scoped event.
+- `cgu.openshift.io/total-clusters-count` and `cgu.openshift.io/total-batches-count`: remediation plan size.
+- `cgu.openshift.io/timedout-clusters`: clusters that timed out.
+- `cgu.openshift.io/missing-clusters`, `cgu.openshift.io/missing-policies`, and
+  `cgu.openshift.io/invalid-policies`: validation failure details.
+- `cgu.openshift.io/ambiguous-policies`: policies with the same name in multiple namespaces.
+
+Example of a successful global remediation event in batch send mode:
+
+```json
+{
+  "specversion": "1.0",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.clustergroupupgrade",
+  "source": "hub1",
+  "id": "f8a8f90d-a61c-48bc-98c2-cf2d273df553",
+  "time": "2025-05-20T10:32:59Z",
+  "datacontenttype": "application/json",
+  "sendmode": "batch",
+  "data": [
+    {
+      "eventNamespace": "ztp-install",
+      "eventName": "example-cgu.1837a55c909ac45f",
+      "eventAnnotations": {
+        "cgu.openshift.io/event-type": "global",
+        "cgu.openshift.io/total-clusters-count": "2"
+      },
+      "cguName": "example-cgu",
+      "leafHubName": "hub1",
+      "message": "ClusterGroupUpgrade example-cgu succeeded remediating policies",
+      "reason": "CguSuccess",
+      "reportingController": "cgu-controller",
+      "reportingInstance": "cgu-controller-6794cf54d9-j7lgm",
+      "type": "Normal",
+      "createdAt": "2025-05-20T10:32:59Z"
+    }
+  ]
+}
 ```
