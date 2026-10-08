@@ -28,6 +28,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
+	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -71,6 +72,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 		t.Fatalf("Failed to add mchv1 to scheme: %v", err)
 	}
 
+	assert.NoError(t, workv1.Install(scheme))
 	currentSyncerMigrationId := "020340324302432049234023040320"
 
 	cases := []struct {
@@ -104,7 +106,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 					Spec: mchv1.MultiClusterHubSpec{},
 					Status: mchv1.MultiClusterHubStatus{
-						CurrentVersion: "2.13.0",
+						CurrentVersion: "5.0.0",
 					},
 				},
 				&corev1.ConfigMap{
@@ -598,9 +600,24 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(
-				c.initObjects...,
-			).Build()
+			// Success requires a real source work fixture, not just a ManagedCluster.
+			if c.receivedMigrationEventBundle.Stage == migrationv1alpha1.PhaseInitializing {
+				c.receivedMigrationEventBundle.BootstrapSecret.Data = map[string][]byte{"kubeconfig": []byte("synthetic-target")}
+				c.initObjects = append(c.initObjects, migrationSourceWorkFixture(t, "cluster1"))
+			}
+			if c.receivedMigrationEventBundle.Stage == migrationv1alpha1.PhaseRegistering {
+				secret := migrationTargetSecretFixture()
+				work := migrationSourceWorkFixture(t, "cluster1")
+				assert.NoError(t, prepareSourceWork(work, &c.receivedMigrationEventBundle, secret))
+				work.Status.Conditions = []metav1.Condition{{
+					Type: workv1.WorkApplied, Status: metav1.ConditionTrue,
+					ObservedGeneration: work.Generation,
+				}}
+				c.initObjects = append(c.initObjects, secret, work)
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+				WithStatusSubresource(&workv1.ManifestWork{}, &clusterv1.ManagedCluster{}).
+				WithStatusSubresource(c.initObjects...).WithObjects(c.initObjects...).Build()
 
 			producer := ProducerMock{}
 			transportClient := &controller.TransportClient{}

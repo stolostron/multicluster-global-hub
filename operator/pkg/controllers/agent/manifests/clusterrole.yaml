@@ -310,6 +310,7 @@ rules:
   - get
   - watch
   - list
+  - update
 # Hub HA - Permissions for syncing all Hub HA resources to standby hub
 # Standby hub needs: create/update/delete/patch to apply resources from active hub
 - apiGroups:

@@ -71,7 +71,8 @@ const (
 
 type MigrationSourceSyncer struct {
 	client                client.Client
-	restConfig            *rest.Config // for init no-cached client of the runtime manager
+	sourceAPIClient       client.Client // uncached source-work reads and conflict retries
+	restConfig            *rest.Config  // for init no-cached client of the runtime manager
 	transportClient       transport.TransportClient
 	transportConfig       *transport.TransportInternalConfig
 	bundleVersion         *eventversion.Version
@@ -535,12 +536,23 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 		return fmt.Errorf("bootstrap secret is nil when initializing")
 	}
 	bootstrapSecret := source.BootstrapSecret
+	if bootstrapSecret.Name != bootstrapSecretNamePrefix+source.ToHub ||
+		bootstrapSecret.Namespace != "multicluster-engine" || len(bootstrapSecret.Data["kubeconfig"]) == 0 {
+		return fmt.Errorf("initializing requires a target bootstrap Secret in multicluster-engine with nonempty kubeconfig")
+	}
+	mch, err := utils.ListMCH(ctx, m.client)
+	if err != nil {
+		return err
+	}
+	if mch == nil || strings.HasPrefix(mch.Status.CurrentVersion, "2.13.") {
+		return fmt.Errorf("source ManifestWork migration requires a verified MultipleHubs renderer; ACM 2.13 is unsupported")
+	}
 	// ensure secret
 	currentBootstrapSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
 		Name:      bootstrapSecret.Name,
 		Namespace: bootstrapSecret.Namespace,
 	}}
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		operation, err := controllerutil.CreateOrUpdate(ctx, m.client, currentBootstrapSecret, func() error {
 			currentBootstrapSecret.Data = bootstrapSecret.Data
 			return nil
@@ -608,6 +620,15 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 		}
 		log.Infof("successfully add pause annotations from cluster: %s", managedCluster)
 
+		// Hive skips rendering while disable-auto-import is set. Update the
+		// existing source work explicitly, after preventing competing writers.
+		if err := m.ensureMigrationSourceWork(ctx, managedCluster, source, currentBootstrapSecret); err != nil {
+			if m.clusterErrors == nil {
+				m.clusterErrors = map[string]string{}
+			}
+			m.clusterErrors[managedCluster] = err.Error()
+			return fmt.Errorf("failed to prepare source work for cluster %s: %w", managedCluster, err)
+		}
 	}
 	return nil
 }
@@ -670,12 +691,45 @@ func (m *MigrationSourceSyncer) registering(
 	ctx context.Context, migratingEvt *migration.MigrationSourceBundle,
 ) error {
 	managedClusters := migratingEvt.ManagedClusters
+	apiClient, err := m.migrationSourceClient()
+	if err != nil {
+		return err
+	}
+	timeout := sourceWorkWaitTimeout(ctx)
+	if timeout <= 0 || ctx.Err() != nil {
+		return fmt.Errorf("source work pre-cutover gate expired or canceled")
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	// Check every selected source work before changing admission on any cluster.
+	// A stale Applied=True predating the migration payload is not sufficient.
+	if err := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(pollCtx context.Context) (bool, error) {
+		m.clusterErrors = map[string]string{}
+		secret := &corev1.Secret{}
+		if err := apiClient.Get(pollCtx, client.ObjectKey{
+			Namespace: "multicluster-engine",
+			Name:      bootstrapSecretNamePrefix + migratingEvt.ToHub,
+		}, secret); err != nil {
+			for _, cluster := range managedClusters {
+				m.clusterErrors[cluster] = "target bootstrap Secret unavailable"
+			}
+			return false, nil
+		}
+		for _, cluster := range managedClusters {
+			if err := m.checkMigrationSourceWork(pollCtx, cluster, migratingEvt, secret); err != nil {
+				m.clusterErrors[cluster] = err.Error()
+			}
+		}
+		return len(m.clusterErrors) == 0, nil
+	}); err != nil {
+		return fmt.Errorf("source work pre-cutover gate failed for clusters %v: %w", m.clusterErrors, err)
+	}
 	// set the hub accept client into false to trigger the re-registering
 	for _, managedCluster := range managedClusters {
 		log.Debugf("updating managed cluster %s to set HubAcceptsClient as false", managedCluster)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			mc := &clusterv1.ManagedCluster{}
-			if err := m.client.Get(ctx, types.NamespacedName{
+			if err := apiClient.Get(ctx, types.NamespacedName{
 				Name: managedCluster,
 			}, mc); err != nil {
 				return err
@@ -685,7 +739,7 @@ func (m *MigrationSourceSyncer) registering(
 			}
 
 			mc.Spec.HubAcceptsClient = false
-			return m.client.Update(ctx, mc)
+			return apiClient.Update(ctx, mc)
 		})
 		if err != nil {
 			return fmt.Errorf("failed to set HubAcceptsClient to false for managed cluster %s: %w", managedCluster, err)
@@ -801,13 +855,25 @@ func (s *MigrationSourceSyncer) rollbacking(ctx context.Context, spec *migration
 func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 	migrationSourceHubEvent *migration.MigrationSourceBundle,
 ) error {
-	// 1. Clean up bootstrap secret if it exists
-	if migrationSourceHubEvent.BootstrapSecret != nil {
-		log.Infof("cleaning up bootstrap secret: %s", migrationSourceHubEvent.BootstrapSecret.Name)
-		if err := deleteResourceIfExists(ctx, s.client, migrationSourceHubEvent.BootstrapSecret, false); err != nil {
-			return fmt.Errorf("failed to delete bootstrap secret %s: %v", migrationSourceHubEvent.BootstrapSecret.Name, err)
+	s.clusterErrors = map[string]string{}
+	// Restore the source work while admission and source bootstrap are still
+	// intact, before letting the import controller resume or deleting resources.
+	for _, cluster := range migrationSourceHubEvent.ManagedClusters {
+		if err := s.restoreMigrationSourceWork(ctx, cluster, migrationSourceHubEvent); err != nil {
+			s.clusterErrors[cluster] = err.Error()
+			return fmt.Errorf("failed to restore source work for cluster %s: %w", cluster, err)
 		}
-		log.Infof("successfully deleted bootstrap secret: %s", migrationSourceHubEvent.BootstrapSecret.Name)
+	}
+	// Delete the target bootstrap created during initialization. Older manager
+	// rollback events name the source hub in BootstrapSecret; never use that
+	// payload to delete unrelated source credentials.
+	if migrationSourceHubEvent.ToHub != "" {
+		bootstrapSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+			Name: bootstrapSecretNamePrefix + migrationSourceHubEvent.ToHub, Namespace: "multicluster-engine",
+		}}
+		if err := deleteResourceIfExists(ctx, s.client, bootstrapSecret, false); err != nil {
+			return fmt.Errorf("failed to delete target bootstrap secret %s: %w", bootstrapSecret.Name, err)
+		}
 	}
 
 	// 2. Clean up KlusterletConfig
@@ -921,10 +987,8 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 	// 2. Remove bootstrap secrets
 	// 3. Clean up migration annotations
 	// 4. Set HubAcceptsClient to true
-	if err := s.rollbackDeploying(ctx, spec); err != nil {
-		return fmt.Errorf("deploying stage rollback failed: %v", err)
-	}
-
+	// Reopen source admission and wait for source availability before removing
+	// the target fallback from the source work. Otherwise rollback can strand a spoke.
 	for _, managedCluster := range spec.ManagedClusters {
 		// Delete managed-cluster-lease if exists, aviod the issue mentioned in https://issues.redhat.com/browse/ACM-23842
 		if err := s.client.Delete(ctx, &coordinationv1.Lease{
@@ -987,6 +1051,9 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 		return fmt.Errorf("failed to rollback registering stage: %w", err)
 	}
 
+	if err := s.rollbackDeploying(ctx, spec); err != nil {
+		return fmt.Errorf("registering stage source-work cleanup failed: %w", err)
+	}
 	log.Infof("successfully rolled back registering stage for clusters: %v", spec.ManagedClusters)
 	return nil
 }

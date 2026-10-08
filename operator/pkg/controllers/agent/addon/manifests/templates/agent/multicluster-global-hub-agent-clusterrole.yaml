@@ -301,6 +301,7 @@ rules:
   - get
   - watch
   - list
+  - update
 # Hub HA - Permissions for syncing all Hub HA resources
 # Active hub needs: get/list/watch to read resources
 - apiGroups:
