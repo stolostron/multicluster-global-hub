@@ -1,3 +1,5 @@
+For the operational procedure, including the TopoLVM mover and passive-restore failures, see [Backup and restore](../../backup_restore.md).
+
 ACM Official doc:
 https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.8/html/business_continuity/business-cont-overview#backup-intro
 
