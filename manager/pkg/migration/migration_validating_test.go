@@ -33,6 +33,7 @@ func TestTargetValidationIncludesDiscoveredClusters(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			id := "target-validation-" + name
+			listSource := "discovered"
 			AddMigrationStatus(id)
 			t.Cleanup(func() { RemoveMigrationStatus(id) })
 			SetClusterList(id, []string{"discovered-cluster"})
@@ -56,6 +57,7 @@ func TestTargetValidationIncludesDiscoveredClusters(t *testing.T) {
 			want := []string{"discovered-cluster"}
 			if explicit {
 				want = []string{"selected-cluster"}
+				listSource = "explicitly selected"
 				mcm.Spec.IncludedManagedClusters = want
 			}
 			requeue, err := controller.validateClustersInHub(context.Background(), mcm, "target")
@@ -64,7 +66,9 @@ func TestTargetValidationIncludesDiscoveredClusters(t *testing.T) {
 			require.Len(t, producer.SentEvents, 1)
 			payload := &migrationbundle.MigrationTargetBundle{}
 			require.NoError(t, producer.SentEvents[0].DataAs(payload))
-			require.Equal(t, want, payload.ManagedClusters)
+			require.Equal(t, want, payload.ManagedClusters,
+				"target validation must receive the %s cluster list so the namespace preflight covers every migrated cluster",
+				listSource)
 		})
 	}
 }

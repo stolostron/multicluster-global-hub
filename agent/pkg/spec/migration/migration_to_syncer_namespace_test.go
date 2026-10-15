@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+
 package migration
 
 import (
@@ -65,7 +68,7 @@ func TestValidateTargetNamespaces(t *testing.T) {
 			clusterErrors := map[string]string{}
 			err := syncer.validateManagedClusters(ctx, []string{"cluster1"}, clusterErrors)
 			if tc.wantError {
-				require.Error(t, err)
+				require.Error(t, err, "validation must reject a terminating target namespace before initialization")
 				require.Contains(t, clusterErrors["cluster1"], "target namespace cluster1 is terminating")
 				require.Contains(t, clusterErrors["cluster1"], "before retrying migration")
 
@@ -73,17 +76,20 @@ func TestValidateTargetNamespaces(t *testing.T) {
 				err = syncer.validating(ctx, &migration.MigrationTargetBundle{
 					MigrationId: "test-migration", ManagedClusters: []string{"cluster1"},
 				}, map[string]string{})
-				require.Error(t, err)
+				require.Error(t, err, "the validating stage must fail so no local migration state is recorded")
 				localMigrations := &migrationv1alpha1.ManagedClusterMigrationList{}
 				require.NoError(t, c.List(ctx, localMigrations))
-				require.Empty(t, localMigrations.Items)
+				require.Empty(t, localMigrations.Items,
+					"a failed validation must not record initialization state")
 
 				// Recheck at deployment to cover deletion starting after validation.
-				require.ErrorContains(t, syncer.ensureNamespace(ctx, "cluster1"), "is terminating")
+				require.ErrorContains(t, syncer.ensureNamespace(ctx, "cluster1"), "is terminating",
+					"deployment must reject a namespace that started terminating after validation")
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, err, "validation must accept a healthy or missing target namespace")
 				require.Empty(t, clusterErrors)
-				require.NoError(t, syncer.ensureNamespace(ctx, "cluster1"))
+				require.NoError(t, syncer.ensureNamespace(ctx, "cluster1"),
+					"deployment must accept a healthy or missing target namespace")
 			}
 		})
 	}
