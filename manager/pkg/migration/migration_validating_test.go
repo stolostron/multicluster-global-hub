@@ -20,9 +20,58 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+func TestTargetValidationIncludesDiscoveredClusters(t *testing.T) {
+	for _, explicit := range []bool{false, true} {
+		name := "migrate-all"
+		if explicit {
+			name = "explicit-clusters"
+		}
+		t.Run(name, func(t *testing.T) {
+			id := "target-validation-" + name
+			listSource := "discovered"
+			AddMigrationStatus(id)
+			t.Cleanup(func() { RemoveMigrationStatus(id) })
+			SetClusterList(id, []string{"discovered-cluster"})
+
+			scheme := runtime.NewScheme()
+			require.NoError(t, clusterv1.Install(scheme))
+			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+				&clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{Name: "target"}},
+			).Build()
+			producer := &MockProducer{}
+			controller := &ClusterMigrationController{Client: c, Producer: producer}
+			mcm := &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "migration", UID: types.UID(id),
+					Annotations: map[string]string{
+						"global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace": "addon",
+					},
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{From: "source", To: "target"},
+			}
+			want := []string{"discovered-cluster"}
+			if explicit {
+				want = []string{"selected-cluster"}
+				listSource = "explicitly selected"
+				mcm.Spec.IncludedManagedClusters = want
+			}
+			requeue, err := controller.validateClustersInHub(context.Background(), mcm, "target")
+			require.NoError(t, err)
+			require.True(t, requeue)
+			require.Len(t, producer.SentEvents, 1)
+			payload := &migrationbundle.MigrationTargetBundle{}
+			require.NoError(t, producer.SentEvents[0].DataAs(payload))
+			require.Equal(t, want, payload.ManagedClusters,
+				"target validation must receive the %s cluster list so the namespace preflight covers every migrated cluster",
+				listSource)
+		})
+	}
+}
 
 // go test -run ^TestIsValidResource$ ./manager/pkg/migration -v
 func TestIsValidResource(t *testing.T) {
