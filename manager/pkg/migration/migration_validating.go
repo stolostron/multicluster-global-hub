@@ -189,6 +189,11 @@ func (m *ClusterMigrationController) validateClustersInHub(
 			}
 			log.Infof("sent validating events to source hub: %s", hub)
 		case mcm.Spec.To:
+			// Source validation discovers the full cluster list for migrate-all requests.
+			// Include it so target preflight checks are not silently skipped.
+			if len(clusterList) == 0 {
+				clusterList = GetClusterList(string(mcm.GetUID()))
+			}
 			err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseValidating,
 				clusterList, "")
 			if err != nil {

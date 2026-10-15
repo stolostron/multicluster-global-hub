@@ -481,13 +481,27 @@ func (s *MigrationTargetSyncer) validateManagedClusters(
 	for _, clusterName := range clusterNames {
 		mc := &clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, mc); err != nil {
-			if apierrors.IsNotFound(err) {
+			if !apierrors.IsNotFound(err) {
+				clusterErrors[clusterName] = err.Error()
 				continue
 			}
-			clusterErrors[clusterName] = err.Error()
+		} else {
+			clusterErrors[clusterName] = fmt.Sprintf("managed cluster %v already exists in target hub", clusterName)
 			continue
 		}
-		clusterErrors[clusterName] = fmt.Sprintf("managed cluster %v already exists in target hub", clusterName)
+
+		// A leftover namespace can outlive its ManagedCluster after rollback.
+		// Detect it before initialization or deployment changes either hub.
+		ns := &corev1.Namespace{}
+		if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, ns); err != nil {
+			if !apierrors.IsNotFound(err) {
+				clusterErrors[clusterName] = fmt.Sprintf("failed to get target namespace %s: %v", clusterName, err)
+			}
+			continue
+		}
+		if err := validateTargetNamespace(ns); err != nil {
+			clusterErrors[clusterName] = err.Error()
+		}
 	}
 
 	if len(clusterErrors) > 0 {
@@ -633,6 +647,16 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 	return nil
 }
 
+// validateTargetNamespace rejects namespaces that cannot accept migrated resources.
+// Do not remove finalizers or wait here: deletion may require administrator intervention.
+func validateTargetNamespace(ns *corev1.Namespace) error {
+	if ns.DeletionTimestamp != nil || ns.Status.Phase == corev1.NamespaceTerminating {
+		return fmt.Errorf("target namespace %s is terminating; resolve blocking resources or finalizers and wait "+
+			"for namespace deletion to complete before retrying migration", ns.Name)
+	}
+	return nil
+}
+
 func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace string) error {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -649,7 +673,8 @@ func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace s
 	} else if err != nil {
 		return fmt.Errorf("failed to get namespace %s: %w", namespace, err)
 	}
-	return nil
+	// Validation is a preflight check; deletion can still start before deployment.
+	return validateTargetNamespace(ns)
 }
 
 func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
