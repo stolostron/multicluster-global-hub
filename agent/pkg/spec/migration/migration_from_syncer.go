@@ -79,6 +79,7 @@ type MigrationSourceSyncer struct {
 	clusterErrors         map[string]string
 	leafHubName           string
 	mu                    sync.Mutex
+	sourceAPIClient       client.Client     // uncached reads for the Applied generation gate
 	completedStages       map[string]string // tracks stage state: "in-progress" or "completed"
 }
 
@@ -535,12 +536,37 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 		return fmt.Errorf("bootstrap secret is nil when initializing")
 	}
 	bootstrapSecret := source.BootstrapSecret
+	mch, err := utils.ListMCH(ctx, m.client)
+	if err != nil {
+		return err
+	}
+	version := ""
+	if mch != nil {
+		version = mch.Status.CurrentVersion
+	}
+	// Only ACM releases whose import controller preserves the klusterlet work
+	// can take the ManifestWork update. Older releases keep the annotation path.
+	mutateSourceWork := sourceWorkMutationSupported(version)
+	if mutateSourceWork {
+		if bootstrapSecret.Name != bootstrapSecretNamePrefix+source.ToHub ||
+			bootstrapSecret.Namespace != "multicluster-engine" ||
+			len(bootstrapSecret.Data["kubeconfig"]) == 0 {
+			return fmt.Errorf(
+				"initializing requires a target bootstrap Secret in multicluster-engine with nonempty kubeconfig",
+			)
+		}
+		// Reject every selected cluster before creating migration objects, so one
+		// incompatible klusterlet work cannot leave the rest of the batch half-updated.
+		if err := m.validateMigrationSourceWorks(ctx, source.ManagedClusters, source, bootstrapSecret); err != nil {
+			return err
+		}
+	}
 	// ensure secret
 	currentBootstrapSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
 		Name:      bootstrapSecret.Name,
 		Namespace: bootstrapSecret.Namespace,
 	}}
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		operation, err := controllerutil.CreateOrUpdate(ctx, m.client, currentBootstrapSecret, func() error {
 			currentBootstrapSecret.Data = bootstrapSecret.Data
 			return nil
@@ -590,6 +616,11 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 			// code reference: https://github.com/stolostron/managedcluster-import-controller/blob/main/pkg/controller/
 			// autoimport/autoimport_controller.go#L97
 			currentAnnotations[apiconstants.DisableAutoImportAnnotation] = ""
+			// ACM 2.17 and 5 mark the existing work ReadOnly while auto-import is
+			// disabled. This annotation leaves one Update apply available.
+			if mutateSourceWork {
+				currentAnnotations[allowManifestWorkUpdateAnnotation] = ""
+			}
 			mc.SetAnnotations(currentAnnotations)
 
 			err := m.client.Update(ctx, mc)
@@ -608,6 +639,18 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 		}
 		log.Infof("successfully add pause annotations from cluster: %s", managedCluster)
 
+		// Hive skips rendering while disable-auto-import is set. On releases that
+		// preserve the existing work, write the bootstrap kubeconfig and
+		// MultipleHubs config into it once the import controller has left the
+		// Update strategy in place.
+		if mutateSourceWork {
+			if err := m.waitForSourceWorkUpdateStrategy(ctx, managedCluster); err != nil {
+				return fmt.Errorf("failed to prepare source work for cluster %s: %w", managedCluster, err)
+			}
+			if err := m.ensureMigrationSourceWork(ctx, managedCluster, source, currentBootstrapSecret); err != nil {
+				return fmt.Errorf("failed to prepare source work for cluster %s: %w", managedCluster, err)
+			}
+		}
 	}
 	return nil
 }
@@ -651,7 +694,7 @@ spec:
         - name: "%s"`, klusterletConfigNamePrefix+targetHub, bootstrapSecretName)
 
 	klusterletConfig := klusterletConfig214
-	if strings.Contains(mch.Status.CurrentVersion, "2.13") {
+	if isACM213(mch.Status.CurrentVersion) {
 		klusterletConfig = klusterletConfig213
 	}
 
@@ -669,8 +712,71 @@ spec:
 func (m *MigrationSourceSyncer) registering(
 	ctx context.Context, migratingEvt *migration.MigrationSourceBundle,
 ) error {
+	mch, err := utils.ListMCH(ctx, m.client)
+	if err != nil {
+		return err
+	}
+	version := ""
+	if mch != nil {
+		version = mch.Status.CurrentVersion
+	}
+	if sourceWorkMutationSupported(version) {
+		if err := m.waitForMigrationSourceWorks(ctx, migratingEvt); err != nil {
+			return err
+		}
+		if err := m.recordMigrationSourceWorksApplied(ctx, migratingEvt); err != nil {
+			return err
+		}
+		if err := m.lockMigrationSourceWorks(ctx, migratingEvt.ManagedClusters); err != nil {
+			return err
+		}
+	}
+	return m.disableHubAcceptsClient(ctx, migratingEvt.ManagedClusters)
+}
+
+// waitForMigrationSourceWorks blocks cutover until every source work is Applied
+// at the generation that contains the migration payload. The poll deadline is
+// shorter than the parent context so the admission updates can still run.
+func (m *MigrationSourceSyncer) waitForMigrationSourceWorks(
+	ctx context.Context, migratingEvt *migration.MigrationSourceBundle,
+) error {
+	apiClient, err := m.migrationSourceClient()
+	if err != nil {
+		return err
+	}
+	pollTimeout, err := sourceWorkPollBudget(ctx)
+	if err != nil {
+		return err
+	}
+	pollCtx, cancel := context.WithTimeout(ctx, pollTimeout)
+	defer cancel()
 	managedClusters := migratingEvt.ManagedClusters
-	// set the hub accept client into false to trigger the re-registering
+	err = wait.PollUntilContextTimeout(pollCtx, time.Second, pollTimeout, true, func(ctx context.Context) (bool, error) {
+		m.clusterErrors = map[string]string{}
+		secret := &corev1.Secret{}
+		if err := apiClient.Get(ctx, client.ObjectKey{
+			Namespace: "multicluster-engine",
+			Name:      bootstrapSecretNamePrefix + migratingEvt.ToHub,
+		}, secret); err != nil {
+			for _, cluster := range managedClusters {
+				m.clusterErrors[cluster] = "target bootstrap Secret unavailable"
+			}
+			return false, nil
+		}
+		for _, cluster := range managedClusters {
+			if err := m.checkMigrationSourceWork(ctx, cluster, migratingEvt, secret); err != nil {
+				m.clusterErrors[cluster] = err.Error()
+			}
+		}
+		return len(m.clusterErrors) == 0, nil
+	})
+	if err != nil {
+		return fmt.Errorf("source work pre-cutover gate failed for clusters %v: %w", m.clusterErrors, err)
+	}
+	return nil
+}
+
+func (m *MigrationSourceSyncer) disableHubAcceptsClient(ctx context.Context, managedClusters []string) error {
 	for _, managedCluster := range managedClusters {
 		log.Debugf("updating managed cluster %s to set HubAcceptsClient as false", managedCluster)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -822,6 +928,14 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 	}
 	log.Infof("successfully deleted KlusterletConfig: %s", klusterletConfig.Name)
 
+	// Restore source works before dropping disable-auto-import, so Hive cannot
+	// reconcile a work that still contains the migration bootstrap kubeconfig.
+	for _, managedCluster := range migrationSourceHubEvent.ManagedClusters {
+		if err := s.restoreMigrationSourceWork(ctx, managedCluster, migrationSourceHubEvent); err != nil {
+			return fmt.Errorf("failed to restore source work for cluster %s: %w", managedCluster, err)
+		}
+	}
+
 	// 3. Clean up managed cluster annotations
 	for _, managedCluster := range migrationSourceHubEvent.ManagedClusters {
 		log.Infof("cleaning up annotations for managed cluster: %s", managedCluster)
@@ -847,8 +961,9 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 		_, hasMigrating := annotations[constants.ManagedClusterMigrating]
 		_, hasKlusterletConfig := annotations[KlusterletConfigAnnotation]
 		_, hasDisableAutoImport := annotations[apiconstants.DisableAutoImportAnnotation]
+		_, hasAllowUpdate := annotations[allowManifestWorkUpdateAnnotation]
 
-		if !hasMigrating && !hasKlusterletConfig && !hasDisableAutoImport {
+		if !hasMigrating && !hasKlusterletConfig && !hasDisableAutoImport && !hasAllowUpdate {
 			log.Infof("no migration annotations found on managed cluster %s, skipping cleanup", managedCluster)
 			continue
 		}
@@ -867,6 +982,7 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 			delete(latestAnnotations, constants.ManagedClusterMigrating)
 			delete(latestAnnotations, KlusterletConfigAnnotation)
 			delete(latestAnnotations, apiconstants.DisableAutoImportAnnotation)
+			delete(latestAnnotations, allowManifestWorkUpdateAnnotation)
 			latestCluster.SetAnnotations(latestAnnotations)
 			return s.client.Update(ctx, latestCluster)
 		})
