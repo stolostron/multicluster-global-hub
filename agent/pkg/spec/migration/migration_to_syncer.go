@@ -348,7 +348,14 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 	// Clean up the auto-import disable annotation from the managed clusters
 	// and remove the velero restore label from ImageClusterInstall
 	var annotationRemovedClusters []string
+	workBaselines := map[string]int64{}
+	annotationRemovedAt := time.Now()
 	for _, clusterName := range event.ManagedClusters {
+		// Record the klusterlet ManifestWork generation before disable-auto-import is removed, so the convergence
+		// wait below can tell whether the import controller has re-rendered the work since then.
+		if gen, ok := s.klusterletWorkGeneration(ctx, clusterName); ok {
+			workBaselines[clusterName] = gen
+		}
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			mc := &clusterv1.ManagedCluster{}
 			err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, mc)
@@ -385,6 +392,15 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 	// is available before the MSA-based one is revoked.
 	if err := s.waitForImportReady(ctx, annotationRemovedClusters); err != nil {
 		return fmt.Errorf("failed to wait for import readiness: %w", err)
+	}
+
+	// ManagedClusterImportSucceeded can already be True before cleaning starts, so it does not prove the spoke has
+	// applied the replacement klusterlet configuration. Wait until the klusterlet ManifestWork has been applied at
+	// its current generation, otherwise revoking the MSA can leave a spoke that only references revoked bootstrap
+	// kubeconfigs and crash-loops on restart.
+	if err := s.waitForKlusterletWorkConverged(ctx, annotationRemovedClusters, workBaselines,
+		annotationRemovedAt); err != nil {
+		return fmt.Errorf("failed to wait for klusterlet work convergence: %w", err)
 	}
 
 	// Remove MSA user from ClusterManager AutoApproveUsers list
@@ -448,6 +464,99 @@ func (s *MigrationTargetSyncer) waitForImportReady(ctx context.Context, clusters
 			return true, nil
 		},
 	)
+}
+
+// Timings for the klusterlet ManifestWork convergence wait. They are variables so tests can shorten them.
+var (
+	// klusterletWorkSettleTime is how long to wait for the import controller to re-render the klusterlet
+	// ManifestWork after disable-auto-import is removed when the work generation has not changed yet.
+	klusterletWorkSettleTime = 15 * time.Second
+	klusterletWorkPollPeriod = 5 * time.Second
+	klusterletWorkMaxWait    = 3 * time.Minute
+)
+
+// klusterletWorkGeneration returns the generation of the cluster's klusterlet ManifestWork. The second return
+// value reports whether the generation could be read; a missing or unreadable work has no baseline.
+func (s *MigrationTargetSyncer) klusterletWorkGeneration(ctx context.Context, clusterName string) (int64, bool) {
+	work := &workv1.ManifestWork{}
+	key := types.NamespacedName{Namespace: clusterName, Name: clusterName + KlusterletManifestWorkSuffix}
+	if err := s.client.Get(ctx, key, work); err != nil {
+		log.Debugw("failed to read klusterlet manifestwork baseline", "cluster", clusterName, "error", err)
+		return 0, false
+	}
+	return work.Generation, true
+}
+
+// isKlusterletWorkConverged reports whether the ManifestWork has been applied to the spoke at its current
+// generation and is no longer read-only. A ReadOnly update strategy means the work agent only reports Applied for
+// objects that already exist, without pushing the new spec, so Applied=True alone is not sufficient.
+func isKlusterletWorkConverged(work *workv1.ManifestWork) bool {
+	for _, cfg := range work.Spec.ManifestConfigs {
+		if cfg.UpdateStrategy != nil && cfg.UpdateStrategy.Type == workv1.UpdateStrategyTypeReadOnly {
+			return false
+		}
+	}
+	applied := meta.FindStatusCondition(work.Status.Conditions, workv1.WorkApplied)
+	if applied == nil || applied.Status != metav1.ConditionTrue || applied.ObservedGeneration != work.Generation {
+		return false
+	}
+	for _, manifest := range work.Status.ResourceStatus.Manifests {
+		if manifest.ResourceMeta.Kind != "Klusterlet" {
+			continue
+		}
+		c := meta.FindStatusCondition(manifest.Conditions, workv1.ManifestApplied)
+		return c != nil && c.Status == metav1.ConditionTrue && c.ObservedGeneration == work.Generation
+	}
+	// The Klusterlet manifest status has not been reported yet.
+	return false
+}
+
+// waitForKlusterletWorkConverged polls until each cluster's klusterlet ManifestWork has converged. The work must
+// either have a generation newer than the baseline taken before disable-auto-import was removed (the import
+// controller re-rendered it), or enough time must have passed for the import controller to have had the chance to.
+func (s *MigrationTargetSyncer) waitForKlusterletWorkConverged(ctx context.Context, clusters []string,
+	baselines map[string]int64, since time.Time,
+) error {
+	if len(clusters) == 0 {
+		return nil
+	}
+
+	timeout := remainingExpireTime(expireTimeFromContext(ctx))
+	if timeout > klusterletWorkMaxWait {
+		timeout = klusterletWorkMaxWait
+	}
+
+	pending := map[string]string{}
+	err := wait.PollUntilContextTimeout(ctx, klusterletWorkPollPeriod, timeout, true,
+		func(pollCtx context.Context) (bool, error) {
+			clear(pending)
+			for _, clusterName := range clusters {
+				work := &workv1.ManifestWork{}
+				key := types.NamespacedName{Namespace: clusterName, Name: clusterName + KlusterletManifestWorkSuffix}
+				if err := s.client.Get(pollCtx, key, work); err != nil {
+					pending[clusterName] = fmt.Sprintf("failed to get manifestwork: %v", err)
+					continue
+				}
+				if !isKlusterletWorkConverged(work) {
+					pending[clusterName] = fmt.Sprintf("manifestwork %s is read-only or not applied at generation %d",
+						work.Name, work.Generation)
+					continue
+				}
+				baseline, hasBaseline := baselines[clusterName]
+				if (!hasBaseline || work.Generation <= baseline) && time.Since(since) < klusterletWorkSettleTime {
+					pending[clusterName] = fmt.Sprintf("manifestwork %s generation %d not confirmed newer than baseline",
+						work.Name, work.Generation)
+				}
+			}
+			return len(pending) == 0, nil
+		})
+	if err != nil {
+		log.Warnw("klusterlet manifestwork not converged", "pending", pending, "error", err)
+		return fmt.Errorf("klusterlet manifestwork not converged for %d cluster(s): %s: %w", len(pending),
+			formatErrorMessages(pending), err)
+	}
+	log.Infow("klusterlet manifestwork converged", "count", len(clusters))
+	return nil
 }
 
 // validating handles the validating phase
@@ -1574,8 +1683,13 @@ func (s *MigrationTargetSyncer) checkClusterManifestWork(ctx context.Context, cl
 		return fmt.Errorf("failed to get manifestwork %s: %w", workName, err)
 	}
 
-	if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
+	applied := meta.FindStatusCondition(work.Status.Conditions, workv1.WorkApplied)
+	if applied == nil || applied.Status != metav1.ConditionTrue {
 		return fmt.Errorf("manifestwork %s is not applied", workName)
+	}
+	if applied.ObservedGeneration != work.Generation {
+		return fmt.Errorf("manifestwork %s is applied at generation %d, current generation is %d",
+			workName, applied.ObservedGeneration, work.Generation)
 	}
 
 	return nil
