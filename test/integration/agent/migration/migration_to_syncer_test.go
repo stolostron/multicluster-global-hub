@@ -317,8 +317,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				Status: workv1.ManifestWorkStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   workv1.WorkApplied,
-							Status: metav1.ConditionTrue,
+							Type:               workv1.WorkApplied,
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 1,
 						},
 					},
 				},
@@ -442,6 +443,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 						LastTransitionTime: metav1.Now(),
 						Reason:             "WorkApplied",
 						Message:            "Work applied successfully",
+						ObservedGeneration: 1,
 					},
 				},
 			}
