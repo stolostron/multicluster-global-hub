@@ -425,7 +425,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				Spec: workv1.ManifestWorkSpec{
 					Workload: workv1.ManifestsTemplate{
 						Manifests: []workv1.Manifest{
-							{RawExtension: runtime.RawExtension{Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "test-cm"}}`)}},
+							{RawExtension: runtime.RawExtension{Raw: []byte(`{"apiVersion": "operator.open-cluster-management.io/v1", "kind": "Klusterlet", "metadata": {"name": "klusterlet"}}`)}},
 						},
 					},
 				},

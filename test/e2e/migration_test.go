@@ -252,10 +252,12 @@ var _ = Describe("Migration E2E", Label("e2e-test-migration"), Ordered, func() {
 			createRegisteringManifestWork(ctx, targetHubClient, clusterToMigrate)
 		})
 
-		// Step 7: Alternative strategy - if ManifestWork doesn't get Applied status,
-		// manually update it when the cluster becomes Available on target hub
+		// Step 7: Wait for the work agent to report the ManifestWork as Applied once the cluster is Available on the
+		// target hub. Only if the agent has not reported it within a grace period, fall back to setting the status
+		// manually, so the test observes the agent's own result whenever the agent is working.
 		It("should ensure ManifestWork is applied when cluster is available", func() {
 			manifestWorkName := fmt.Sprintf("%s-klusterlet", clusterToMigrate)
+			var availableSince time.Time
 
 			By("Step 7: Waiting for cluster to become Available on target hub and ensuring ManifestWork is Applied")
 			Eventually(func() bool {
@@ -268,6 +270,9 @@ var _ = Describe("Migration E2E", Label("e2e-test-migration"), Ordered, func() {
 				if !isManagedClusterAvailable(mc) {
 					return false
 				}
+				if availableSince.IsZero() {
+					availableSince = time.Now()
+				}
 
 				// Cluster is Available, now check if ManifestWork is Applied
 				mw := &workv1.ManifestWork{}
@@ -279,8 +284,14 @@ var _ = Describe("Migration E2E", Label("e2e-test-migration"), Ordered, func() {
 				}
 
 				if !isManifestWorkApplied(mw) {
-					// Manually set Applied status to true. Registering requires both the work and its Klusterlet
-					// manifest to be applied at the current generation, as the work agent would report.
+					// Give the work agent time to report its own result before falling back.
+					if time.Since(availableSince) < manifestWorkAgentGracePeriod {
+						return false
+					}
+					// Fallback: registering requires both the work and its Klusterlet manifest to be applied at the
+					// current generation, as the work agent would report.
+					klog.Warningf("[DEBUG] work agent did not report ManifestWork %s/%s as Applied within %s, "+
+						"setting the status manually", clusterToMigrate, manifestWorkName, manifestWorkAgentGracePeriod)
 					By("ManifestWork not Applied, manually updating status")
 					setManifestWorkApplied(mw)
 					if err := targetHubClient.Status().Update(ctx, mw); err != nil {
@@ -750,6 +761,10 @@ func isManagedClusterAvailable(mc *clusterv1.ManagedCluster) bool {
 	}
 	return false
 }
+
+// manifestWorkAgentGracePeriod is how long Step 7 waits for the work agent to report the klusterlet ManifestWork as
+// Applied after the cluster becomes Available, before setting the status manually.
+const manifestWorkAgentGracePeriod = 2 * time.Minute
 
 // isManifestWorkApplied reports whether the work and its Klusterlet manifest are applied at the current generation.
 func isManifestWorkApplied(mw *workv1.ManifestWork) bool {
