@@ -446,6 +446,19 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 						ObservedGeneration: 1,
 					},
 				},
+				ResourceStatus: workv1.ManifestResourceStatus{
+					Manifests: []workv1.ManifestCondition{{
+						ResourceMeta: workv1.ManifestResourceMeta{Kind: "Klusterlet", Name: "klusterlet"},
+						Conditions: []metav1.Condition{{
+							Type:               workv1.ManifestApplied,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Now(),
+							Reason:             "ManifestApplied",
+							Message:            "Manifest applied successfully",
+							ObservedGeneration: 1,
+						}},
+					}},
+				},
 			}
 			Expect(runtimeClient.Status().Update(testCtx, manifestWork)).Should(Succeed())
 
