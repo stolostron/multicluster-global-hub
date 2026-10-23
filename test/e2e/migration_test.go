@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -278,15 +279,10 @@ var _ = Describe("Migration E2E", Label("e2e-test-migration"), Ordered, func() {
 				}
 
 				if !isManifestWorkApplied(mw) {
-					// Manually set Applied status to true
+					// Manually set Applied status to true. Registering requires both the work and its Klusterlet
+					// manifest to be applied at the current generation, as the work agent would report.
 					By("ManifestWork not Applied, manually updating status")
-					mw.Status.Conditions = append(mw.Status.Conditions, metav1.Condition{
-						Type:               workv1.WorkApplied,
-						Status:             metav1.ConditionTrue,
-						Reason:             "AppliedManifestComplete",
-						Message:            "Apply manifest complete",
-						LastTransitionTime: metav1.Now(),
-					})
+					setManifestWorkApplied(mw)
 					if err := targetHubClient.Status().Update(ctx, mw); err != nil {
 						return false
 					}
@@ -755,14 +751,56 @@ func isManagedClusterAvailable(mc *clusterv1.ManagedCluster) bool {
 	return false
 }
 
-// isManifestWorkApplied checks if a ManifestWork has the Applied condition set to True.
+// isManifestWorkApplied reports whether the work and its Klusterlet manifest are applied at the current generation.
 func isManifestWorkApplied(mw *workv1.ManifestWork) bool {
-	for _, cond := range mw.Status.Conditions {
-		if cond.Type == workv1.WorkApplied && cond.Status == metav1.ConditionTrue {
-			return true
+	applied := meta.FindStatusCondition(mw.Status.Conditions, workv1.WorkApplied)
+	if applied == nil || applied.Status != metav1.ConditionTrue || applied.ObservedGeneration != mw.Generation {
+		return false
+	}
+	for _, manifest := range mw.Status.ResourceStatus.Manifests {
+		if manifest.ResourceMeta.Kind != "Klusterlet" {
+			continue
 		}
+		c := meta.FindStatusCondition(manifest.Conditions, workv1.ManifestApplied)
+		return c != nil && c.Status == metav1.ConditionTrue && c.ObservedGeneration == mw.Generation
 	}
 	return false
+}
+
+// setManifestWorkApplied marks the work and its Klusterlet manifest as applied at the current generation.
+func setManifestWorkApplied(mw *workv1.ManifestWork) {
+	meta.SetStatusCondition(&mw.Status.Conditions, metav1.Condition{
+		Type:               workv1.WorkApplied,
+		Status:             metav1.ConditionTrue,
+		Reason:             "AppliedManifestWorkComplete",
+		Message:            "Apply manifest work complete",
+		ObservedGeneration: mw.Generation,
+	})
+	klusterletApplied := metav1.Condition{
+		Type:               workv1.ManifestApplied,
+		Status:             metav1.ConditionTrue,
+		Reason:             workv1.AppliedManifestComplete,
+		Message:            "Apply manifest complete",
+		ObservedGeneration: mw.Generation,
+	}
+	for i := range mw.Status.ResourceStatus.Manifests {
+		if mw.Status.ResourceStatus.Manifests[i].ResourceMeta.Kind == "Klusterlet" {
+			meta.SetStatusCondition(&mw.Status.ResourceStatus.Manifests[i].Conditions, klusterletApplied)
+			return
+		}
+	}
+	klusterletApplied.LastTransitionTime = metav1.Now()
+	mw.Status.ResourceStatus.Manifests = append(mw.Status.ResourceStatus.Manifests, workv1.ManifestCondition{
+		ResourceMeta: workv1.ManifestResourceMeta{
+			Ordinal:  0,
+			Group:    "operator.open-cluster-management.io",
+			Version:  "v1",
+			Kind:     "Klusterlet",
+			Resource: "klusterlets",
+			Name:     "klusterlet",
+		},
+		Conditions: []metav1.Condition{klusterletApplied},
+	})
 }
 
 // addIfNotEmpty adds a key-value pair to the map only if the value is not empty.
