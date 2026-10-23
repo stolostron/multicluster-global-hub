@@ -5009,6 +5009,10 @@ func TestCheckClusterManifestWorkRequiresCurrentGeneration(t *testing.T) {
 		{"read-only work applied at current generation", newKlusterletWork("c1", 2, true, 2), false},
 		{"read-only work applied at stale generation", newKlusterletWork("c1", 3, true, 2), true},
 		{"terminating work", terminatingKlusterletWork("c1"), true},
+		// Work agents before OCM v1.2 leave ObservedGeneration unset on manifest conditions.
+		{"manifest generation unset, aggregate current", klusterletWorkWithManifestGeneration("c1", 2, 2, 0), false},
+		{"manifest generation unset, aggregate stale", klusterletWorkWithManifestGeneration("c1", 3, 2, 0), true},
+		{"manifest generation stale, aggregate current", klusterletWorkWithManifestGeneration("c1", 3, 3, 2), true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -5045,6 +5049,15 @@ func TestIsKlusterletWorkConvergedEdgeCases(t *testing.T) {
 	assert.False(t, isKlusterletWorkApplied(terminating), "terminating work must not be applied")
 	assert.True(t, isKlusterletWorkApplied(newKlusterletWork("c1", 2, true, 2)),
 		"ReadOnly Klusterlet applied at the current generation must count as applied for registering")
+}
+
+// klusterletWorkWithManifestGeneration returns a klusterlet ManifestWork whose aggregate Applied condition and
+// Klusterlet manifest Applied condition report the given observed generations.
+func klusterletWorkWithManifestGeneration(cluster string, generation, aggregateGen, manifestGen int64,
+) *workv1.ManifestWork {
+	work := newKlusterletWork(cluster, generation, false, aggregateGen)
+	work.Status.ResourceStatus.Manifests[0].Conditions[0].ObservedGeneration = manifestGen
+	return work
 }
 
 // terminatingKlusterletWork returns an applied klusterlet ManifestWork that is being deleted.

@@ -526,7 +526,14 @@ func isKlusterletWorkApplied(work *workv1.ManifestWork) bool {
 			continue
 		}
 		c := meta.FindStatusCondition(manifest.Conditions, workv1.ManifestApplied)
-		return c != nil && c.Status == metav1.ConditionTrue && c.ObservedGeneration == work.Generation
+		if c == nil || c.Status != metav1.ConditionTrue {
+			return false
+		}
+		// Work agents before OCM v1.2 do not set ObservedGeneration on manifest conditions. The spoke may still run
+		// such an agent during registering (it comes from the source hub). The aggregate WorkApplied condition checked
+		// above is only True at the current generation when every manifest was applied in that generation, so only
+		// compare the manifest generation when the agent reports it.
+		return c.ObservedGeneration == 0 || c.ObservedGeneration == work.Generation
 	}
 	// The Klusterlet manifest status has not been reported yet.
 	return false
