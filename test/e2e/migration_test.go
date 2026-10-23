@@ -762,7 +762,9 @@ func isManifestWorkApplied(mw *workv1.ManifestWork) bool {
 			continue
 		}
 		c := meta.FindStatusCondition(manifest.Conditions, workv1.ManifestApplied)
-		return c != nil && c.Status == metav1.ConditionTrue && c.ObservedGeneration == mw.Generation
+		// Work agents before OCM v1.2 (the e2e installs v1.1) leave ObservedGeneration unset on manifest conditions.
+		return c != nil && c.Status == metav1.ConditionTrue &&
+			(c.ObservedGeneration == 0 || c.ObservedGeneration == mw.Generation)
 	}
 	return false
 }
