@@ -487,12 +487,13 @@ func (s *MigrationTargetSyncer) klusterletWorkGeneration(ctx context.Context, cl
 	return work.Generation, true
 }
 
-// isKlusterletWorkConverged reports whether the ManifestWork has been applied to the spoke at its current
-// generation, is not terminating, and its Klusterlet manifest is no longer read-only. A ReadOnly update strategy means the work agent only reports Applied for
-// objects that already exist, without pushing the new spec, so Applied=True alone is not sufficient.
+// isKlusterletWorkConverged reports whether the klusterlet ManifestWork is applied (see isKlusterletWorkApplied)
+// and its Klusterlet manifest is no longer read-only. A ReadOnly update strategy means the work agent reports
+// Applied without pushing the new spec, so Applied=True alone does not prove the spoke received the replacement
+// klusterlet configuration. Use this after disable-auto-import is removed, when the import controller drops the
+// ReadOnly configs and re-renders the work.
 func isKlusterletWorkConverged(work *workv1.ManifestWork) bool {
-	// A terminating work can retain a stale Applied=True status.
-	if !work.DeletionTimestamp.IsZero() {
+	if !isKlusterletWorkApplied(work) {
 		return false
 	}
 	// Only the Klusterlet manifest matters; ReadOnly configs for other resources in the work are tolerated.
@@ -503,6 +504,18 @@ func isKlusterletWorkConverged(work *workv1.ManifestWork) bool {
 		if cfg.UpdateStrategy != nil && cfg.UpdateStrategy.Type == workv1.UpdateStrategyTypeReadOnly {
 			return false
 		}
+	}
+	return true
+}
+
+// isKlusterletWorkApplied reports whether the klusterlet ManifestWork is not terminating and the work agent has
+// reported both the work and its Klusterlet manifest as applied at the current generation. It does not inspect the
+// update strategy: while disable-auto-import is set, the import controller renders every manifest ReadOnly, and the
+// work agent still reports Applied for them.
+func isKlusterletWorkApplied(work *workv1.ManifestWork) bool {
+	// A terminating work can retain a stale Applied=True status.
+	if !work.DeletionTimestamp.IsZero() {
+		return false
 	}
 	applied := meta.FindStatusCondition(work.Status.Conditions, workv1.WorkApplied)
 	if applied == nil || applied.Status != metav1.ConditionTrue || applied.ObservedGeneration != work.Generation {
@@ -1691,9 +1704,11 @@ func (s *MigrationTargetSyncer) checkClusterManifestWork(ctx context.Context, cl
 		return fmt.Errorf("failed to get manifestwork %s: %w", workName, err)
 	}
 
-	if !isKlusterletWorkConverged(work) {
-		return fmt.Errorf("manifestwork %s is terminating, read-only, or not applied at generation %d",
-			workName, work.Generation)
+	// Registering runs while the migrated ManagedCluster still carries disable-auto-import, so the import controller
+	// renders the klusterlet ManifestWork with ReadOnly configs. Rejecting ReadOnly here would block every migration;
+	// the cleaning stage enforces the stricter isKlusterletWorkConverged after the annotation is removed.
+	if !isKlusterletWorkApplied(work) {
+		return fmt.Errorf("manifestwork %s is terminating or not applied at generation %d", workName, work.Generation)
 	}
 
 	return nil

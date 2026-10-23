@@ -5005,6 +5005,10 @@ func TestCheckClusterManifestWorkRequiresCurrentGeneration(t *testing.T) {
 	}{
 		{"applied at current generation", newKlusterletWork("c1", 2, false, 2), false},
 		{"applied at stale generation", newKlusterletWork("c1", 3, false, 2), true},
+		// During registering the import controller renders the work ReadOnly because disable-auto-import is set.
+		{"read-only work applied at current generation", newKlusterletWork("c1", 2, true, 2), false},
+		{"read-only work applied at stale generation", newKlusterletWork("c1", 3, true, 2), true},
+		{"terminating work", terminatingKlusterletWork("c1"), true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -5015,9 +5019,9 @@ func TestCheckClusterManifestWorkRequiresCurrentGeneration(t *testing.T) {
 			})
 			err := syncer.checkClusterManifestWork(context.Background(), "c1")
 			if c.expectError {
-				assert.Error(t, err, "stale-generation work must return an error because cleanup must not proceed on stale status")
+				assert.Error(t, err, "stale or terminating work must return an error because registering must not proceed on stale status")
 			} else {
-				assert.NoError(t, err, "current-generation Applied work must return no error because cleanup may proceed")
+				assert.NoError(t, err, "current-generation Applied work must return no error, including ReadOnly, because registering may proceed")
 			}
 		})
 	}
@@ -5037,6 +5041,19 @@ func TestIsKlusterletWorkConvergedEdgeCases(t *testing.T) {
 	assert.False(t, isKlusterletWorkConverged(terminating), "terminating work must not be converged")
 	assert.True(t, isKlusterletWorkConverged(otherReadOnly), "ReadOnly on a non-Klusterlet resource must be tolerated")
 	assert.False(t, isKlusterletWorkConverged(newKlusterletWork("c1", 2, true, 2)), "ReadOnly Klusterlet must not be converged")
+
+	assert.False(t, isKlusterletWorkApplied(terminating), "terminating work must not be applied")
+	assert.True(t, isKlusterletWorkApplied(newKlusterletWork("c1", 2, true, 2)),
+		"ReadOnly Klusterlet applied at the current generation must count as applied for registering")
+}
+
+// terminatingKlusterletWork returns an applied klusterlet ManifestWork that is being deleted.
+func terminatingKlusterletWork(cluster string) *workv1.ManifestWork {
+	work := newKlusterletWork(cluster, 2, false, 2)
+	now := metav1.Now()
+	work.DeletionTimestamp = &now
+	work.Finalizers = []string{"test.open-cluster-management.io/keep"}
+	return work
 }
 
 func init() {
