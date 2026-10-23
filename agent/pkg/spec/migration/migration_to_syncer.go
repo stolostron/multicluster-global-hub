@@ -488,10 +488,18 @@ func (s *MigrationTargetSyncer) klusterletWorkGeneration(ctx context.Context, cl
 }
 
 // isKlusterletWorkConverged reports whether the ManifestWork has been applied to the spoke at its current
-// generation and is no longer read-only. A ReadOnly update strategy means the work agent only reports Applied for
+// generation, is not terminating, and its Klusterlet manifest is no longer read-only. A ReadOnly update strategy means the work agent only reports Applied for
 // objects that already exist, without pushing the new spec, so Applied=True alone is not sufficient.
 func isKlusterletWorkConverged(work *workv1.ManifestWork) bool {
+	// A terminating work can retain a stale Applied=True status.
+	if !work.DeletionTimestamp.IsZero() {
+		return false
+	}
+	// Only the Klusterlet manifest matters; ReadOnly configs for other resources in the work are tolerated.
 	for _, cfg := range work.Spec.ManifestConfigs {
+		if cfg.ResourceIdentifier.Resource != "klusterlets" {
+			continue
+		}
 		if cfg.UpdateStrategy != nil && cfg.UpdateStrategy.Type == workv1.UpdateStrategyTypeReadOnly {
 			return false
 		}
@@ -1683,13 +1691,9 @@ func (s *MigrationTargetSyncer) checkClusterManifestWork(ctx context.Context, cl
 		return fmt.Errorf("failed to get manifestwork %s: %w", workName, err)
 	}
 
-	applied := meta.FindStatusCondition(work.Status.Conditions, workv1.WorkApplied)
-	if applied == nil || applied.Status != metav1.ConditionTrue {
-		return fmt.Errorf("manifestwork %s is not applied", workName)
-	}
-	if applied.ObservedGeneration != work.Generation {
-		return fmt.Errorf("manifestwork %s is applied at generation %d, current generation is %d",
-			workName, applied.ObservedGeneration, work.Generation)
+	if !isKlusterletWorkConverged(work) {
+		return fmt.Errorf("manifestwork %s is terminating, read-only, or not applied at generation %d",
+			workName, work.Generation)
 	}
 
 	return nil

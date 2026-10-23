@@ -1408,30 +1408,8 @@ func TestRegistering(t *testing.T) {
 		{
 			name: "All managed clusters are registered and available",
 			initObjects: []client.Object{
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "cluster1", Name: "cluster1-klusterlet"},
-					Spec:       workv1.ManifestWorkSpec{},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "cluster2", Name: "cluster2-klusterlet"},
-					Spec:       workv1.ManifestWorkSpec{},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
+				newKlusterletWork("cluster2", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
 					Status: clusterv1.ManagedClusterStatus{
@@ -1463,18 +1441,7 @@ func TestRegistering(t *testing.T) {
 		{
 			name: "Some managed clusters are not available",
 			initObjects: []client.Object{
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "cluster1", Name: "cluster1-klusterlet"},
-					Spec:       workv1.ManifestWorkSpec{},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				// &workv1.ManifestWork{
 				// 	ObjectMeta: metav1.ObjectMeta{Namespace: "cluster2", Name: "cluster2-klusterlet"},
 				// 	Spec:       workv1.ManifestWorkSpec{},
@@ -4426,20 +4393,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1", "cluster2"},
 			initObjects: []client.Object{
 				// Cluster 1 - ManifestWork ready
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
@@ -4454,20 +4408,7 @@ func TestQueryFailedClusters(t *testing.T) {
 					},
 				},
 				// Cluster 2 - ManifestWork ready
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster2-klusterlet",
-						Namespace: "cluster2",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster2", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster2",
@@ -4495,20 +4436,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1", "cluster2", "cluster3"},
 			initObjects: []client.Object{
 				// Cluster 1 - ManifestWork ready
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
@@ -4545,20 +4473,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1"},
 			expectedFailedClusters: []string{}, // ManifestWork is ready, so cluster is considered successful
 			initObjects: []client.Object{
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
@@ -4579,20 +4494,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1"},
 			expectedFailedClusters: []string{}, // ManifestWork is ready, so cluster is considered successful
 			initObjects: []client.Object{
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				// No ManagedCluster object - but ManifestWork is ready so it's successful
 			},
 		},
@@ -4609,20 +4511,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1", "cluster2", "cluster3"},
 			initObjects: []client.Object{
 				// Cluster 1 - fully successful
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
@@ -4652,20 +4541,7 @@ func TestQueryFailedClusters(t *testing.T) {
 					},
 				},
 				// Cluster 3 - ManifestWork ready but cluster not available (still considered successful based on ManifestWork)
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster3-klusterlet",
-						Namespace: "cluster3",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster3", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster3",
@@ -5145,6 +5021,22 @@ func TestCheckClusterManifestWorkRequiresCurrentGeneration(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIsKlusterletWorkConvergedEdgeCases(t *testing.T) {
+	terminating := newKlusterletWork("c1", 2, false, 2)
+	now := metav1.Now()
+	terminating.DeletionTimestamp = &now
+
+	otherReadOnly := newKlusterletWork("c1", 2, false, 2)
+	otherReadOnly.Spec.ManifestConfigs = []workv1.ManifestConfigOption{{
+		ResourceIdentifier: workv1.ResourceIdentifier{Resource: "deployments", Name: "foo"},
+		UpdateStrategy:     &workv1.UpdateStrategy{Type: workv1.UpdateStrategyTypeReadOnly},
+	}}
+
+	assert.False(t, isKlusterletWorkConverged(terminating), "terminating work must not be converged")
+	assert.True(t, isKlusterletWorkConverged(otherReadOnly), "ReadOnly on a non-Klusterlet resource must be tolerated")
+	assert.False(t, isKlusterletWorkConverged(newKlusterletWork("c1", 2, true, 2)), "ReadOnly Klusterlet must not be converged")
 }
 
 func init() {
