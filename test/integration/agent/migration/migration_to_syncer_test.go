@@ -317,8 +317,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				Status: workv1.ManifestWorkStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   workv1.WorkApplied,
-							Status: metav1.ConditionTrue,
+							Type:               workv1.WorkApplied,
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 1,
 						},
 					},
 				},
@@ -424,7 +425,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				Spec: workv1.ManifestWorkSpec{
 					Workload: workv1.ManifestsTemplate{
 						Manifests: []workv1.Manifest{
-							{RawExtension: runtime.RawExtension{Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "test-cm"}}`)}},
+							{RawExtension: runtime.RawExtension{Raw: []byte(`{"apiVersion": "operator.open-cluster-management.io/v1", "kind": "Klusterlet", "metadata": {"name": "klusterlet"}}`)}},
 						},
 					},
 				},
@@ -442,7 +443,21 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 						LastTransitionTime: metav1.Now(),
 						Reason:             "WorkApplied",
 						Message:            "Work applied successfully",
+						ObservedGeneration: 1,
 					},
+				},
+				ResourceStatus: workv1.ManifestResourceStatus{
+					Manifests: []workv1.ManifestCondition{{
+						ResourceMeta: workv1.ManifestResourceMeta{Kind: "Klusterlet", Name: "klusterlet"},
+						Conditions: []metav1.Condition{{
+							Type:               workv1.ManifestApplied,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Now(),
+							Reason:             "ManifestApplied",
+							Message:            "Manifest applied successfully",
+							ObservedGeneration: 1,
+						}},
+					}},
 				},
 			}
 			Expect(runtimeClient.Status().Update(testCtx, manifestWork)).Should(Succeed())
