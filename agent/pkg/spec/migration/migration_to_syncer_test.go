@@ -1182,6 +1182,8 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 						},
 					},
 				},
+				newKlusterletWork("cluster1", 2, false, 2),
+				newKlusterletWork("cluster2", 2, false, 2),
 				&operatorv1.ClusterManager{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster-manager",
@@ -1406,30 +1408,8 @@ func TestRegistering(t *testing.T) {
 		{
 			name: "All managed clusters are registered and available",
 			initObjects: []client.Object{
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "cluster1", Name: "cluster1-klusterlet"},
-					Spec:       workv1.ManifestWorkSpec{},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "cluster2", Name: "cluster2-klusterlet"},
-					Spec:       workv1.ManifestWorkSpec{},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
+				newKlusterletWork("cluster2", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
 					Status: clusterv1.ManagedClusterStatus{
@@ -1461,18 +1441,7 @@ func TestRegistering(t *testing.T) {
 		{
 			name: "Some managed clusters are not available",
 			initObjects: []client.Object{
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "cluster1", Name: "cluster1-klusterlet"},
-					Spec:       workv1.ManifestWorkSpec{},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				// &workv1.ManifestWork{
 				// 	ObjectMeta: metav1.ObjectMeta{Namespace: "cluster2", Name: "cluster2-klusterlet"},
 				// 	Spec:       workv1.ManifestWorkSpec{},
@@ -1703,6 +1672,7 @@ func TestCleaningStageErrorAggregation(t *testing.T) {
 						},
 					},
 				},
+				newKlusterletWork("cluster1", 2, false, 2),
 				// cluster2 missing - will cause error
 				&operatorv1.ClusterManager{
 					ObjectMeta: metav1.ObjectMeta{
@@ -4423,20 +4393,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1", "cluster2"},
 			initObjects: []client.Object{
 				// Cluster 1 - ManifestWork ready
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
@@ -4451,20 +4408,7 @@ func TestQueryFailedClusters(t *testing.T) {
 					},
 				},
 				// Cluster 2 - ManifestWork ready
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster2-klusterlet",
-						Namespace: "cluster2",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster2", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster2",
@@ -4492,20 +4436,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1", "cluster2", "cluster3"},
 			initObjects: []client.Object{
 				// Cluster 1 - ManifestWork ready
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
@@ -4542,20 +4473,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1"},
 			expectedFailedClusters: []string{}, // ManifestWork is ready, so cluster is considered successful
 			initObjects: []client.Object{
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
@@ -4576,20 +4494,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1"},
 			expectedFailedClusters: []string{}, // ManifestWork is ready, so cluster is considered successful
 			initObjects: []client.Object{
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				// No ManagedCluster object - but ManifestWork is ready so it's successful
 			},
 		},
@@ -4606,20 +4511,7 @@ func TestQueryFailedClusters(t *testing.T) {
 			managedClusters:        []string{"cluster1", "cluster2", "cluster3"},
 			initObjects: []client.Object{
 				// Cluster 1 - fully successful
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1-klusterlet",
-						Namespace: "cluster1",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster1", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
@@ -4649,20 +4541,7 @@ func TestQueryFailedClusters(t *testing.T) {
 					},
 				},
 				// Cluster 3 - ManifestWork ready but cluster not available (still considered successful based on ManifestWork)
-				&workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster3-klusterlet",
-						Namespace: "cluster3",
-					},
-					Status: workv1.ManifestWorkStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   workv1.WorkApplied,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
+				newKlusterletWork("cluster3", 0, false, 0),
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster3",
@@ -4944,4 +4823,254 @@ func assertOriginalAnnotationsPreserved(t *testing.T, original, updated map[stri
 		}
 		assert.Equal(t, value, updated[key], "Original annotation %s should be preserved", key)
 	}
+}
+
+// newKlusterletWork builds a klusterlet ManifestWork for tests.
+func newKlusterletWork(cluster string, generation int64, readOnly bool, appliedGeneration int64) *workv1.ManifestWork {
+	work := &workv1.ManifestWork{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:  cluster,
+			Name:       cluster + KlusterletManifestWorkSuffix,
+			Generation: generation,
+		},
+		Status: workv1.ManifestWorkStatus{
+			Conditions: []metav1.Condition{{
+				Type: workv1.WorkApplied, Status: metav1.ConditionTrue, ObservedGeneration: appliedGeneration,
+			}},
+			ResourceStatus: workv1.ManifestResourceStatus{
+				Manifests: []workv1.ManifestCondition{{
+					ResourceMeta: workv1.ManifestResourceMeta{Kind: "Klusterlet", Name: "klusterlet"},
+					Conditions: []metav1.Condition{{
+						Type: workv1.ManifestApplied, Status: metav1.ConditionTrue, ObservedGeneration: appliedGeneration,
+					}},
+				}},
+			},
+		},
+	}
+	if readOnly {
+		work.Spec.ManifestConfigs = []workv1.ManifestConfigOption{{
+			ResourceIdentifier: workv1.ResourceIdentifier{
+				Group:    "operator.open-cluster-management.io",
+				Resource: "klusterlets", Name: "klusterlet",
+			},
+			UpdateStrategy: &workv1.UpdateStrategy{Type: workv1.UpdateStrategyTypeReadOnly},
+		}}
+	}
+	return work
+}
+
+func TestIsKlusterletWorkConverged(t *testing.T) {
+	cases := []struct {
+		name string
+		work *workv1.ManifestWork
+		want bool
+	}{
+		{"applied at current generation", newKlusterletWork("c1", 2, false, 2), true},
+		{"read-only strategy is not converged even if Applied", newKlusterletWork("c1", 2, true, 2), false},
+		{"aggregate applied at stale generation", newKlusterletWork("c1", 3, false, 2), false},
+		{"no conditions reported", &workv1.ManifestWork{ObjectMeta: metav1.ObjectMeta{Generation: 1}}, false},
+		{
+			"klusterlet manifest applied at stale generation",
+			func() *workv1.ManifestWork {
+				w := newKlusterletWork("c1", 2, false, 2)
+				w.Status.ResourceStatus.Manifests[0].Conditions[0].ObservedGeneration = 1
+				return w
+			}(),
+			false,
+		},
+		{
+			"klusterlet manifest status missing",
+			func() *workv1.ManifestWork {
+				w := newKlusterletWork("c1", 2, false, 2)
+				w.Status.ResourceStatus.Manifests = nil
+				return w
+			}(),
+			false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, isKlusterletWorkConverged(c.work),
+				"the convergence result must match the expected state because cleanup depends on rejecting stale or read-only work")
+		})
+	}
+}
+
+func TestWaitForKlusterletWorkConverged(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	oldSettle, oldPoll := klusterletWorkSettleTime, klusterletWorkPollPeriod
+	klusterletWorkSettleTime, klusterletWorkPollPeriod = 300*time.Millisecond, 50*time.Millisecond
+	t.Cleanup(func() { klusterletWorkSettleTime, klusterletWorkPollPeriod = oldSettle, oldPoll })
+
+	cases := []struct {
+		name        string
+		objects     []client.Object
+		baselines   map[string]int64
+		noBaseline  bool
+		since       time.Time
+		expectError bool
+	}{
+		{
+			name:        "no clusters",
+			expectError: false,
+		},
+		{
+			name:        "regenerated work applied at new generation converges immediately",
+			objects:     []client.Object{newKlusterletWork("c1", 3, false, 3)},
+			baselines:   map[string]int64{"c1": 2},
+			since:       time.Now(),
+			expectError: false,
+		},
+		{
+			name:        "unchanged converged work converges after settle time",
+			objects:     []client.Object{newKlusterletWork("c1", 2, false, 2)},
+			baselines:   map[string]int64{"c1": 2},
+			since:       time.Now().Add(-time.Minute),
+			expectError: false,
+		},
+		{
+			name:        "unchanged work still inside settle window keeps waiting",
+			objects:     []client.Object{newKlusterletWork("c1", 2, false, 2)},
+			baselines:   map[string]int64{"c1": 2},
+			since:       time.Now().Add(time.Hour),
+			expectError: true,
+		},
+		{
+			name:        "read-only work never converges",
+			objects:     []client.Object{newKlusterletWork("c1", 3, true, 3)},
+			baselines:   map[string]int64{"c1": 2},
+			since:       time.Now(),
+			expectError: true,
+		},
+		{
+			name:        "new generation not yet applied keeps waiting",
+			objects:     []client.Object{newKlusterletWork("c1", 3, false, 2)},
+			baselines:   map[string]int64{"c1": 2},
+			since:       time.Now(),
+			expectError: true,
+		},
+		{
+			name:        "missing work keeps waiting",
+			baselines:   map[string]int64{"c1": 0},
+			since:       time.Now(),
+			expectError: true,
+		},
+		{
+			name:        "converged work without a baseline does not bypass the settle window",
+			objects:     []client.Object{newKlusterletWork("c1", 2, false, 2)},
+			noBaseline:  true,
+			since:       time.Now().Add(time.Hour),
+			expectError: true,
+		},
+		{
+			name:        "converged work without a baseline converges after the settle window",
+			objects:     []client.Object{newKlusterletWork("c1", 2, false, 2)},
+			noBaseline:  true,
+			since:       time.Now(),
+			expectError: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.objects...).Build()
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, &configs.AgentConfig{
+				TransportConfig: &transport.TransportInternalConfig{KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"}},
+				LeafHubName:     "hub1",
+			})
+			ctx := withExpireTime(context.Background(), time.Now().Add(time.Second))
+			clusters := []string{}
+			if len(c.baselines) > 0 || c.noBaseline {
+				clusters = []string{"c1"}
+			}
+			baselines := c.baselines
+			if c.noBaseline {
+				baselines = map[string]int64{}
+			}
+			err := syncer.waitForKlusterletWorkConverged(ctx, clusters, baselines, c.since)
+			if c.expectError {
+				assert.Error(t, err, "non-converged work must return an error because cleanup must not proceed early")
+			} else {
+				assert.NoError(t, err, "converged work must return no error because cleanup may proceed only after convergence")
+			}
+		})
+	}
+}
+
+func TestCheckClusterManifestWorkRequiresCurrentGeneration(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	cases := []struct {
+		name        string
+		work        *workv1.ManifestWork
+		expectError bool
+	}{
+		{"applied at current generation", newKlusterletWork("c1", 2, false, 2), false},
+		{"applied at stale generation", newKlusterletWork("c1", 3, false, 2), true},
+		// During registering the import controller renders the work ReadOnly because disable-auto-import is set.
+		{"read-only work applied at current generation", newKlusterletWork("c1", 2, true, 2), false},
+		{"read-only work applied at stale generation", newKlusterletWork("c1", 3, true, 2), true},
+		{"terminating work", terminatingKlusterletWork("c1"), true},
+		// Work agents before OCM v1.2 leave ObservedGeneration unset on manifest conditions.
+		{"manifest generation unset, aggregate current", klusterletWorkWithManifestGeneration("c1", 2, 2, 0), false},
+		{"manifest generation unset, aggregate stale", klusterletWorkWithManifestGeneration("c1", 3, 2, 0), true},
+		{"manifest generation stale, aggregate current", klusterletWorkWithManifestGeneration("c1", 3, 3, 2), true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.work).Build()
+			syncer := NewMigrationTargetSyncer(fakeClient, nil, &configs.AgentConfig{
+				TransportConfig: &transport.TransportInternalConfig{KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"}},
+				LeafHubName:     "hub1",
+			})
+			err := syncer.checkClusterManifestWork(context.Background(), "c1")
+			if c.expectError {
+				assert.Error(t, err, "stale or terminating work must return an error because registering must not proceed on stale status")
+			} else {
+				assert.NoError(t, err, "current-generation Applied work must return no error, including ReadOnly, because registering may proceed")
+			}
+		})
+	}
+}
+
+func TestIsKlusterletWorkConvergedEdgeCases(t *testing.T) {
+	terminating := newKlusterletWork("c1", 2, false, 2)
+	now := metav1.Now()
+	terminating.DeletionTimestamp = &now
+
+	otherReadOnly := newKlusterletWork("c1", 2, false, 2)
+	otherReadOnly.Spec.ManifestConfigs = []workv1.ManifestConfigOption{{
+		ResourceIdentifier: workv1.ResourceIdentifier{Resource: "deployments", Name: "foo"},
+		UpdateStrategy:     &workv1.UpdateStrategy{Type: workv1.UpdateStrategyTypeReadOnly},
+	}}
+
+	assert.False(t, isKlusterletWorkConverged(terminating), "terminating work must not be converged")
+	assert.True(t, isKlusterletWorkConverged(otherReadOnly), "ReadOnly on a non-Klusterlet resource must be tolerated")
+	assert.False(t, isKlusterletWorkConverged(newKlusterletWork("c1", 2, true, 2)), "ReadOnly Klusterlet must not be converged")
+
+	assert.False(t, isKlusterletWorkApplied(terminating), "terminating work must not be applied")
+	assert.True(t, isKlusterletWorkApplied(newKlusterletWork("c1", 2, true, 2)),
+		"ReadOnly Klusterlet applied at the current generation must count as applied for registering")
+}
+
+// klusterletWorkWithManifestGeneration returns a klusterlet ManifestWork whose aggregate Applied condition and
+// Klusterlet manifest Applied condition report the given observed generations.
+func klusterletWorkWithManifestGeneration(cluster string, generation, aggregateGen, manifestGen int64,
+) *workv1.ManifestWork {
+	work := newKlusterletWork(cluster, generation, false, aggregateGen)
+	work.Status.ResourceStatus.Manifests[0].Conditions[0].ObservedGeneration = manifestGen
+	return work
+}
+
+// terminatingKlusterletWork returns an applied klusterlet ManifestWork that is being deleted.
+func terminatingKlusterletWork(cluster string) *workv1.ManifestWork {
+	work := newKlusterletWork(cluster, 2, false, 2)
+	now := metav1.Now()
+	work.DeletionTimestamp = &now
+	work.Finalizers = []string{"test.open-cluster-management.io/keep"}
+	return work
+}
+
+func init() {
+	// Keep cleaning tests fast; tests that exercise the settle window set their own values.
+	klusterletWorkSettleTime = 0
+	klusterletWorkPollPeriod = 50 * time.Millisecond
 }
