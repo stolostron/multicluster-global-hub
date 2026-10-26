@@ -28,6 +28,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
+	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -69,6 +70,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 	}
 	if err := mchv1.SchemeBuilder.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add mchv1 to scheme: %v", err)
+	}
+	if err := workv1.Install(scheme); err != nil {
+		t.Fatalf("Failed to add workv1 to scheme: %v", err)
 	}
 
 	currentSyncerMigrationId := "020340324302432049234023040320"
@@ -598,6 +602,30 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			switch c.receivedMigrationEventBundle.Stage {
+			case migrationv1alpha1.PhaseInitializing:
+				if c.receivedMigrationEventBundle.BootstrapSecret != nil &&
+					len(c.receivedMigrationEventBundle.BootstrapSecret.Data["kubeconfig"]) == 0 {
+					c.receivedMigrationEventBundle.BootstrapSecret.Data = map[string][]byte{
+						"kubeconfig": []byte("target-kubeconfig"),
+					}
+				}
+				for _, obj := range c.initObjects {
+					if mch, ok := obj.(*mchv1.MultiClusterHub); ok && isACM213(mch.Status.CurrentVersion) {
+						mch.Status.CurrentVersion = "5.0.0"
+					}
+				}
+				if clusters := c.receivedMigrationEventBundle.ManagedClusters; len(clusters) > 0 {
+					c.initObjects = append(c.initObjects, klusterletSourceWork(clusters[0]))
+				}
+			case migrationv1alpha1.PhaseRegistering:
+				if clusters := c.receivedMigrationEventBundle.ManagedClusters; len(clusters) > 0 {
+					c.initObjects = append(c.initObjects,
+						targetBootstrapSecret(c.receivedMigrationEventBundle.ToHub),
+						appliedSourceWork(clusters[0], c.receivedMigrationEventBundle.ToHub,
+							c.receivedMigrationEventBundle.MigrationId))
+				}
+			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(
 				c.initObjects...,
 			).Build()
@@ -993,7 +1021,8 @@ func TestValidating(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 				if c.migrationBundle.PlacementName != "" {
-					// When placement name is provided, ManagedClusters should be set to whatever getClustersFromPlacementDecisions returns
+					// When placement name is provided, ManagedClusters should be set to
+					// whatever getClustersFromPlacementDecisions returns
 					assert.Equal(t, c.expectedClusters, bundle.ManagedClusters)
 				} else {
 					// When placement name is empty, ManagedClusters should remain unchanged
@@ -1179,9 +1208,10 @@ func TestValidateSingleCluster(t *testing.T) {
 					},
 				},
 			},
-			expectedError:        true,
-			expectedErrorMessage: "managed cluster hosted-cluster is imported as hosted mode in managed hub test-hub, it cannot be migrated",
-			leafHubName:          "test-hub",
+			expectedError: true,
+			expectedErrorMessage: "managed cluster hosted-cluster is imported as hosted mode " +
+				"in managed hub test-hub, it cannot be migrated",
+			leafHubName: "test-hub",
 		},
 		{
 			name:        "Should fail for local cluster",
@@ -1205,9 +1235,10 @@ func TestValidateSingleCluster(t *testing.T) {
 					},
 				},
 			},
-			expectedError:        true,
-			expectedErrorMessage: "managed cluster local-cluster is local cluster in managed hub test-hub, it cannot be migrated",
-			leafHubName:          "test-hub",
+			expectedError: true,
+			expectedErrorMessage: "managed cluster local-cluster is local cluster in managed hub " +
+				"test-hub, it cannot be migrated",
+			leafHubName: "test-hub",
 		},
 		{
 			name:        "Should fail for unavailable cluster",
@@ -1228,9 +1259,10 @@ func TestValidateSingleCluster(t *testing.T) {
 					},
 				},
 			},
-			expectedError:        true,
-			expectedErrorMessage: "managed cluster unavailable-cluster is not available in managed hub test-hub, it cannot be migrated",
-			leafHubName:          "test-hub",
+			expectedError: true,
+			expectedErrorMessage: "managed cluster unavailable-cluster is not available in managed hub " +
+				"test-hub, it cannot be migrated",
+			leafHubName: "test-hub",
 		},
 		{
 			name:        "Should fail for managed hub cluster",
@@ -1254,9 +1286,10 @@ func TestValidateSingleCluster(t *testing.T) {
 					},
 				},
 			},
-			expectedError:        true,
-			expectedErrorMessage: "managed cluster managed-hub-cluster is a managed hub cluster in managed hub test-hub, it cannot be migrated",
-			leafHubName:          "test-hub",
+			expectedError: true,
+			expectedErrorMessage: "managed cluster managed-hub-cluster is a managed hub cluster " +
+				"in managed hub test-hub, it cannot be migrated",
+			leafHubName: "test-hub",
 		},
 		{
 			name:        "Should fail for cluster with no conditions",
@@ -1272,9 +1305,10 @@ func TestValidateSingleCluster(t *testing.T) {
 					Conditions: []metav1.Condition{},
 				},
 			},
-			expectedError:        true,
-			expectedErrorMessage: "managed cluster no-conditions-cluster is not available in managed hub test-hub, it cannot be migrated",
-			leafHubName:          "test-hub",
+			expectedError: true,
+			expectedErrorMessage: "managed cluster no-conditions-cluster is not available in managed hub " +
+				"test-hub, it cannot be migrated",
+			leafHubName: "test-hub",
 		},
 		{
 			name:        "Should pass for cluster with no annotations",
@@ -1628,41 +1662,44 @@ func TestPrepareUnstructuredResourceForMigration(t *testing.T) {
 
 				// Verify resources are properly cleaned
 				for _, res := range resources {
-					// Metadata should be cleaned
-					assert.Empty(t, res.GetResourceVersion(), "ResourceVersion should be cleared")
-					assert.Empty(t, res.GetFinalizers(), "Finalizers should be cleared")
-					assert.Equal(t, int64(0), res.GetGeneration(), "Generation should be 0")
-
-					// kubectl last-applied-configuration annotation should be removed
-					annotations := res.GetAnnotations()
-					if annotations != nil {
-						_, exists := annotations[kubectlConfigAnnotation]
-						assert.False(t, exists, "kubectl last-applied-configuration should be removed")
-					}
-
-					// Check status based on needStatus
-					_, hasStatus, _ := unstructured.NestedFieldCopy(res.Object, "status")
-					if c.migrateResource.needStatus {
-						if len(c.initObjects) > 0 {
-							// If init object has status, it should be preserved
-							initObj := c.initObjects[0]
-							if unstructuredObj, ok := initObj.(*unstructured.Unstructured); ok {
-								_, initHasStatus, _ := unstructured.NestedFieldCopy(unstructuredObj.Object, "status")
-								if initHasStatus {
-									assert.True(t, hasStatus, "Status should be preserved when needStatus is true")
-								}
-							}
-						}
-					} else {
-						assert.False(t, hasStatus, "Status should be removed when needStatus is false")
-					}
-
-					// Note: For ClusterDeployment resources, the hive.openshift.io/reconcile-pause
-					// annotation is preserved during migration and removed only during rollback
-					// or cleanup on the target hub
+					assertCleanedMigrationResource(t, res, c.migrateResource.needStatus, c.initObjects)
 				}
 			}
 		})
+	}
+}
+
+func assertCleanedMigrationResource(
+	t *testing.T, res unstructured.Unstructured, needStatus bool, initObjects []client.Object,
+) {
+	t.Helper()
+	assert.Empty(t, res.GetResourceVersion(), "ResourceVersion should be cleared")
+	assert.Empty(t, res.GetFinalizers(), "Finalizers should be cleared")
+	assert.Equal(t, int64(0), res.GetGeneration(), "Generation should be 0")
+
+	// kubectl last-applied-configuration annotation should be removed
+	annotations := res.GetAnnotations()
+	if annotations != nil {
+		_, exists := annotations[kubectlConfigAnnotation]
+		assert.False(t, exists, "kubectl last-applied-configuration should be removed")
+	}
+
+	// ClusterDeployment keeps hive.openshift.io/reconcile-pause until rollback or target cleanup.
+	_, hasStatus, _ := unstructured.NestedFieldCopy(res.Object, "status")
+	if !needStatus {
+		assert.False(t, hasStatus, "Status should be removed when needStatus is false")
+		return
+	}
+	if len(initObjects) == 0 {
+		return
+	}
+	initObj, ok := initObjects[0].(*unstructured.Unstructured)
+	if !ok {
+		return
+	}
+	_, initHasStatus, _ := unstructured.NestedFieldCopy(initObj.Object, "status")
+	if initHasStatus {
+		assert.True(t, hasStatus, "Status should be preserved when needStatus is true")
 	}
 }
 
@@ -3015,7 +3052,9 @@ func createObservabilityAddon(name, namespace string, finalizers []string) *unst
 }
 
 // createObservabilityAddonWithDeletionTimestamp creates an ObservabilityAddon with deletionTimestamp set
-func createObservabilityAddonWithDeletionTimestamp(name, namespace string, finalizers []string) *unstructured.Unstructured {
+func createObservabilityAddonWithDeletionTimestamp(
+	name, namespace string, finalizers []string,
+) *unstructured.Unstructured {
 	addon := createObservabilityAddon(name, namespace, finalizers)
 
 	// Set deletionTimestamp to simulate a resource marked for deletion
