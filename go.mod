@@ -11,11 +11,11 @@ require (
 	github.com/IBM/sarama v1.46.3
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/authzed/spicedb-operator v1.20.1
-	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20260427070847-5e02117f4fa1
+	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20261020064151-05f0f6812a36
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.16.2
 	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/cloudflare/cfssl v1.6.5
-	github.com/confluentinc/confluent-kafka-go/v2 v2.14.2
+	github.com/confluentinc/confluent-kafka-go/v2 v2.16.0
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
@@ -43,8 +43,8 @@ require (
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20250224012200-769f091c0e95
 	github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20250415191038-1e368a726d8b
-	github.com/stretchr/testify v1.11.1
-	go.uber.org/zap v1.27.1
+	github.com/stretchr/testify v1.12.1
+	go.uber.org/zap v1.28.0
 	gopkg.in/ini.v1 v1.67.3
 	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/datatypes v1.2.7
@@ -77,7 +77,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/mod v0.38.0 // indirect
 	helm.sh/helm/v3 v3.18.5 // indirect
 	mvdan.cc/gofumpt v0.7.0 // indirect
@@ -117,7 +117,7 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/gonvenience/bunt v1.4.3 // indirect
 	github.com/gonvenience/neat v1.3.18 // indirect
@@ -184,7 +184,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
