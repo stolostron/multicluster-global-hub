@@ -1,3 +1,20 @@
+/*
+Copyright (c) 2026 Red Hat, Inc.
+Copyright Contributors to the Open Cluster Management project.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package config
 
 import (
@@ -362,22 +379,25 @@ func TestConnectProxyDialerPreservesBufferedTunnelBytes(t *testing.T) {
 
 func TestConnectProxyDialerRejectsProxyResponsesAndRedactsCredentials(t *testing.T) {
 	const password = "secret-proxy-password"
-	for _, response := range []string{
-		"HTTP/1.1 407 " + password + "\r\nContent-Length: 0\r\n\r\n",
-		"HTTP/1.1 403 Forbidden\r\n\r\n",
-		"HTTP/1.1 502 Bad Gateway\r\n\r\n",
-		"not-http-" + password + "\r\n\r\n",
-		"HTTP/1.1 2000 Invalid\r\n\r\n",
-		"HTTP/1.1 200 OK\r\nX-Long: " + strings.Repeat("x", maxProxyResponseHeaderBytes) + "\r\n\r\n",
+	for _, check := range []struct {
+		name     string
+		response string
+	}{
+		{name: "proxy-auth-required", response: "HTTP/1.1 407 " + password + "\r\nContent-Length: 0\r\n\r\n"},
+		{name: "forbidden", response: "HTTP/1.1 403 Forbidden\r\n\r\n"},
+		{name: "bad-gateway", response: "HTTP/1.1 502 Bad Gateway\r\n\r\n"},
+		{name: "malformed-response", response: "not-http-" + password + "\r\n\r\n"},
+		{name: "invalid-status", response: "HTTP/1.1 2000 Invalid\r\n\r\n"},
+		{name: "oversized-header", response: "HTTP/1.1 200 OK\r\nX-Long: " + strings.Repeat("x", maxProxyResponseHeaderBytes) + "\r\n\r\n"},
 	} {
-		t.Run(strings.SplitN(response, "\r\n", 2)[0], func(t *testing.T) {
+		t.Run(check.name, func(t *testing.T) {
 			server := newConnectProxyTestServer(t, nil, func(w http.ResponseWriter, _ *http.Request) {
 				conn, _, err := w.(http.Hijacker).Hijack()
 				if err != nil {
 					return
 				}
 				defer func() { _ = conn.Close() }()
-				_, _ = io.WriteString(conn, response)
+				_, _ = io.WriteString(conn, check.response)
 			})
 			u, err := url.Parse(server.URL)
 			require.NoError(t, err)

@@ -72,7 +72,9 @@ func (p *saramaSenderTestProducer) closeInput() { p.inputOnce.Do(func() { close(
 func (p *saramaSenderTestProducer) closeSuccesses() {
 	p.successesOnce.Do(func() { close(p.successes) })
 }
+
 func (p *saramaSenderTestProducer) closeFailures() { p.failuresOnce.Do(func() { close(p.failures) }) }
+
 func (p *saramaSenderTestProducer) finish() {
 	p.closeInput()
 	p.closeSuccesses()
@@ -475,7 +477,8 @@ func TestSaramaSenderCloseInterruptsBlockedEnqueue(t *testing.T) {
 			func(binding.MessageMetadataReader, binding.MessageMetadataWriter) error {
 				close(encoded)
 				return nil
-			}))
+			},
+		))
 	}()
 	_ = saramaSenderTestReceive(t, encoded)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
