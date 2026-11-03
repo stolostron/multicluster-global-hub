@@ -1,661 +1,394 @@
-# Event API Specifications
-These are events generated on the Kafka topics by multicluster global hub. The events are for the policy and managed cluster right now. We may extend to support other types in the future.
+# Global Hub CloudEvent API
 
-## Topics
-The following Kafka topics are used
-- status.$(managed_hub_cluster_name)
-- event
+The multicluster global hub agent publishes status and event data from a managed hub to the global hub manager as [CloudEvents](https://cloudevents.io/). Consumers should use the CloudEvent `type` attribute to select the payloads they process.
 
-## Event Structure
+This document describes the CloudEvents that the current agent publishes on the status topic. It does not describe spec synchronization or managed-cluster migration messages, which use different topics and workflows. The examples show representative payloads; they are not JSON schemas.
 
-The events are formatted as per [CloudEvents](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md) Specifications. Therefore the message envelopes are common as specified by the CloudEvent Specs. It is encoded in JSON format.
+## Deployment modes
 
-A simple `hello world` message would look like.  - 
-```
-{
-    "specversion" : "1.0",
-    "type" : "com.event",
-    "source" : "source",
-    "id" : "A234-1234-1234",
-    "time" : "2018-04-05T17:31:00Z",
-    "datacontenttype" : "application/json",
-    "data" : {
-        "message" : "Hello World!"
-    }
-}
-```
+The same status path is used in both deployment modes:
 
-_CloudEvent attributes are prefixed with ce_ for use in the message-headers section in Kafka._
+- **Global hub mode:** The managed hub is imported into the global hub. The agent synchronizes both status toward the global hub and specifications toward the managed hub.
+- **Standalone mode:** The managed hub is not imported into the global hub. The global hub agent runs on that hub as a status and event exporter; specification synchronization is not started.
 
-Examples:
+Availability still depends on the resources and integrations installed on the managed hub. For example, `event.clustergroupupgrade` requires Topology Aware Lifecycle Manager (TALM), and `security.alertcounts` requires the Red Hat Advanced Cluster Security (RHACS) integration.
 
-* `time` maps to `ce-time`
-* `id` maps to `ce-id`
-* `specversion` maps to `ce-specversion`
+## Status topic
 
-## Topic: status.$(managed_hub_cluster_name)
-### Events related to Policy
-#### Local Policy Spec
-The event includes the policy spec which is applied in the managed hub cluster. The `source` specifies the managed hub cluster name. The `data` is for the policy spec. The events are always sent by the hub cluster.
-```
-{
-  "specversion": "1.0",
-  "id": "7923be59-0050-4112-90c0-1e8d1ec4d486",
-  "source": "kind-hub1",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localspec",
-  "datacontenttype": "application/json",
-  "time": "2024-02-29T03:01:12.717129594Z",
-  "data": [
-    {
-      "kind": "Policy",
-      "apiVersion": "policy.open-cluster-management.io/v1",
-      "metadata": {
-        "name": "policy-limitrange",
-        "namespace": "local-policy-namespace",
-        "uid": "cd0a3ae3-6579-4fbc-b9c1-eb7e9d15dd6d",
-        "resourceVersion": "849216",
-        "creationTimestamp": "2024-02-29T03:01:04Z",
-        "annotations": {
-          "policy.open-cluster-management.io/categories": "PR.IP Information Protection Processes and Procedures",
-          "policy.open-cluster-management.io/controls": "PR.IP-1 Baseline Configuration",
-          "policy.open-cluster-management.io/standards": "NIST-CSF"
-        }
-      },
-      "spec": {
-        "disabled": false,
-        "remediationAction": "inform",
-        "policy-templates": [
-          {
-            "objectDefinition": {
-              "apiVersion": "policy.open-cluster-management.io/v1",
-              "kind": "ConfigurationPolicy",
-              "metadata": {
-                "name": "policy-limitrange-container-mem-limit-range"
-              },
-              "spec": {
-                "namespaceSelector": {
-                  "exclude": [
-                    "kube-*"
-                  ],
-                  "include": [
-                    "default"
-                  ]
-                },
-                "object-templates": [
-                  {
-                    "complianceType": "musthave",
-                    "objectDefinition": {
-                      "apiVersion": "v1",
-                      "kind": "LimitRange",
-                      "metadata": {
-                        "name": "container-mem-limit-range"
-                      },
-                      "spec": {
-                        "limits": [
-                          {
-                            "default": {
-                              "memory": "512Mi"
-                            },
-                            "defaultRequest": {
-                              "memory": "256Mi"
-                            },
-                            "type": "Container"
-                          }
-                        ]
-                      }
-                    }
-                  }
-                ],
-                "remediationAction": "inform",
-                "severity": "medium"
-              }
-            }
-          }
-        ]
-      },
-      "status": {}
-    }
-  ]
-}
-```
-#### Local Complete Policy Compliance Status
-The event includes the policy compliance status. It is a complete status. The `source` specifies the managed hub cluster name. The `data` is for the policy compliance status, including compliant clusters, non-compliant clusters and unknown clusters.
+All CloudEvent types in this document are sent from the agent to the manager on the configured Kafka status topic.
+There is no separate topic for the `event.*` types.
 
-```
+- With the built-in Kafka configuration, the default topic pattern is `gh-status.*`; the agent replaces `*` with its managed hub name, producing a topic such as `gh-status.hub1`.
+- With bring-your-own Kafka, the default is the shared topic `gh-status`. A custom status topic can also be configured.
+- In standalone deployments, the topic is read from the agent transport configuration.
+
+## CloudEvent type reference
+
+| CloudEvent `type` | Direction | `data` shape | Availability |
+| --- | --- | --- | --- |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster` | Agent to manager | Generic object bundle containing `ManagedCluster` resources | When ACM/OCM managed-cluster APIs are present |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.policy.localspec` | Agent to manager | Generic object bundle containing root `Policy` resources | Local policy collection enabled |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompliance` | Agent to manager | Array of per-policy compliance and cluster lists | Local policy collection and full aggregation enabled |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompletecompliance` | Agent to manager | Array of noncompliant, unknown, and pending cluster lists | Local policy collection and full aggregation enabled |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.info` | Agent to manager | Managed hub information object | When ACM/OCM hub APIs are present |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat` | Agent to manager | Empty array | When ACM/OCM hub APIs are present |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.security.alertcounts` | Agent to manager | Security alert-count object | RHACS integration enabled and a Central CR is present |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.event.localrootpolicy` | Agent to manager | Root-policy event object, or an array in batch mode | Local policy collection enabled |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.event.localreplicatedpolicy` | Agent to manager | Replicated-policy status-history event object, or an array in batch mode | Local policy collection enabled |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster` | Agent to manager | Managed-cluster lifecycle event object, or an array in batch mode | When ACM/OCM managed-cluster APIs are present |
+| `io.open-cluster-management.operator.multiclusterglobalhubs.event.clustergroupupgrade` | Agent to manager | ClusterGroupUpgrade event object, or an array in batch mode | TALM installed and emitting Kubernetes events |
+
+The shorter names used in the remaining headings are the suffixes of these full type values.
+
+## Common CloudEvent envelope
+
+Every message is a CloudEvents 1.0 JSON event. The agent sets:
+
+- `source` to the managed hub name.
+- `type` to one of the exact values in the type reference.
+- `extversion` to the agent's monotonically increasing version for that event stream.
+- `datacontenttype` to `application/json`.
+
+The CloudEvents SDK supplies attributes such as `specversion`, `id`, and `time`. A state synchronization event looks like this:
+
+```json
 {
   "specversion": "1.0",
-  "id": "d6561516-c8d5-4c3f-98e3-df650ee8e809",
-  "source": "kind-hub1",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompletecompliance",
-  "datacontenttype": "application/json",
-  "time": "2024-02-29T03:01:12.624601184Z",
-  "data": [
-    {
-      "policyId": "cd0a3ae3-6579-4fbc-b9c1-eb7e9d15dd6d",
-      "nonCompliantClusters": [
-        "kind-hub1-cluster1"
-      ],
-      "compliantClusters": [
-        "kind-hub1-cluster2"
-      ],
-      "pendingClusters":[
-
-      ],
-      "unknownComplianceClusters": []
-    }
-  ],
-}
-```
-#### Local Policy Compliance Status
-The event includes the policy compliance status. It is a delta status. The `source` specifies the managed hub cluster name. The `data` is for the policy compliance status. We merge the status with the existing status in the database.
-
-```
-{
-  "specversion": "1.0",
-  "id": "4b3e7f44-289c-4c67-b1d6-8e5d4b59ecbd",
-  "source": "kind-hub1",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompliance",
-  "datacontenttype": "application/json",
-  "time": "2024-02-29T03:01:07.625306267Z",
-  "data": [
-    {
-      "policyId": "cd0a3ae3-6579-4fbc-b9c1-eb7e9d15dd6d",
-      "compliantClusters": [],
-      "nonCompliantClusters": [],
-      "unknownComplianceClusters": [
-        "kind-hub1-cluster1"
-      ]
-    }
-  ]
-}
-
-```
-
-### Events related to Cluster
-#### Managed Cluster Spec and Status
-This event includes the spec and status of the managed cluster. Once the managed cluster spec or status is changed, the whole information will be reported back.
-```
-{
-  "specversion": "1.0",
-  "id": "213d0259-8999-46bf-aa13-bf4a3684075f",
-  "source": "kind-hub1",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.spec.managedcluster",
-  "datacontenttype": "application/json",
-  "time": "2024-02-29T02:53:32.621450791Z",
-  "data": [
-    {
-      "kind": "ManagedCluster",
-      "apiVersion": "cluster.open-cluster-management.io/v1",
-      "metadata": {
-        "name": "kind-hub1-cluster1",
-        "uid": "f6871dc9-1052-4a73-ba82-0db30bc41e89",
-        "resourceVersion": "843851",
-        "creationTimestamp": "2024-02-27T01:48:31Z",
-        "labels": {
-          "cluster.open-cluster-management.io/clusterset": "default",
-          "feature.open-cluster-management.io/addon-application-manager": "available"
-        },
-        "annotations": {
-          "global-hub.open-cluster-management.io/managed-by": "kind-hub1"
-        }
-      },
-      "spec": {
-        "managedClusterClientConfigs": [
-          {
-            "url": "https://hub1-cluster1-control-plane:6443",
-            "caBundle": "XXX"
-          }
-        ],
-        "hubAcceptsClient": true,
-        "leaseDurationSeconds": 60
-      },
-      "status": {
-        "conditions": [
-          {
-            "type": "HubAcceptedManagedCluster",
-            "status": "True",
-            "lastTransitionTime": "2024-02-27T01:48:32Z",
-            "reason": "HubClusterAdminAccepted",
-            "message": "Accepted by hub cluster admin"
-          },
-          {
-            "type": "ManagedClusterJoined",
-            "status": "True",
-            "lastTransitionTime": "2024-02-27T01:48:32Z",
-            "reason": "ManagedClusterJoined",
-            "message": "Managed cluster joined"
-          },
-          {
-            "type": "ManagedClusterConditionAvailable",
-            "status": "True",
-            "lastTransitionTime": "2024-02-27T01:48:32Z",
-            "reason": "ManagedClusterAvailable",
-            "message": "Managed cluster is available"
-          }
-        ],
-        "capacity": {
-          "cpu": "8",
-          "ephemeral-storage": "83156972Ki",
-          "hugepages-1Gi": "0",
-          "hugepages-2Mi": "0",
-          "memory": "32232364Ki",
-          "pods": "110"
-        },
-        "allocatable": {
-          "cpu": "8",
-          "ephemeral-storage": "83156972Ki",
-          "hugepages-1Gi": "0",
-          "hugepages-2Mi": "0",
-          "memory": "32232364Ki",
-          "pods": "110"
-        },
-        "version": {
-          "kubernetes": "v1.24.0"
-        },
-        "clusterClaims": [
-          {
-            "name": "id.k8s.io",
-            "value": "893013f7-90cf-4d44-b598-32437e4fca3c"
-          }
-        ]
-      }
-    }
-  ]
-}
-```
-### ManagedHubCluster
-It is designed to be used internally. The event reflects the managed hub cluster information and liveness.
-#### Heartbeat
-```
-{
-  "specversion": "1.0",
-  "id": "1f062142-0ab5-43d3-b428-171e323f8a49",
-  "source": "kind-hub1",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat",
-  "datacontenttype": "application/json",
-  "time": "2024-02-29T02:57:27.627736066Z",
-  "data": []
-}
-```
-### HubClusterInfo
-```
-{
-  "specversion": "1.0",
-  "id": "11661511-979c-4e0c-810e-a62b5ddb11c1",
-  "source": "kind-hub1",
+  "id": "2ed16618-88b0-4a9d-a484-fb87a18a17f2",
+  "source": "hub1",
   "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.info",
   "datacontenttype": "application/json",
-  "time": "2024-02-29T02:54:27.627870336Z",
+  "time": "2026-10-09T08:30:00Z",
+  "extversion": "12.0",
   "data": {
-    "consoleURL": "https://console-openshift-console.apps.xxx.com",
-    "grafanaURL": "",
-    "clusterId": "8606cf88-c711-4dae-ba7e-2e4d54227887"
+    "consoleURL": "https://console-openshift-console.apps.hub1.example.com",
+    "grafanaURL": "https://grafana-multicluster-global-hub.apps.hub1.example.com",
+    "mchVersion": "2.15.0",
+    "clusterId": "4d3d7f30-2f67-4aa2-91e7-93ae6d75fc6c"
   }
 }
 ```
 
-## Topic: event
-Currently, the following resource events are supported:
-- Policy
-- Cluster
+To keep the remaining examples focused on each payload contract, SDK-generated `id` and `time` attributes are omitted.
 
-The event is a Kubernetes event in the managed hub clusters or managed clusters.
+`policy.localcompletecompliance` also includes `extdependencyversion`. It identifies the `policy.localcompliance` version on which that compact payload depends.
 
-### Events related to Policy
-The events are Kubernetes events. We collect the root policy events and replicated policy events.
-#### Root Policy Event
-The event is Kubernetes event that exists in root policy namespace. The event specifies which clusters are applied for this policy.
+### Event send modes
+
+Only the four `event.*` CloudEvent types include the `sendmode` extension. State synchronization types do not.
+
+- `"sendmode": "batch"` is the default. `data` is an array of event objects.
+- `"sendmode": "single"` sends one CloudEvent per event object. `data` is one object.
+
+For an operator-managed agent, configure the mode with this annotation on the `MulticlusterGlobalHub` or `MulticlusterGlobalHubAgent` resource:
+
+```yaml
+metadata:
+  annotations:
+    global-hub.open-cluster-management.io/event-send-mode: single
 ```
+
+The agent command-line flag is `--event-send-mode`; it also defaults to `batch`.
+
+## State synchronization types
+
+State synchronization CloudEvents report current resource or aggregate state. They do not include `sendmode`.
+
+### `managedcluster`
+
+Reports `ManagedCluster` resources. Its `data` is a generic object bundle with any applicable operation fields:
+
+- `create`, `update`, and `resync` contain Kubernetes resources.
+- `delete` and `resync_metadata` contain object identity metadata.
+
+Fields with no entries are omitted. For example:
+
+```json
 {
   "specversion": "1.0",
-  "id": "4e85317c-9208-4c9d-be22-4a2725867670",
-  "source": "kind-hub2",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localrootpolicy",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster",
   "datacontenttype": "application/json",
-  "time": "2024-02-29T03:01:06.30007874Z",
+  "extversion": "25.0",
+  "data": {
+    "update": [
+      {
+        "apiVersion": "cluster.open-cluster-management.io/v1",
+        "kind": "ManagedCluster",
+        "metadata": {
+          "name": "cluster1",
+          "uid": "468c2a75-b24c-4c9a-b504-3d449bcf1a11"
+        },
+        "spec": {
+          "hubAcceptsClient": true
+        }
+      }
+    ],
+    "delete": [
+      {
+        "id": "bbf81567-7f2f-4dc0-8976-29cb79e6d621",
+        "name": "cluster2"
+      }
+    ]
+  }
+}
+```
+
+### `policy.localspec`
+
+Reports root `Policy` resources created on the managed hub when local policy collection is enabled. Replicated policies are not included. Its `data` uses the same generic object-bundle operations as `managedcluster`:
+
+```json
+{
+  "specversion": "1.0",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localspec",
+  "datacontenttype": "application/json",
+  "extversion": "7.0",
+  "data": {
+    "update": [
+      {
+        "apiVersion": "policy.open-cluster-management.io/v1",
+        "kind": "Policy",
+        "metadata": {
+          "name": "require-labels",
+          "namespace": "local-policies",
+          "uid": "d42aba68-3266-4516-9056-d797a5f2cc6f"
+        },
+        "spec": {
+          "disabled": false
+        }
+      }
+    ]
+  }
+}
+```
+
+### `policy.localcompliance`
+
+Reports the full compliance state for each root policy including the clusters in every compliance category. It is emitted when local policy collection and full aggregation are enabled.
+
+```json
+{
+  "specversion": "1.0",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompliance",
+  "datacontenttype": "application/json",
+  "extversion": "31.0",
   "data": [
     {
-      "leafHubName": "kind-hub2",
-      "eventName": "policy-limitrange.17b8363660d39188",
-      "eventNamespace": "local-policy-namespace",
-      "message": "Policy local-policy-namespace/policy-limitrange was propagated to cluster kind-hub2-cluster1/kind-hub2-cluster1",
-      "reason": "PolicyPropagation",
-      "count": 1,
-      "source": {
-        "component": "policy-propagator"
-      },
-      "createdAt": "2024-02-29T03:01:05Z",
-      "policyId": "1f2deb7a-0d29-4762-b0fc-daa3ba16c5b5",
-      "compliance": "Unknown"
+      "policyId": "d42aba68-3266-4516-9056-d797a5f2cc6f",
+      "compliantClusters": ["cluster1"],
+      "nonCompliantClusters": ["cluster2"],
+      "unknownComplianceClusters": [],
+      "pendingComplianceClusters": []
     }
   ]
 }
 ```
-#### Replicated Policy Event
-The event is from the replicated policy history status. The event is Kubernetes event and exists in the managed cluster.
-```
+
+### `policy.localcompletecompliance`
+
+Reports the exception lists for each root policy. It omits compliant clusters; clusters not present in an exception list are treated as compliant. The `extdependencyversion` value ties this compact representation to the corresponding `policy.localcompliance` stream version.
+
+```json
 {
   "specversion": "1.0",
-  "id": "5b5917b5-1fa2-4eb8-a7fa-c1d97dc96218",
-  "source": "kind-hub2",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localreplicatedpolicy.update",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompletecompliance",
   "datacontenttype": "application/json",
-  "time": "2024-02-29T03:01:16.387894285Z",
+  "extversion": "31.0",
+  "extdependencyversion": "31.0",
   "data": [
     {
-      "leafHubName": "kind-hub2",
-      "eventName": "local-policy-namespace.policy-limitrange.17b83638614ff6b7",
-      "eventNamespace": "kind-hub2-cluster1",
-      "message": "NonCompliant; violation - limitranges [container-mem-limit-range] not found in namespace default",
+      "policyId": "d42aba68-3266-4516-9056-d797a5f2cc6f",
+      "nonCompliantClusters": ["cluster2"],
+      "unknownComplianceClusters": [],
+      "pendingComplianceClusters": []
+    }
+  ]
+}
+```
+
+### `managedhub.info`
+
+Reports identifying and UI information for the managed hub. See the [common envelope example](#common-cloudevent-envelope) for a complete message. The `data` fields are:
+
+| Field | Description |
+| --- | --- |
+| `consoleURL` | OpenShift console URL for the managed hub |
+| `grafanaURL` | Grafana URL associated with the managed hub |
+| `mchVersion` | MultiClusterHub version |
+| `clusterId` | Managed hub cluster identifier |
+
+### `managedhub.heartbeat`
+
+Signals that the managed hub agent is alive. The payload carries no resource state:
+
+```json
+{
+  "specversion": "1.0",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat",
+  "datacontenttype": "application/json",
+  "extversion": "85.0",
+  "data": []
+}
+```
+
+### `security.alertcounts`
+
+Reports summarized RHACS alert counts. The agent starts this publisher only when the RHACS integration is enabled and the `centrals.platform.stackrox.io` CRD is detected.
+
+```json
+{
+  "specversion": "1.0",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.security.alertcounts",
+  "datacontenttype": "application/json",
+  "extversion": "4.0",
+  "data": {
+    "low": 12,
+    "medium": 8,
+    "high": 3,
+    "critical": 1,
+    "detail_url": "https://central-rhacs-operator.apps.hub1.example.com/main/violations",
+    "source": "stackrox/central"
+  }
+}
+```
+
+## Forwarded Kubernetes event types
+
+The `event.*` types carry discrete operational events and support the shared `sendmode` behavior. The outer CloudEvent `type` selects the payload contract. Where a payload contains its own `type` field, that inner field is the Kubernetes event classification, normally `Normal` or `Warning`.
+
+The agent filters these streams by event time to avoid forwarding the same event repeatedly. Except where noted, it does not restrict events to a fixed list of Kubernetes event reasons.
+
+### `event.localrootpolicy`
+
+Forwards Kubernetes events whose involved object is a root `Policy` on the managed hub. It is available when local policy collection is enabled. The payload includes the policy UID and the compliance value derived from the policy or event message.
+
+```json
+{
+  "specversion": "1.0",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localrootpolicy",
+  "datacontenttype": "application/json",
+  "extversion": "18.0",
+  "sendmode": "single",
+  "data": {
+    "eventName": "require-labels.18bc3d2ad73c45e1",
+    "eventNamespace": "local-policies",
+    "message": "Policy require-labels status was updated to NonCompliant",
+    "reason": "PolicyStatusSync",
+    "count": 1,
+    "source": {
+      "component": "governance-policy-status-sync"
+    },
+    "createdAt": "2026-10-09T08:35:00Z",
+    "policyId": "d42aba68-3266-4516-9056-d797a5f2cc6f",
+    "compliance": "NonCompliant"
+  }
+}
+```
+
+The managed hub identity is in the outer CloudEvent `source`; it is not repeated as `leafHubName` in this payload.
+
+### `event.localreplicatedpolicy`
+
+Forwards status-history entries from replicated policies on managed clusters. These records come from the replicated `Policy` status rather than directly from core Kubernetes `Event` objects. The agent sets `reason` to `PolicyStatusSync` and `source.component` to `policy-status-history-sync`.
+
+```json
+{
+  "specversion": "1.0",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localreplicatedpolicy",
+  "datacontenttype": "application/json",
+  "extversion": "42.0",
+  "sendmode": "batch",
+  "data": [
+    {
+      "eventName": "require-labels.18bc3d2ad73c45e1",
+      "eventNamespace": "cluster1",
+      "message": "NonCompliant; violation - required label is missing",
       "reason": "PolicyStatusSync",
       "count": 1,
       "source": {
         "component": "policy-status-history-sync"
       },
-      "createdAt": "2024-02-29T03:01:14Z",
-      "policyId": "1f2deb7a-0d29-4762-b0fc-daa3ba16c5b5",
-      "clusterId": "0884ef05-115d-46f5-bbda-f759adcbbe5b",
-      "clusterName": "kind-hub2-cluster1",
+      "createdAt": "2026-10-09T08:36:00Z",
+      "policyId": "d42aba68-3266-4516-9056-d797a5f2cc6f",
+      "clusterId": "468c2a75-b24c-4c9a-b504-3d449bcf1a11",
+      "clusterName": "cluster1",
       "compliance": "NonCompliant"
     }
   ]
 }
 ```
 
-### Events related to Cluster
-The events are Kubernetes events. We collect the cluster life cycle events, including import and detach.
+The managed hub identity is in the outer CloudEvent `source`; it is not repeated as `leafHubName` in this payload.
 
-#### Send Modes
-The events support two send modes which are indicated by the `sendmode` extension in CloudEvents:
-- **batch** (default): Multiple related events are grouped into an array in the `data` field. This is useful for sending several events that occur in quick succession together.
-- **single**: Each event is sent individually with the `data` field containing a single event object instead of an array.
+### `event.managedcluster`
 
-To configure the send mode, add the `global-hub.open-cluster-management.io/event-send-mode` annotation to the `MulticlusterGlobalHub` CR:
+Forwards lifecycle-related Kubernetes events for:
 
-```yaml
-apiVersion: operator.open-cluster-management.io/v1alpha4
-kind: MulticlusterGlobalHub
-metadata:
-  name: multiclusterglobalhub
-  namespace: multicluster-global-hub
-  annotations:
-    global-hub.open-cluster-management.io/event-send-mode: "single"
-```
+- An involved object of kind `ManagedCluster`.
+- A provisioning `Job` named `<cluster-namespace>-imageset`.
+- A provisioning `Job` whose name starts with `<cluster-namespace>-` and ends with `-provision`.
 
-If the annotation is not set, the default mode is `batch`.
-#### Provision
-The events are related to cluster provisioning. These events track the lifecycle of cluster creation jobs. The cluster provisioning lifecycle includes the following stages:
-1. **SuccessfulCreate**: The provisioning job has been created and started
-2. **Completed**: The provisioning job has completed successfully
+For provisioning jobs, `clusterName` is the event namespace and the agent normalizes the message for common `SuccessfulCreate` and `Completed` reasons. The agent does not otherwise apply a reason allowlist.
 
-Example showing provisioning events:
-```
-Context Attributes,
-  specversion: 1.0
-  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  source: hub1
-  id: a1b2c3d4-5678-90ab-cdef-1234567890ab
-  time: 2026-01-05T09:47:32Z
-  datacontenttype: application/json
-Extensions,
-  extversion: 1.0
-  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  kafkaoffset: 100
-  kafkapartition: 0
-  kafkatopic: gh-status.hub1
-  sendmode: batch
-Data,
-  [
-    {
-      "eventNamespace": "clc-aws1096",
-      "eventName": "clc-aws1096-0-mr47d-provision.1887ccb3f49aec76",
-      "clusterName": "clc-aws1096",
-      "clusterId": "ab8b24e9-088c-4654-a60a-64b7d72922b9",
-      "leafHubName": "local-cluster",
-      "message": "Cluster clc-aws1096 provisioning has started",
-      "reason": "SuccessfulCreate",
-      "reportingController": "job-controller",
-      "reportingInstance": "",
-      "type": "Normal",
-      "createdAt": "2026-01-05T09:47:32Z"
-    }
-  ]
-```
-
-When the provisioning completes:
-```
-Context Attributes,
-  specversion: 1.0
-  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  source: hub1
-  id: b2c3d4e5-6789-01bc-def2-234567890abc
-  time: 2026-01-05T10:32:59Z
-  datacontenttype: application/json
-Extensions,
-  extversion: 1.1
-  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  kafkaoffset: 101
-  kafkapartition: 0
-  kafkatopic: gh-status.hub1
-  sendmode: batch
-Data,
-  [
-    {
-      "eventNamespace": "clc-aws1096",
-      "eventName": "clc-aws1096-0-mr47d-provision.1887cf2f121b62bb",
-      "clusterName": "clc-aws1096",
-      "clusterId": "ab8b24e9-088c-4654-a60a-64b7d72922b9",
-      "leafHubName": "local-cluster",
-      "message": "Cluster clc-aws1096 provisioning completed successfully",
-      "reason": "Completed",
-      "reportingController": "job-controller",
-      "reportingInstance": "",
-      "type": "Normal",
-      "createdAt": "2026-01-05T10:32:59Z"
-    }
-  ]
-```
-
-#### Import
-The events are related to cluster import. The cluster import lifecycle includes the following stages:
-1. **WaitForImporting**: The cluster is waiting to be imported
-2. **Importing**: The cluster is being imported (may have multiple events during this stage)
-3. **Available**: The cluster's apiserver is available
-4. **Imported**: The cluster has been successfully imported and is now managed by ACM
-
-Below is an example showing the initial waiting state (batch mode):
-```
-Context Attributes,
-  specversion: 1.0
-  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  source: hub1
-  id: b15a7593-1437-4b8c-8d74-5c972cf94f59
-  time: 2025-10-23T02:32:06.944668082Z
-  datacontenttype: application/json
-Extensions,
-  extversion: 1.2
-  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  kafkaoffset: 1686
-  kafkapartition: 0
-  kafkatopic: gh-status.hub1
-  sendmode: batch
-Data,
-  [
-    {
-      "eventNamespace": "cluster1",
-      "eventName": "cluster1.1870fdff35b3d4bc",
-      "clusterName": "cluster1",
-      "clusterId": "e3bb27fc-b510-4844-95db-5fce88548363",
-      "leafHubName": "hub1",
-      "message": "The cluster1 is waiting for importing",
-      "reason": "WaitForImporting",
-      "reportingController": "managedcluster-import-controller",
-      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
-      "type": "Normal",
-      "createdAt": "2025-10-23T02:32:06Z"
-    }
-  ]
-```
-
-When batch mode is enabled, multiple events occurring in quick succession are grouped together:
-```
-Context Attributes,
-  specversion: 1.0
-  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  source: hub1
-  id: 7e0ea824-659d-48c4-af0e-f56d787c0d10
-  time: 2025-10-23T02:32:12.944261438Z
-  datacontenttype: application/json
-Extensions,
-  extversion: 2.5
-  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  kafkaoffset: 1693
-  kafkapartition: 0
-  kafkatopic: gh-status.hub1
-  sendmode: batch
-Data,
-  [
-    {
-      "eventNamespace": "cluster1",
-      "eventName": "cluster1.1870fdff5a401195",
-      "clusterName": "cluster1",
-      "clusterId": "e3bb27fc-b510-4844-95db-5fce88548363",
-      "leafHubName": "hub1",
-      "message": "The cluster1 is currently being imported. Start to import managed cluster",
-      "reason": "Importing",
-      "reportingController": "managedcluster-import-controller",
-      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
-      "type": "Normal",
-      "createdAt": "2025-10-23T02:32:07Z"
-    },
-    {
-      "eventNamespace": "cluster1",
-      "eventName": "cluster1.1870fdff69fa6d36",
-      "clusterName": "cluster1",
-      "clusterId": "f642f37e-6788-4ce7-b7e7-76e689079df7",
-      "leafHubName": "hub1",
-      "message": "The cluster1 is currently being imported. Importing resources are applied, wait for resources be available",
-      "reason": "Importing",
-      "reportingController": "managedcluster-import-controller",
-      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
-      "type": "Normal",
-      "createdAt": "2025-10-23T02:32:07Z"
-    },
-    {
-      "eventNamespace": "cluster1",
-      "eventName": "cluster1.1870fdff5e6f0287",
-      "clusterName": "cluster1",
-      "clusterId": "f642f37e-6788-4ce7-b7e7-76e689079df7",
-      "leafHubName": "hub1",
-      "message": "The cluster1 is successfully imported, and it is managed by the hub cluster. Its apieserver is available",
-      "reason": "Available",
-      "reportingController": "klusterlet-agent",
-      "reportingInstance": "klusterlet-agent-klusterlet-agent-5f5d8d58dd-snnm4",
-      "type": "Normal",
-      "createdAt": "2025-10-23T02:32:07Z"
-    }
-  ]
-```
-
-Finally, the import completion event:
-```
-Context Attributes,
-  specversion: 1.0
-  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  source: hub1
-  id: 47cda25c-a1d3-41b0-832f-ad505e19a6cb
-  time: 2025-10-23T02:33:11.943209596Z
-  datacontenttype: application/json
-Extensions,
-  extversion: 3.6
-  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  kafkaoffset: 1748
-  kafkapartition: 0
-  kafkatopic: gh-status.hub1
-  sendmode: batch
-Data,
-  [
-    {
-      "eventNamespace": "cluster1",
-      "eventName": "cluster1.1870fe0d86cefa0b",
-      "clusterName": "cluster1",
-      "clusterId": "bfca8e6a-cfce-4860-85b9-3aab253d4ce8",
-      "leafHubName": "hub1",
-      "message": "The cluster1 has successfully imported",
-      "reason": "Imported",
-      "reportingController": "managedcluster-import-controller",
-      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
-      "type": "Normal",
-      "createdAt": "2025-10-23T02:33:08Z"
-    }
-  ]
-```
-
-#### Detach
-The events are related to cluster detach. We do not have a `Detached` event. However, we can always treat the detaching process as successful anyway.
-
-Example with batch mode (data is an array):
-```
-Context Attributes,
-  specversion: 1.0
-  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  source: hub1
-  id: 49aa624c-c3d9-4016-9c7d-23c5825a4fef
-  time: 2025-10-23T02:34:36.943743765Z
-  datacontenttype: application/json
-Extensions,
-  extversion: 4.7
-  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  kafkaoffset: 1828
-  kafkapartition: 0
-  kafkatopic: gh-status.hub1
-  sendmode: batch
-Data,
-  [
-    {
-      "eventNamespace": "cluster1",
-      "eventName": "cluster1.1870fe215eb1712a",
-      "clusterName": "cluster1",
-      "clusterId": "bfca8e6a-cfce-4860-85b9-3aab253d4ce8",
-      "leafHubName": "hub1",
-      "message": "The cluster1 is currently becoming detached",
-      "reason": "Detaching",
-      "reportingController": "managedcluster-import-controller",
-      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
-      "type": "Normal",
-      "createdAt": "2025-10-23T02:34:33Z"
-    }
-  ]
-```
-
-Example with single mode (data is an object):
-```
-Context Attributes,
-  specversion: 1.0
-  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  source: hub1
-  id: 49aa624c-c3d9-4016-9c7d-23c5825a4fef
-  time: 2025-10-23T02:34:36.943743765Z
-  datacontenttype: application/json
-Extensions,
-  extversion: 4.7
-  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
-  kafkaoffset: 1828
-  kafkapartition: 0
-  kafkatopic: gh-status.hub1
-  sendmode: single
-Data,
-  {
+```json
+{
+  "specversion": "1.0",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster",
+  "datacontenttype": "application/json",
+  "extversion": "53.0",
+  "sendmode": "single",
+  "data": {
     "eventNamespace": "cluster1",
-    "eventName": "cluster1.1870fe215eb1712a",
+    "eventName": "cluster1-import.18bc3d2ad73c45e1",
     "clusterName": "cluster1",
-    "clusterId": "bfca8e6a-cfce-4860-85b9-3aab253d4ce8",
+    "clusterId": "468c2a75-b24c-4c9a-b504-3d449bcf1a11",
     "leafHubName": "hub1",
-    "message": "The cluster1 is currently becoming detached",
-    "reason": "Detaching",
+    "message": "Managed cluster cluster1 is available",
+    "reason": "ManagedClusterAvailable",
     "reportingController": "managedcluster-import-controller",
-    "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
+    "reportingInstance": "managedcluster-import-controller-7b6cd8c56b-x9k2m",
     "type": "Normal",
-    "createdAt": "2025-10-23T02:34:33Z"
+    "createdAt": "2026-10-09T08:40:00Z"
   }
+}
+```
+
+### `event.clustergroupupgrade`
+
+Forwards Kubernetes events whose involved object is a `ClusterGroupUpgrade`. This resource is supplied by TALM, so the event type is available only when TALM is installed and produces those Kubernetes events. The agent does not apply a reason allowlist.
+
+```json
+{
+  "specversion": "1.0",
+  "source": "hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.clustergroupupgrade",
+  "datacontenttype": "application/json",
+  "extversion": "9.0",
+  "sendmode": "single",
+  "data": {
+    "eventNamespace": "ztp-install",
+    "eventName": "example-cgu.18bc3d2ad73c45e1",
+    "eventAnnotations": {
+      "cgu.openshift.io/event-type": "global",
+      "cgu.openshift.io/total-clusters-count": "2"
+    },
+    "cguName": "example-cgu",
+    "leafHubName": "hub1",
+    "message": "ClusterGroupUpgrade example-cgu succeeded remediating policies",
+    "reason": "CguSuccess",
+    "reportingController": "cgu-controller",
+    "reportingInstance": "cgu-controller-6b8d4fdf95-hq5nw",
+    "type": "Normal",
+    "createdAt": "2026-10-09T08:45:00Z"
+  }
+}
 ```
