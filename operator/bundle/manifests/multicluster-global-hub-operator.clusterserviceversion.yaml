@@ -653,6 +653,7 @@ spec:
           - namespaces
           - pods
           - secrets
+          - serviceaccounts
           - services
           verbs:
           - create
@@ -674,33 +675,12 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - groups
-          - users
-          verbs:
-          - impersonate
-        - apiGroups:
-          - ""
-          resources:
           - jobs
           - persistentvolumeclaims
           verbs:
           - create
           - delete
           - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - serviceaccounts
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - impersonate
           - list
           - patch
           - update
