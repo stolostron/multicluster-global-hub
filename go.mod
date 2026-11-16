@@ -1,6 +1,6 @@
 module github.com/stolostron/multicluster-global-hub
 
-go 1.26.4
+go 1.26.11
 
 tool (
 	github.com/daixiang0/gci
