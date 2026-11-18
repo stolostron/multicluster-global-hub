@@ -28,6 +28,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
+	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -71,6 +72,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 		t.Fatalf("Failed to add mchv1 to scheme: %v", err)
 	}
 
+	if err := workv1.Install(scheme); err != nil {
+		t.Fatal(err)
+	}
 	currentSyncerMigrationId := "020340324302432049234023040320"
 
 	cases := []struct {
@@ -471,7 +475,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 		},
 		{
-			name: "Initializing: verify DisableAutoImportAnnotation is added during initializing stage",
+			name: "Initializing: defer DisableAutoImportAnnotation until migration work applies",
 			initObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -529,9 +533,8 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
 						Annotations: map[string]string{
-							constants.ManagedClusterMigrating:        "",
-							KlusterletConfigAnnotation:               klusterletConfigNamePrefix + "hub2",
-							apiconstants.DisableAutoImportAnnotation: "",
+							constants.ManagedClusterMigrating: "",
+							KlusterletConfigAnnotation:        klusterletConfigNamePrefix + "hub2",
 						},
 					},
 					Spec: clusterv1.ManagedClusterSpec{
@@ -598,6 +601,14 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			if c.receivedMigrationEventBundle.Stage == migrationv1alpha1.PhaseRegistering {
+				secret, _ := latePauseFixture("unused", c.receivedMigrationEventBundle.ToHub)
+				c.initObjects = append(c.initObjects, secret)
+				for _, cluster := range c.receivedMigrationEventBundle.ManagedClusters {
+					_, work := latePauseFixture(cluster, c.receivedMigrationEventBundle.ToHub)
+					c.initObjects = append(c.initObjects, work)
+				}
+			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(
 				c.initObjects...,
 			).Build()
@@ -653,6 +664,11 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					err = fakeClient.Get(ctx, client.ObjectKeyFromObject(obj), runtimeObj)
 					assert.Nil(t, err)
 					assert.True(t, apiequality.Semantic.DeepDerivative(obj, runtimeObj))
+					if c.receivedMigrationEventBundle.Stage == migrationv1alpha1.PhaseInitializing {
+						if mc, ok := runtimeObj.(*clusterv1.ManagedCluster); ok {
+							assert.NotContains(t, mc.Annotations, apiconstants.DisableAutoImportAnnotation)
+						}
+					}
 				}
 			}
 		})

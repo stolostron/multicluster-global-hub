@@ -470,6 +470,7 @@ func (s *MigrationSourceSyncer) processResourceByType(
 		annotations := resource.GetAnnotations()
 		if annotations != nil {
 			delete(annotations, constants.ManagedClusterMigrating)
+			delete(annotations, migrationAppliedWorkAnnotation)
 			delete(annotations, KlusterletConfigAnnotation)
 		}
 		resource.SetAnnotations(annotations)
@@ -535,6 +536,18 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 		return fmt.Errorf("bootstrap secret is nil when initializing")
 	}
 	bootstrapSecret := source.BootstrapSecret
+	// Do not remove a pre-existing DR/operator pause to make migration progress.
+	for _, cluster := range source.ManagedClusters {
+		mc := &clusterv1.ManagedCluster{}
+		if err := m.client.Get(ctx, client.ObjectKey{Name: cluster}, mc); err != nil {
+			return err
+		}
+		if _, paused := mc.Annotations[apiconstants.DisableAutoImportAnnotation]; paused {
+			if !strings.HasPrefix(mc.Annotations[migrationAppliedWorkAnnotation], source.MigrationId+" ") {
+				return fmt.Errorf("cluster %s has an existing auto-import pause", cluster)
+			}
+		}
+	}
 	// ensure secret
 	currentBootstrapSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
 		Name:      bootstrapSecret.Name,
@@ -585,11 +598,8 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 			}
 			currentAnnotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
 			currentAnnotations[constants.ManagedClusterMigrating] = ""
-			// Disable auto-import to prevent the controller from generating kubeconfigs from both the source and
-			// target hubs, which could override the kubeconfigs used for switching hubs.
-			// code reference: https://github.com/stolostron/managedcluster-import-controller/blob/main/pkg/controller/
-			// autoimport/autoimport_controller.go#L97
-			currentAnnotations[apiconstants.DisableAutoImportAnnotation] = ""
+			// Leave auto-import enabled so the import controller can render and
+			// apply the target configuration. Registering pauses it after Applied.
 			mc.SetAnnotations(currentAnnotations)
 
 			err := m.client.Update(ctx, mc)
@@ -669,6 +679,9 @@ spec:
 func (m *MigrationSourceSyncer) registering(
 	ctx context.Context, migratingEvt *migration.MigrationSourceBundle,
 ) error {
+	if err := m.pauseAfterMigrationApplied(ctx, migratingEvt); err != nil {
+		return err
+	}
 	managedClusters := migratingEvt.ManagedClusters
 	// set the hub accept client into false to trigger the re-registering
 	for _, managedCluster := range managedClusters {
@@ -846,9 +859,9 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 		// Check if migration annotations exist
 		_, hasMigrating := annotations[constants.ManagedClusterMigrating]
 		_, hasKlusterletConfig := annotations[KlusterletConfigAnnotation]
-		_, hasDisableAutoImport := annotations[apiconstants.DisableAutoImportAnnotation]
-
-		if !hasMigrating && !hasKlusterletConfig && !hasDisableAutoImport {
+		// A standalone pause can belong to DR or an operator; a failed
+		// initialization preflight must not remove it during rollback.
+		if !hasMigrating && !hasKlusterletConfig {
 			log.Infof("no migration annotations found on managed cluster %s, skipping cleanup", managedCluster)
 			continue
 		}
@@ -867,6 +880,7 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 			delete(latestAnnotations, constants.ManagedClusterMigrating)
 			delete(latestAnnotations, KlusterletConfigAnnotation)
 			delete(latestAnnotations, apiconstants.DisableAutoImportAnnotation)
+			delete(latestAnnotations, migrationAppliedWorkAnnotation)
 			latestCluster.SetAnnotations(latestAnnotations)
 			return s.client.Update(ctx, latestCluster)
 		})
