@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/stolostron/multicluster-global-hub/main/doc/schemas/forwarded-events.schema.json",
+  "title": "Global Hub forwarded CloudEvents",
+  "description": "Proposed structured CloudEvent schema for the four forwarded event types, derived from current output; not yet an approved support contract. Kafka uses CloudEvents binary mode; reconstruct the event from its headers and value before validating this schema.",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "datacontenttype", "extversion", "sendmode", "data"],
+  "properties": {
+    "specversion": {"const": "1.0"},
+    "id": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1, "description": "Managed hub name."},
+    "type": {"type": "string"},
+    "datacontenttype": {"const": "application/json"},
+    "time": {"type": "string", "format": "date-time"},
+    "extversion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "Version associated with emitted data; it is not a unique event sequence."
+    },
+    "sendmode": {"enum": ["single", "batch"]},
+    "data": {}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"sendmode": {"const": "single"}}},
+      "then": {"properties": {"data": {"type": "object"}}},
+      "else": {"properties": {"data": {"type": "array", "minItems": 1}}}
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "type": {"const": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localrootpolicy"},
+            "data": {"$ref": "#/$defs/rootPolicyData"}
+          }
+        },
+        {
+          "properties": {
+            "type": {"const": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localreplicatedpolicy"},
+            "data": {"$ref": "#/$defs/replicatedPolicyData"}
+          }
+        },
+        {
+          "properties": {
+            "type": {"const": "io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster"},
+            "data": {"$ref": "#/$defs/managedClusterData"}
+          }
+        },
+        {
+          "properties": {
+            "type": {"const": "io.open-cluster-management.operator.multiclusterglobalhubs.event.clustergroupupgrade"},
+            "data": {"$ref": "#/$defs/clusterGroupUpgradeData"}
+          }
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "eventSource": {
+      "type": "object",
+      "properties": {
+        "component": {"type": "string"},
+        "host": {"type": "string"}
+      }
+    },
+    "policyBase": {
+      "type": "object",
+      "required": ["eventName", "eventNamespace"],
+      "properties": {
+        "eventName": {"type": "string"},
+        "eventNamespace": {"type": "string"},
+        "message": {"type": "string"},
+        "reason": {"type": "string"},
+        "count": {"type": "integer", "minimum": 0},
+        "source": {"$ref": "#/$defs/eventSource"},
+        "createdAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "rootPolicyPayload": {
+      "allOf": [
+        {"$ref": "#/$defs/policyBase"},
+        {
+          "type": "object",
+          "required": ["policyId", "compliance"],
+          "properties": {
+            "policyId": {"type": "string"},
+            "compliance": {"type": "string"}
+          }
+        }
+      ]
+    },
+    "replicatedPolicyPayload": {
+      "allOf": [
+        {"$ref": "#/$defs/policyBase"},
+        {
+          "type": "object",
+          "required": ["policyId", "clusterId", "clusterName", "compliance"],
+          "properties": {
+            "policyId": {"type": "string"},
+            "clusterId": {"type": "string"},
+            "clusterName": {"type": "string"},
+            "compliance": {"type": "string"}
+          }
+        }
+      ]
+    },
+    "managedClusterPayload": {
+      "type": "object",
+      "required": ["eventNamespace", "eventName", "clusterName", "clusterId", "leafHubName", "message", "reason", "reportingController", "reportingInstance", "type", "createdAt"],
+      "properties": {
+        "eventNamespace": {"type": "string"},
+        "eventName": {"type": "string"},
+        "clusterName": {"type": "string"},
+        "clusterId": {"type": "string"},
+        "leafHubName": {"type": "string"},
+        "message": {"type": "string"},
+        "reason": {"type": "string"},
+        "reportingController": {"type": "string"},
+        "reportingInstance": {"type": "string"},
+        "type": {"type": "string"},
+        "createdAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "clusterGroupUpgradePayload": {
+      "type": "object",
+      "required": ["eventNamespace", "eventName", "cguName", "leafHubName", "message", "reason", "reportingController", "reportingInstance", "type", "createdAt"],
+      "properties": {
+        "eventNamespace": {"type": "string"},
+        "eventName": {"type": "string"},
+        "eventAnnotations": {
+          "type": ["object", "null"],
+          "additionalProperties": {"type": "string"}
+        },
+        "cguName": {"type": "string"},
+        "leafHubName": {"type": "string"},
+        "message": {"type": "string"},
+        "reason": {"type": "string"},
+        "reportingController": {"type": "string"},
+        "reportingInstance": {"type": "string"},
+        "type": {"type": "string"},
+        "createdAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "rootPolicyData": {
+      "oneOf": [
+        {"$ref": "#/$defs/rootPolicyPayload"},
+        {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rootPolicyPayload"}}
+      ]
+    },
+    "replicatedPolicyData": {
+      "oneOf": [
+        {"$ref": "#/$defs/replicatedPolicyPayload"},
+        {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/replicatedPolicyPayload"}}
+      ]
+    },
+    "managedClusterData": {
+      "oneOf": [
+        {"$ref": "#/$defs/managedClusterPayload"},
+        {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/managedClusterPayload"}}
+      ]
+    },
+    "clusterGroupUpgradeData": {
+      "oneOf": [
+        {"$ref": "#/$defs/clusterGroupUpgradePayload"},
+        {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/clusterGroupUpgradePayload"}}
+      ]
+    }
+  }
+}
