@@ -242,13 +242,13 @@ arches:
     name: elfutils-libs
     evr: 0.194-1.el9
     sourcerpm: elfutils-0.194-1.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/e/expat-2.5.0-6.el9_8.1.aarch64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/e/expat-2.5.0-9.el9_9.8.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
-    size: 120882
-    checksum: sha256:7cc4e533f63bdec0ead003d176cb262b8d4d2583dfd57b2e9cfeeed4ead13475
+    size: 128203
+    checksum: sha256:ff89a9d273790ed3623a3bc45484d819665503023df1157eb1a3e2bb0f7c1897
     name: expat
-    evr: 2.5.0-6.el9_8.1
-    sourcerpm: expat-2.5.0-6.el9_8.1.src.rpm
+    evr: 2.5.0-9.el9_9.8
+    sourcerpm: expat-2.5.0-9.el9_9.8.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/f/filesystem-3.16-5.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-baseos-rpms
     size: 5003914
@@ -1114,13 +1114,13 @@ arches:
     name: elfutils-libs
     evr: 0.194-1.el9
     sourcerpm: elfutils-0.194-1.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/e/expat-2.5.0-6.el9_8.1.ppc64le.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/e/expat-2.5.0-9.el9_9.8.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
-    size: 132202
-    checksum: sha256:eae0d2c0c23adc9b878e86d46a7cd176e991a84fc5780877dd58f15552b6a5c6
+    size: 141630
+    checksum: sha256:b1df83db6dea87d184fbe0a066f50d8fe507371544312cb5f10677bdcddbbbfe
     name: expat
-    evr: 2.5.0-6.el9_8.1
-    sourcerpm: expat-2.5.0-6.el9_8.1.src.rpm
+    evr: 2.5.0-9.el9_9.8
+    sourcerpm: expat-2.5.0-9.el9_9.8.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/f/filesystem-3.16-5.el9.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-baseos-rpms
     size: 5003944
@@ -2000,13 +2000,13 @@ arches:
     name: elfutils-libs
     evr: 0.194-1.el9
     sourcerpm: elfutils-0.194-1.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/e/expat-2.5.0-6.el9_8.1.s390x.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/e/expat-2.5.0-9.el9_9.8.s390x.rpm
     repoid: ubi-9-for-s390x-baseos-rpms
-    size: 123151
-    checksum: sha256:a5b24ad347a1722a948f417a7289a89b1aee9047350e88866173e05157239142
+    size: 129904
+    checksum: sha256:5e89ea1adff6edd438af9c0132480b7ff2f0406c1497a5d1d32f6f714e045677
     name: expat
-    evr: 2.5.0-6.el9_8.1
-    sourcerpm: expat-2.5.0-6.el9_8.1.src.rpm
+    evr: 2.5.0-9.el9_9.8
+    sourcerpm: expat-2.5.0-9.el9_9.8.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/f/filesystem-3.16-5.el9.s390x.rpm
     repoid: ubi-9-for-s390x-baseos-rpms
     size: 5003897
@@ -2865,13 +2865,13 @@ arches:
     name: elfutils-libs
     evr: 0.194-1.el9
     sourcerpm: elfutils-0.194-1.el9.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/e/expat-2.5.0-6.el9_8.1.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/e/expat-2.5.0-9.el9_9.8.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
-    size: 126909
-    checksum: sha256:6a0c98d67b643fe620297e4cd7e990f99a86ed6bc90a8295a952c626ecbb9f62
+    size: 132507
+    checksum: sha256:86b667aa4d1254fe4fbc0dd2febadba3e020f40e5c460d3245c606397eedcbfe
     name: expat
-    evr: 2.5.0-6.el9_8.1
-    sourcerpm: expat-2.5.0-6.el9_8.1.src.rpm
+    evr: 2.5.0-9.el9_9.8
+    sourcerpm: expat-2.5.0-9.el9_9.8.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/baseos/os/Packages/f/filesystem-3.16-5.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-baseos-rpms
     size: 5003807
